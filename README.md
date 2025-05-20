@@ -4,7 +4,7 @@
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=DEFRA_fcp-sfd-object-processor&metric=coverage)](https://sonarcloud.io/summary/new_code?id=DEFRA_fcp-sfd-object-processor)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=DEFRA_fcp-sfd-object-processor&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=DEFRA_fcp-sfd-object-processor)
 
-Object processor for the Single Front Door (SFD) service.
+REST API Object processor for the Single Front Door (SFD) service
 
 This service is part of the [Single Front Door (SFD) service](https://github.com/DEFRA/fcp-sfd-core).
 
