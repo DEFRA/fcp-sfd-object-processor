@@ -13,14 +13,6 @@ This service is part of the [Single Front Door (SFD) service](https://github.com
 - Docker Compose
 - Node.js (v22 LTS)
 
-## Setup
-| Name                      | Default Value                                          | Required                  | Description                                                                 |
-|---------------------------|--------------------------------------------------------|---------------------------|-----------------------------------------------------------------------------|
-| AWS_REGION                | eu-west-2                                              | No                        | AWS region to access resources in.                                          |
-| AWS_DEFAULT_REGION        | eu-west-2                                              | No                        | Default AWS region to access resources in.                                  |
-| AWS_ACCESS_KEY_ID         | test                                                   | No                        | AWS Access Key ID.                                                          |
-| AWS_SECRET_ACCESS_KEY     | test                                                   | No                        | AWS Secret Access Key.                                                      |
-
 ### Configuration
 
 ## Running the application
@@ -87,6 +79,6 @@ The following attribution statement MUST be cited in your products and applicati
 
 ### About the licence
 
-The Open Government Licence (OGL) was developed by the Controller of Her Majesty's Stationery Office (HMSO) to enable information providers in the public sector to license the use and re-use of their information under a common open licence.
+The Open Government Licence (OGL) was developed by the Controller of His Majesty's Stationery Office (HMSO) to enable information providers in the public sector to license the use and re-use of their information under a common open licence.
 
 It is designed to encourage use and re-use of information freely and flexibly, with only a few conditions.
