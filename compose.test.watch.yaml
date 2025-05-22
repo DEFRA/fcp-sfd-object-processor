@@ -1,0 +1,3 @@
+services:
+  fcp-sfd-object-processor:
+    command: npm run test:watch
