@@ -5,6 +5,7 @@ Confirm each of the checklist points has been completed as part of the review pr
 ## Checklist
 
 - [ ] has cloned repo locally
+- [ ] has updated the ticket with version number
 - [ ] has successfully run service
 - [ ] has verified all ACs covered by tests
 - [ ] has verified PR branch deploys correctly
