@@ -18,8 +18,8 @@ services:
       - ./test/:/home/node/test
       - ./package.json:/home/node/package.json
       - ./coverage:/home/node/coverage
-    networks:
-      - cdp-tenant
+    depends_on:
+    - mongodb
 
   localstack:
     env_file:

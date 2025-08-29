@@ -4,9 +4,6 @@ services:
       target: development
     image: fcp-sfd-object-processor-development
     container_name: fcp-sfd-object-processor-development
-    ports:
-      - '3004:3004'
-      - '9242:9242'
     links:
       - 'localstack:localstack'
       - 'mongodb:mongodb'
@@ -27,13 +24,10 @@ services:
       LOCALSTACK_ENDPOINT: http://localstack:4566
       MONGO_URI: mongodb://mongodb:27017/
     networks:
-      - cdp-tenant
+      - fcp-sfd
 
   localstack:
     image: localstack/localstack:3.0.2
-    ports:
-      - '4566:4566' # LocalStack Gateway
-      - '4510-4559:4510-4559' # external services port range
     env_file:
       - .env
     environment:
@@ -50,14 +44,12 @@ services:
       start_period: 5s
       retries: 3
     networks:
-      - cdp-tenant
+      - fcp-sfd
 
   mongodb:
     image: mongo:6.0.13
     networks:
-      - cdp-tenant
-    ports:
-      - '27017:27017'
+      - fcp-sfd
     volumes:
       - mongodb-data:/data
     restart: always
@@ -66,5 +58,5 @@ volumes:
   mongodb-data:
 
 networks:
-  cdp-tenant:
+  fcp-sfd:
     driver: bridge
