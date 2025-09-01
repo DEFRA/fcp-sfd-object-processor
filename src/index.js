@@ -5,6 +5,7 @@ import { startServer } from './api/common/helpers/start-server.js'
 
 await startServer()
 
+
 process.on('unhandledRejection', (error) => {
   const logger = createLogger()
   logger.info('Unhandled rejection')

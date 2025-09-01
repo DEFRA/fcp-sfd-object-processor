@@ -4,10 +4,12 @@ import { createLogger } from '../../../logging/logger.js'
 
 const startServer = async () => {
   let server
-
+  
+  
   try {
     server = await createServer()
     await server.start()
+    server.logger.info('consumer buckets = ', process.env.CONSUMER_BUCKETS)
 
     server.logger.info('Server started successfully')
     server.logger.info(
