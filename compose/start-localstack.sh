@@ -4,9 +4,8 @@ echo "[INIT SCRIPT] Starting LocalStack setup" >&2
 echo "[INIT SCRIPT] Creating buckets" >&2
 
 aws --endpoint-url=http://localhost:4566 s3 mb s3://cdp-uploader-quarantine
-aws --endpoint-url=http://localhost:4566 s3 mb s3://my-bucket
-aws --endpoint-url=http://localhost:4566 s3 mb s3://hello-world
-aws --endpoint-url=http://localhost:4566 s3 mb s3://test123
+aws --endpoint-url=http://localhost:4566 s3 mb s3://fcp-sfd-object-processor-bucket
+
 
 echo "[INIT SCRIPT] Creating queues" >&2
 
