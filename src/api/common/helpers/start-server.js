@@ -4,8 +4,7 @@ import { createLogger } from '../../../logging/logger.js'
 
 const startServer = async () => {
   let server
-  
-  
+
   try {
     server = await createServer()
     await server.start()
