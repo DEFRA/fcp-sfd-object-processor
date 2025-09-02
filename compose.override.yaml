@@ -2,7 +2,7 @@ services:
   fcp-sfd-object-processor:
     ports:
       - '3004:3004'
-      - '9242:9242'
+      - '9242:9229'
     networks:
       - fcp-sfd
     volumes:
