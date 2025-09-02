@@ -8,7 +8,6 @@ const startServer = async () => {
   try {
     server = await createServer()
     await server.start()
-    server.logger.info('consumer buckets = ', process.env.CONSUMER_BUCKETS)
 
     server.logger.info('Server started successfully')
     server.logger.info(
