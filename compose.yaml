@@ -16,8 +16,6 @@ services:
       - ./src/:/home/node/src
       - ./package.json:/home/node/package.json
     environment:
-      PORT: 3004
-      PORT_DEBUG: 9242
       NODE_ENV: development
       LOCALSTACK_ENDPOINT: http://localstack:4566
       MONGO_URI: mongodb://mongodb:27017/

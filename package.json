@@ -16,8 +16,8 @@
     "test": "rm -rf ./coverage/** && vitest run --coverage",
     "test:watch": "vitest watch",
     "test:lint": "standard",
-    "start:watch": "nodemon --watch src --exec 'node --experimental-vm-modules src/index.js'",
-    "start:debug": "nodemon --watch src --exec 'node --experimental-vm-modules --inspect-brk=0.0.0.0:9242 src/index.js'",
+    "start:watch": "nodemon --watch src --exec 'node --experimental-vm-modules --inspect-brk=0.0.0.0 src/index.js'",
+    "start:debug": "nodemon --watch src --exec 'node --experimental-vm-modules --inspect-brk=0.0.0.0 src/index.js'",
     "start": "node --experimental-vm-modules src/index.js"
   },
   "author": "Defra DDTS",
