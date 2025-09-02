@@ -34,8 +34,8 @@ jobs:
           docker compose -f compose.yaml -f compose.test.yaml run --build --rm 'fcp-sfd-object-processor'
 
       - name: SonarQubeScan
-        uses: SonarSource/sonarqube-scan-action@v4
-        env: 
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: Build and Publish
