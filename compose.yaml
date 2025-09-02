@@ -15,8 +15,6 @@ services:
     volumes:
       - ./src/:/home/node/src
       - ./package.json:/home/node/package.json
-    env_file:
-      - .env
     environment:
       PORT: 3004
       PORT_DEBUG: 9242
@@ -28,8 +26,8 @@ services:
 
   redis:
     image: redis:7.2.3-alpine3.18
-    ports:
-      - '6379:6379'
+    # ports:
+    #   - '6379:6379'
     restart: always
     networks:
       - fcp-sfd
@@ -58,13 +56,14 @@ services:
       MOCK_VIRUS_RESULT_DELAY: 3
       SQS_ENDPOINT: http://localstack:4566
       S3_ENDPOINT: http://localstack:4566
+      CONSUMER_BUCKETS: "['fcp-sfd-object-processor-bucket']"
     networks:
       - fcp-sfd
   
   localstack:
     image: localstack/localstack:3.0.2
     env_file:
-      - .env
+      - 'compose/aws.env'
     environment:
       DEBUG: ${DEBUG:-1}
       LS_LOG: WARN # Localstack DEBUG Level
