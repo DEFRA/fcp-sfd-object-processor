@@ -54,7 +54,7 @@ services:
       MOCK_VIRUS_RESULT_DELAY: 3
       SQS_ENDPOINT: http://localstack:4566
       S3_ENDPOINT: http://localstack:4566
-      CONSUMER_BUCKETS: "['fcp-sfd-object-processor-bucket']"
+      CONSUMER_BUCKETS: fcp-sfd-object-processor-bucket
     networks:
       - fcp-sfd
   
