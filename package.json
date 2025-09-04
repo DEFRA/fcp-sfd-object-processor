@@ -10,18 +10,20 @@
   "scripts": {
     "pretest": "npm run test:lint",
     "docker:debug": "docker compose -f compose.yaml -f compose.debug.yaml -p 'fcp-sfd-object-processor' up",
-    "docker:test": "docker compose down -v && docker compose -f compose.yaml -f compose.test.yaml run  --build --rm 'fcp-sfd-object-processor'",
-    "docker:test:watch": "docker compose down -v && docker compose -f compose.yaml -f compose.test.yaml -f compose.test.watch.yaml run  --build --rm 'fcp-sfd-object-processor'",
+    "docker:dev": "docker compose up",
+    "docker:test": "npm run test:lint && mkdir -p coverage 2>/dev/null || true docker compose -p fcp-sfd-object-processor-test down -v && docker compose -f compose.yaml -f compose.test.yaml -p fcp-sfd-object-processor-test run --build --rm fcp-sfd-object-processor",
+    "docker:test:watch": "docker compose -p fcp-sfd-object-processor-test down -v && docker compose -f compose.yaml -f compose.test.yaml -f compose.test.watch.yaml -p fcp-sfd-object-processor-test run --build --rm fcp-sfd-object-processor",
     "test": "rm -rf ./coverage/** && vitest run --coverage",
     "test:watch": "vitest watch",
     "test:lint": "standard",
-    "start:watch": "nodemon --watch src --exec 'node --experimental-vm-modules src/index.js'",
-    "start:debug": "nodemon --watch src --exec 'node --experimental-vm-modules --inspect-brk=0.0.0.0:9232 src/index.js'",
+    "start:watch": "nodemon --watch src --exec 'node --experimental-vm-modules --inspect-brk=0.0.0.0 src/index.js'",
+    "start:debug": "nodemon --watch src --exec 'node --experimental-vm-modules --inspect-brk=0.0.0.0 src/index.js'",
     "start": "node --experimental-vm-modules src/index.js"
   },
   "author": "Defra DDTS",
   "contributors": [
-    "Amirs Ishmuhametovs amirs.ishmuhametovs@defra.gov.uk>"
+    "Amirs Ishmuhametovs amirs.ishmuhametovs@defra.gov.uk>",
+    "Simon Dunn <simon.dunn1@defra.gov.uk>"
   ],
   "license": "OGL-UK-3.0",
   "dependencies": {

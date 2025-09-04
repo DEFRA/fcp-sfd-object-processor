@@ -4,9 +4,6 @@ services:
       target: development
     image: fcp-sfd-object-processor-development
     container_name: fcp-sfd-object-processor-development
-    ports:
-      - '3004:3004'
-      - '9242:9242'
     links:
       - 'localstack:localstack'
       - 'mongodb:mongodb'
@@ -18,24 +15,53 @@ services:
     volumes:
       - ./src/:/home/node/src
       - ./package.json:/home/node/package.json
-    env_file:
-      - .env
     environment:
-      PORT: 3004
-      PORT_DEBUG: 9242
       NODE_ENV: development
       LOCALSTACK_ENDPOINT: http://localstack:4566
       MONGO_URI: mongodb://mongodb:27017/
     networks:
-      - cdp-tenant
+      - fcp-sfd
 
+  redis:
+    image: redis:7.2.3-alpine3.18
+    # ports:
+    #   - '6379:6379'
+    restart: always
+    networks:
+      - fcp-sfd
+
+  cdp-uploader:
+    image: defradigital/cdp-uploader:latest
+    ports:
+      - '7337:7337'
+    links:
+      - 'localstack:localstack'
+      - 'redis:redis'
+    depends_on:
+      localstack:
+        condition: service_healthy
+    env_file:
+      - 'compose/aws.env'
+    environment:
+      VIRTUAL_HOST: ~^uploader\..*\.sslip\.io
+      VIRTUAL_PATH: /
+      VIRTUAL_PORT: 7337
+      PORT: 7337
+      NODE_ENV: development
+      REDIS_HOST: redis
+      USE_SINGLE_INSTANCE_CACHE: true
+      MOCK_VIRUS_SCAN_ENABLED: true
+      MOCK_VIRUS_RESULT_DELAY: 3
+      SQS_ENDPOINT: http://localstack:4566
+      S3_ENDPOINT: http://localstack:4566
+      CONSUMER_BUCKETS: fcp-sfd-object-processor-bucket
+    networks:
+      - fcp-sfd
+  
   localstack:
     image: localstack/localstack:3.0.2
-    ports:
-      - '4566:4566' # LocalStack Gateway
-      - '4510-4559:4510-4559' # external services port range
     env_file:
-      - .env
+      - 'compose/aws.env'
     environment:
       DEBUG: ${DEBUG:-1}
       LS_LOG: WARN # Localstack DEBUG Level
@@ -50,14 +76,12 @@ services:
       start_period: 5s
       retries: 3
     networks:
-      - cdp-tenant
+      - fcp-sfd
 
   mongodb:
     image: mongo:6.0.13
     networks:
-      - cdp-tenant
-    ports:
-      - '27017:27017'
+      - fcp-sfd
     volumes:
       - mongodb-data:/data
     restart: always
@@ -66,5 +90,5 @@ volumes:
   mongodb-data:
 
 networks:
-  cdp-tenant:
+  fcp-sfd:
     driver: bridge
