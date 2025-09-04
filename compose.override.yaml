@@ -24,6 +24,12 @@ services:
     volumes:
       - mongodb-data:/data
 
+  cdp-uploader:
+    ports:
+      - '7337:7337'
+    networks:
+      - fcp-sfd
+
 networks:
   fcp-sfd:
     driver: bridge

@@ -16,10 +16,12 @@ services:
     volumes:
       - ./src/:/home/node/src
       - ./test/:/home/node/test
-      - ./package.json:/home/node/package.json
+      - ./package.json:/home/node/package.json 
       - ./coverage:/home/node/coverage
     depends_on:
     - mongodb
+    - cdp-uploader
+
 
   localstack:
     env_file:
