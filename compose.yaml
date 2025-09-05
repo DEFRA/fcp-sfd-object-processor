@@ -16,6 +16,7 @@ services:
       NODE_ENV: development
       LOCALSTACK_ENDPOINT: http://localstack:4566
       MONGO_URI: mongodb://mongodb:27017/
+      CDP_UPLOADER_URL: ${CDP_UPLOADER_URL:-http://cdp-uploader:7337}
     networks:
       - fcp-sfd
 

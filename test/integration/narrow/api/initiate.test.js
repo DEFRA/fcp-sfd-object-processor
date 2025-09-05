@@ -1,6 +1,6 @@
 import { constants as httpConstants } from 'node:http2'
-
 import { describe, test, expect, afterAll, beforeAll } from 'vitest'
+import { config } from '../../../../src/config'
 import { createServer } from '../../../../src/api'
 
 describe('/initiate route', () => {
@@ -33,7 +33,7 @@ describe('/initiate route', () => {
 
   describe('/health endpoint for cdp uploader', () => {
     test('returns 200 status', async () => {
-      const healthResponse = await fetch('http://cdp-uploader:7337/health')
+      const healthResponse = await fetch(`${config.get('uploaderUrl')}/health`)
       expect(healthResponse.status).toBe(httpConstants.HTTP_STATUS_OK)
     })
   })

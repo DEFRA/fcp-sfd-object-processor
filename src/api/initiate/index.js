@@ -1,3 +1,5 @@
+import { config } from '../../config/index.js'
+
 export const initiateUpload = {
   method: 'POST',
   path: '/initiate',
@@ -11,10 +13,9 @@ export const initiateUpload = {
     // },
     handler: async (request, h) => {
       // split this into own function for sake of unit tests
-      // config.get('cdpUploader.endpoint'
       try {
         console.log('initiate route')
-        const response = await fetch('http://cdp-uploader:7337/initiate', {
+        const response = await fetch(`${config.get('uploaderUrl')}/initiate`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
