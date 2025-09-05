@@ -17,12 +17,13 @@ export const initiateUpload = {
         const response = await fetch('http://cdp-uploader:7337/initiate', {
           method: 'POST',
           headers: {
-            'Content-type': 'application/json'
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify(request.payload)
         })
-        console.log('*****', response)
-        return response.body
+        const json = await response.json()
+        console.log('*****', json)
+        return h.response(json).code(response.status)
       } catch (err) {
         console.log(err.cause)
         throw new Error(err)
