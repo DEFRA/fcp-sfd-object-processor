@@ -1,38 +1,33 @@
-import { config } from '../../config/index.js'
+import { constants as httpConstants } from 'node:http2'
+import { createLogger } from '../../logging/logger.js'
+import { initiatePayloadSchema } from './schema.js'
+import { initiateHandler } from './handler.js'
+
+const logger = createLogger()
 
 export const initiateUpload = {
   method: 'POST',
   path: '/initiate',
   options: {
-    // validate: {
-    //   payload: // validate the payload for correct fields and types, what is optional? copy from CDP uploader?
-    //   options: { abortEarly: false },
-    //   failAction: async (request, h, err) => {
-    //     return if payload is invalid return useful error message
-    //   }
-    // },
-    handler: async (request, h) => {
-      // split this into own function for sake of unit tests
-      try {
-        console.log('initiate route')
-        const response = await fetch(`${config.get('uploaderUrl')}/initiate`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(request.payload)
-        })
-        const json = await response.json()
-        console.log('*****', json)
-        return h.response(json).code(response.status)
-      } catch (err) {
-        console.log(err.cause)
-        throw new Error(err)
+    validate: {
+      payload: initiatePayloadSchema,
+      options: { abortEarly: false },
+      failAction: async (_request, h, err) => {
+        return h.response({ err }).code(httpConstants.HTTP_STATUS_BAD_REQUEST).takeover()
       }
-      // make fetch to CDP uploader
-      // pass on valid payload
-      // return response from uploader
-      // if the response from CDP uploader is not 201 need to pass back the error and message
+    },
+    handler: async (request, h) => {
+      try {
+        const { body, status } = await initiateHandler(request.payload)
+
+        return h.response(body).code(status)
+      } catch (err) {
+        logger.error(err)
+        return h.response({
+          error: 'Upstream upload service unavailable',
+          message: err.message
+        }).code(httpConstants.INTERNAL_SERVER_ERROR)
+      }
     }
   }
 }

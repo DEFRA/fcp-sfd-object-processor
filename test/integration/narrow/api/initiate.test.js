@@ -6,6 +6,7 @@ import { createServer } from '../../../../src/api'
 describe('/initiate route', () => {
   let server
   let validResponse
+  let invalidResponse
 
   beforeAll(async () => {
     server = await createServer()
@@ -25,10 +26,17 @@ describe('/initiate route', () => {
         }
       }
     })
+
+    invalidResponse = await server.inject({
+      method: 'POST',
+      url: '/initiate',
+      payload: { }
+    })
   })
 
   afterAll(async () => {
     await server.stop()
+    config.set('uploaderUrl', 'http://cdp-uploader:7337')
   })
 
   describe('/health endpoint for cdp uploader', () => {
@@ -69,8 +77,36 @@ describe('/initiate route', () => {
       expect(jsonResponse.statusUrl).toMatch(`${baseUrl}/status/${jsonResponse.uploadId}`)
     })
   })
+
+  describe('POST with an invalid payload', () => {
+    test('should return 400 status', () => {
+      expect(invalidResponse.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
+    })
+  })
+
+  describe('when the cdp-uploader is unavailable', () => {
+    test('should return 500 status', async () => {
+      config.set('uploaderUrl', 'http://cdp-uploader:7336')
+      const serverUnavailableResponse = await server.inject({
+        method: 'POST',
+        url: '/initiate',
+        payload: {
+          redirect: 'https://myservice.com/redirect',
+          callback: 'https://myservice.com/callback',
+          s3Bucket: 'fcp-sfd-object-processor-bucket',
+          s3Path: 'scanned',
+          metadata: {
+            customerId: '1234',
+            accountId: '1234'
+          }
+        }
+      })
+      expect(serverUnavailableResponse.result.statusCode).toBe(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
+    })
+  })
 })
 
 // Describe - when invalid payload
 // should get an error
 // seperate tests for schema
+// test that it passes back the error from cdp when validation passes
