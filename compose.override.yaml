@@ -29,6 +29,10 @@ services:
       - '7337:7337'
     networks:
       - fcp-sfd
+  
+  redis:
+    networks:
+      - fcp-sfd
 
 networks:
   fcp-sfd:

@@ -21,6 +21,7 @@ services:
     depends_on:
     - mongodb
     - cdp-uploader
+    - redis
 
 
   localstack:
