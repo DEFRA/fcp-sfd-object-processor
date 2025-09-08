@@ -4,9 +4,6 @@ services:
       target: development
     image: fcp-sfd-object-processor-development
     container_name: fcp-sfd-object-processor-development
-    links:
-      - 'localstack:localstack'
-      - 'mongodb:mongodb'
     depends_on:
       localstack:
         condition: service_healthy
@@ -19,24 +16,18 @@ services:
       NODE_ENV: development
       LOCALSTACK_ENDPOINT: http://localstack:4566
       MONGO_URI: mongodb://mongodb:27017/
+      CDP_UPLOADER_URL: ${CDP_UPLOADER_URL:-http://cdp-uploader:7337}
     networks:
       - fcp-sfd
 
   redis:
     image: redis:7.2.3-alpine3.18
-    # ports:
-    #   - '6379:6379'
     restart: always
     networks:
       - fcp-sfd
 
   cdp-uploader:
     image: defradigital/cdp-uploader:latest
-    ports:
-      - '7337:7337'
-    links:
-      - 'localstack:localstack'
-      - 'redis:redis'
     depends_on:
       localstack:
         condition: service_healthy
