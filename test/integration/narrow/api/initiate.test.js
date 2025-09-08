@@ -84,6 +84,26 @@ describe('/initiate route', () => {
     })
   })
 
+  describe('when service validation passes but fails cdp-uploader', () => {
+    test('should return the error from the cdp-uploader for an unregistered bucket', async () => {
+      const invalidBucketResponse = await server.inject({
+        method: 'POST',
+        url: '/initiate',
+        payload: {
+          redirect: 'https://myservice.com/redirect',
+          callback: 'https://myservice.com/callback',
+          s3Bucket: 'unregistered-bucket',
+          s3Path: 'scanned',
+          metadata: {
+            customerId: '1234',
+            accountId: '1234'
+          }
+        }
+      })
+      expect(invalidBucketResponse.result.message).toBe('No permission to write to bucket - Please contact CDP Portal Team')
+    })
+  })
+
   describe('when the cdp-uploader is unavailable', () => {
     test('should return 500 status', async () => {
       config.set('uploaderUrl', 'http://cdp-uploader:7336')
@@ -105,5 +125,3 @@ describe('/initiate route', () => {
     })
   })
 })
-
-// test that it passes back the error from cdp when validation passes
