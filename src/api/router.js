@@ -6,7 +6,7 @@ const router = {
     name: 'Router',
     register: async (server) => {
       await server.register([health])
-      await server.route(initiateUpload) // does this need await?
+      server.route(initiateUpload)
     }
   }
 }

@@ -23,6 +23,7 @@ export const initiateUpload = {
         return h.response(body).code(status)
       } catch (err) {
         logger.error(err)
+
         return h.response({
           error: 'Upstream upload service unavailable',
           message: err.message

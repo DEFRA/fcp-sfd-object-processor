@@ -106,7 +106,4 @@ describe('/initiate route', () => {
   })
 })
 
-// Describe - when invalid payload
-// should get an error
-// seperate tests for schema
 // test that it passes back the error from cdp when validation passes
