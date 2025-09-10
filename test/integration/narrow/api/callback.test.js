@@ -88,7 +88,9 @@ describe('POST to the /callback route', async () => {
       })
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
+      expect(response.result.error).toBe('Failed to insert document')
       expect(response.result.message).toBe('Unable to complete database operation.')
+      expect(response.result.cause).toBe('Database unavailable')
     })
   })
 })

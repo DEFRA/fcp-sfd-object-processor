@@ -25,12 +25,6 @@ export const callbackHandler = async (payload) => {
       status: httpConstants.HTTP_STATUS_CREATED
     }
   } catch (err) {
-    return {
-      body: {
-        message: 'Unable to complete database operation.',
-        error: err
-      },
-      status: httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR,
-    }
+    throw new Error('Unable to complete database operation.', { cause: err })
   }
 }

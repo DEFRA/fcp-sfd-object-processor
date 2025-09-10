@@ -25,9 +25,10 @@ export const uploadCallback = {
         logger.error(err)
 
         return h.response({
-          error: 'Failed to create document',
-          message: err.message
-        }).code(httpConstants.INTERNAL_SERVER_ERROR)
+          error: 'Failed to insert document',
+          message: err.message,
+          cause: err.cause.message
+        }).code(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
       }
     }
   }
