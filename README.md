@@ -4,9 +4,17 @@
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=DEFRA_fcp-sfd-object-processor&metric=coverage)](https://sonarcloud.io/summary/new_code?id=DEFRA_fcp-sfd-object-processor)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=DEFRA_fcp-sfd-object-processor&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=DEFRA_fcp-sfd-object-processor)
 
-REST API Object processor for the Single Front Door (SFD) service
-
 This service is part of the [Single Front Door (SFD) service](https://github.com/DEFRA/fcp-sfd-core).
+
+REST API Object processor for the Single Front Door (SFD) service. This service provides endpoints to persist and retrieve metadata relating to uploaded files to support the Single Front Door project.
+
+The service works alongside the [CDP Uploader](https://github.com/DEFRA/cdp-uploader). If the upload request to the CDP Uploader is made using the object processor as the callback route the service receives the payload and persists the metadata to the database.
+
+## Features
+- Persist metadata after upload ✅
+- Retrieve metadata about uploaded files (in development) 🏗️
+- Push metadata to CRM (future work) 🗓️
+
 
 ## Prerequisites
 - Docker
@@ -17,7 +25,7 @@ This service is part of the [Single Front Door (SFD) service](https://github.com
 
 ## Running the application
 
-We recommend using the [fcp-sfd-core](https://github.com/DEFRA/fcp-sfd-core) repository for local development. You can howerver run this service independently by following the instructions below.
+We recommend using the [fcp-sfd-core](https://github.com/DEFRA/fcp-sfd-core) repository for local development. You can however run this service independently by following the instructions below.
 
 ### Build container image
 
