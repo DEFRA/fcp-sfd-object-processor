@@ -1,5 +1,6 @@
 import { constants as httpConstants } from 'node:http2'
 import { createLogger } from '../../logging/logger.js'
+import { metadataHandler } from './handler.js'
 
 const logger = createLogger()
 
@@ -10,7 +11,8 @@ export const metadataRoute = {
     handler: async (request, h) => {
       try {
         const { sbi } = request.params
-        return h.response(`hello world, ${sbi}`)
+        const documents = await metadataHandler(sbi)
+        return h.response(documents)
       } catch (err) {
         logger.error(err)
 

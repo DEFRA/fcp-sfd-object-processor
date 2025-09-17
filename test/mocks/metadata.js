@@ -23,3 +23,19 @@ export const mockMetadataPayload = {
   },
   numberOfRejectedFiles: 0
 }
+
+export const mockMetadataArray = [
+  mockMetadataPayload,
+  {
+    _id: 'unique id 1',
+    ...mockMetadataPayload
+  },
+  {
+    _id: 'unique id 1',
+    metadata: {
+      sbi: '105000001'
+    },
+    ...mockMetadataPayload
+  }
+
+]
