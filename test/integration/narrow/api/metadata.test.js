@@ -32,7 +32,7 @@ describe('GET to the /metadata route', async () => {
   describe('when there is valid data in the database', async () => {
     test('should return an array of metadata objects when one document found', async () => {
       await db.collection(collection).insertOne(mockMetadataPayload)
-      const sbi = '105000001'
+      const sbi = '105000000'
 
       const response = await server.inject({
         method: 'GET',

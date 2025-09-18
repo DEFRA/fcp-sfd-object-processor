@@ -3,14 +3,12 @@ import db from '../data/db.js'
 
 const getMetadataBySbi = async (sbi) => {
   const collection = config.get('mongo.collections.uploadMetadata')
-  // this needs to return an array of all the found documents
-  console.log('sbi', sbi)
-  console.log('collection', collection)
 
-  const documents = await db.collection(collection).find({ }).toArray()
-  // const dbContents = await db.collection(collection).findOne({ 'metadata.sbi': '105000000' })
+  const documents = await db.collection(collection).find({ 'metadata.sbi': sbi }).toArray()
+  // DEBUGGING
+  // const dbContents = await db.collection(collection).find({ 'metadata.sbi': '105000000' }).toArray()
+  // console.log(dbContents)
 
-  console.log('documents', documents)
   // check what happens when there are no documents
   if (!documents) {
     throw new Error('No documents found for sbi')
