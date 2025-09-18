@@ -1,5 +1,5 @@
 import { constants as httpConstants } from 'node:http2'
-import { vi, describe, test, expect, beforeEach, afterAll } from 'vitest'
+import { vi, describe, test, expect, beforeAll, afterAll } from 'vitest'
 import { createServer } from '../../../../src/api'
 import db from '../../../../src/data/db.js'
 import { mockMetadataPayload } from '../../../mocks/metadata.js'
@@ -9,14 +9,17 @@ let server
 let originalCollection
 let collection
 
-beforeEach(async () => {
+beforeAll(async () => {
+  // set a new collection for each integration test to avoid db clashes between tests
+  vi.restoreAllMocks()
   originalCollection = config.get('mongo.collections.uploadMetadata')
   config.set('mongo.collections.uploadMetadata', 'callback-test-collection')
   collection = config.get('mongo.collections.uploadMetadata')
-  vi.restoreAllMocks()
+  await db.collection(collection).deleteMany({})
 })
 
 afterAll(async () => {
+  // test cleanup
   vi.restoreAllMocks()
   await db.collection(collection).deleteMany({})
   config.set('mongo.collections.uploadMetadata', originalCollection)

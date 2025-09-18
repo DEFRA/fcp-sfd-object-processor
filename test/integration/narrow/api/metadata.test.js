@@ -10,14 +10,16 @@ let originalCollection
 let collection
 
 beforeAll(async () => {
+  // set a new collection for each integration test to avoid db clashes between tests
   vi.restoreAllMocks()
   originalCollection = config.get('mongo.collections.uploadMetadata')
   config.set('mongo.collections.uploadMetadata', 'metadata-test-collection')
   collection = config.get('mongo.collections.uploadMetadata')
   await db.collection(collection).deleteMany({})
 })
-// do i need this repeated in the before and after?
+
 afterAll(async () => {
+  // test cleanup
   vi.restoreAllMocks()
   await db.collection(collection).deleteMany({})
   config.set('mongo.collections.uploadMetadata', originalCollection)
