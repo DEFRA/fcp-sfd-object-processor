@@ -1,27 +1,30 @@
 import { constants as httpConstants } from 'node:http2'
 import { vi, describe, test, expect, beforeEach, afterAll } from 'vitest'
-import { config } from '../../../../src/config'
 import { createServer } from '../../../../src/api'
 import db from '../../../../src/data/db.js'
 import { mockMetadataPayload } from '../../../mocks/metadata.js'
+import { config } from '../../../../src/config'
 
 let server
+let originalCollection
+let collection
+
+beforeEach(async () => {
+  originalCollection = config.get('mongo.collections.uploadMetadata')
+  config.set('mongo.collections.uploadMetadata', 'callback-test-collection')
+  collection = config.get('mongo.collections.uploadMetadata')
+  vi.restoreAllMocks()
+})
+
+afterAll(async () => {
+  vi.restoreAllMocks()
+  await db.collection(collection).deleteMany({})
+  config.set('mongo.collections.uploadMetadata', originalCollection)
+})
 
 describe('POST to the /callback route', async () => {
-  const collection = config.get('mongo.collections.uploadMetadata')
-
   server = await createServer()
   await server.initialize()
-
-  beforeEach(async () => {
-    vi.restoreAllMocks()
-    await db.collection(collection).deleteMany({})
-  })
-
-  afterAll(async () => {
-    vi.restoreAllMocks()
-    await db.collection(collection).deleteMany({})
-  })
 
   describe('with a valid payload', async () => {
     test('should save a document into the collection', async () => {

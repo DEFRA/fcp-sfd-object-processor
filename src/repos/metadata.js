@@ -1,9 +1,8 @@
 import { config } from '../config/index.js'
 import db from '../data/db.js'
 
-const collection = config.get('mongo.collections.uploadMetadata')
-
 const getMetadataBySbi = async (sbi) => {
+  const collection = config.get('mongo.collections.uploadMetadata')
   // this needs to return an array of all the found documents
   console.log('sbi', sbi)
   console.log('collection', collection)
