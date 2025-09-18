@@ -1,20 +1,14 @@
 import { constants as httpConstants } from 'node:http2'
-import { vi, describe, test, expect, beforeEach } from 'vitest'
+import { vi, describe, test, expect, beforeEach, afterAll } from 'vitest'
 import { config } from '../../../../src/config'
 import { createServer } from '../../../../src/api'
 import db from '../../../../src/data/db.js'
+import { mockMetadataPayload } from '../../../mocks/metadata.js'
 
 let server
 
 describe('POST to the /callback route', async () => {
   const collection = config.get('mongo.collections.uploadMetadata')
-
-  const validPayload = {
-    uploadStatus: 'ready',
-    metadata: { service: 'sfd' },
-    form: { filename: 'my-farm-map.pdf' },
-    numberOfRejectedFiles: 0
-  }
 
   server = await createServer()
   await server.initialize()
@@ -24,12 +18,17 @@ describe('POST to the /callback route', async () => {
     await db.collection(collection).deleteMany({})
   })
 
+  afterAll(async () => {
+    vi.restoreAllMocks()
+    await db.collection(collection).deleteMany({})
+  })
+
   describe('with a valid payload', async () => {
     test('should save a document into the collection', async () => {
       const response = await server.inject({
         method: 'POST',
         url: '/callback',
-        payload: validPayload
+        payload: mockMetadataPayload
       })
 
       const records = await db.collection(collection).find({}).toArray()
@@ -38,7 +37,7 @@ describe('POST to the /callback route', async () => {
 
       expect(records).toBeDefined()
       expect(records.length).toBe(1)
-      expect(records[0]).toMatchObject(validPayload)
+      expect(records[0]).toMatchObject(mockMetadataPayload)
     })
   })
 
@@ -68,7 +67,7 @@ describe('POST to the /callback route', async () => {
       const response = await server.inject({
         method: 'POST',
         url: '/callback',
-        payload: validPayload
+        payload: mockMetadataPayload
       })
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
@@ -84,7 +83,7 @@ describe('POST to the /callback route', async () => {
       const response = await server.inject({
         method: 'POST',
         url: '/callback',
-        payload: validPayload
+        payload: mockMetadataPayload
       })
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
