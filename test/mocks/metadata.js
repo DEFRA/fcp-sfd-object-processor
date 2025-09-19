@@ -31,11 +31,11 @@ export const mockMetadataArray = [
     ...mockMetadataPayload
   },
   {
-    _id: 'unique id 1',
+    ...mockMetadataPayload,
+    _id: 'unique id 2',
     metadata: {
       sbi: '105000001'
     },
-    ...mockMetadataPayload
   }
 
 ]
