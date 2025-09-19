@@ -43,7 +43,7 @@ describe('GET to the /metadata/sbi route', async () => {
       })
 
       expect(response.result.data).toBeInstanceOf(Array)
-      expect(response.result.status).toBe(httpConstants.HTTP_STATUS_OK)
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
       expect(response.result.data).toStrictEqual([mockMetadataPayload])
     })
 
@@ -57,7 +57,7 @@ describe('GET to the /metadata/sbi route', async () => {
       })
 
       expect(response.result.data).toBeInstanceOf(Array)
-      expect(response.result.status).toBe(httpConstants.HTTP_STATUS_OK)
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
       expect(response.result.data.length).toBe(2)
       expect(response.result.data).toStrictEqual([mockMetadataArray[0], mockMetadataArray[1]])
     })

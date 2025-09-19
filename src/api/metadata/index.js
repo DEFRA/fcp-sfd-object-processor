@@ -7,7 +7,7 @@ import { NotFoundError } from '../../errors/not-found-error.js'
 
 export const metadataRoute = {
   method: 'GET',
-  path: '/metadata/{sbi}',
+  path: '/metadata/sbi/{sbi}',
   options: {
     validate: {
       params: metadataParamSchema,
@@ -21,10 +21,8 @@ export const metadataRoute = {
       const { sbi } = request.params
       const documents = await getMetadataBySbi(sbi)
 
-      return h.response({
-        data: documents,
-        status: httpConstants.HTTP_STATUS_OK
-      })
+      return h.response({ data: documents })
+        .code(httpConstants.HTTP_STATUS_OK)
     } catch (err) {
       if (err instanceof NotFoundError) {
         throw Boom.notFound(err)
