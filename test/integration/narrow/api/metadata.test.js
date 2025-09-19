@@ -28,7 +28,7 @@ afterAll(async () => {
   config.set('mongo.collections.uploadMetadata', originalCollection)
 })
 
-describe('GET to the /metadata route', async () => {
+describe('GET to the /metadata/sbi route', async () => {
   server = await createServer()
   await server.initialize()
 
@@ -39,7 +39,7 @@ describe('GET to the /metadata route', async () => {
 
       const response = await server.inject({
         method: 'GET',
-        url: `/metadata/${sbi}`,
+        url: `/metadata/sbi/${sbi}`,
       })
 
       expect(response.result.data).toBeInstanceOf(Array)
@@ -53,7 +53,7 @@ describe('GET to the /metadata route', async () => {
       const sbi = '105000000'
       const response = await server.inject({
         method: 'GET',
-        url: `/metadata/${sbi}`,
+        url: `/metadata/sbi/${sbi}`,
       })
 
       expect(response.result.data).toBeInstanceOf(Array)
@@ -68,7 +68,7 @@ describe('GET to the /metadata route', async () => {
       const sbi = '123456789'
       const response = await server.inject({
         method: 'GET',
-        url: `/metadata/${sbi}`,
+        url: `/metadata/sbi/${sbi}`,
       })
 
       expect(response.result.statusCode).toBe(httpConstants.HTTP_STATUS_NOT_FOUND)
@@ -82,7 +82,7 @@ describe('GET to the /metadata route', async () => {
       const sbi = 'not-an-sbi'
       const response = await server.inject({
         method: 'GET',
-        url: `/metadata/${sbi}`,
+        url: `/metadata/sbi/${sbi}`,
       })
 
       expect(response.result.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
@@ -97,7 +97,7 @@ describe('GET to the /metadata route', async () => {
       const sbi = '123456789'
       const response = await errorServer.inject({
         method: 'GET',
-        url: `/metadata/${sbi}`,
+        url: `/metadata/sbi/${sbi}`,
       })
 
       expect(response.result.statusCode).toBe(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
