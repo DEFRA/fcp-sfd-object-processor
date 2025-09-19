@@ -1,16 +1,16 @@
 import { constants as httpConstants } from 'node:http2'
-import { createLogger } from '../../logging/logger.js'
-import { initiatePayloadSchema } from './schema.js'
-import { initiateHandler } from './handler.js'
+import { createLogger } from '../../../logging/logger.js'
+import { callbackHandler } from './handler.js'
+import { callbackPayloadSchema } from './schema.js'
 
 const logger = createLogger()
 
-export const initiateUpload = {
+export const uploadCallback = {
   method: 'POST',
-  path: '/initiate',
+  path: '/api/v1/callback',
   options: {
     validate: {
-      payload: initiatePayloadSchema,
+      payload: callbackPayloadSchema,
       options: { abortEarly: false },
       failAction: async (_request, h, err) => {
         return h.response({ err }).code(httpConstants.HTTP_STATUS_BAD_REQUEST).takeover()
@@ -18,16 +18,17 @@ export const initiateUpload = {
     },
     handler: async (request, h) => {
       try {
-        const { body, status } = await initiateHandler(request.payload)
+        const { body, status } = await callbackHandler(request.payload)
 
         return h.response(body).code(status)
       } catch (err) {
         logger.error(err)
 
         return h.response({
-          error: 'Upstream upload service unavailable',
-          message: err.message
-        }).code(httpConstants.INTERNAL_SERVER_ERROR)
+          error: 'Failed to insert document',
+          message: err.message,
+          cause: err.cause.message
+        }).code(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
       }
     }
   }

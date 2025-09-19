@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { callbackPayloadSchema } from '../../../../src/api/callback/schema.js'
+import { callbackPayloadSchema } from '../../../../src/api/v1/callback/schema.js'
 
 describe('callbackPayloadSchema validation', () => {
   const basePayload = {

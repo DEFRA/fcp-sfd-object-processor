@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest'
 
-import { metadataParamSchema } from '../../../../src/api/metadata/schema.js'
+import { metadataParamSchema } from '../../../../src/api/v1/metadata/schema.js'
 
 const errorMessage = 'Invalid SBI format'
 

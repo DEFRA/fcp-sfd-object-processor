@@ -1,6 +1,6 @@
 import { constants as httpConstants } from 'node:http2'
-import { config } from '../../config/index.js'
-import db from '../../data/db.js'
+import { config } from '../../../config/index.js'
+import db from '../../../data/db.js'
 
 export const callbackHandler = async (payload) => {
   const collection = config.get('mongo.collections.uploadMetadata')

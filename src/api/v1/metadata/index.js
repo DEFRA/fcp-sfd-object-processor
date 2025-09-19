@@ -1,13 +1,13 @@
 import Boom from '@hapi/boom'
 import { constants as httpConstants } from 'node:http2'
 
-import { getMetadataBySbi } from '../../repos/metadata.js'
+import { getMetadataBySbi } from '../../../repos/metadata.js'
 import { metadataParamSchema } from './schema.js'
-import { NotFoundError } from '../../errors/not-found-error.js'
+import { NotFoundError } from '../../../errors/not-found-error.js'
 
 export const metadataRoute = {
   method: 'GET',
-  path: '/metadata/sbi/{sbi}',
+  path: '/api/v1/metadata/sbi/{sbi}',
   options: {
     validate: {
       params: metadataParamSchema,
