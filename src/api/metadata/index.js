@@ -1,27 +1,35 @@
+import Boom from '@hapi/boom'
 import { constants as httpConstants } from 'node:http2'
-import { createLogger } from '../../logging/logger.js'
-import { metadataHandler } from './handler.js'
 
-const logger = createLogger()
+import { getMetadataBySbi } from '../../repos/metadata.js'
+import { metadataParamSchema } from './schema.js'
+import { NotFoundError } from '../../errors/not-found-error.js'
 
 export const metadataRoute = {
   method: 'GET',
   path: '/metadata/{sbi}',
   options: {
-    handler: async (request, h) => {
-      try {
-        const { sbi } = request.params
-        const documents = await metadataHandler(sbi)
-        return h.response(documents)
-      } catch (err) {
-        logger.error(err)
+    validate: {
+      params: metadataParamSchema,
+      failAction: (_request, _h, err) => {
+        throw err
+      },
+    },
+  },
+  handler: async (request, h) => {
+    try {
+      const { sbi } = request.params
+      const documents = await getMetadataBySbi(sbi)
 
-        return h.response({
-          error: 'Failed to return metadata',
-          message: err.message,
-          cause: err.cause.message
-        }).code(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
+      return h.response({
+        data: documents,
+        status: httpConstants.HTTP_STATUS_OK
+      })
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        throw Boom.notFound(err)
       }
+      throw Boom.internal(err)
     }
   }
 }
