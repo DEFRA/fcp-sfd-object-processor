@@ -75,9 +75,8 @@ describe('POST to the /api/v1/callback route', async () => {
         url: '/api/v1/callback',
         payload: mockMetadataPayload
       })
-
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
-      expect(response.result.message).toBe('Failed to insert document into database.')
+      expect(response.result.message).toBe('An internal server error occurred')
     })
   })
 
@@ -93,9 +92,8 @@ describe('POST to the /api/v1/callback route', async () => {
       })
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
-      expect(response.result.error).toBe('Failed to insert document')
-      expect(response.result.message).toBe('Unable to complete database operation.')
-      expect(response.result.cause).toBe('Database unavailable')
+      expect(response.result.error).toBe('Internal Server Error')
+      expect(response.result.message).toBe('An internal server error occurred')
     })
   })
 })

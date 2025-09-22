@@ -1,7 +1,9 @@
+import Boom from '@hapi/boom'
+
 import { constants as httpConstants } from 'node:http2'
 import { createLogger } from '../../../logging/logger.js'
-import { callbackHandler } from './handler.js'
 import { callbackPayloadSchema } from './schema.js'
+import { persistMetadata } from '../../../repos/metadata.js'
 
 const logger = createLogger()
 
@@ -18,17 +20,11 @@ export const uploadCallback = {
     },
     handler: async (request, h) => {
       try {
-        const { body, status } = await callbackHandler(request.payload)
-
-        return h.response(body).code(status)
+        await persistMetadata(request.payload)
+        return h.response().code(httpConstants.HTTP_STATUS_CREATED)
       } catch (err) {
         logger.error(err)
-
-        return h.response({
-          error: 'Failed to insert document',
-          message: err.message,
-          cause: err.cause.message
-        }).code(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
+        return Boom.internal(err)
       }
     }
   }
