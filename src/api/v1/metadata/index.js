@@ -21,13 +21,12 @@ export const metadataRoute = {
       const { sbi } = request.params
       const documents = await getMetadataBySbi(sbi)
 
-      return h.response({ data: documents })
-        .code(httpConstants.HTTP_STATUS_OK)
+      return h.response({ data: documents }).code(httpConstants.HTTP_STATUS_OK)
     } catch (err) {
       if (err instanceof NotFoundError) {
-        throw Boom.notFound(err)
+        return Boom.notFound(err)
       }
-      throw Boom.internal(err)
+      return Boom.internal(err)
     }
   }
 }
