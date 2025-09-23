@@ -9,6 +9,7 @@ export const metadataRoute = {
   method: 'GET',
   path: '/api/v1/metadata/sbi/{sbi}',
   options: {
+    tags: ['api', 'metadata'],
     validate: {
       params: metadataParamSchema,
       failAction: (_request, _h, err) => {

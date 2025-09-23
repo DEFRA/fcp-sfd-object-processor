@@ -7,7 +7,7 @@ import { databaseConfig } from './database.js'
 const config = convict({
   ...serverConfig,
   ...uploaderConfig,
-  ...databaseConfig
+  ...databaseConfig,
 })
 
 config.validate({ allowed: 'strict' })

@@ -1,7 +1,11 @@
 import path from 'path'
 import hapi from '@hapi/hapi'
+import hapiSwagger from 'hapi-swagger'
+import Inert from '@hapi/inert'
+import Vision from '@hapi/vision'
 
 import { config } from '../config/index.js'
+import { hapiSwaggerConfig } from '../config/hapi-swagger.js'
 import { router } from './router.js'
 import { requestLogger } from './common/helpers/request-logger.js'
 import { secureContext } from './common/helpers/secure-context/index.js'
@@ -44,7 +48,13 @@ const createServer = async () => {
     requestTracing,
     secureContext,
     pulse,
-    router
+    router,
+    Inert,
+    Vision,
+    {
+      plugin: hapiSwagger,
+      options: hapiSwaggerConfig
+    }
   ])
 
   return server

@@ -11,6 +11,9 @@ export const uploadCallback = {
   method: 'POST',
   path: '/api/v1/callback',
   options: {
+    description: 'Callback used by the CDP Uploader',
+    notes: 'This endpoint is only called by the CDP Uploader service after processing an upload request.',
+    tags: ['api', 'cdp-uploader'],
     validate: {
       payload: callbackPayloadSchema,
       options: { abortEarly: false },
