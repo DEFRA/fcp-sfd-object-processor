@@ -14,6 +14,26 @@ const getMetadataBySbi = async (sbi) => {
   return documents
 }
 
+const persistMetadata = async (payload) => {
+  const collection = config.get('mongo.collections.uploadMetadata')
+
+  // TODO check for idempotency needed
+  // TODO format the payload to include objectURL and filter data
+
+  const result = await db.collection(collection).insertOne({
+    uploadStatus: payload.uploadStatus,
+    metadata: payload.metadata,
+    form: payload.form,
+    numberOfRejectedFiles: payload.numberOfRejectedFiles
+  })
+
+  if (!result.acknowledged) {
+    throw new Error('Failed to insert, no acknowledgement from database')
+  }
+  return result
+}
+
 export {
-  getMetadataBySbi
+  getMetadataBySbi,
+  persistMetadata
 }

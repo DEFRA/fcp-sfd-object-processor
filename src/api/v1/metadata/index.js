@@ -1,14 +1,18 @@
 import Boom from '@hapi/boom'
 import { constants as httpConstants } from 'node:http2'
 
-import { getMetadataBySbi } from '../../repos/metadata.js'
+import { getMetadataBySbi } from '../../../repos/metadata.js'
 import { metadataParamSchema } from './schema.js'
-import { NotFoundError } from '../../errors/not-found-error.js'
+import { NotFoundError } from '../../../errors/not-found-error.js'
+import { config } from '../../../config/index.js'
+
+const baseUrl = config.get('baseUrl.v1')
 
 export const metadataRoute = {
   method: 'GET',
-  path: '/metadata/sbi/{sbi}',
+  path: `${baseUrl}/metadata/sbi/{sbi}`,
   options: {
+    tags: ['api', 'metadata'],
     validate: {
       params: metadataParamSchema,
       failAction: (_request, _h, err) => {
@@ -21,13 +25,12 @@ export const metadataRoute = {
       const { sbi } = request.params
       const documents = await getMetadataBySbi(sbi)
 
-      return h.response({ data: documents })
-        .code(httpConstants.HTTP_STATUS_OK)
+      return h.response({ data: documents }).code(httpConstants.HTTP_STATUS_OK)
     } catch (err) {
       if (err instanceof NotFoundError) {
-        throw Boom.notFound(err)
+        return Boom.notFound(err)
       }
-      throw Boom.internal(err)
+      return Boom.internal(err)
     }
   }
 }

@@ -110,5 +110,12 @@ export const serverConfig = {
       default: 'x-cdp-request-id',
       env: 'TRACING_HEADER'
     }
+  },
+  baseUrl: {
+    v1: {
+      doc: 'Base url for version one of the api',
+      format: String,
+      default: '/api/v1',
+    }
   }
 }
