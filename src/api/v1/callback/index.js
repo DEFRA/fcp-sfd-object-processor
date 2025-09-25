@@ -4,12 +4,14 @@ import { constants as httpConstants } from 'node:http2'
 import { createLogger } from '../../../logging/logger.js'
 import { callbackPayloadSchema } from './schema.js'
 import { persistMetadata } from '../../../repos/metadata.js'
+import { config } from '../../../config/index.js'
 
 const logger = createLogger()
+const baseUrl = config.get('baseUrl.v1')
 
 export const uploadCallback = {
   method: 'POST',
-  path: '/api/v1/callback',
+  path: `${baseUrl}/callback`,
   options: {
     description: 'Callback used by the CDP Uploader',
     notes: 'This endpoint is only called by the CDP Uploader service after processing an upload request.',
