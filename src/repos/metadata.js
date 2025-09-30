@@ -47,14 +47,9 @@ const persistMetadata = async (payload) => {
   const collection = config.get('mongo.collections.uploadMetadata')
 
   // TODO check for idempotency needed
-  // TODO format the payload to include objectURL and filter data
+  const documents = formatInboundMetadata(payload)
 
-  const result = await db.collection(collection).insertOne({
-    uploadStatus: payload.uploadStatus,
-    metadata: payload.metadata,
-    form: payload.form,
-    numberOfRejectedFiles: payload.numberOfRejectedFiles
-  })
+  const result = await db.collection(collection).insertMany(documents)
 
   if (!result.acknowledged) {
     throw new Error('Failed to insert, no acknowledgement from database')

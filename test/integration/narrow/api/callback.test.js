@@ -1,9 +1,11 @@
 import { constants as httpConstants } from 'node:http2'
 import { vi, describe, test, expect, beforeAll, afterAll } from 'vitest'
-import { createServer } from '../../../../src/api'
+
 import db from '../../../../src/data/db.js'
-import { mockScanAndUploadResponse } from '../../../mocks/metadata.js'
 import { config } from '../../../../src/config'
+import { createServer } from '../../../../src/api'
+import { mockScanAndUploadResponse } from '../../../mocks/cdp-uploader.js'
+import { mockFormattedMetadata } from '../../../mocks/metadata.js'
 
 let server
 let originalCollection
@@ -42,8 +44,8 @@ describe('POST to the /api/v1/callback route', async () => {
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
 
       expect(records).toBeDefined()
-      expect(records.length).toBe(1)
-      expect(records[0]).toMatchObject(mockScanAndUploadResponse)
+      expect(records.length).toBe(2)
+      expect(records[0]).toMatchObject(mockFormattedMetadata[0])
     })
   })
 
