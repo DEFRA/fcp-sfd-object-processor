@@ -1,7 +1,7 @@
 import { constants as httpConstants } from 'node:http2'
 import { vi, describe, test, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { createServer } from '../../../../src/api'
-import { mockMetadataPayload, mockMetadataArray } from '../../../mocks/metadata.js'
+import { mockScanAndUploadResponse, mockScanAndUploadResponseArray } from '../../../mocks/metadata.js'
 import { config } from '../../../../src/config/index.js'
 import db from '../../../../src/data/db.js'
 
@@ -34,7 +34,7 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
 
   describe('when there is valid data in the database', async () => {
     test('should return an array of metadata objects when one document found', async () => {
-      await db.collection(collection).insertOne(mockMetadataPayload)
+      await db.collection(collection).insertOne(mockScanAndUploadResponse)
       const sbi = '105000000'
 
       const response = await server.inject({
@@ -44,11 +44,11 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
 
       expect(response.result.data).toBeInstanceOf(Array)
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
-      expect(response.result.data).toStrictEqual([mockMetadataPayload])
+      expect(response.result.data).toStrictEqual([mockScanAndUploadResponse])
     })
 
     test('should return an array of metadata objects when multiple documents found', async () => {
-      await db.collection(collection).insertMany(mockMetadataArray)
+      await db.collection(collection).insertMany(mockScanAndUploadResponseArray)
 
       const sbi = '105000000'
       const response = await server.inject({
@@ -59,11 +59,11 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
       expect(response.result.data).toBeInstanceOf(Array)
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
       expect(response.result.data.length).toBe(2)
-      expect(response.result.data).toStrictEqual([mockMetadataArray[0], mockMetadataArray[1]])
+      expect(response.result.data).toStrictEqual([mockScanAndUploadResponseArray[0], mockScanAndUploadResponseArray[1]])
     })
 
     test('should return null and 404 status when no documents found', async () => {
-      await db.collection(collection).insertMany(mockMetadataArray)
+      await db.collection(collection).insertMany(mockScanAndUploadResponseArray)
 
       const sbi = '123456789'
       const response = await server.inject({
@@ -77,7 +77,7 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
     })
 
     test('should return 400 bad request when invalid sbi used', async () => {
-      await db.collection(collection).insertMany(mockMetadataArray)
+      await db.collection(collection).insertMany(mockScanAndUploadResponseArray)
 
       const sbi = 'not-an-sbi'
       const response = await server.inject({

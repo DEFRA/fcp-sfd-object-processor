@@ -2,7 +2,7 @@ import { constants as httpConstants } from 'node:http2'
 import { vi, describe, test, expect, beforeAll, afterAll } from 'vitest'
 import { createServer } from '../../../../src/api'
 import db from '../../../../src/data/db.js'
-import { mockMetadataPayload } from '../../../mocks/metadata.js'
+import { mockScanAndUploadResponse } from '../../../mocks/metadata.js'
 import { config } from '../../../../src/config'
 
 let server
@@ -34,7 +34,7 @@ describe('POST to the /api/v1/callback route', async () => {
       const response = await server.inject({
         method: 'POST',
         url: '/api/v1/callback',
-        payload: mockMetadataPayload
+        payload: mockScanAndUploadResponse
       })
 
       const records = await db.collection(collection).find({}).toArray()
@@ -43,7 +43,7 @@ describe('POST to the /api/v1/callback route', async () => {
 
       expect(records).toBeDefined()
       expect(records.length).toBe(1)
-      expect(records[0]).toMatchObject(mockMetadataPayload)
+      expect(records[0]).toMatchObject(mockScanAndUploadResponse)
     })
   })
 
@@ -73,7 +73,7 @@ describe('POST to the /api/v1/callback route', async () => {
       const response = await server.inject({
         method: 'POST',
         url: '/api/v1/callback',
-        payload: mockMetadataPayload
+        payload: mockScanAndUploadResponse
       })
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
       expect(response.result.message).toBe('An internal server error occurred')
@@ -88,7 +88,7 @@ describe('POST to the /api/v1/callback route', async () => {
       const response = await server.inject({
         method: 'POST',
         url: '/api/v1/callback',
-        payload: mockMetadataPayload
+        payload: mockScanAndUploadResponse
       })
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
