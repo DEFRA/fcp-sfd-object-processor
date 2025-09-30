@@ -17,9 +17,18 @@ describe('Format metadata payload from raw CDP response', () => {
       expect(formattedMetadata.length).toBe(validKeys.length)
     })
 
-    test('each object should contain the raw form data', () => {
-      expect(formattedMetadata[0].raw).toBe(mockScanAndUploadResponse.form['a-file-upload-field'])
-      expect(formattedMetadata[1].raw).toBe(mockScanAndUploadResponse.form['another-file-upload-field'])
+    test('each object should contain the raw form data with the uploadStatus and numberOfRejectedFiles', () => {
+      expect(formattedMetadata[0].raw).toStrictEqual({
+        uploadStatus: mockScanAndUploadResponse.uploadStatus,
+        numberOfRejectedFiles: mockScanAndUploadResponse.numberOfRejectedFiles,
+        ...mockScanAndUploadResponse.form['a-file-upload-field']
+      })
+
+      expect(formattedMetadata[1].raw).toStrictEqual({
+        uploadStatus: mockScanAndUploadResponse.uploadStatus,
+        numberOfRejectedFiles: mockScanAndUploadResponse.numberOfRejectedFiles,
+        ...mockScanAndUploadResponse.form['another-file-upload-field']
+      })
     })
 
     test('each object should contain the same metadata', () => {

@@ -7,7 +7,7 @@ import db from '../data/db.js'
 // creates subdocuments to organise data
 
 const formatInboundMetadata = (payload) => {
-  const { metadata } = payload
+  const { metadata, uploadStatus, numberOfRejectedFiles } = payload
 
   const formData = Object.values(payload.form)
   // remove anything thats not an object with a fileId key
@@ -15,7 +15,11 @@ const formatInboundMetadata = (payload) => {
 
   return filteredFormData.map((formUpload) => {
     return {
-      raw: formUpload,
+      raw: {
+        uploadStatus,
+        numberOfRejectedFiles,
+        ...formUpload
+      },
       metadata,
       file: {
         fileId: formUpload.fileId,
