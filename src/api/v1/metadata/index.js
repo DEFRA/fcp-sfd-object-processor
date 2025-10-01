@@ -2,7 +2,7 @@ import Boom from '@hapi/boom'
 import { constants as httpConstants } from 'node:http2'
 
 import { getMetadataBySbi } from '../../../repos/metadata.js'
-import { metadataParamSchema, responseSchemas } from './schema.js'
+import { metadataParamSchema, responseSchemas } from './schemas/index.js'
 import { NotFoundError } from '../../../errors/not-found-error.js'
 import { config } from '../../../config/index.js'
 
