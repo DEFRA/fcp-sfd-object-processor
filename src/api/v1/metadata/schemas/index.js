@@ -1,4 +1,2 @@
-import { metadataParamSchema } from './params.js'
-import { responseSchemas } from './responses.js'
-
-export { metadataParamSchema, responseSchemas }
+export { metadataParamSchema } from './params.js'
+export { responseSchemas } from './responses.js'
