@@ -1,4 +1,5 @@
 import Joi from 'joi'
+import { constants as httpConstants } from 'node:http2'
 
 const metadataResponseSchema = Joi.object({
   data: Joi.array().items(
@@ -21,8 +22,8 @@ const metadataResponseSchema = Joi.object({
 
       file: Joi.object({
         fileId: Joi.string().guid({ version: 'uuidv4' }).required().description('UUIDv4 identifier').example('9fcaabe5-77ec-44db-8356-3a6e8dc51b13'),
-        filename: Joi.string().required().description('Name of file uploaded by the user').example('my-potato-field.jpeg'),
-        contentType: Joi.string().required().description('Content type of the file uploaded').example('image/jpeg'),
+        filename: Joi.string().required().description('Name of file uploaded by the user').example('my-potato-field.tiff'),
+        contentType: Joi.string().required().description('Content type of the file uploaded').example('image/tiff'),
         fileStatus: Joi.string().required().description('Upload status of the file uploaded').example('complete'),
       }).required().description('File information'),
 
@@ -31,7 +32,7 @@ const metadataResponseSchema = Joi.object({
 }).label('responseData')
 
 const badRequestResponseSchema = Joi.object({
-  statusCode: Joi.number().example(400),
+  statusCode: Joi.number().example(httpConstants.HTTP_STATUS_BAD_REQUEST),
   error: Joi.string().example('Bad Request'),
   message: Joi.string().example('Invalid query parameter'),
   validation:
@@ -42,21 +43,21 @@ const badRequestResponseSchema = Joi.object({
 }).label('BadRequest')
 
 const notfoundResponseSchema = Joi.object({
-  statusCode: Joi.number().example(404),
+  statusCode: Joi.number().example(httpConstants.HTTP_STATUS_NOT_FOUND),
   error: Joi.string().example('Not found'),
   message: Joi.string().example('Not found'),
 }).label('NotFound')
 
 const serverErrorResponseSchema = Joi.object({
-  statusCode: Joi.number().example(500),
+  statusCode: Joi.number().example(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR),
   error: Joi.string().example('Internal Server Error'),
   message: Joi.string().example('Something went wrong'),
 }).label('ServerError')
 
 export const rawDataSchema = Joi.object({
   fileId: Joi.string().guid({ version: 'uuidv4' }).required().description('UUIDv4 identifier').example('9fcaabe5-77ec-44db-8356-3a6e8dc51b13'),
-  filename: Joi.string().required().description('Name of file uploaded by the user').example('my-potato-field.jpeg'),
-  contentType: Joi.string().required().description('Content type of the file uploaded').example('image/jpeg'),
+  filename: Joi.string().required().description('Name of file uploaded by the user').example('my-potato-field.tiff'),
+  contentType: Joi.string().required().description('Content type of the file uploaded').example('image/tiff'),
   fileStatus: Joi.string().required().description('Upload status of the file uploaded').example('complete'),
   contentLength: Joi.number().integer().positive().required().description('Size of the file in bytes').example(11264),
   checksumSha256: Joi.string().required().description('SHA-256 checksum of the file, Base64 encoded').example('bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c='),
