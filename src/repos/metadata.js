@@ -38,7 +38,10 @@ const formatInboundMetadata = (payload) => {
 const getMetadataBySbi = async (sbi) => {
   const collection = config.get('mongo.collections.uploadMetadata')
 
-  const documents = await db.collection(collection).find({ 'metadata.sbi': sbi }).toArray()
+  const documents = await db.collection(collection)
+    .find({ 'metadata.sbi': sbi })
+    .project({ metadata: 1, file: 1 }) // only return the metadata and file keys
+    .toArray()
 
   if (documents.length === 0) {
     throw new NotFoundError('No documents found')
