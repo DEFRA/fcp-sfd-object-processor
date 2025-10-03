@@ -1,4 +1,4 @@
-export const mockFormattedMetadata =
+export const mockMetadataResponse =
 [
   {
     metadata: {
@@ -64,3 +64,10 @@ export const mockS3Data = {
     bucket: 'cdp-example-node-frontend'
   }
 }
+
+export const mockFormattedMetadata =
+ {
+   ...mockMetadataResponse[0],
+   ...mockRawData,
+   ...mockS3Data
+ }
