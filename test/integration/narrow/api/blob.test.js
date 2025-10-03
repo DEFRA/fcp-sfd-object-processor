@@ -4,7 +4,7 @@ import { vi, describe, test, expect, beforeAll, afterAll } from 'vitest'
 import db from '../../../../src/data/db.js'
 import { config } from '../../../../src/config'
 import { createServer } from '../../../../src/api'
-import { mockS3Data, mockFormattedMetadata } from '../../../mocks/metadata.js'
+import { mockFormattedMetadata } from '../../../mocks/metadata.js'
 
 let server
 let originalCollection
