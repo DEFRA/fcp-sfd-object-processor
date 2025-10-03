@@ -1,15 +1,13 @@
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { config } from '../config'
+
+const clientConfig = config.get('s3')
 
 const generatePresignedUrl = async (s3Reference) => {
   const client = new S3Client({
-    region: 'eu-west-2',
-    endpoint: 'http://localhost:4566',
-    credentials: {
-      accessKeyId: 'test',
-      secretAccessKey: 'test'
-    },
-    forcePathStyle: true
+    region: clientConfig.region,
+    ...(process.env.NODE_ENV === 'development' ? clientConfig.localstack : {}) // creates a valid s3 client when running locally
   })
 
   const command = new GetObjectCommand({
