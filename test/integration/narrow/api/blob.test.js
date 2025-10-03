@@ -31,7 +31,7 @@ describe('GET to the /api/v1/blob/{fileId} route', async () => {
   await server.initialize()
 
   describe('with a valid fileId', async () => {
-    const fileId = '9fcaabe5-77ec-44db-8356-3a6e8dc51b13'
+    const fileId = mockFormattedMetadata.file.fileId
     test('should return the s3Key and s3bucket', async () => {
       await db.collection(collection).insertOne(mockFormattedMetadata)
 
@@ -41,11 +41,8 @@ describe('GET to the /api/v1/blob/{fileId} route', async () => {
       })
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
-      expect(response.result.data).toBeDefined()
-      expect(response.result.data).toEqual({
-        _id: expect.anything(),
-        ...mockS3Data
-      })
+      expect(response.result.data.url).toBeDefined()
+      expect(response.result.data.url).toContain(`${mockFormattedMetadata.s3.bucket}/${mockFormattedMetadata.s3.key}`)
       // presignedUrl should be ${bucket}/${key} ...
     })
   })
