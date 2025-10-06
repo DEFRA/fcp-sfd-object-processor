@@ -103,7 +103,7 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
       expect(response.result.message).toBe('Invalid SBI format')
     })
 
-    test('should return 500 bad request when invalid sbi used', async () => {
+    test('should return 500 server error when db is unavailable', async () => {
       await db.client.close()
 
       const errorServer = await createServer()
