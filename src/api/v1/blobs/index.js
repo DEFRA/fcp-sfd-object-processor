@@ -6,6 +6,7 @@ import { blobParamSchema } from './schemas/params.js'
 import { generatePresignedUrl } from '../../../repos/s3.js'
 import { NotFoundError } from '../../../errors/not-found-error.js'
 import { config } from '../../../config/index.js'
+import { blobResponseSchema } from './schemas/responses.js'
 
 const baseUrl = config.get('baseUrl.v1')
 
@@ -20,9 +21,9 @@ export const blobRoute = {
         throw err
       },
     },
-    // response: {
-    //   status: responseSchemas
-    // }
+    response: {
+      status: blobResponseSchema
+    }
   },
   handler: async (request, h) => {
     // return a presigned url that allows a user to download the file

@@ -1,2 +1,2 @@
 export { metadataParamSchema } from './params.js'
-export { responseSchemas } from './responses.js'
+export { metadataResponseSchema } from './responses.js'
