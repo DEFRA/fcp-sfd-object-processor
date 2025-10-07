@@ -26,13 +26,11 @@ export const blobRoute = {
     }
   },
   handler: async (request, h) => {
-    // return a presigned url that allows a user to download the file
     try {
       const { fileId } = request.params
 
       const { s3: s3Reference } = await getS3ReferenceByFileId(fileId)
 
-      // need some validation around this, what happens if it fails to generate
       const { url } = await generatePresignedUrl(s3Reference)
 
       return h.response({ data: { url } }).code(httpConstants.HTTP_STATUS_OK)
