@@ -3,6 +3,7 @@ import { NotFoundError } from '../errors/not-found-error.js'
 import db from '../data/db.js'
 
 let collection
+
 const getS3ReferenceByFileId = async (fileId) => {
   collection = config.get('mongo.collections.uploadMetadata')
   const document = await db.collection(collection)
