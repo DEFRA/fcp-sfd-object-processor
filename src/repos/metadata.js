@@ -2,10 +2,9 @@ import { config } from '../config/index.js'
 import { NotFoundError } from '../errors/not-found-error.js'
 import db from '../data/db.js'
 
+let collection
 const getS3ReferenceByFileId = async (fileId) => {
-  const collection = config.get('mongo.collections.uploadMetadata')
-  console.log(collection)
-
+  collection = config.get('mongo.collections.uploadMetadata')
   const document = await db.collection(collection)
     .findOne(
       { 'file.fileId': fileId },
@@ -52,7 +51,7 @@ const formatInboundMetadata = (payload) => {
 }
 
 const getMetadataBySbi = async (sbi) => {
-  const collection = config.get('mongo.collections.uploadMetadata')
+  collection = config.get('mongo.collections.uploadMetadata')
 
   const documents = await db.collection(collection)
     .find({ 'metadata.sbi': sbi })
@@ -67,7 +66,7 @@ const getMetadataBySbi = async (sbi) => {
 }
 
 const persistMetadata = async (payload) => {
-  const collection = config.get('mongo.collections.uploadMetadata')
+  collection = config.get('mongo.collections.uploadMetadata')
 
   // TODO check for idempotency needed
   const documents = formatInboundMetadata(payload)
