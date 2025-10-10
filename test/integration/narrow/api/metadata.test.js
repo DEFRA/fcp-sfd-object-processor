@@ -1,13 +1,16 @@
 import { constants as httpConstants } from 'node:http2'
 import { vi, describe, test, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { createServer } from '../../../../src/api'
-import { mockFormattedMetadata } from '../../../mocks/metadata.js'
+import { mockMetadataResponse } from '../../../mocks/metadata.js'
 import { config } from '../../../../src/config/index.js'
 import db from '../../../../src/data/db.js'
 
 let server
 let originalCollection
 let collection
+
+// TODO update these tests to use the right mockdata
+// wshould be inserting the RAW metadata object including the 'raw' and 's3' keys to test that it successfully filters
 
 beforeAll(async () => {
   // set a new collection for each integration test to avoid db clashes between tests
@@ -34,7 +37,7 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
 
   describe('when there is valid data in the database', async () => {
     test('should return an array of metadata objects when one document found', async () => {
-      await db.collection(collection).insertOne(mockFormattedMetadata[0])
+      await db.collection(collection).insertOne(mockMetadataResponse[0])
       const sbi = '105000000'
 
       const response = await server.inject({
@@ -46,12 +49,12 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
       expect(response.result.data[0]).toStrictEqual({
         _id: expect.anything(),
-        ...mockFormattedMetadata[0]
+        ...mockMetadataResponse[0]
       })
     })
 
     test('should return an array of metadata objects when multiple documents found', async () => {
-      await db.collection(collection).insertMany(mockFormattedMetadata)
+      await db.collection(collection).insertMany(mockMetadataResponse)
 
       const sbi = '105000000'
       const response = await server.inject({
@@ -64,16 +67,16 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
       expect(response.result.data.length).toBe(2)
       expect(response.result.data).toStrictEqual([{
         _id: expect.anything(),
-        ...mockFormattedMetadata[0]
+        ...mockMetadataResponse[0]
       },
       {
         _id: expect.anything(),
-        ...mockFormattedMetadata[1]
+        ...mockMetadataResponse[1]
       }])
     })
 
     test('should return null and 404 status when no documents found', async () => {
-      await db.collection(collection).insertMany(mockFormattedMetadata)
+      await db.collection(collection).insertMany(mockMetadataResponse)
 
       const sbi = '123456789'
       const response = await server.inject({
@@ -87,7 +90,7 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
     })
 
     test('should return 400 bad request when invalid sbi used', async () => {
-      await db.collection(collection).insertMany(mockFormattedMetadata)
+      await db.collection(collection).insertMany(mockMetadataResponse)
 
       const sbi = 'not-an-sbi'
       const response = await server.inject({
@@ -100,7 +103,7 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
       expect(response.result.message).toBe('Invalid SBI format')
     })
 
-    test('should return 500 bad request when invalid sbi used', async () => {
+    test('should return 500 server error when db is unavailable', async () => {
       await db.client.close()
 
       const errorServer = await createServer()

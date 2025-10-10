@@ -5,7 +5,7 @@ import db from '../../../../src/data/db.js'
 import { config } from '../../../../src/config'
 import { createServer } from '../../../../src/api'
 import { mockScanAndUploadResponse } from '../../../mocks/cdp-uploader.js'
-import { mockFormattedMetadata } from '../../../mocks/metadata.js'
+import { mockMetadataResponse } from '../../../mocks/metadata.js'
 
 let server
 let originalCollection
@@ -45,7 +45,7 @@ describe('POST to the /api/v1/callback route', async () => {
 
       expect(records).toBeDefined()
       expect(records.length).toBe(2)
-      expect(records[0]).toMatchObject(mockFormattedMetadata[0])
+      expect(records[0]).toMatchObject(mockMetadataResponse[0])
     })
   })
 

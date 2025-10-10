@@ -1,7 +1,7 @@
 import Joi from 'joi'
-import { constants as httpConstants } from 'node:http2'
+import { generateResponseSchemas } from '../../schemas/responses.js'
 
-const metadataResponseSchema = Joi.object({
+const metadataSuccessSchema = Joi.object({
   data: Joi.array().items(
     Joi.object({
       _id: Joi.any().exist(), // update to support mongoId format ro convert to string before returning
@@ -31,49 +31,4 @@ const metadataResponseSchema = Joi.object({
   ).label('uploadMetadataArray')
 }).label('responseData')
 
-const badRequestResponseSchema = Joi.object({
-  statusCode: Joi.number().example(httpConstants.HTTP_STATUS_BAD_REQUEST),
-  error: Joi.string().example('Bad Request'),
-  message: Joi.string().example('Invalid query parameter'),
-  validation:
-      Joi.object({
-        source: Joi.string(),
-        keys: Joi.array().items(Joi.string())
-      })
-}).label('BadRequest')
-
-const notfoundResponseSchema = Joi.object({
-  statusCode: Joi.number().example(httpConstants.HTTP_STATUS_NOT_FOUND),
-  error: Joi.string().example('Not found'),
-  message: Joi.string().example('Not found'),
-}).label('NotFound')
-
-const serverErrorResponseSchema = Joi.object({
-  statusCode: Joi.number().example(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR),
-  error: Joi.string().example('Internal Server Error'),
-  message: Joi.string().example('Something went wrong'),
-}).label('ServerError')
-
-export const rawDataSchema = Joi.object({
-  fileId: Joi.string().guid({ version: 'uuidv4' }).required().description('UUIDv4 identifier').example('9fcaabe5-77ec-44db-8356-3a6e8dc51b13'),
-  filename: Joi.string().required().description('Name of file uploaded by the user').example('my-potato-field.tiff'),
-  contentType: Joi.string().required().description('Content type of the file uploaded').example('image/tiff'),
-  fileStatus: Joi.string().required().description('Upload status of the file uploaded').example('complete'),
-  contentLength: Joi.number().integer().positive().required().description('Size of the file in bytes').example(11264),
-  checksumSha256: Joi.string().required().description('SHA-256 checksum of the file, Base64 encoded').example('bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c='),
-  detectedContentType: Joi.string().required().description('MIME type detected for the uploaded file').example('image/jpeg'),
-  s3Key: Joi.string().required().description('S3 object key').example('3b0b2a02-a669-44ba-9b78-bd5cb8460253/9fcaabe5-77ec-44db-8356-3a6e8dc51b13'),
-  s3Bucket: Joi.string().required().description('Name of the S3 bucket where the file is stored').example('cdp-example-node-frontend')
-}).required().description('Raw data object')
-
-export const s3Schema = Joi.object({
-  key: Joi.string().required().description('S3 object key').example('3b0b2a02-a669-44ba-9b78-bd5cb8460253/9fcaabe5-77ec-44db-8356-3a6e8dc51b13'),
-  bucket: Joi.string().required().description('Name of the S3 bucket where the file is stored').example('cdp-example-node-frontend')
-}).required().description('S3 storage information')
-
-export const responseSchemas = {
-  200: metadataResponseSchema,
-  400: badRequestResponseSchema,
-  404: notfoundResponseSchema,
-  500: serverErrorResponseSchema
-}
+export const metadataResponseSchema = generateResponseSchemas(metadataSuccessSchema)
