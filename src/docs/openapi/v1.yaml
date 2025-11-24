@@ -1,0 +1,308 @@
+info:
+  title: FCP SFD Object Processor API
+  version: 0.0.1
+  description: >-
+    API for FCP Single Front Door Object Processor. Supporting integration with
+    CDP uploader service, retrieving metadata and forwarding data to CRM.
+  contact:
+    name: SFD Devs
+    url: https://github.com/orgs/DEFRA/teams/fcp-sfd-devs
+servers:
+  - url: http://localhost:3004
+    description: local server
+  - url: https://fcp-sfd-object-processor.dev.cdp-int.defra.cloud
+    description: CDP Dev environment
+  - url: https://fcp-sfd-object-processor.test.cdp-int.defra.cloud
+    description: CDP Test environment
+  - url: https://fcp-sfd-object-processor.perf-test.cdp-int.defra.cloud
+    description: CDP Perf-Test environment
+  - url: https://fcp-sfd-object-processor.prod.cdp-int.defra.cloud
+    description: CDP Prod environment
+tags:
+  - name: health
+    description: Health check endpoint
+  - name: cdp-uploader
+    description: Operations supporting the CDP Uploader callback.
+  - name: metadata
+    description: Operations supporting object processor metadata
+openapi: 3.0.0
+components: {}
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      tags:
+        - health
+      responses:
+        default:
+          description: Successful
+          content:
+            application/json:
+              schema:
+                type: string
+  /api/v1/blob/{fileId}:
+    get:
+      operationId: getApiV1BlobFileid
+      parameters:
+        - name: fileId
+          in: path
+          schema:
+            type: string
+            x-format:
+              guid:
+                version:
+                  - uuidv4
+          required: true
+      tags:
+        - blob
+      responses:
+        '200':
+          description: Success response from blob endpoint
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Success response from blob endpoint
+                properties:
+                  data:
+                    type: object
+                    description: Data payload containing the presigned URL.
+                    properties:
+                      url:
+                        type: string
+                        description: >-
+                          Presigned URL that allows time-restricted access to a
+                          file in S3.
+                        example: >-
+                          https://my-bucket.s3.amazonaws.com/photos/cat.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20251006%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20251006T121314Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=5a2e4b9c9e4b6d4b8b7a6b6f4f1d5b2c6e7d8a9e6c3f1b2e4d5a6b7c8d9e0f1a
+                    required:
+                      - url
+                required:
+                  - data
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema: &ref_0
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 400
+                  error:
+                    type: string
+                    example: Bad Request
+                  message:
+                    type: string
+                    example: Invalid query parameter
+                  validation:
+                    type: object
+                    properties:
+                      source:
+                        type: string
+                      keys:
+                        type: array
+                        items:
+                          type: string
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema: &ref_1
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 404
+                  error:
+                    type: string
+                    example: Not found
+                  message:
+                    type: string
+                    example: Not found
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: &ref_2
+                type: object
+                properties:
+                  statusCode:
+                    type: number
+                    example: 500
+                  error:
+                    type: string
+                    example: Internal Server Error
+                  message:
+                    type: string
+                    example: Something went wrong
+  /api/v1/metadata/sbi/{sbi}:
+    get:
+      operationId: getApiV1MetadataSbiSbi
+      parameters:
+        - name: sbi
+          in: path
+          schema:
+            type: string
+            pattern: ^\d+$
+            x-constraint:
+              length: 9
+          required: true
+      tags:
+        - metadata
+      responses:
+        '200':
+          description: Successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id:
+                          type: string
+                        metadata:
+                          type: object
+                          description: Metadata about the item
+                          properties:
+                            sbi:
+                              type: string
+                              description: Single Business Identifier
+                              example: '105000000'
+                            crn:
+                              type: string
+                              description: Customer Reference Number
+                              example: '1050000000'
+                            frn:
+                              type: string
+                              description: Firm Reference Number
+                              example: '1102658375'
+                            submissionId:
+                              type: string
+                              description: ID for all files uploaded in request
+                              example: '1733826312'
+                            uosr:
+                              type: string
+                              description: Made up of sbi_submissionId
+                              example: '107220150_1733826312'
+                            submissionDateTime:
+                              type: string
+                              description: Date the uploads were made
+                              example: 10/12/2024 10:25:12
+                            files:
+                              type: array
+                              description: Array of filenames
+                              example:
+                                - 107220150_1733826312_SBI107220150.pdf
+                              items:
+                                type: string
+                            filesInSubmission:
+                              type: integer
+                              description: Size of the file in bytes
+                              example: 2
+                              x-constraint:
+                                sign: positive
+                            type:
+                              type: string
+                              description: >-
+                                Name of the CRM queue the uploads should be
+                                tagged with
+                              example: CS_Agreement_Evidence
+                            reference:
+                              type: string
+                              description: A user entered reference to describe the uploads
+                              example: SFI evidence Oct 25
+                            service:
+                              type: string
+                              description: Name of the service that provided the uploads
+                              example: SFD
+                          required:
+                            - files
+                            - filesInSubmission
+                        file:
+                          type: object
+                          description: File information
+                          properties:
+                            fileId:
+                              type: string
+                              description: UUIDv4 identifier
+                              example: 9fcaabe5-77ec-44db-8356-3a6e8dc51b13
+                              x-format:
+                                guid:
+                                  version: uuidv4
+                            filename:
+                              type: string
+                              description: Name of file uploaded by the user
+                              example: my-potato-field.tiff
+                            contentType:
+                              type: string
+                              description: Content type of the file uploaded
+                              example: image/tiff
+                            fileStatus:
+                              type: string
+                              description: Upload status of the file uploaded
+                              example: complete
+                          required:
+                            - fileId
+                            - filename
+                            - contentType
+                            - fileStatus
+                      required:
+                        - _id
+                        - metadata
+                        - file
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema: *ref_0
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema: *ref_1
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema: *ref_2
+  /api/v1/callback:
+    post:
+      summary: Callback used by the CDP Uploader
+      operationId: postApiV1Callback
+      description: >-
+        This endpoint is only called by the CDP Uploader service after
+        processing an upload request.
+      tags:
+        - cdp-uploader
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                uploadStatus:
+                  type: string
+                metadata:
+                  type: object
+                form:
+                  type: object
+                numberOfRejectedFiles:
+                  type: integer
+                  minimum: 0
+              required:
+                - uploadStatus
+                - metadata
+                - form
+                - numberOfRejectedFiles
+      responses:
+        default:
+          description: Successful
+          content:
+            application/json:
+              schema:
+                type: string
