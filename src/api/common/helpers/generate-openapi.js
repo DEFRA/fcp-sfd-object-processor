@@ -14,8 +14,6 @@ const generateOpenapi = async (server, path = './src/docs/openapi/v1.yaml') => {
     const openApiYaml = yaml.dump(openApiJson.result)
     await writeFile(path, openApiYaml)
     logger.info(`OpenAPI documentation generated successfully at ${path}`)
-
-    return true
   } catch (error) {
     logger.error('Failed to generate OpenAPI documentation:', error)
     throw error
