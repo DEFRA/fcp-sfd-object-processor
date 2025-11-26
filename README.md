@@ -12,8 +12,8 @@ The service works alongside the [CDP Uploader](https://github.com/DEFRA/cdp-uplo
 
 ## Features
 - Persist metadata after upload ✅
-- Retrieve metadata about uploaded files (in development) 🏗️
-- Push metadata to CRM (future work) 🗓️
+- Retrieve metadata about uploaded files (in development) ✅
+- Push metadata to CRM (in progress) 🏗️
 
 
 ## Prerequisites
@@ -51,6 +51,13 @@ Use Docker Compose to run service locally.
 ```
 docker-compose up --build
 ```
+
+### Documentation
+The service uses hapi-swagger to auto generate Openapi spec available on the `/documentation` endpoint when running the service locally.
+
+A static Openapi specification can be found in the `src/docs` folder.
+
+To update the static openapi json in the `docs` folder please use the npm script `generateOpenApiSpec` when the server is running locally. This can be used to generate an upto date openapi spec which can be pushed to github and shared with stakeholders.
 
 ## Tests
 
