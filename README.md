@@ -57,7 +57,7 @@ The service uses hapi-swagger to auto generate Openapi spec available on the `/d
 
 A static Openapi specification can be found in the `src/docs` folder.
 
-To update the static openapi json in the `docs` folder please use the npm script `generateOpenApiSpec` when the server is running locally. This can be used to generate an upto date openapi spec which can be pushed to github and shared with stakeholders.
+To update the static OpenAPI specification file in the `docs` folder please use the npm script `generateOpenApiSpec` when the server is running locally. This can be used to generate up-to-date information in a OpenAPI specification file which can be pushed to Github and shared with stakeholders.
 
 ## Tests
 
