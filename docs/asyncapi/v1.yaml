@@ -1,0 +1,111 @@
+asyncapi: 3.0.0
+info:
+  title: Single Front Door Object Processor
+  version: 1.0.0
+  description: Publish events to fcp-sfd-crm and fcp-fdm when new documents are uploaded.
+
+channels:
+  crmEventsTopic:
+    address: fcp_sfd_crm_events
+    messages: 
+      createCrmCase:
+        $ref: '#/components/messages/createCrmCaseRequest'
+
+
+components:
+  messages:
+    createCrmCaseRequest:
+      name: Create CRM Case Request 
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - id
+          - source
+          - specversion
+          - type
+          - datacontenttype
+          - time
+          - data
+        properties:
+          id:
+            $ref: '#/components/schemas/id'
+          source:
+            $ref: '#/components/schemas/source'
+          specversion:
+            $ref: '#/components/schemas/specversion'
+          type:
+            type: string
+            enum:
+              - uk.gov.fcp.sfd.crm.case.request
+              # define these event types
+          datacontenttype:
+            $ref: '#/components/schemas/datacontenttype'
+          time:
+            $ref: '#/components/schemas/time'
+          data:
+            type: object
+  
+  schemas:
+    correlationId:
+      type: string
+      format: uuid
+      description: The unique correlation ID linking related events together
+      example: 123e4567-e89b-12d3-a456-426655440000
+
+    crn:
+      type: number
+      description: Customer Reference Number (consists of 10 digits)
+      minimum: 1050000000
+      maximum: 9999999999
+      example: 1234567890
+
+    datacontenttype:
+      type: string
+      description: Format of the event data
+      default: "application/json"
+      example: "application/json"
+
+    id:
+      type: string
+      description: Unique identifier of the event
+      example: 123e4567-e89b-12d3-a456-426655440000
+      minlength: 1
+      uniqueItems: true
+      format: uuid
+
+    sbi:
+      type: number
+      description: Single Business Identifier (consists of 9 digits)
+      minimum: 105000000
+      maximum: 999999999
+      example: 123456789
+
+    source:
+      type: string
+      description: Service publishing the event
+      example: fcp-sfd-object-processor
+      minlength: 1
+      maxlength: 100
+
+    specversion:
+      type: string
+      description: Version of the CloudEvents specification used by the event
+      example: "1.0"
+      minlength: 3
+      maxlength: 10
+
+    time:
+      type: string
+      format: date-time
+      description: Time the event occurred
+      example: "2023-10-17T14:48:00Z"
+
+    type:
+      type: string
+      description: Type of event in reverse DNS notation
+      example: uk.gov.fcp.sfd.crm.case.request
+      minlength: 3
+      maxlength: 250
+
+    
