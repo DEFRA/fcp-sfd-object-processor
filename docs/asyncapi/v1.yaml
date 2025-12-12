@@ -2,7 +2,7 @@ asyncapi: 3.0.0
 info:
   title: Single Front Door Object Processor
   version: 1.0.0
-  description: Publish events to fcp-sfd-crm and fcp-fdm when new documents are uploaded.
+  description: Publish events when new documents are uploaded to support case creation in CRM and observability via the FDM service.
   license:
     name: Open Government Licence v3.0
     url: https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3
