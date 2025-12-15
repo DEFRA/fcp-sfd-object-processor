@@ -10,7 +10,8 @@ export const s3Config = {
       endpoint: {
         doc: 'endpoint to use to reach the s3 storage when using localstack ',
         format: String,
-        default: 'http://localhost:4566',
+        default: 'http://localstack:4566',
+        // will changing this impact the s3 local functionality
       },
       forcePathStyle: {
         doc: 'Sets the presigned url path to use a defined endpoint instead of the default aws endpoint ',

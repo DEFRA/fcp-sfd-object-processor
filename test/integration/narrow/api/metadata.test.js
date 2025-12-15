@@ -42,7 +42,7 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
 
       const response = await server.inject({
         method: 'GET',
-        url: `/api/v1/metadata/sbi/${sbi}`,
+        url: `/api/v1/metadata/sbi/${sbi}`
       })
 
       expect(response.result.data).toBeInstanceOf(Array)
@@ -59,7 +59,7 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
       const sbi = '105000000'
       const response = await server.inject({
         method: 'GET',
-        url: `/api/v1/metadata/sbi/${sbi}`,
+        url: `/api/v1/metadata/sbi/${sbi}`
       })
 
       expect(response.result.data).toBeInstanceOf(Array)
@@ -81,7 +81,7 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
       const sbi = '123456789'
       const response = await server.inject({
         method: 'GET',
-        url: `/api/v1/metadata/sbi/${sbi}`,
+        url: `/api/v1/metadata/sbi/${sbi}`
       })
 
       expect(response.result.statusCode).toBe(httpConstants.HTTP_STATUS_NOT_FOUND)
@@ -95,7 +95,7 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
       const sbi = 'not-an-sbi'
       const response = await server.inject({
         method: 'GET',
-        url: `/api/v1/metadata/sbi/${sbi}`,
+        url: `/api/v1/metadata/sbi/${sbi}`
       })
 
       expect(response.result.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
@@ -110,7 +110,7 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
       const sbi = '123456789'
       const response = await errorServer.inject({
         method: 'GET',
-        url: `/api/v1/metadata/sbi/${sbi}`,
+        url: `/api/v1/metadata/sbi/${sbi}`
       })
 
       expect(response.result.statusCode).toBe(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
