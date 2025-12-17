@@ -5,14 +5,14 @@ import { SNSClient } from '@aws-sdk/client-sns'
 import { config } from '../../config/index.js'
 
 const snsConfig = {
-  endpoint: config.get('s3.localstack.endpoint'),
+  endpoint: config.get('aws.localstack.snsEndpoint'),
   region: config.get('aws.region')
 }
 
 if (config.get('env') !== environments.PRODUCTION) {
   snsConfig.credentials = {
-    accessKeyId: config.get('s3.localstack.credentials.accessKeyId'),
-    secretAccessKey: config.get('s3.localstack.credentials.secretAccessKey')
+    accessKeyId: config.get('aws.accessKeyId'),
+    secretAccessKey: config.get('aws.secretAccessKey')
   }
 }
 

@@ -4,7 +4,7 @@ import { snsClient } from '../../../sns/client.js'
 import { publish } from '../../../sns/publish.js'
 import { buildDocumentUploadMessage } from './document-upload-message.js'
 
-const snsTopic = config.get('messaging.documentUploadEvents.topicArn')
+const snsTopic = config.get('aws.messaging.topics.documentUploadEvents')
 
 const logger = createLogger()
 
