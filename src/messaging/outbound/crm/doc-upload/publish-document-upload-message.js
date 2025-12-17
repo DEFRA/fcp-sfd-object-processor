@@ -14,7 +14,7 @@ const publishDocumentUploadMessage = async (payload) => {
   try {
     await publish(snsClient, snsTopic, documentUploadMessage)
   } catch (error) {
-    logger.error(error, 'Error publishing comms request received event')
+    logger.error(error, 'Error publishing document upload event')
   }
 }
 
