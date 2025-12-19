@@ -5,7 +5,7 @@ import { SNSClient } from '@aws-sdk/client-sns'
 import { config } from '../../config/index.js'
 
 const snsConfig = {
-  endpoint: config.get('aws.localstack.snsEndpoint'),
+  endpoint: config.get('aws.snsEndpoint'),
   region: config.get('aws.region')
 }
 
