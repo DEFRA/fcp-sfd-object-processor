@@ -55,12 +55,12 @@ describe('Format metadata payload from raw CDP response', () => {
     test('each object should contain the s3 data in the s3 subdoc', () => {
       expect(formattedMetadata[0].s3).toStrictEqual({
         key: mockScanAndUploadResponse.form['a-file-upload-field'].s3Key,
-        bucket: mockScanAndUploadResponse.form['a-file-upload-field'].s3Bucket,
+        bucket: mockScanAndUploadResponse.form['a-file-upload-field'].s3Bucket
       })
 
       expect(formattedMetadata[1].s3).toStrictEqual({
         key: mockScanAndUploadResponse.form['another-file-upload-field'].s3Key,
-        bucket: mockScanAndUploadResponse.form['another-file-upload-field'].s3Bucket,
+        bucket: mockScanAndUploadResponse.form['another-file-upload-field'].s3Bucket
       })
     })
   })

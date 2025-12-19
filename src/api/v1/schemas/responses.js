@@ -17,13 +17,13 @@ const badRequestResponseSchema = Joi.object({
 const notfoundResponseSchema = Joi.object({
   statusCode: Joi.number().example(httpConstants.HTTP_STATUS_NOT_FOUND),
   error: Joi.string().example('Not found'),
-  message: Joi.string().example('Not found'),
+  message: Joi.string().example('Not found')
 }).label('NotFound')
 
 const serverErrorResponseSchema = Joi.object({
   statusCode: Joi.number().example(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR),
   error: Joi.string().example('Internal Server Error'),
-  message: Joi.string().example('Something went wrong'),
+  message: Joi.string().example('Something went wrong')
 }).label('ServerError')
 
 export const generateResponseSchemas = (successSchema) => ({

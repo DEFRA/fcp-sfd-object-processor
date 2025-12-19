@@ -10,7 +10,7 @@ const mockMetadata = {
   filesInSubmission: 2,
   type: 'CS_Agreement_Evidence',
   reference: 'user entered reference',
-  service: 'SFD',
+  service: 'SFD'
 }
 
 // examples of the file upload data that is returned from the cdp uploader for each file uploaded, this forms part of the scanAndUploadResponse
@@ -64,7 +64,7 @@ export const mockScanAndUploadResponseArray = [
     _id: 'unique id 2',
     metadata: {
       sbi: '105000001'
-    },
+    }
   }
 
 ]

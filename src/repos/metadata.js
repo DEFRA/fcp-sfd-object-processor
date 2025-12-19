@@ -41,7 +41,7 @@ const formatInboundMetadata = (payload) => {
         fileId: formUpload.fileId,
         filename: formUpload.filename,
         contentType: formUpload.contentType,
-        fileStatus: formUpload.fileStatus,
+        fileStatus: formUpload.fileStatus
       },
       s3: {
         key: formUpload.s3Key,

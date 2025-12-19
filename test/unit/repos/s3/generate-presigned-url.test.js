@@ -6,7 +6,7 @@ import * as presigner from '@aws-sdk/s3-request-presigner'
 vi.mock('@aws-sdk/s3-request-presigner')
 vi.mock('@aws-sdk/client-s3', () => ({
   S3Client: vi.fn(),
-  GetObjectCommand: vi.fn(),
+  GetObjectCommand: vi.fn()
 }))
 
 describe('When generatePresignedUrl is called', () => {
