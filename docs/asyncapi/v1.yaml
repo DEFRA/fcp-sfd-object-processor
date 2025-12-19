@@ -53,10 +53,8 @@ components:
           specversion:
             $ref: '#/components/schemas/specversion'
           type:
-            type: string
-            enum:
-              - uk.gov.fcp.sfd.object.processor.documents.uploaded
-              # define these event types
+            $ref: '#/components/schemas/type'
+
           datacontenttype:
             $ref: '#/components/schemas/datacontenttype'
           time:
@@ -65,31 +63,32 @@ components:
             type: object
             additionalProperties: false
             required:
-              - sbi
               - crn
-              - crmCaseType
-              - service
-              - title
-              - submissionId
-              - filesInSubmission
+              - crm
+              - correlationId
               - files
+              - sbi
+              - sourceSystem
+              - submissionId
+              - subtype
             properties:
-              sbi:
-                $ref: '#/components/schemas/sbi'
               crn:
                 $ref: '#/components/schemas/crn'
-              crmCaseType:
-                $ref: '#/components/schemas/crmCaseType'
-              service:
-                $ref: '#/components/schemas/service'
-              title:
-                $ref: '#/components/schemas/title'
+              crm:
+               $ref: '#/components/schemas/crm'
+              correlationId:
+                $ref: '#/components/schemas/correlationId'
+              file:
+                $ref: '#/components/schemas/file'
+              sbi:
+                $ref: '#/components/schemas/sbi'
+              sourceSystem:
+                $ref: '#/components/schemas/sourceSystem'
               submissionId:
                 $ref: '#/components/schemas/submissionId'
-              filesInSubmission:
-                $ref: '#/components/schemas/filesInSubmission'
-              files:
-                $ref: '#/components/schemas/files'
+              subtype:
+                $ref: '#/components/schemas/subtype'
+               
   
   schemas:
     crn:
@@ -98,6 +97,25 @@ components:
       minimum: 1050000000
       maximum: 9999999999
       example: 1234567890
+    
+    crm:
+      type: object
+      additionalProperties: false
+      required:
+        - caseType
+        - title
+      properties:
+        caseType:
+          $ref: '#/components/schemas/crmCaseType'
+        title:
+          $ref: '#/components/schemas/title'
+    
+    contentType:
+      type: string
+      description: MIME type of the file
+      example: "application/pdf"
+      minLength: 1
+      maxLength: 127
 
     crmCaseType:
       type: string
@@ -106,6 +124,12 @@ components:
       maxLength: 100
       example: "CS_Agreement_Evidence"
       # this should be one of a defined set of queue names making this an enum in future
+    
+    correlationId:
+      type: string
+      description: Unique identifier for tracing the event through systems and connecting related events together
+      format: uuid
+      example: "123e4567-e89b-12d3-a456-426655440000"
 
     datacontenttype:
       type: string
@@ -113,30 +137,13 @@ components:
       default: "application/json"
       example: "application/json"
 
-    filesInSubmission:
-      type: integer
-      description: Number of uploaded files associated with this case.
-      example: 3
-
-    files:
-      type: array
-      description: Array of file references for documents uploaded in this submission
-      minItems: 1
-      items:
-        $ref: '#/components/schemas/file'
-      example:
-        - fileId: "123e4567-e89b-12d3-a456-426655440001"
-          fileName: "receipt.pdf"
-          url: "https://example.com/files/123e4567-e89b-12d3-a456-426655440001"
-          contentType: "application/pdf"
-        - fileId: "123e4567-e89b-12d3-a456-426655440002"
-          fileName: "invoice.pdf"
-          url: "https://example.com/files/123e4567-e89b-12d3-a456-426655440002"
-          contentType: "application/pdf"
-        - fileId: "123e4567-e89b-12d3-a456-426655440003"
-          fileName: "proof_of_purchase.pdf"
-          url: "https://example.com/files/123e4567-e89b-12d3-a456-426655440003"
-          contentType: "application/pdf"
+    subtype:
+      type: string
+      description: Subtype of the event
+      enum:
+        - document.uploaded
+        - email.sent
+      example: "document.uploaded"
 
     file:
       type: object
@@ -148,27 +155,28 @@ components:
         - contentType
       properties:
         fileId:
-          type: string
-          format: uuid
-          description: Unique identifier for the uploaded file
-          example: "123e4567-e89b-12d3-a456-426655440001"
+          $ref: '#/components/schemas/fileId'
         fileName:
-          type: string
-          description: Original name of the uploaded file
-          minLength: 1
-          maxLength: 255
-          example: "receipt.pdf"
+          $ref: '#/components/schemas/fileName'
         contentType:
-          type: string
-          description: MIME type of the file
-          example: "application/pdf"
-          minLength: 1
-          maxLength: 127
+          $ref: '#/components/schemas/contentType'
         url:
-          type: string
-          description: URL where the file can be accessed
-          format: uri
-          example: "https://example.com/files/123e4567-e89b-12d3-a456-426655440001"
+          $ref: '#/components/schemas/url'
+
+
+    fileId:
+      type: string
+      format: uuid
+      description: Unique identifier for the uploaded file
+      example: "123e4567-e89b-12d3-a456-426655440001"
+
+    fileName:
+      type: string
+      description: Original name of the uploaded file
+      minLength: 1
+      maxLength: 255
+      example: "receipt.pdf"
+
     id:
       type: string
       description: Unique identifier of the event
@@ -183,9 +191,12 @@ components:
       maximum: 999999999
       example: 123456789
 
-    service:
+    sourceSystem:
       type: string
-      description: The service name that initiated the request
+      description: The name of the service that initiated the request
+      enum:
+        - fcp-sfd-frontend
+        - rps-portal
       example: fcp-sfd-frontend
       minLength: 1
       maxLength: 100
@@ -207,7 +218,7 @@ components:
     submissionId:
       type: string
       format: uuid
-      description: Unique identifier for the submission
+      description: Unique identifier for the submission of uploaded files. Created by the sourceSystem
       example: 123e4567-e89b-12d3-a456-426655440000
 
     time:
@@ -226,8 +237,14 @@ components:
     type:
       type: string
       description: Type of event in reverse DNS notation
-      example: uk.gov.fcp.sfd.object.processor.documents.uploaded
+      example: uk.gov.fcp.sfd.event
       minLength: 3
       maxLength: 250
+    
+    url:
+      type: string
+      description: URL where the file can be accessed
+      format: uri
+      example: "https://example.com/files/123e4567-e89b-12d3-a456-426655440001"
 
     
