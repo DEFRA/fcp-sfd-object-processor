@@ -117,5 +117,12 @@ export const serverConfig = {
       format: String,
       default: '/api/v1'
     }
+  },
+  messaging: {
+    outboxIntervalMs: {
+      doc: 'Interval in milliseconds between outbox processing runs',
+      format: 'int',
+      default: 30000,
+    }
   }
 }
