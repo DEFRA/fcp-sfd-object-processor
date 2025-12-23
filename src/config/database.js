@@ -17,6 +17,11 @@ export const databaseConfig = {
         doc: 'uploadMetadata collection',
         format: String,
         default: 'uploadMetadata'
+      },
+      outbox: {
+        doc: 'outbox collection for storing pending outbound messages',
+        format: String,
+        default: 'outbox'
       }
     }
   }
