@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, vi, test } from 'vitest'
 import { ObjectId } from 'mongodb'
-import { createOutboxEntries } from '../../../../src/repos/outbox.js'
+import { createOutboxEntries, getPendingOutboxEntries } from '../../../../src/repos/outbox.js'
 import { mockMetadataResponse as documents } from '../../../mocks/metadata.js'
 import { PENDING } from '../../../../src/constants/outbox.js'
 import db from '../../../../src/data/db.js'
@@ -108,6 +108,45 @@ describe('Outbox Repository', () => {
 
       expect(mockCollection.insertMany).toHaveBeenCalledWith([])
       expect(result).toEqual(mockResult.insertedIds)
+    })
+  })
+
+  describe('getPendingOutboxEntries', () => {
+    test('should retrieve outbox entries with status pending', async () => {
+      const mockPendingEntries = [
+        { _id: new ObjectId(), status: PENDING, payload: {} },
+        { _id: new ObjectId(), status: PENDING, payload: {} }
+      ]
+
+      // A cursor is what is returned from mongo find operations
+      const mockCursor = {
+        toArray: vi.fn().mockResolvedValue(mockPendingEntries)
+      }
+
+      mockCollection.find.mockReturnValue(mockCursor)
+
+      const result = await getPendingOutboxEntries()
+
+      expect(db.collection).toHaveBeenCalledWith('outbox')
+      expect(mockCollection.find).toHaveBeenCalledWith({ status: PENDING })
+      expect(mockCursor.toArray).toHaveBeenCalled()
+      expect(result).toEqual(mockPendingEntries)
+    })
+
+    test('should return empty array when no pending entries found', async () => {
+      // A cursor is what is returned from mongo find operations
+      const mockCursor = {
+        toArray: vi.fn().mockResolvedValue([])
+      }
+
+      mockCollection.find.mockReturnValue(mockCursor)
+
+      const result = await getPendingOutboxEntries()
+
+      expect(db.collection).toHaveBeenCalledWith('outbox')
+      expect(mockCollection.find).toHaveBeenCalledWith({ status: PENDING })
+      expect(mockCursor.toArray).toHaveBeenCalled()
+      expect(result).toEqual([])
     })
   })
 })

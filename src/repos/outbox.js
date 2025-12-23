@@ -24,6 +24,17 @@ const createOutboxEntries = async (ids, documents) => {
   return insertedIds
 }
 
+const getPendingOutboxEntries = async () => {
+  const collection = config.get(outboxCollection)
+
+  const pendingEntries = await db.collection(collection)
+    .find({ status: PENDING })
+    .toArray()
+
+  return pendingEntries
+}
+
 export {
-  createOutboxEntries
+  createOutboxEntries,
+  getPendingOutboxEntries
 }
