@@ -34,7 +34,30 @@ const getPendingOutboxEntries = async () => {
   return pendingEntries
 }
 
+const updateDeliveryStatus = async (messageId, status, error = null) => {
+  const collection = config.get(outboxCollection)
+
+  const filter = { _id: messageId }
+
+  const updateDoc = {
+    $set: {
+      status,
+      attempts: { $inc: 1 },
+      lastAttemptedAt: new Date(),
+      ...(error && { error })
+    }
+  }
+  const updateResult = await db.collection(collection).updateOne(filter, updateDoc)
+
+  if (!updateResult.acknowledged) {
+    throw new Error('Failed to update outbox entries')
+  }
+
+  return updateResult
+}
+
 export {
   createOutboxEntries,
-  getPendingOutboxEntries
+  getPendingOutboxEntries,
+  updateDeliveryStatus
 }

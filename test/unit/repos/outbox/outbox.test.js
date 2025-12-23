@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, vi, test } from 'vitest'
 import { ObjectId } from 'mongodb'
-import { createOutboxEntries, getPendingOutboxEntries } from '../../../../src/repos/outbox.js'
+import { createOutboxEntries, getPendingOutboxEntries, updateDeliveryStatus } from '../../../../src/repos/outbox.js'
 import { mockMetadataResponse as documents } from '../../../mocks/metadata.js'
-import { PENDING } from '../../../../src/constants/outbox.js'
+import { PENDING, SENT, FAILED } from '../../../../src/constants/outbox.js'
 import db from '../../../../src/data/db.js'
 
 vi.mock('../../../../src/data/db.js', () => ({
@@ -147,6 +147,70 @@ describe('Outbox Repository', () => {
       expect(mockCollection.find).toHaveBeenCalledWith({ status: PENDING })
       expect(mockCursor.toArray).toHaveBeenCalled()
       expect(result).toEqual([])
+    })
+  })
+
+  describe('updateDeliveryStatus', () => {
+    test('should update outbox entry status to sent', async () => {
+      const mockUpdateOneResult = {
+        acknowledged: true,
+        matchedCount: 1,
+        modifiedCount: 1,
+        upsertedCount: 1,
+        upsertedId: null // null because we are not using upsert only modify in place
+      }
+
+      mockCollection.updateOne.mockResolvedValue(mockUpdateOneResult)
+
+      const result = await updateDeliveryStatus(1, SENT)
+
+      // this is the response from the db operation
+      const updatedEntry = mockCollection.updateOne.mock.calls[0]
+
+      expect(updatedEntry[1].$set).toMatchObject({
+        attempts: {
+          $inc: 1,
+        },
+        status: SENT,
+        lastAttemptedAt: expect.any(Date)
+      })
+
+      expect(result).toEqual(mockUpdateOneResult)
+    })
+
+    test('should include error when outbox entry status to failed', async () => {
+      const mockUpdateOneResult = {
+        acknowledged: true,
+        matchedCount: 1,
+        modifiedCount: 1,
+        upsertedCount: 1,
+        upsertedId: null // null because we are not using upsert only modify in place
+      }
+
+      mockCollection.updateOne.mockResolvedValue(mockUpdateOneResult)
+
+      const result = await updateDeliveryStatus(1, FAILED, 'Test error message')
+
+      // this is the response from the db operation
+      const updatedEntry = mockCollection.updateOne.mock.calls[0]
+
+      expect(updatedEntry[1].$set).toMatchObject({
+        attempts: {
+          $inc: 1,
+        },
+        status: FAILED,
+        lastAttemptedAt: expect.any(Date),
+        error: 'Test error message'
+      })
+
+      expect(result).toEqual(mockUpdateOneResult)
+    })
+
+    test('should throw error when database update fails', async () => {
+      mockCollection.updateOne.mockResolvedValue({ acknowledged: false })
+
+      await expect(updateDeliveryStatus(1, SENT))
+        .rejects.toThrow('Failed to update outbox entries')
     })
   })
 })
