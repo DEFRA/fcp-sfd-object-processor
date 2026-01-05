@@ -1,6 +1,6 @@
 import { config } from '../config/index.js'
 import { NotFoundError } from '../errors/not-found-error.js'
-import db from '../data/db.js'
+import { db } from '../data/db.js'
 
 const metadataCollection = 'mongo.collections.uploadMetadata'
 
@@ -72,7 +72,11 @@ const persistMetadata = async (payload) => {
   // TODO check for idempotency needed
   const documents = formatInboundMetadata(payload)
 
+  // refactor to {insertedIds, acknowledged}
   const result = await db.collection(collection).insertMany(documents)
+  // use 'result' to get the ids of inserted documents
+  // use document as the formatted document to be inserted into the outbox collection
+  // createOutboxEntries(result.insertedIds, documents)
 
   if (!result.acknowledged) {
     throw new Error('Failed to insert, no acknowledgement from database')

@@ -1,7 +1,7 @@
 import { constants as httpConstants } from 'node:http2'
 import { vi, describe, test, expect, beforeAll, afterAll } from 'vitest'
 
-import db from '../../../../src/data/db.js'
+import { db } from '../../../../src/data/db.js'
 import { config } from '../../../../src/config'
 import { createServer } from '../../../../src/api'
 import { mockScanAndUploadResponse } from '../../../mocks/cdp-uploader.js'

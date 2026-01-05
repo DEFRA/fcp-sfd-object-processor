@@ -3,12 +3,11 @@ import { ObjectId } from 'mongodb'
 import { createOutboxEntries, getPendingOutboxEntries, updateDeliveryStatus } from '../../../../src/repos/outbox.js'
 import { mockMetadataResponse as documents } from '../../../mocks/metadata.js'
 import { PENDING, SENT, FAILED } from '../../../../src/constants/outbox.js'
-import db from '../../../../src/data/db.js'
+import { db } from '../../../../src/data/db.js'
 
 vi.mock('../../../../src/data/db.js', () => ({
-  default: {
-    collection: vi.fn()
-  }
+  db: { collection: vi.fn() },
+  client: {}
 }))
 
 vi.mock('../../../../src/config/index.js', () => ({

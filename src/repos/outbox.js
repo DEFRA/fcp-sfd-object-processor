@@ -1,6 +1,6 @@
 import { config } from '../config/index.js'
 import { PENDING } from '../constants/outbox.js'
-import db from '../data/db.js'
+import { db } from '../data/db.js'
 
 const outboxCollection = 'mongo.collections.outbox'
 

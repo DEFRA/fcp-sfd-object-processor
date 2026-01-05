@@ -16,4 +16,4 @@ const db = client.db(config.get('mongo.database'))
 
 logger.info('Connected to MongoDB')
 
-export default db
+export { db, client }
