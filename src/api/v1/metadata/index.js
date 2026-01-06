@@ -17,7 +17,7 @@ export const metadataRoute = {
       params: metadataParamSchema,
       failAction: (_request, _h, err) => {
         throw err
-      },
+      }
     },
     response: {
       status: metadataResponseSchema

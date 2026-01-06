@@ -115,7 +115,7 @@ export const serverConfig = {
     v1: {
       doc: 'Base url for version one of the api',
       format: String,
-      default: '/api/v1',
+      default: '/api/v1'
     }
   }
 }

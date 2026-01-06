@@ -19,7 +19,7 @@ export const blobRoute = {
       params: blobParamSchema,
       failAction: (_request, _h, err) => {
         throw err
-      },
+      }
     },
     response: {
       status: blobResponseSchema

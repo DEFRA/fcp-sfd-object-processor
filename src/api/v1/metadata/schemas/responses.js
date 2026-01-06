@@ -24,8 +24,8 @@ const metadataSuccessSchema = Joi.object({
         fileId: Joi.string().guid({ version: 'uuidv4' }).required().description('UUIDv4 identifier').example('9fcaabe5-77ec-44db-8356-3a6e8dc51b13'),
         filename: Joi.string().required().description('Name of file uploaded by the user').example('my-potato-field.tiff'),
         contentType: Joi.string().required().description('Content type of the file uploaded').example('image/tiff'),
-        fileStatus: Joi.string().required().description('Upload status of the file uploaded').example('complete'),
-      }).required().description('File information'),
+        fileStatus: Joi.string().required().description('Upload status of the file uploaded').example('complete')
+      }).required().description('File information')
 
     }).label('uploadMetadata')
   ).label('uploadMetadataArray')

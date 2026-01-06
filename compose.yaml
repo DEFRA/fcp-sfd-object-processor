@@ -17,6 +17,12 @@ services:
       LOCALSTACK_ENDPOINT: http://localstack:4566
       MONGO_URI: mongodb://mongodb:27017/
       CDP_UPLOADER_URL: ${CDP_UPLOADER_URL:-http://cdp-uploader:7337}
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_S3_FORCE_PATH_STYLE: true
+      DOCUMENT_UPLOAD_EVENTS_TOPIC_ARN: arn:aws:sns:eu-west-2:000000000000:fcp_sfd_object_processor_events
+      S3_ENDPOINT: http://localhost:4566
+      SNS_ENDPOINT: http://localstack:4566
     networks:
       - fcp-sfd
 

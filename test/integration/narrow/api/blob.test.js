@@ -40,7 +40,7 @@ describe('GET to the /api/v1/blob/{fileId} route', async () => {
 
       const response = await server.inject({
         method: 'GET',
-        url: `/api/v1/blob/${fileId}`,
+        url: `/api/v1/blob/${fileId}`
       })
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
@@ -51,7 +51,7 @@ describe('GET to the /api/v1/blob/{fileId} route', async () => {
     test('should return 404 when no records found', async () => {
       const response = await server.inject({
         method: 'GET',
-        url: `/api/v1/blob/${fileId}`,
+        url: `/api/v1/blob/${fileId}`
       })
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_NOT_FOUND)
@@ -67,7 +67,7 @@ describe('GET to the /api/v1/blob/{fileId} route', async () => {
 
       const response = await server.inject({
         method: 'GET',
-        url: `/api/v1/blob/${fileId}`,
+        url: `/api/v1/blob/${fileId}`
       })
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
@@ -84,7 +84,7 @@ describe('GET to the /api/v1/blob/{fileId} route', async () => {
       const fileId = mockFormattedMetadata.file.fileId
       const response = await errorServer.inject({
         method: 'GET',
-        url: `/api/v1/blob/${fileId}`,
+        url: `/api/v1/blob/${fileId}`
       })
 
       expect(response.result.statusCode).toBe(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
