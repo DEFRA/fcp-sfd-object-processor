@@ -4,7 +4,7 @@ import { db } from '../data/db.js'
 
 const outboxCollection = 'mongo.collections.outbox'
 
-const createOutboxEntries = async (ids, documents) => {
+const createOutboxEntries = async (ids, documents, session) => {
   const collection = config.get(outboxCollection)
 
   const outboxDocs = Object.values(ids).map((id, index) => {
@@ -17,7 +17,7 @@ const createOutboxEntries = async (ids, documents) => {
     }
   })
 
-  const { acknowledged, insertedIds } = await db.collection(collection).insertMany(outboxDocs)
+  const { acknowledged, insertedIds } = await db.collection(collection).insertMany(outboxDocs, { session })
   if (!acknowledged) {
     throw new Error('Failed to insert outbox entries')
   }

@@ -66,21 +66,18 @@ const getMetadataBySbi = async (sbi) => {
   return documents
 }
 
-const persistMetadata = async (payload) => {
+const persistMetadata = async (payload, session) => {
   const collection = config.get(metadataCollection)
 
   // TODO check for idempotency needed
   const documents = formatInboundMetadata(payload)
 
-  // refactor to {insertedIds, acknowledged}
-  const result = await db.collection(collection).insertMany(documents)
-  // use 'result' to get the ids of inserted documents
-  // use document as the formatted document to be inserted into the outbox collection
-  // createOutboxEntries(result.insertedIds, documents)
+  const result = await db.collection(collection).insertMany(documents, { session })
 
   if (!result.acknowledged) {
     throw new Error('Failed to insert, no acknowledgement from database')
   }
+
   return result
 }
 
