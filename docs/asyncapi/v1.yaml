@@ -1,0 +1,248 @@
+asyncapi: 3.0.0
+info:
+  title: Single Front Door Object Processor
+  version: 1.0.0
+  description: Publish events when new documents are uploaded to support case creation in CRM and observability via the FDM service.
+  license:
+    name: Open Government Licence v3.0
+    url: https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3
+
+defaultContentType: application/json
+
+channels:
+  objectProcessorEventsTopic:
+    address: fcp_sfd_object_processor_events
+    description: Topic for publishing object processor events.
+    messages: 
+      documentUploaded:
+        $ref: '#/components/messages/documentUploaded'
+
+operations:
+  objectProcessorEvents:
+    action: send
+    channel:
+      $ref: '#/channels/objectProcessorEventsTopic'
+    description: |
+      Publish object processor events to the object processor events topic. These events will be consumed by the fcp-sfd-crm service to create cases and attach activities in the CRM system.
+    messages:
+      - $ref: '#/channels/objectProcessorEventsTopic/messages/documentUploaded'
+
+
+
+components:
+  messages:
+    documentUploaded:
+      name: New document uploaded event
+      title: Document Uploaded Event 
+      contentType: application/json
+      payload:
+        type: object
+        required:
+          - id
+          - source
+          - specversion
+          - type
+          - datacontenttype
+          - time
+          - data
+        properties:
+          id:
+            $ref: '#/components/schemas/id'
+          source:
+            $ref: '#/components/schemas/source'
+          type:
+            $ref: '#/components/schemas/type'
+          subject:
+            $ref: '#/components/schemas/subject'
+          specversion:
+            $ref: '#/components/schemas/specversion'
+          datacontenttype:
+            $ref: '#/components/schemas/datacontenttype'
+          time:
+            $ref: '#/components/schemas/time'
+          data:
+            type: object
+            additionalProperties: false
+            required:
+              - crn
+              - crm
+              - correlationId
+              - file
+              - sbi
+              - sourceSystem
+              - submissionId
+            properties:
+              crn:
+                $ref: '#/components/schemas/crn'
+              crm:
+               $ref: '#/components/schemas/crm'
+              correlationId:
+                $ref: '#/components/schemas/correlationId'
+              file:
+                $ref: '#/components/schemas/file'
+              sbi:
+                $ref: '#/components/schemas/sbi'
+              sourceSystem:
+                $ref: '#/components/schemas/sourceSystem'
+              submissionId:
+                $ref: '#/components/schemas/submissionId'
+               
+  
+  schemas:
+    crn:
+      type: number
+      description: Customer Reference Number (consists of 10 digits)
+      minimum: 1050000000
+      maximum: 9999999999
+      example: 1234567890
+    
+    crm:
+      type: object
+      additionalProperties: false
+      required:
+        - caseType
+        - title
+      properties:
+        caseType:
+          $ref: '#/components/schemas/crmCaseType'
+        title:
+          $ref: '#/components/schemas/title'
+    
+    contentType:
+      type: string
+      description: MIME type of the file
+      example: "application/pdf"
+      minLength: 1
+      maxLength: 127
+
+    crmCaseType:
+      type: string
+      description: The name of the CRM queue where the case is to be created  
+      minLength: 1
+      maxLength: 100
+      example: "CS_Agreement_Evidence"
+      # this should be one of a defined set of queue names making this an enum in future
+    
+    correlationId:
+      type: string
+      description: Unique identifier for tracing the event through systems and connecting related events together
+      format: uuid
+      example: "123e4567-e89b-12d3-a456-426655440000"
+
+    datacontenttype:
+      type: string
+      description: Format of the event data
+      default: "application/json"
+      example: "application/json"
+
+    subject:
+      type: string
+      description: Additional description of the type of event
+      enum:
+        - document.uploaded
+        - email.sent
+      example: "document.uploaded"
+
+    file:
+      type: object
+      description: Metadata for an individual uploaded file
+      required:
+        - fileId
+        - fileName
+        - url
+        - contentType
+      properties:
+        fileId:
+          $ref: '#/components/schemas/fileId'
+        fileName:
+          $ref: '#/components/schemas/fileName'
+        contentType:
+          $ref: '#/components/schemas/contentType'
+        url:
+          $ref: '#/components/schemas/url'
+
+
+    fileId:
+      type: string
+      format: uuid
+      description: Unique identifier for the uploaded file
+      example: "123e4567-e89b-12d3-a456-426655440001"
+
+    fileName:
+      type: string
+      description: Original name of the uploaded file
+      minLength: 1
+      maxLength: 255
+      example: "receipt.pdf"
+
+    id:
+      type: string
+      description: Unique identifier of the event
+      minLength: 1
+      format: uuid
+      example: 123e4567-e89b-12d3-a456-426655440000
+
+    sbi:
+      type: number
+      description: Single Business Identifier (consists of 9 digits)
+      minimum: 105000000
+      maximum: 999999999
+      example: 123456789
+
+    sourceSystem:
+      type: string
+      description: The name of the service that initiated the request
+      enum:
+        - fcp-sfd-frontend
+        - rps-portal
+      example: fcp-sfd-frontend
+      minLength: 1
+      maxLength: 100
+
+    source:
+      type: string
+      description: Service publishing the event
+      example: fcp-sfd-object-processor
+      minLength: 1
+      maxLength: 100
+
+    specversion:
+      type: string
+      description: Version of the CloudEvents specification used by the event
+      example: "1.0"
+      minLength: 3
+      maxLength: 10
+
+    submissionId:
+      type: string
+      format: uuid
+      description: Unique identifier for the submission of uploaded files. Created by the sourceSystem
+      example: 123e4567-e89b-12d3-a456-426655440000
+
+    time:
+      type: string
+      format: date-time
+      description: Time the event occurred
+      example: "2023-10-17T14:48:00Z"
+
+    title:
+      type: string
+      description: Title to be displayed for the CRM case in the following format; [Document Type] - [Client Name] - [Upload Date] 
+      example: Proof of purchase - Samuel F Armer - 12-12-2025
+      minLength: 1
+      maxLength: 200
+
+    type:
+      type: string
+      description: Type of event in reverse DNS notation
+      example: uk.gov.fcp.sfd.event
+      minLength: 3
+      maxLength: 250
+    
+    url:
+      type: string
+      description: URL where the file can be accessed
+      format: uri
+      example: "https://example.com/files/123e4567-e89b-12d3-a456-426655440001"
+
+    
