@@ -50,11 +50,12 @@ components:
             $ref: '#/components/schemas/id'
           source:
             $ref: '#/components/schemas/source'
-          specversion:
-            $ref: '#/components/schemas/specversion'
           type:
             $ref: '#/components/schemas/type'
-
+          subject:
+            $ref: '#/components/schemas/subject'
+          specversion:
+            $ref: '#/components/schemas/specversion'
           datacontenttype:
             $ref: '#/components/schemas/datacontenttype'
           time:
@@ -66,11 +67,10 @@ components:
               - crn
               - crm
               - correlationId
-              - files
+              - file
               - sbi
               - sourceSystem
               - submissionId
-              - subtype
             properties:
               crn:
                 $ref: '#/components/schemas/crn'
@@ -86,8 +86,6 @@ components:
                 $ref: '#/components/schemas/sourceSystem'
               submissionId:
                 $ref: '#/components/schemas/submissionId'
-              subtype:
-                $ref: '#/components/schemas/subtype'
                
   
   schemas:
@@ -137,9 +135,9 @@ components:
       default: "application/json"
       example: "application/json"
 
-    subtype:
+    subject:
       type: string
-      description: Subtype of the event
+      description: Additional description of the type of event
       enum:
         - document.uploaded
         - email.sent
