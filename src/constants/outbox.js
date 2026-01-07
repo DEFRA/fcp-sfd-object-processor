@@ -1,5 +1,3 @@
-export const outboxStatuses = {
-  PENDING: 'PENDING',
-  SENT: 'SENT',
-  FAILED: 'FAILED'
-}
+export const PENDING = 'PENDING'
+export const SENT = 'SENT'
+export const FAILED = 'FAILED'
