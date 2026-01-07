@@ -12,6 +12,12 @@ export const databaseConfig = {
       default: 'fcp-sfd-object-processor',
       env: 'MONGO_DATABASE'
     },
+    readPreference: {
+      doc: 'MongoDB read preference (primary, secondary, etc), needs to be primary in local development as we use a single mongo node replica set. For production, we are using secondary for read operations to reduce load on primary.',
+      format: String,
+      default: null,
+      env: 'MONGO_READ_PREFERENCE'
+    },
     collections: {
       uploadMetadata: {
         doc: 'uploadMetadata collection',

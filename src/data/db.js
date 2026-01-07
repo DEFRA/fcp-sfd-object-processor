@@ -8,7 +8,7 @@ const logger = createLogger()
 
 const client = await MongoClient.connect(config.get('mongo.uri'), {
   retryWrites: false,
-  readPreference: 'secondary',
+  readPreference: config.get('mongo.readPreference'),
   ...(createSecureContext && { secureContext: createSecureContext(logger) })
 })
 
