@@ -8,14 +8,15 @@ services:
       localstack:
         condition: service_healthy
       mongodb:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - ./src/:/home/node/src
       - ./package.json:/home/node/package.json
     environment:
       NODE_ENV: development
       LOCALSTACK_ENDPOINT: http://localstack:4566
-      MONGO_URI: mongodb://mongodb:27017/
+      MONGO_URI: mongodb://mongodb:27017/?replicaSet=rs0
+      MONGO_READ_PREFERENCE: primary 
       CDP_UPLOADER_URL: ${CDP_UPLOADER_URL:-http://cdp-uploader:7337}
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
@@ -76,7 +77,13 @@ services:
       - fcp-sfd
 
   mongodb:
-    image: mongo:6.0.13
+    image: mongo:7.0.24
+    command: --replSet rs0 --bind_ip_all --port 27017
+    attach: false
+    healthcheck:
+      test: test $$(mongosh --port 27017 --quiet --eval "try {rs.initiate({_id:'rs0',members:[{_id:0,host:\"mongodb:27017\"}]})} catch(e) {rs.status().ok}") -eq 1
+      interval: 10s
+      start_period: 10s
     networks:
       - fcp-sfd
     volumes:
