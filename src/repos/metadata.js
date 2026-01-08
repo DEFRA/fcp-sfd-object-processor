@@ -69,7 +69,6 @@ const getMetadataBySbi = async (sbi) => {
 const persistMetadata = async (payload) => {
   const collection = config.get(metadataCollection)
 
-  // TODO check for idempotency needed
   const documents = formatInboundMetadata(payload)
 
   const result = await db.collection(collection).insertMany(documents)

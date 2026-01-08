@@ -9,8 +9,7 @@ let server
 let originalCollection
 let collection
 
-// TODO update these tests to use the right mockdata
-// wshould be inserting the RAW metadata object including the 'raw' and 's3' keys to test that it successfully filters
+// should be inserting the RAW metadata object including the 'raw' and 's3' keys to test that it successfully filters
 
 beforeAll(async () => {
   // set a new collection for each integration test to avoid db clashes between tests
