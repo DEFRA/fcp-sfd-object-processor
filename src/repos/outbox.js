@@ -4,13 +4,13 @@ import { db } from '../data/db.js'
 
 const outboxCollection = 'mongo.collections.outbox'
 
-const createOutboxEntries = async (ids, documents, session) => {
+const createOutboxEntries = async (metadataDocumentIds, documents, session) => {
   const collection = config.get(outboxCollection)
 
-  const outboxDocs = Object.values(ids).map((id, index) => {
+  const outboxDocs = Object.entries(metadataDocumentIds).map(([key, id]) => {
     return {
       messageId: id,
-      payload: documents[index],
+      payload: documents[key],
       status: PENDING,
       attempts: 0,
       createdAt: new Date()
