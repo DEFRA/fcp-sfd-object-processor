@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, vi, test, afterEach } from 'vitest'
+import { beforeEach, describe, expect, vi, test } from 'vitest'
 import { startOutbox } from '../../../../src/messaging/outbound/index.js'
 import { publishPendingMessages } from '../../../../src/messaging/outbound/crm/doc-upload/publish-pending-messages.js'
 
