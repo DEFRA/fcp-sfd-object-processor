@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, vi, test } from 'vitest'
 import { ObjectId } from 'mongodb'
 import { persistMetadataWithOutbox } from '../../../src/services/metadata-service.js'
-import { persistMetadata } from '../../../src/repos/metadata.js'
+import { persistMetadata, formatInboundMetadata } from '../../../src/repos/metadata.js'
 import { createOutboxEntries } from '../../../src/repos/outbox.js'
 import { client } from '../../../src/data/db.js'
-import { mockMetadataResponse as documents } from '../../mocks/metadata.js'
+import { mockScanAndUploadResponseArray as rawDocuments } from '../../mocks/cdp-uploader.js'
+import { mockMetadataResponse as formattedDocuments } from '../../mocks/metadata.js'
 
 vi.mock('../../../src/repos/metadata.js')
 vi.mock('../../../src/repos/outbox.js')
@@ -38,41 +39,102 @@ describe('Metadata Service', () => {
   })
 
   describe('persistMetadataWithOutbox', () => {
-    test('should persist metadata and create outbox entries in a transaction', async () => {
+    test('should start and end a session', async () => {
+      formatInboundMetadata.mockReturnValue(formattedDocuments)
+      persistMetadata.mockResolvedValue({ insertedIds: {} })
+
+      mockSession.withTransaction.mockImplementation(async (callback) => {
+        return await callback()
+      })
+
+      await persistMetadataWithOutbox(rawDocuments)
+
+      expect(client.startSession).toHaveBeenCalled()
+      expect(mockSession.endSession).toHaveBeenCalled()
+    })
+
+    test('should use the transaction when persisting', async () => {
+      formatInboundMetadata.mockReturnValue(formattedDocuments)
+      persistMetadata.mockResolvedValue({ insertedIds: {} })
+
+      mockSession.withTransaction.mockImplementation(async (callback) => {
+        return await callback()
+      })
+
+      await persistMetadataWithOutbox(rawDocuments)
+
+      expect(mockSession.withTransaction).toHaveBeenCalled()
+    })
+
+    test('should format inbound metadata before persisting', async () => {
+      formatInboundMetadata.mockReturnValue(formattedDocuments)
+      persistMetadata.mockResolvedValue({ insertedIds: {} })
+
+      mockSession.withTransaction.mockImplementation(async (callback) => {
+        return await callback()
+      })
+
+      await persistMetadataWithOutbox(rawDocuments)
+
+      expect(formatInboundMetadata).toHaveBeenCalledWith(rawDocuments)
+    })
+
+    test('should call persistMetadata with formatted documents and session', async () => {
+      formatInboundMetadata.mockReturnValue(formattedDocuments)
+      persistMetadata.mockResolvedValue({ insertedIds: {} })
+
+      mockSession.withTransaction.mockImplementation(async (callback) => {
+        return await callback()
+      })
+
+      await persistMetadataWithOutbox(rawDocuments)
+
+      expect(persistMetadata).toHaveBeenCalledWith(formattedDocuments, mockSession)
+    })
+
+    test('should create outbox entries with inserted IDs and formatted documents', async () => {
       const mockMetadataResult = {
         acknowledged: true,
         insertedCount: 2,
         insertedIds: { 0: new ObjectId(), 1: new ObjectId() }
       }
 
-      const mockOutboxResult = {
-        0: new ObjectId(),
-        1: new ObjectId()
-      }
-
+      formatInboundMetadata.mockReturnValue(formattedDocuments)
       persistMetadata.mockResolvedValue(mockMetadataResult)
-      createOutboxEntries.mockResolvedValue(mockOutboxResult)
 
-      // Mock withTransaction to execute the callback
       mockSession.withTransaction.mockImplementation(async (callback) => {
         return await callback()
       })
 
-      const result = await persistMetadataWithOutbox(documents)
+      await persistMetadataWithOutbox(rawDocuments)
 
-      expect(client.startSession).toHaveBeenCalled()
-      expect(mockSession.withTransaction).toHaveBeenCalled()
-      expect(persistMetadata).toHaveBeenCalledWith(documents, mockSession)
       expect(createOutboxEntries).toHaveBeenCalledWith(
         mockMetadataResult.insertedIds,
-        documents,
+        formattedDocuments,
         mockSession
       )
-      expect(mockSession.endSession).toHaveBeenCalled()
+    })
+
+    test('should return the metadata result', async () => {
+      const mockMetadataResult = {
+        acknowledged: true,
+        insertedCount: 2,
+        insertedIds: { 0: new ObjectId(), 1: new ObjectId() }
+      }
+
+      formatInboundMetadata.mockReturnValue(formattedDocuments)
+      persistMetadata.mockResolvedValue(mockMetadataResult)
+
+      mockSession.withTransaction.mockImplementation(async (callback) => {
+        return await callback()
+      })
+
+      const result = await persistMetadataWithOutbox(rawDocuments)
+
       expect(result).toEqual(mockMetadataResult)
     })
 
-    test('should rollback transaction and throw error if metadata persist fails', async () => {
+    test('should throw error and end session if metadata persist fails', async () => {
       const mockError = new Error('Database error')
 
       persistMetadata.mockRejectedValue(mockError)
@@ -81,12 +143,12 @@ describe('Metadata Service', () => {
         return await callback()
       })
 
-      await expect(persistMetadataWithOutbox(documents)).rejects.toThrow('Database error')
+      await expect(persistMetadataWithOutbox(rawDocuments)).rejects.toThrow('Database error')
 
       expect(mockSession.endSession).toHaveBeenCalled()
     })
 
-    test('should rollback transaction and throw error if outbox creation fails', async () => {
+    test('should throw error and end session if outbox creation fails', async () => {
       const mockMetadataResult = {
         acknowledged: true,
         insertedCount: 2,
@@ -102,7 +164,7 @@ describe('Metadata Service', () => {
         return await callback()
       })
 
-      await expect(persistMetadataWithOutbox(documents)).rejects.toThrow('Outbox creation failed')
+      await expect(persistMetadataWithOutbox(rawDocuments)).rejects.toThrow('Outbox creation failed')
 
       expect(mockSession.endSession).toHaveBeenCalled()
     })
@@ -112,7 +174,7 @@ describe('Metadata Service', () => {
 
       mockSession.withTransaction.mockRejectedValue(mockError)
 
-      await expect(persistMetadataWithOutbox(documents)).rejects.toThrow('Transaction error')
+      await expect(persistMetadataWithOutbox(rawDocuments)).rejects.toThrow('Transaction error')
 
       expect(mockSession.endSession).toHaveBeenCalled()
     })
