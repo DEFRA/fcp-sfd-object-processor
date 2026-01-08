@@ -66,12 +66,10 @@ const getMetadataBySbi = async (sbi) => {
   return documents
 }
 
-const persistMetadata = async (payload, session) => {
+const persistMetadata = async (documents, session) => {
   const collection = config.get(metadataCollection)
 
   // TODO check for idempotency needed
-  const documents = formatInboundMetadata(payload)
-
   const result = await db.collection(collection).insertMany(documents, { session })
 
   if (!result.acknowledged) {
