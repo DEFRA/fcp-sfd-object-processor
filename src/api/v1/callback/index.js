@@ -4,7 +4,7 @@ import { constants as httpConstants } from 'node:http2'
 import { createLogger } from '../../../logging/logger.js'
 import { callbackPayloadSchema } from './schema.js'
 import { config } from '../../../config/index.js'
-import { publishDocumentUploadMessage } from '../../../messaging/outbound/crm/doc-upload/publish-document-upload-message.js'
+import { persistMetadataWithOutbox } from '../../../services/metadata-service.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -25,8 +25,13 @@ export const uploadCallback = {
     },
     handler: async (request, h) => {
       try {
-        await publishDocumentUploadMessage({ test: 'test payload' }) // for testing only, we need to setup the outbox pattern to handle this properly
-        return h.response().code(httpConstants.HTTP_STATUS_CREATED)
+        const result = await persistMetadataWithOutbox(request.payload)
+
+        return h.response({
+          message: 'Metadata created',
+          count: result.insertedCount,
+          ids: Object.values(result.insertedIds)
+        }).code(httpConstants.HTTP_STATUS_CREATED)
       } catch (err) {
         logger.error(err)
         return Boom.internal(err)
