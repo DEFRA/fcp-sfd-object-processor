@@ -1,6 +1,6 @@
 import { config } from '../config/index.js'
 import { NotFoundError } from '../errors/not-found-error.js'
-import db from '../data/db.js'
+import { db } from '../data/db.js'
 
 const metadataCollection = 'mongo.collections.uploadMetadata'
 
@@ -66,16 +66,15 @@ const getMetadataBySbi = async (sbi) => {
   return documents
 }
 
-const persistMetadata = async (payload) => {
+const persistMetadata = async (documents, session) => {
   const collection = config.get(metadataCollection)
 
-  const documents = formatInboundMetadata(payload)
-
-  const result = await db.collection(collection).insertMany(documents)
+  const result = await db.collection(collection).insertMany(documents, { session })
 
   if (!result.acknowledged) {
     throw new Error('Failed to insert, no acknowledgement from database')
   }
+
   return result
 }
 

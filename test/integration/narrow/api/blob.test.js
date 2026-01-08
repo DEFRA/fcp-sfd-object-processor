@@ -1,7 +1,7 @@
 import { constants as httpConstants } from 'node:http2'
 import { vi, describe, test, expect, beforeAll, beforeEach, afterAll } from 'vitest'
 
-import db from '../../../../src/data/db.js'
+import { db } from '../../../../src/data/db.js'
 import { config } from '../../../../src/config'
 import { createServer } from '../../../../src/api'
 import { mockFormattedMetadata } from '../../../mocks/metadata.js'

@@ -8,7 +8,7 @@ const logger = createLogger()
 
 const client = await MongoClient.connect(config.get('mongo.uri'), {
   retryWrites: false,
-  readPreference: 'secondary',
+  readPreference: config.get('mongo.readPreference'),
   ...(createSecureContext && { secureContext: createSecureContext(logger) })
 })
 
@@ -16,4 +16,4 @@ const db = client.db(config.get('mongo.database'))
 
 logger.info('Connected to MongoDB')
 
-export default db
+export { db, client }

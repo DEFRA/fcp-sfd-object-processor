@@ -3,7 +3,7 @@ import { vi, describe, test, expect, beforeAll, afterEach, afterAll } from 'vite
 import { createServer } from '../../../../src/api'
 import { mockMetadataResponse } from '../../../mocks/metadata.js'
 import { config } from '../../../../src/config/index.js'
-import db from '../../../../src/data/db.js'
+import { db } from '../../../../src/data/db.js'
 
 let server
 let originalCollection
