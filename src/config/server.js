@@ -122,7 +122,7 @@ export const serverConfig = {
     outboxIntervalMs: {
       doc: 'Interval in milliseconds between outbox processing runs',
       format: 'int',
-      default: 30000,
+      default: 30000
     }
   }
 }
