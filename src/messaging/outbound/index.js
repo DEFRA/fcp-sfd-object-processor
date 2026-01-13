@@ -13,4 +13,4 @@ const startOutbox = async () => {
   }
 }
 
-module.exports = { startOutbox }
+export { startOutbox }
