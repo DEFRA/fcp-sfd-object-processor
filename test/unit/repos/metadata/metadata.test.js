@@ -64,6 +64,16 @@ describe('Metadata Repository', () => {
           bucket: mockScanAndUploadResponse.form['another-file-upload-field'].s3Bucket
         })
       })
+
+      test('each object should contain the messaging data in the messaging subdoc', () => {
+        expect(formattedMetadata[0].messaging).toStrictEqual({
+          publishedAt: null
+        })
+
+        expect(formattedMetadata[1].messaging).toStrictEqual({
+          publishedAt: null
+        })
+      })
     })
   })
 })

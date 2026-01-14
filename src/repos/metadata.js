@@ -46,6 +46,9 @@ const formatInboundMetadata = (payload) => {
       s3: {
         key: formUpload.s3Key,
         bucket: formUpload.s3Bucket
+      },
+      messaging: {
+        publishedAt: null
       }
     }
   })
