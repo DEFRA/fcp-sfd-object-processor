@@ -90,17 +90,41 @@ describe('publishPendingMessages', () => {
     expect(updateDeliveryStatus).toHaveBeenCalledWith(mockPendingMessages[1]._id, SENT)
   })
 
-  // test('should handle when there are no pending messages', async () => {
+  test('should handle when there are no pending messages', async () => {
+    getPendingOutboxEntries.mockResolvedValue([])
 
-  // })
+    await publishPendingMessages()
 
-  // test('should update status to FAILED when publishing fails', async () => {
+    expect(getPendingOutboxEntries).toHaveBeenCalledOnce()
+    expect(publishDocumentUploadMessage).not.toHaveBeenCalled()
+    expect(updateDeliveryStatus).not.toHaveBeenCalled()
+  })
 
-  // })
+  test('should update status to FAILED when publishing fails', async () => {
+    getPendingOutboxEntries.mockResolvedValue(mockPendingMessages)
+    publishDocumentUploadMessage.mockRejectedValue(new Error('Publishing failed'))
 
-  // test('should continue processing other messages if one fails', async () => {
+    await publishPendingMessages()
 
-  // })
+    expect(getPendingOutboxEntries).toHaveBeenCalledOnce()
+    expect(publishDocumentUploadMessage).toHaveBeenCalledTimes(2)
+    expect(updateDeliveryStatus).toHaveBeenCalledTimes(2)
+    expect(updateDeliveryStatus).toHaveBeenCalledWith(mockPendingMessages[0]._id, FAILED, 'Publishing failed')
+    expect(updateDeliveryStatus).toHaveBeenCalledWith(mockPendingMessages[1]._id, FAILED, 'Publishing failed')
+  })
+
+  test('should continue processing other messages if one fails', async () => {
+    getPendingOutboxEntries.mockResolvedValue(mockPendingMessages)
+    publishDocumentUploadMessage.mockRejectedValueOnce(new Error('Publishing failed')).mockResolvedValueOnce(undefined)
+
+    await publishPendingMessages()
+
+    expect(getPendingOutboxEntries).toHaveBeenCalledOnce()
+    expect(publishDocumentUploadMessage).toHaveBeenCalledTimes(2)
+    expect(updateDeliveryStatus).toHaveBeenCalledTimes(2)
+    expect(updateDeliveryStatus).toHaveBeenCalledWith(mockPendingMessages[0]._id, FAILED, 'Publishing failed')
+    expect(updateDeliveryStatus).toHaveBeenCalledWith(mockPendingMessages[1]._id, SENT)
+  })
 
   // test('should use transaction session for database operations', async () => {
 
