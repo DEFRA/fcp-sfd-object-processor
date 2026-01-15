@@ -234,7 +234,7 @@ describe('Outbox Repository', () => {
 
       expect(updatedEntry[1].$set).toMatchObject({
         attempts: {
-          $inc: 1,
+          $inc: 1
         },
         status: SENT,
         lastAttemptedAt: expect.any(Date)
@@ -261,7 +261,7 @@ describe('Outbox Repository', () => {
 
       expect(updatedEntry[1].$set).toMatchObject({
         attempts: {
-          $inc: 1,
+          $inc: 1
         },
         status: FAILED,
         lastAttemptedAt: expect.any(Date),
