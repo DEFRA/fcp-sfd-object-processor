@@ -1,4 +1,3 @@
-import { ObjectId } from 'mongodb'
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 
 import { formatInboundMetadata, persistMetadata, bulkUpdatePublishedAtDate } from '../../../../src/repos/metadata.js'
@@ -138,7 +137,7 @@ describe('Metadata Repository', () => {
   })
 
   describe('bulkUpdatePublishedAtDate', () => {
-    const mockIds = [new ObjectId(), new ObjectId()]
+    const mockIds = ['507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012']
 
     test('should update publishedAt and return result when acknowledged', async () => {
       const mockResult = {

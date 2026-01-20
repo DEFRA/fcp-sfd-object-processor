@@ -96,7 +96,7 @@ describe('Metadata Service', () => {
       const mockMetadataResult = {
         acknowledged: true,
         insertedCount: 2,
-        insertedIds: { 0: new ObjectId(), 1: new ObjectId() }
+        insertedIds: { 0: ObjectId.createFromHexString('507f1f77bcf86cd799439011'), 1: ObjectId.createFromHexString('507f1f77bcf86cd799439012') }
       }
 
       formatInboundMetadata.mockReturnValue(formattedDocuments)
@@ -119,7 +119,7 @@ describe('Metadata Service', () => {
       const mockMetadataResult = {
         acknowledged: true,
         insertedCount: 2,
-        insertedIds: { 0: new ObjectId(), 1: new ObjectId() }
+        insertedIds: { 0: ObjectId.createFromHexString('507f1f77bcf86cd799439011'), 1: ObjectId.createFromHexString('507f1f77bcf86cd799439012') }
       }
 
       formatInboundMetadata.mockReturnValue(formattedDocuments)
@@ -152,7 +152,7 @@ describe('Metadata Service', () => {
       const mockMetadataResult = {
         acknowledged: true,
         insertedCount: 2,
-        insertedIds: { 0: new ObjectId(), 1: new ObjectId() }
+        insertedIds: { 0: ObjectId.createFromHexString('507f1f77bcf86cd799439011'), 1: ObjectId.createFromHexString('507f1f77bcf86cd799439012') }
       }
 
       const mockError = new Error('Outbox creation failed')

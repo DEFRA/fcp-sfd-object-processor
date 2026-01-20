@@ -38,7 +38,7 @@ const getPendingOutboxEntries = async () => {
 const bulkUpdateDeliveryStatus = async (session, messageIds, status, error = null) => {
   const collection = config.get(outboxCollection)
 
-  const filter = { messageId: { $in: messageIds.map(id => new ObjectId(id)) } }
+  const filter = { messageId: { $in: messageIds.map(id => ObjectId.createFromHexString(id)) } }
 
   const updateDoc = {
     $set: {

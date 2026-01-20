@@ -85,7 +85,7 @@ const persistMetadata = async (documents, session) => {
 const bulkUpdatePublishedAtDate = async (session, ids) => {
   const collection = config.get(metadataCollection)
 
-  const filter = { _id: { $in: ids.map(id => new ObjectId(id)) } }
+  const filter = { _id: { $in: ids.map(id => ObjectId.createFromHexString(id)) } }
 
   const updateDoc = {
     $set: {

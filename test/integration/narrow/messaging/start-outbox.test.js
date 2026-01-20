@@ -48,8 +48,8 @@ afterAll(async () => {
 describe('Outbox message processing', () => {
   test('should update outbox status to SENT and metadata publishedAt when messages are successfully published', async () => {
     // Arrange: Create ObjectIds that will link outbox and metadata entries
-    const metadataId1 = new ObjectId()
-    const metadataId2 = new ObjectId()
+    const metadataId1 = ObjectId.createFromHexString('507f1f77bcf86cd799439011')
+    const metadataId2 = ObjectId.createFromHexString('507f1f77bcf86cd799439012')
 
     // Create metadata entries
     const metadataEntries = [
@@ -140,8 +140,8 @@ describe('Outbox message processing', () => {
 
   test('should update outbox status to FAILED when messages fail to publish and leave metadata publishedAt as null', async () => {
     // Arrange: Create ObjectIds that will link outbox and metadata entries
-    const metadataId1 = new ObjectId()
-    const metadataId2 = new ObjectId()
+    const metadataId1 = ObjectId.createFromHexString('507f1f77bcf86cd799439013')
+    const metadataId2 = ObjectId.createFromHexString('507f1f77bcf86cd799439014')
 
     // Create metadata entries
     const metadataEntries = [
