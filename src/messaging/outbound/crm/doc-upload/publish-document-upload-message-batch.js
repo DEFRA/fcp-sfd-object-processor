@@ -11,9 +11,11 @@ const logger = createLogger()
 const publishDocumentUploadMessageBatch = async (pendingMessages) => {
   try {
     const documentUploadMessageBatch = buildDocumentUploadMessageBatch(pendingMessages)
-    await publishBatch(snsClient, snsTopic, documentUploadMessageBatch)
+    const snsPublishResponse = await publishBatch(snsClient, snsTopic, documentUploadMessageBatch)
+    return snsPublishResponse
   } catch (error) {
-    logger.error(error, 'Error publishing document upload event')
+    logger.error(error, 'Error publishing document upload batch')
+    throw error
   }
 }
 

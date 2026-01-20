@@ -37,6 +37,10 @@ describe('Publish Received Message', () => {
 
   test('should publish a message batch', async () => {
     buildDocumentUploadMessageBatch.mockReturnValue(mockMessageBatch)
+    publishBatch.mockResolvedValue({
+      successful: [{ id: 'id-1', messageId: 'message-id-1', sequenceNumber: 1 }],
+      failed: []
+    })
 
     await publishDocumentUploadMessageBatch(mockPendingMessages)
 
@@ -49,16 +53,31 @@ describe('Publish Received Message', () => {
     )
   })
 
-  test('should log error if publish fails', async () => {
+  test('should return the success and failed object from publishBatch', async () => {
+    buildDocumentUploadMessageBatch.mockReturnValue(mockMessageBatch)
+    publishBatch.mockResolvedValue({
+      successful: [{ id: 'id-1', messageId: 'message-id-1', sequenceNumber: 1 }],
+      failed: [{ id: 'id-2', messageId: 'message-id-2', sequenceNumber: 2 }]
+    })
+
+    const result = await publishDocumentUploadMessageBatch(mockPendingMessages)
+
+    expect(result).toEqual({
+      successful: [{ id: 'id-1', messageId: 'message-id-1', sequenceNumber: 1 }],
+      failed: [{ id: 'id-2', messageId: 'message-id-2', sequenceNumber: 2 }]
+    })
+  })
+
+  test('should throw error and log if publish fails', async () => {
     const mockError = new Error('Publish error')
 
     publishBatch.mockRejectedValue(mockError)
 
-    await publishDocumentUploadMessageBatch(mockPendingMessages)
+    await expect(publishDocumentUploadMessageBatch(mockPendingMessages)).rejects.toThrow('Publish error')
 
     expect(mockLogger.error).toHaveBeenCalledWith(
       mockError,
-      'Error publishing document upload event'
+      'Error publishing document upload batch'
     )
   })
 })
