@@ -73,7 +73,6 @@ const getMetadataBySbi = async (sbi) => {
 const persistMetadata = async (documents, session) => {
   const collection = config.get(metadataCollection)
 
-  // TODO check for idempotency needed
   const result = await db.collection(collection).insertMany(documents, { session })
 
   if (!result.acknowledged) {
