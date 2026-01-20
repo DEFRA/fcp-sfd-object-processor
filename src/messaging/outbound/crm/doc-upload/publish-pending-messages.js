@@ -32,6 +32,7 @@ const publishPendingMessages = async () => {
           await bulkUpdateDeliveryStatus(session, Failed.map(message => message.Id), FAILED, 'Failed to send message')
         }
       })
+      logger.info(`Outbox processing complete. Total: ${Successful.length} sent, ${Failed.length} failed`)
     }
   } catch (error) {
     logger.error(error, 'Error publishing pending outbox messages')
