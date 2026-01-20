@@ -1,3 +1,4 @@
+import { ObjectId } from 'mongodb'
 import { config } from '../config/index.js'
 import { PENDING } from '../constants/outbox.js'
 import { db } from '../data/db.js'
@@ -34,20 +35,22 @@ const getPendingOutboxEntries = async () => {
   return pendingEntries
 }
 
-const updateDeliveryStatus = async (messageId, status, error = null) => {
+const bulkUpdateDeliveryStatus = async (session, messageIds, status, error = null) => {
   const collection = config.get(outboxCollection)
 
-  const filter = { _id: messageId }
+  const filter = { messageId: { $in: messageIds.map(id => new ObjectId(id)) } }
 
   const updateDoc = {
     $set: {
       status,
-      attempts: { $inc: 1 },
       lastAttemptedAt: new Date(),
       ...(error && { error })
+    },
+    $inc: {
+      attempts: 1
     }
   }
-  const updateResult = await db.collection(collection).updateOne(filter, updateDoc)
+  const updateResult = await db.collection(collection).updateMany(filter, updateDoc, { session })
 
   if (!updateResult.acknowledged) {
     throw new Error('Failed to update outbox entries')
@@ -59,5 +62,5 @@ const updateDeliveryStatus = async (messageId, status, error = null) => {
 export {
   createOutboxEntries,
   getPendingOutboxEntries,
-  updateDeliveryStatus
+  bulkUpdateDeliveryStatus
 }

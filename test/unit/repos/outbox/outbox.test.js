@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, vi, test } from 'vitest'
 import { ObjectId } from 'mongodb'
-import { createOutboxEntries, getPendingOutboxEntries, updateDeliveryStatus } from '../../../../src/repos/outbox.js'
+import { createOutboxEntries, getPendingOutboxEntries, bulkUpdateDeliveryStatus } from '../../../../src/repos/outbox.js'
 import { mockMetadataResponse as documents } from '../../../mocks/metadata.js'
 import { PENDING, SENT, FAILED } from '../../../../src/constants/outbox.js'
 import { db } from '../../../../src/data/db.js'
@@ -29,7 +29,7 @@ describe('Outbox Repository', () => {
     mockCollection = {
       insertMany: vi.fn(),
       find: vi.fn(),
-      updateOne: vi.fn()
+      updateMany: vi.fn()
     }
 
     db.collection.mockReturnValue(mockCollection)
@@ -215,66 +215,67 @@ describe('Outbox Repository', () => {
     })
   })
 
-  describe('updateDeliveryStatus', () => {
+  describe('bulkUpdateDeliveryStatus', () => {
+    const mockSession = {}
+
     test('should update outbox entry status to sent', async () => {
-      const mockUpdateOneResult = {
+      const mockUpdateManyResult = {
         acknowledged: true,
         matchedCount: 1,
         modifiedCount: 1,
-        upsertedCount: 1,
-        upsertedId: null // null because we are not using upsert only modify in place
+        upsertedCount: 0,
+        upsertedId: null
       }
 
-      mockCollection.updateOne.mockResolvedValue(mockUpdateOneResult)
+      mockCollection.updateMany.mockResolvedValue(mockUpdateManyResult)
+      const mockMessageId = new ObjectId()
 
-      const result = await updateDeliveryStatus(1, SENT)
+      const result = await bulkUpdateDeliveryStatus(mockSession, [mockMessageId], SENT)
 
       // this is the response from the db operation
-      const updatedEntry = mockCollection.updateOne.mock.calls[0]
+      const updatedEntry = mockCollection.updateMany.mock.calls[0]
 
+      expect(updatedEntry[0]).toEqual({ messageId: { $in: [mockMessageId] } })
       expect(updatedEntry[1].$set).toMatchObject({
-        attempts: {
-          $inc: 1
-        },
         status: SENT,
         lastAttemptedAt: expect.any(Date)
       })
+      expect(updatedEntry[1].$inc).toEqual({ attempts: 1 })
 
-      expect(result).toEqual(mockUpdateOneResult)
+      expect(result).toEqual(mockUpdateManyResult)
     })
 
-    test('should include error when outbox entry status to failed', async () => {
-      const mockUpdateOneResult = {
+    test('should include error message when outbox entry status to failed', async () => {
+      const mockUpdateManyResult = {
         acknowledged: true,
         matchedCount: 1,
         modifiedCount: 1,
-        upsertedCount: 1,
-        upsertedId: null // null because we are not using upsert only modify in place
+        upsertedCount: 0,
+        upsertedId: null
       }
 
-      mockCollection.updateOne.mockResolvedValue(mockUpdateOneResult)
-
-      const result = await updateDeliveryStatus(1, FAILED, 'Test error message')
+      mockCollection.updateMany.mockResolvedValue(mockUpdateManyResult)
+      const mockMessageId = new ObjectId()
+      const result = await bulkUpdateDeliveryStatus(mockSession, [mockMessageId], FAILED, 'Test error message')
 
       // this is the response from the db operation
-      const updatedEntry = mockCollection.updateOne.mock.calls[0]
+      const updatedEntry = mockCollection.updateMany.mock.calls[0]
 
+      expect(updatedEntry[0]).toEqual({ messageId: { $in: [mockMessageId] } })
       expect(updatedEntry[1].$set).toMatchObject({
-        attempts: {
-          $inc: 1
-        },
         status: FAILED,
         lastAttemptedAt: expect.any(Date),
         error: 'Test error message'
       })
+      expect(updatedEntry[1].$inc).toEqual({ attempts: 1 })
 
-      expect(result).toEqual(mockUpdateOneResult)
+      expect(result).toEqual(mockUpdateManyResult)
     })
 
     test('should throw error when database update fails', async () => {
-      mockCollection.updateOne.mockResolvedValue({ acknowledged: false })
+      mockCollection.updateMany.mockResolvedValue({ acknowledged: false })
 
-      await expect(updateDeliveryStatus(1, SENT))
+      await expect(bulkUpdateDeliveryStatus(mockSession, [1], SENT))
         .rejects.toThrow('Failed to update outbox entries')
     })
   })
