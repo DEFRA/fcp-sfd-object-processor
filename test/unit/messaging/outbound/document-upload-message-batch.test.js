@@ -51,7 +51,7 @@ describe('buildDocumentUploadMessageBatch', () => {
       {
         metadata: { sbi: '123456789' },
         file: { fileId: 'file-1', filename: 'test1.pdf' }
-      },
+      }
     ]
 
     const result = buildDocumentUploadMessageBatch(pendingMessages)

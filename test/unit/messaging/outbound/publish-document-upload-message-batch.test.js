@@ -23,11 +23,11 @@ const mockPendingMessages = [{
   _id: 'message-id-1',
   messageId: 'metadata-id-1',
   payload: {},
-  status: 'pending',
+  status: 'pending'
 }]
 
 const mockMessageBatch = [{
-  cloudEventsFormat: 'cloud-events',
+  cloudEventsFormat: 'cloud-events'
 }]
 
 describe('Publish Received Message', () => {
