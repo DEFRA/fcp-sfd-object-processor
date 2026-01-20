@@ -1,29 +1,44 @@
 import { createLogger } from '../../../../logging/logger.js'
-import { getPendingOutboxEntries, updateDeliveryStatus } from '../../../../repos/outbox.js'
-import { publishDocumentUploadMessage } from './publish-document-upload-message.js'
-import { SENT, FAILED } from '../../../../constants/outbox.js'
+import { getPendingOutboxEntries, bulkUpdateDeliveryStatus } from '../../../../repos/outbox.js'
+import { bulkUpdatePublishedAtDate } from '../../../../repos/metadata.js'
+import { publishDocumentUploadMessageBatch } from './publish-document-upload-message-batch.js'
+import { SENT, FAILED, BATCH_SIZE } from '../../../../constants/outbox.js'
+import { client } from '../../../../data/db.js'
 
 const logger = createLogger()
 
 const publishPendingMessages = async () => {
-  const pendingMessages = await getPendingOutboxEntries()
-  logger.info(pendingMessages.length
-    ? `Processing ${pendingMessages.length} outbox messages.`
-    : 'No pending outbox messages to process.'
-  )
+  const session = client.startSession()
 
-  for (const message of pendingMessages) {
-    try {
-      await publishDocumentUploadMessage(message.payload)
-      await updateDeliveryStatus(message._id, SENT)
-    } catch (error) {
-      await updateDeliveryStatus(message._id, FAILED, error.message)
+  try {
+    const pendingMessages = await getPendingOutboxEntries()
+    logger.info(pendingMessages.length
+      ? `Processing ${pendingMessages.length} outbox message(s).`
+      : 'No pending outbox messages to process.'
+    )
+
+    for (let i = 0; i < pendingMessages.length; i += BATCH_SIZE) {
+      const batch = pendingMessages.slice(i, i + BATCH_SIZE)
+
+      const { Successful, Failed } = await publishDocumentUploadMessageBatch(batch)
+
+      await session.withTransaction(async () => {
+        if (Successful.length > 0) {
+          await bulkUpdateDeliveryStatus(session, Successful.map(message => message.Id), SENT)
+          await bulkUpdatePublishedAtDate(session, Successful.map(message => message.Id))
+        }
+
+        if (Failed.length > 0) {
+          await bulkUpdateDeliveryStatus(session, Failed.map(message => message.Id), FAILED, 'Failed to send message')
+        }
+      })
     }
+  } catch (error) {
+    logger.error(error, 'Error publishing pending outbox messages')
+    throw error
+  } finally {
+    await session.endSession()
   }
 }
 
 export { publishPendingMessages }
-// find documents in outbox collection with status 'pending'
-// use mongo transaction
-// send the events via SNS
-// update the outbox status to 'sent' or 'failed' based on result
