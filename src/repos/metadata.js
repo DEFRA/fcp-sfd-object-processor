@@ -1,3 +1,4 @@
+import { ObjectId } from 'mongodb'
 import { config } from '../config/index.js'
 import { NotFoundError } from '../errors/not-found-error.js'
 import { db } from '../data/db.js'
@@ -46,6 +47,9 @@ const formatInboundMetadata = (payload) => {
       s3: {
         key: formUpload.s3Key,
         bucket: formUpload.s3Bucket
+      },
+      messaging: {
+        publishedAt: null
       }
     }
   })
@@ -78,9 +82,31 @@ const persistMetadata = async (documents, session) => {
   return result
 }
 
+const bulkUpdatePublishedAtDate = async (session, ids) => {
+  const collection = config.get(metadataCollection)
+
+  const filter = { _id: { $in: ids.map(id => ObjectId.createFromHexString(id)) } }
+
+  const updateDoc = {
+    $set: {
+      messaging: {
+        publishedAt: new Date()
+      }
+    }
+  }
+  const updateResult = await db.collection(collection).updateMany(filter, updateDoc, { session })
+
+  if (!updateResult.acknowledged) {
+    throw new Error('Failed to update publishedAt status')
+  }
+
+  return updateResult
+}
+
 export {
   getMetadataBySbi,
   persistMetadata,
   formatInboundMetadata,
-  getS3ReferenceByFileId
+  getS3ReferenceByFileId,
+  bulkUpdatePublishedAtDate
 }

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, vi, test } from 'vitest'
 import { ObjectId } from 'mongodb'
-import { createOutboxEntries } from '../../../../src/repos/outbox.js'
+import { createOutboxEntries, getPendingOutboxEntries, bulkUpdateDeliveryStatus } from '../../../../src/repos/outbox.js'
 import { mockMetadataResponse as documents } from '../../../mocks/metadata.js'
-import { PENDING } from '../../../../src/constants/outbox.js'
+import { PENDING, SENT, FAILED } from '../../../../src/constants/outbox.js'
 import { db } from '../../../../src/data/db.js'
 
 vi.mock('../../../../src/data/db.js', () => ({
@@ -22,6 +22,7 @@ vi.mock('../../../../src/config/index.js', () => ({
 describe('Outbox Repository', () => {
   let mockCollection
   const mockSession = {}
+  const mockHexStringId1 = '507f1f77bcf86cd799439011'
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -29,7 +30,7 @@ describe('Outbox Repository', () => {
     mockCollection = {
       insertMany: vi.fn(),
       find: vi.fn(),
-      updateOne: vi.fn()
+      updateMany: vi.fn()
     }
 
     db.collection.mockReturnValue(mockCollection)
@@ -173,6 +174,110 @@ describe('Outbox Repository', () => {
 
       expect(mockCollection.insertMany).toHaveBeenCalledWith([], { session: mockSession })
       expect(result).toEqual(mockResult.insertedIds)
+    })
+  })
+
+  describe('getPendingOutboxEntries', () => {
+    test('should retrieve outbox entries with status pending', async () => {
+      const mockPendingEntries = [
+        { _id: new ObjectId(), status: PENDING, payload: {} },
+        { _id: new ObjectId(), status: PENDING, payload: {} }
+      ]
+
+      // A cursor is what is returned from mongo find operations
+      const mockCursor = {
+        toArray: vi.fn().mockResolvedValue(mockPendingEntries)
+      }
+
+      mockCollection.find.mockReturnValue(mockCursor)
+
+      const result = await getPendingOutboxEntries()
+
+      expect(db.collection).toHaveBeenCalledWith('outbox')
+      expect(mockCollection.find).toHaveBeenCalledWith({ status: PENDING })
+      expect(mockCursor.toArray).toHaveBeenCalled()
+      expect(result).toEqual(mockPendingEntries)
+    })
+
+    test('should return empty array when no pending entries found', async () => {
+      // A cursor is what is returned from mongo find operations
+      const mockCursor = {
+        toArray: vi.fn().mockResolvedValue([])
+      }
+
+      mockCollection.find.mockReturnValue(mockCursor)
+
+      const result = await getPendingOutboxEntries()
+
+      expect(db.collection).toHaveBeenCalledWith('outbox')
+      expect(mockCollection.find).toHaveBeenCalledWith({ status: PENDING })
+      expect(mockCursor.toArray).toHaveBeenCalled()
+      expect(result).toEqual([])
+    })
+  })
+
+  describe('bulkUpdateDeliveryStatus', () => {
+    const mockSession = {}
+
+    test('should update outbox entry status to sent', async () => {
+      const mockUpdateManyResult = {
+        acknowledged: true,
+        matchedCount: 1,
+        modifiedCount: 1,
+        upsertedCount: 0,
+        upsertedId: null
+      }
+
+      mockCollection.updateMany.mockResolvedValue(mockUpdateManyResult)
+      const mockMessageId = mockHexStringId1
+
+      const result = await bulkUpdateDeliveryStatus(mockSession, [mockMessageId], SENT)
+
+      // this is the response from the db operation
+      const updatedEntry = mockCollection.updateMany.mock.calls[0]
+
+      expect(updatedEntry[0]).toEqual({ messageId: { $in: [ObjectId.createFromHexString(mockMessageId)] } })
+      expect(updatedEntry[1].$set).toMatchObject({
+        status: SENT,
+        lastAttemptedAt: expect.any(Date)
+      })
+      expect(updatedEntry[1].$inc).toEqual({ attempts: 1 })
+
+      expect(result).toEqual(mockUpdateManyResult)
+    })
+
+    test('should include error message when outbox entry status to failed', async () => {
+      const mockUpdateManyResult = {
+        acknowledged: true,
+        matchedCount: 1,
+        modifiedCount: 1,
+        upsertedCount: 0,
+        upsertedId: null
+      }
+
+      mockCollection.updateMany.mockResolvedValue(mockUpdateManyResult)
+      const mockMessageId = mockHexStringId1
+      const result = await bulkUpdateDeliveryStatus(mockSession, [mockMessageId], FAILED, 'Test error message')
+
+      // this is the response from the db operation
+      const updatedEntry = mockCollection.updateMany.mock.calls[0]
+
+      expect(updatedEntry[0]).toEqual({ messageId: { $in: [ObjectId.createFromHexString(mockMessageId)] } })
+      expect(updatedEntry[1].$set).toMatchObject({
+        status: FAILED,
+        lastAttemptedAt: expect.any(Date),
+        error: 'Test error message'
+      })
+      expect(updatedEntry[1].$inc).toEqual({ attempts: 1 })
+
+      expect(result).toEqual(mockUpdateManyResult)
+    })
+
+    test('should throw error when database update fails', async () => {
+      mockCollection.updateMany.mockResolvedValue({ acknowledged: false })
+
+      await expect(bulkUpdateDeliveryStatus(mockSession, [mockHexStringId1], SENT))
+        .rejects.toThrow('Failed to update outbox entries')
     })
   })
 })

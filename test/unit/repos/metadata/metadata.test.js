@@ -1,9 +1,39 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, vi, beforeEach } from 'vitest'
 
-import { formatInboundMetadata } from '../../../../src/repos/metadata.js'
+import { formatInboundMetadata, persistMetadata, bulkUpdatePublishedAtDate } from '../../../../src/repos/metadata.js'
 import { mockScanAndUploadResponse } from '../../../mocks/cdp-uploader.js'
+import { db } from '../../../../src/data/db.js'
+
+vi.mock('../../../../src/data/db.js', () => ({
+  db: { collection: vi.fn() }
+}))
+
+vi.mock('../../../../src/config/index.js', () => ({
+  config: {
+    get: vi.fn((key) => {
+      if (key === 'mongo.collections.uploadMetadata') return 'uploadMetadata'
+      return null
+    })
+  }
+}))
 
 describe('Metadata Repository', () => {
+  let mockCollection
+  let mockSession
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+
+    mockCollection = {
+      insertMany: vi.fn(),
+      updateMany: vi.fn()
+    }
+
+    mockSession = {}
+
+    db.collection.mockReturnValue(mockCollection)
+  })
+
   describe('Format inbound metadata', () => {
     describe('When payload includes multiple uploads', () => {
       const formattedMetadata = formatInboundMetadata(mockScanAndUploadResponse)
@@ -64,6 +94,84 @@ describe('Metadata Repository', () => {
           bucket: mockScanAndUploadResponse.form['another-file-upload-field'].s3Bucket
         })
       })
+
+      test('each object should contain the messaging data in the messaging subdoc', () => {
+        expect(formattedMetadata[0].messaging).toStrictEqual({
+          publishedAt: null
+        })
+
+        expect(formattedMetadata[1].messaging).toStrictEqual({
+          publishedAt: null
+        })
+      })
+    })
+  })
+
+  describe('persistMetadata', () => {
+    const mockDocuments = [
+      { metadata: { sbi: '123' }, file: { fileId: 'file-id-1' } }
+    ]
+
+    test('should insert documents and return result when acknowledged', async () => {
+      const mockResult = {
+        acknowledged: true,
+        insertedCount: 1,
+        insertedIds: { 0: 'id-1' }
+      }
+
+      mockCollection.insertMany.mockResolvedValue(mockResult)
+
+      const result = await persistMetadata(mockDocuments, mockSession)
+
+      expect(db.collection).toHaveBeenCalledWith('uploadMetadata')
+      expect(mockCollection.insertMany).toHaveBeenCalledWith(mockDocuments, { session: mockSession })
+      expect(result).toEqual(mockResult)
+    })
+
+    test('should throw error when acknowledged is false', async () => {
+      mockCollection.insertMany.mockResolvedValue({ acknowledged: false })
+
+      await expect(persistMetadata(mockDocuments, mockSession))
+        .rejects.toThrow('Failed to insert, no acknowledgement from database')
+    })
+  })
+
+  describe('bulkUpdatePublishedAtDate', () => {
+    const mockIds = ['507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012']
+
+    test('should update publishedAt and return result when acknowledged', async () => {
+      const mockResult = {
+        acknowledged: true,
+        matchedCount: 2,
+        modifiedCount: 2
+      }
+
+      mockCollection.updateMany.mockResolvedValue(mockResult)
+
+      const result = await bulkUpdatePublishedAtDate(mockSession, mockIds)
+
+      expect(db.collection).toHaveBeenCalledWith('uploadMetadata')
+      expect(mockCollection.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          _id: { $in: expect.any(Array) }
+        }),
+        expect.objectContaining({
+          $set: {
+            messaging: {
+              publishedAt: expect.any(Date)
+            }
+          }
+        }),
+        { session: mockSession }
+      )
+      expect(result).toEqual(mockResult)
+    })
+
+    test('should throw error when acknowledged is false', async () => {
+      mockCollection.updateMany.mockResolvedValue({ acknowledged: false })
+
+      await expect(bulkUpdatePublishedAtDate(mockSession, mockIds))
+        .rejects.toThrow('Failed to update publishedAt status')
     })
   })
 })
