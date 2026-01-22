@@ -1,5 +1,7 @@
+import { ObjectId } from 'mongodb'
+
 import { beforeEach, afterEach, describe, expect, vi, test } from 'vitest'
-import { buildDocumentUploadMessageBatch } from '../../../../src/messaging/outbound/crm/doc-upload/document-upload-message-batch.js'
+import { buildDocumentUploadMessageBatch } from '../../../../src/messaging/outbound/crm/doc-upload/build-document-upload-message-batch.js'
 
 describe('buildDocumentUploadMessageBatch', () => {
   beforeEach(() => {
@@ -10,15 +12,61 @@ describe('buildDocumentUploadMessageBatch', () => {
     vi.useRealTimers()
   })
 
+  const mockPendingMessage = {
+    _id: ObjectId('6970ef40eb614141dffe78cb'),
+    messageId: ObjectId('6970ef40eb614141dffe78c6'),
+    payload: {
+      raw: {
+        uploadStatus: 'ready',
+        numberOfRejectedFiles: 0,
+        fileId: '693db079-f82b-4bbc-87e9-86d822cc0bad',
+        filename: 'upload-example-5.png',
+        contentType: 'image/png',
+        fileStatus: 'complete',
+        contentLength: 338195,
+        checksumSha256: 'WzfoGsFx/lsHpqGG8KGErp+w7+T5MvkDKt5dZlcOqAc=',
+        detectedContentType: 'image/png',
+        s3Key: 'scanned/85a50fa1-3d1d-46b7-a9eb-b72fc9d97031/693db079-f82b-4bbc-87e9-86d822cc0bad',
+        s3Bucket: 'dev-fcp-sfd-object-processor-bucket-c63f2'
+      },
+      metadata: {
+        sbi: '105000000',
+        crn: '1050000000',
+        frn: '1102658375',
+        submissionId: '1733826312',
+        uosr: '107220150_1733826312',
+        submissionDateTime: '10/12/2024 10:25:12',
+        files: ['107220150_1733826312_SBI107220150.pdf'],
+        filesInSubmission: 2,
+        type: 'CS_Agreement_Evidence',
+        reference: 'user entered reference',
+        service: 'SFD'
+      },
+      file: {
+        fileId: '693db079-f82b-4bbc-87e9-86d822cc0bad',
+        filename: 'upload-example-5.png',
+        contentType: 'image/png',
+        fileStatus: 'complete'
+      },
+      s3: {
+        key: 'scanned/85a50fa1-3d1d-46b7-a9eb-b72fc9d97031/693db079-f82b-4bbc-87e9-86d822cc0bad',
+        bucket: 'dev-fcp-sfd-object-processor-bucket-c63f2'
+      },
+      messaging: { publishedAt: null },
+      _id: ObjectId('6970ef40eb614141dffe78c6')
+    },
+    status: 'SENT',
+    attempts: 1,
+    createdAt: '2026-01-21T15:22:40.280Z',
+    lastAttemptedAt: '2026-01-21T15:22:59.407Z'
+  }
+
   test('should transform array of pending messages into CloudEvents format when given multiple pending messages', () => {
     const pendingMessages = [
+      mockPendingMessage,
       {
-        metadata: { sbi: '123456789' },
-        file: { fileId: 'file-1', filename: 'test1.pdf' }
-      },
-      {
-        metadata: { sbi: '123456789' },
-        file: { fileId: 'file-2', filename: 'test2.pdf' }
+        ...mockPendingMessage,
+        messageId: { $oid: '696faf5c14ce407432288156' },
       }
     ]
 
