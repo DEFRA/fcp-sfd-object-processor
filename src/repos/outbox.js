@@ -29,7 +29,7 @@ const getPendingOutboxEntries = async () => {
   const collection = config.get(outboxCollection)
 
   const pendingEntries = await db.collection(collection)
-    .find({ status: PENDING })
+    .find({ status: PENDING }) // .limit to stop loading everything into memory
     .toArray()
 
   return pendingEntries
