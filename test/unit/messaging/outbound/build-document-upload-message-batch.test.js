@@ -1,136 +1,114 @@
-import { ObjectId } from 'mongodb'
-
 import { beforeEach, afterEach, describe, expect, vi, test } from 'vitest'
+
 import { buildDocumentUploadMessageBatch } from '../../../../src/messaging/outbound/crm/doc-upload/build-document-upload-message-batch.js'
+import { mockPendingMessages } from '../../../mocks/outbox.js'
 
 describe('buildDocumentUploadMessageBatch', () => {
+  let result
+
   beforeEach(() => {
     vi.clearAllMocks()
+    result = buildDocumentUploadMessageBatch([mockPendingMessages[0]])
   })
 
   afterEach(() => {
     vi.useRealTimers()
   })
 
-  const mockPendingMessage = {
-    _id: ObjectId('6970ef40eb614141dffe78cb'),
-    messageId: ObjectId('6970ef40eb614141dffe78c6'),
-    payload: {
-      raw: {
-        uploadStatus: 'ready',
-        numberOfRejectedFiles: 0,
-        fileId: '693db079-f82b-4bbc-87e9-86d822cc0bad',
-        filename: 'upload-example-5.png',
-        contentType: 'image/png',
-        fileStatus: 'complete',
-        contentLength: 338195,
-        checksumSha256: 'WzfoGsFx/lsHpqGG8KGErp+w7+T5MvkDKt5dZlcOqAc=',
-        detectedContentType: 'image/png',
-        s3Key: 'scanned/85a50fa1-3d1d-46b7-a9eb-b72fc9d97031/693db079-f82b-4bbc-87e9-86d822cc0bad',
-        s3Bucket: 'dev-fcp-sfd-object-processor-bucket-c63f2'
-      },
-      metadata: {
-        sbi: '105000000',
-        crn: '1050000000',
-        frn: '1102658375',
-        submissionId: '1733826312',
-        uosr: '107220150_1733826312',
-        submissionDateTime: '10/12/2024 10:25:12',
-        files: ['107220150_1733826312_SBI107220150.pdf'],
-        filesInSubmission: 2,
-        type: 'CS_Agreement_Evidence',
-        reference: 'user entered reference',
-        service: 'SFD'
-      },
-      file: {
-        fileId: '693db079-f82b-4bbc-87e9-86d822cc0bad',
-        filename: 'upload-example-5.png',
-        contentType: 'image/png',
-        fileStatus: 'complete'
-      },
-      s3: {
-        key: 'scanned/85a50fa1-3d1d-46b7-a9eb-b72fc9d97031/693db079-f82b-4bbc-87e9-86d822cc0bad',
-        bucket: 'dev-fcp-sfd-object-processor-bucket-c63f2'
-      },
-      messaging: { publishedAt: null },
-      _id: ObjectId('6970ef40eb614141dffe78c6')
-    },
-    status: 'SENT',
-    attempts: 1,
-    createdAt: '2026-01-21T15:22:40.280Z',
-    lastAttemptedAt: '2026-01-21T15:22:59.407Z'
-  }
-
-  test('should transform array of pending messages into CloudEvents format when given multiple pending messages', () => {
-    const pendingMessages = [
-      mockPendingMessage,
-      {
-        ...mockPendingMessage,
-        messageId: { $oid: '696faf5c14ce407432288156' },
-      }
-    ]
-
-    const result = buildDocumentUploadMessageBatch(pendingMessages)
-
-    expect(result).toHaveLength(2)
-
-    expect(result[0]).toMatchObject({
-      id: expect.any(String),
-      source: 'fcp-sfd-object-processor',
-      specversion: '1.0',
-      type: 'uk.gov.fcp.sfd.document.upload.case.create',
-      datacontenttype: 'application/json',
-      time: expect.any(String),
-      data: {
-        metadata: { sbi: '123456789' },
-        file: { fileId: 'file-1', filename: 'test1.pdf' }
-      }
+  describe('top-level CloudEvents properties', () => {
+    test('should set id from messageId', () => {
+      expect(result[0].id).toBe(mockPendingMessages[0].messageId)
     })
 
-    // Verify UUID format
-    expect(result[0].id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
-
-    // Verify ISO 8601 timestamp format
-    expect(result[0].time).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
-  })
-
-  test('should transform array of pending messages into CloudEvents format when given single pending message', () => {
-    const pendingMessages = [
-      {
-        metadata: { sbi: '123456789' },
-        file: { fileId: 'file-1', filename: 'test1.pdf' }
-      }
-    ]
-
-    const result = buildDocumentUploadMessageBatch(pendingMessages)
-
-    expect(result).toHaveLength(1)
-
-    expect(result[0]).toMatchObject({
-      id: expect.any(String),
-      source: 'fcp-sfd-object-processor',
-      specversion: '1.0',
-      type: 'uk.gov.fcp.sfd.document.upload.case.create',
-      datacontenttype: 'application/json',
-      time: expect.any(String),
-      data: {
-        metadata: { sbi: '123456789' },
-        file: { fileId: 'file-1', filename: 'test1.pdf' }
-      }
+    test('should set source to fcp-sfd-object-processor', () => {
+      expect(result[0].source).toBe('fcp-sfd-object-processor')
     })
 
-    // Verify UUID format
-    expect(result[0].id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
+    test('should set specversion to 1.0', () => {
+      expect(result[0].specversion).toBe('1.0')
+    })
 
-    // Verify ISO 8601 timestamp format
-    expect(result[0].time).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+    test('should set type to uk.gov.fcp.sfd.event', () => {
+      expect(result[0].type).toBe('uk.gov.fcp.sfd.event')
+    })
+
+    test('should set subject to document.uploaded', () => {
+      expect(result[0].subject).toBe('document.uploaded')
+    })
+
+    test('should set datacontenttype to application/json', () => {
+      expect(result[0].datacontenttype).toBe('application/json')
+    })
+
+    test('should set time to current ISO 8601 timestamp', () => {
+      expect(result[0].time).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+      expect(new Date(result[0].time).getTime()).toBeGreaterThan(0)
+    })
   })
 
-  test('should return empty array when given no pending messages', () => {
-    const pendingMessages = []
+  describe('data property', () => {
+    test('should set data.crn from metadata.crn', () => {
+      expect(result[0].data.crn).toBe('1050000000')
+    })
 
-    const result = buildDocumentUploadMessageBatch(pendingMessages)
+    test('should set data.sbi from metadata.sbi', () => {
+      expect(result[0].data.sbi).toBe('105000000')
+    })
 
-    expect(result).toHaveLength(0)
+    test('should set data.submissionId from metadata.submissionId', () => {
+      expect(result[0].data.submissionId).toBe('1733826312')
+    })
+
+    test('should set data.sourceSystem from metadata.service', () => {
+      expect(result[0].data.sourceSystem).toBe('SFD')
+    })
+
+    test('should set data.correlationId to placeholder', () => {
+      expect(result[0].data.correlationId).toBe('placeholder-correlation-id')
+    })
+  })
+
+  describe('data.crm property', () => {
+    test('should set data.crm.caseType from metadata.type', () => {
+      expect(result[0].data.crm.caseType).toBe('CS_Agreement_Evidence')
+    })
+
+    test('should set data.crm.title with formatted reference, CRN and date', () => {
+      expect(result[0].data.crm.title).toBe('user entered reference - CRN 1050000000 - 31/12/2024')
+    })
+  })
+
+  describe('data.file property', () => {
+    test('should set data.file.fileId from file.fileId', () => {
+      expect(result[0].data.file.fileId).toBe('693db079-f82b-4bbc-87e9-86d822cc0bad')
+    })
+
+    test('should set data.file.fileName from file.filename', () => {
+      expect(result[0].data.file.fileName).toBe('upload-example-5.png')
+    })
+
+    test('should set data.file.contentType from file.contentType', () => {
+      expect(result[0].data.file.contentType).toBe('image/png')
+    })
+
+    test('should set data.file.url with fileId in path', () => {
+      expect(result[0].data.file.url).toBe('https://example.com/files/693db079-f82b-4bbc-87e9-86d822cc0bad')
+    })
+  })
+
+  describe('batch processing', () => {
+    test('should transform multiple pending messages', () => {
+      const batchResult = buildDocumentUploadMessageBatch(mockPendingMessages)
+
+      expect(batchResult).toHaveLength(2)
+      expect(batchResult[0].data.crn).toBe('1050000000')
+      expect(batchResult[1].data.crn).toBe('2050000000')
+    })
+
+    test('should return empty array when given no pending messages', () => {
+      const emptyResult = buildDocumentUploadMessageBatch([])
+
+      expect(emptyResult).toHaveLength(0)
+    })
   })
 })
