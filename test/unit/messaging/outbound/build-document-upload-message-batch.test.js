@@ -26,23 +26,19 @@ describe('buildDocumentUploadMessageBatch', () => {
     })
 
     test('should set source to fcp-sfd-object-processor', () => {
-      expect(result[0].source).toBe('fcp-sfd-object-processor')
+      expect(result[0].source).toBe(mockDocumentUploadedEvent.source)
     })
 
     test('should set specversion to 1.0', () => {
-      expect(result[0].specversion).toBe('1.0')
+      expect(result[0].specversion).toBe(mockDocumentUploadedEvent.specversion)
     })
 
-    test('should set type to uk.gov.fcp.sfd.document', () => {
-      expect(result[0].type).toBe('uk.gov.fcp.sfd.document')
-    })
-
-    test('should set subject to uploaded', () => {
-      expect(result[0].subject).toBe('uploaded')
+    test('should set type to uk.gov.fcp.sfd.document.uploaded', () => {
+      expect(result[0].type).toBe(mockDocumentUploadedEvent.type)
     })
 
     test('should set datacontenttype to application/json', () => {
-      expect(result[0].datacontenttype).toBe('application/json')
+      expect(result[0].datacontenttype).toBe(mockDocumentUploadedEvent.datacontenttype)
     })
 
     test('should set time to current ISO 8601 timestamp', () => {
@@ -135,7 +131,6 @@ describe('buildDocumentUploadMessageBatch', () => {
       expect(typeof result[0].id).toBe('object') // ObjectId
       expect(typeof result[0].source).toBe('string')
       expect(typeof result[0].type).toBe('string')
-      expect(typeof result[0].subject).toBe('string')
       expect(typeof result[0].specversion).toBe('string')
       expect(typeof result[0].datacontenttype).toBe('string')
       expect(typeof result[0].time).toBe('string')

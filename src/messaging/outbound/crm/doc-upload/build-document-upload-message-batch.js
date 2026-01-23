@@ -13,8 +13,7 @@ export const buildDocumentUploadMessageBatch = (pendingMessages) => {
       id: message.messageId, // use messageId for idempotency, mongo ObjectId string
       source: 'fcp-sfd-object-processor',
       specversion: '1.0',
-      type: 'uk.gov.fcp.sfd.document',
-      subject: 'uploaded',
+      type: 'uk.gov.fcp.sfd.document.uploaded',
       datacontenttype: 'application/json',
       time: new Date().toISOString(),
       data: {

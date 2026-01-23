@@ -52,8 +52,6 @@ components:
             $ref: '#/components/schemas/source'
           type:
             $ref: '#/components/schemas/type'
-          subject:
-            $ref: '#/components/schemas/subject'
           specversion:
             $ref: '#/components/schemas/specversion'
           datacontenttype:
@@ -134,13 +132,6 @@ components:
       description: Format of the event data
       default: "application/json"
       example: "application/json"
-
-    subject:
-      type: string
-      description: Additional description of the type of event
-      enum:
-        - uploaded
-      example: "uploaded"
 
     file:
       type: object
@@ -234,7 +225,7 @@ components:
     type:
       type: string
       description: Type of event in reverse DNS notation
-      example: uk.gov.fcp.sfd.document
+      example: uk.gov.fcp.sfd.document.uploaded
       minLength: 3
       maxLength: 250
     

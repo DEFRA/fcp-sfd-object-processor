@@ -1,8 +1,7 @@
 export const mockDocumentUploadedEvent = {
   id: '123e4567-e89b-12d3-a456-426655440000',
   source: 'fcp-sfd-object-processor',
-  type: 'uk.gov.fcp.sfd.document',
-  subject: 'uploaded',
+  type: 'uk.gov.fcp.sfd.document.uploaded',
   specversion: '1.0',
   datacontenttype: 'application/json',
   time: '2023-10-17T14:48:00Z',
