@@ -1,4 +1,6 @@
 import { ObjectId } from 'mongodb'
+import { randomUUID } from 'node:crypto'
+
 import { config } from '../config/index.js'
 import { NotFoundError } from '../errors/not-found-error.js'
 import { db } from '../data/db.js'
@@ -30,6 +32,9 @@ const formatInboundMetadata = (payload) => {
   // remove anything thats not an object with a fileId key
   const filteredFormData = formData.filter(data => typeof data === 'object' && data?.fileId)
 
+  // ensure that all files uploaded together are grouped via the same correlationId
+  const correlationId = randomUUID()
+
   return filteredFormData.map((formUpload) => {
     return {
       raw: {
@@ -49,7 +54,8 @@ const formatInboundMetadata = (payload) => {
         bucket: formUpload.s3Bucket
       },
       messaging: {
-        publishedAt: null
+        publishedAt: null,
+        correlationId
       }
     }
   })
@@ -89,9 +95,7 @@ const bulkUpdatePublishedAtDate = async (session, ids) => {
 
   const updateDoc = {
     $set: {
-      messaging: {
-        publishedAt: new Date()
-      }
+      'messaging.publishedAt': new Date()
     }
   }
   const updateResult = await db.collection(collection).updateMany(filter, updateDoc, { session })

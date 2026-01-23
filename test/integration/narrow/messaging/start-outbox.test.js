@@ -4,6 +4,7 @@ import { config } from '../../../../src/config/index.js'
 import { db } from '../../../../src/data/db.js'
 import { PENDING, SENT, FAILED } from '../../../../src/constants/outbox.js'
 import { publishPendingMessages } from '../../../../src/messaging/outbound/crm/doc-upload/publish-pending-messages.js'
+import { mockPendingMessages } from '../../../mocks/outbox.js'
 import { publishBatch } from '../../../../src/messaging/sns/publish-batch.js'
 
 // Mock the SNS publish-batch to avoid actual AWS calls
@@ -55,17 +56,17 @@ describe('Outbox message processing', () => {
     const metadataEntries = [
       {
         _id: metadataId1,
-        metadata: { sbi: '105000001', crn: '1050000001' },
+        metadata: mockPendingMessages[0].payload.metadata,
         file: { fileId: 'file-1', filename: 'test1.pdf', fileStatus: 'complete' },
         s3: { key: 's3-key-1', bucket: 'test-bucket' },
-        messaging: { publishedAt: null }
+        messaging: { publishedAt: null, correlationId: 'mock-correlation-id' }
       },
       {
         _id: metadataId2,
-        metadata: { sbi: '105000002', crn: '1050000002' },
+        metadata: mockPendingMessages[1].payload.metadata,
         file: { fileId: 'file-2', filename: 'test2.pdf', fileStatus: 'complete' },
         s3: { key: 's3-key-2', bucket: 'test-bucket' },
-        messaging: { publishedAt: null }
+        messaging: { publishedAt: null, correlationId: 'mock-correlation-id' }
       }
     ]
 
@@ -76,8 +77,9 @@ describe('Outbox message processing', () => {
       {
         messageId: metadataId1,
         payload: {
-          metadata: { sbi: '105000001', crn: '1050000001' },
-          file: { fileId: 'file-1', filename: 'test1.pdf' }
+          metadata: mockPendingMessages[0].payload.metadata,
+          file: { fileId: 'file-1', filename: 'test1.pdf' },
+          messaging: { publishedAt: null, correlationId: 'mock-correlation-id' }
         },
         status: PENDING,
         attempts: 0,
@@ -86,8 +88,9 @@ describe('Outbox message processing', () => {
       {
         messageId: metadataId2,
         payload: {
-          metadata: { sbi: '105000002', crn: '1050000002' },
-          file: { fileId: 'file-2', filename: 'test2.pdf' }
+          metadata: mockPendingMessages[1].payload.metadata,
+          file: { fileId: 'file-2', filename: 'test2.pdf' },
+          messaging: { publishedAt: null, correlationId: 'mock-correlation-id' }
         },
         status: PENDING,
         attempts: 0,
@@ -150,14 +153,15 @@ describe('Outbox message processing', () => {
         metadata: { sbi: '105000003', crn: '1050000003' },
         file: { fileId: 'file-3', filename: 'test3.pdf', fileStatus: 'complete' },
         s3: { key: 's3-key-3', bucket: 'test-bucket' },
-        messaging: { publishedAt: null }
+        messaging: { publishedAt: null, correlationId: 'mock-correlation-id' }
+
       },
       {
         _id: metadataId2,
         metadata: { sbi: '105000004', crn: '1050000004' },
         file: { fileId: 'file-4', filename: 'test4.pdf', fileStatus: 'complete' },
         s3: { key: 's3-key-4', bucket: 'test-bucket' },
-        messaging: { publishedAt: null }
+        messaging: { publishedAt: null, correlationId: 'mock-correlation-id' }
       }
     ]
 
@@ -168,8 +172,10 @@ describe('Outbox message processing', () => {
       {
         messageId: metadataId1,
         payload: {
-          metadata: { sbi: '105000003', crn: '1050000003' },
-          file: { fileId: 'file-3', filename: 'test3.pdf' }
+          metadata: mockPendingMessages[0].payload.metadata,
+          file: { fileId: 'file-3', filename: 'test3.pdf' },
+          messaging: { publishedAt: null, correlationId: 'mock-correlation-id' }
+
         },
         status: PENDING,
         attempts: 0,
@@ -178,8 +184,10 @@ describe('Outbox message processing', () => {
       {
         messageId: metadataId2,
         payload: {
-          metadata: { sbi: '105000004', crn: '1050000004' },
-          file: { fileId: 'file-4', filename: 'test4.pdf' }
+          metadata: mockPendingMessages[0].payload.metadata,
+          file: { fileId: 'file-4', filename: 'test4.pdf' },
+          messaging: { publishedAt: null, correlationId: 'mock-correlation-id' }
+
         },
         status: PENDING,
         attempts: 0,
