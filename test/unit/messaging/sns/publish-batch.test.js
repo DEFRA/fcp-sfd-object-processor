@@ -25,7 +25,6 @@ describe('publishBatch', () => {
         source: 'test-service',
         type: 'test.event',
         data: {
-          messageId: 'message-id-1',
           payload: { test: 'data1' }
         }
       },
@@ -34,7 +33,6 @@ describe('publishBatch', () => {
         source: 'test-service',
         type: 'test.event',
         data: {
-          messageId: 'message-id-2',
           payload: { test: 'data2' }
         }
       }
@@ -42,8 +40,8 @@ describe('publishBatch', () => {
 
     const mockResponse = {
       Successful: [
-        { Id: 'message-id-1', MessageId: 'sns-msg-1', SequenceNumber: '1' },
-        { Id: 'message-id-2', MessageId: 'sns-msg-2', SequenceNumber: '2' }
+        { Id: 'msg-1', MessageId: 'sns-msg-1', SequenceNumber: '1' },
+        { Id: 'msg-2', MessageId: 'sns-msg-2', SequenceNumber: '2' }
       ],
       Failed: []
     }
@@ -63,7 +61,6 @@ describe('publishBatch', () => {
         source: 'test-service',
         type: 'test.event',
         data: {
-          messageId: 'message-id-1',
           payload: { test: 'data' }
         }
       }
@@ -75,7 +72,7 @@ describe('publishBatch', () => {
       TopicArn: mockTopicArn,
       PublishBatchRequestEntries: [
         {
-          Id: 'message-id-1',
+          Id: 'msg-1',
           Message: JSON.stringify(mockBatch[0])
         }
       ]
@@ -86,14 +83,13 @@ describe('publishBatch', () => {
     const mockBatch = Array.from({ length: 10 }, (_, i) => ({
       id: `msg-${i}`,
       data: {
-        messageId: `message-id-${i}`,
         payload: { index: i }
       }
     }))
 
     mockSnsClient.send.mockResolvedValue({
       Successful: mockBatch.map((msg, i) => ({
-        Id: msg.data.messageId,
+        Id: msg.id,
         MessageId: `sns-${i}`
       })),
       Failed: []
@@ -104,8 +100,8 @@ describe('publishBatch', () => {
     expect(PublishBatchCommand).toHaveBeenCalledWith({
       TopicArn: mockTopicArn,
       PublishBatchRequestEntries: expect.arrayContaining([
-        expect.objectContaining({ Id: 'message-id-0' }),
-        expect.objectContaining({ Id: 'message-id-9' })
+        expect.objectContaining({ Id: 'msg-0' }),
+        expect.objectContaining({ Id: 'msg-9' })
       ])
     })
     expect(PublishBatchCommand.mock.calls[0][0].PublishBatchRequestEntries).toHaveLength(10)
@@ -115,7 +111,7 @@ describe('publishBatch', () => {
     const mockBatch = [
       {
         id: 'msg-1',
-        data: { messageId: 'message-id-1' }
+        data: { mock: 'data' }
       }
     ]
 
@@ -130,21 +126,21 @@ describe('publishBatch', () => {
     const mockBatch = [
       {
         id: 'msg-1',
-        data: { messageId: 'message-id-1' }
+        data: { mock: 'data' }
       },
       {
         id: 'msg-2',
-        data: { messageId: 'message-id-2' }
+        data: { mock: 'data' }
       }
     ]
 
     const mockResponse = {
       Successful: [
-        { Id: 'message-id-1', MessageId: 'sns-msg-1' }
+        { Id: 'msg-1', MessageId: 'sns-msg-1' }
       ],
       Failed: [
         {
-          Id: 'message-id-2',
+          Id: 'msg-2',
           Code: 'InternalError',
           Message: 'Failed to publish',
           SenderFault: false

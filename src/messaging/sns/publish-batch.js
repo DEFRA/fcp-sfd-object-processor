@@ -4,7 +4,7 @@ const publishBatch = async (snsClient, topicArn, batch) => {
   const params = {
     TopicArn: topicArn,
     PublishBatchRequestEntries: batch.map(message => ({
-      Id: message.data.messageId, // mapping the messageId to Id for SNS because the response include this Id which we can use for updating our databases
+      Id: message.id, // mapping the messageId to Id for SNS because the response include this Id which we can use for updating our databases
       Message: JSON.stringify(message)
     }))
   }
