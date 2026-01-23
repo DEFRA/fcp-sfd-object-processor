@@ -139,9 +139,8 @@ components:
       type: string
       description: Additional description of the type of event
       enum:
-        - document.uploaded
-        - email.sent
-      example: "document.uploaded"
+        - uploaded
+      example: "uploaded"
 
     file:
       type: object
@@ -235,7 +234,7 @@ components:
     type:
       type: string
       description: Type of event in reverse DNS notation
-      example: uk.gov.fcp.sfd.event
+      example: uk.gov.fcp.sfd.document
       minLength: 3
       maxLength: 250
     
