@@ -1,6 +1,6 @@
 export const buildDocumentUploadMessageBatch = (pendingMessages) => {
   return pendingMessages.map(message => {
-    const { metadata, file } = message.payload
+    const { metadata, file, messaging } = message.payload
 
     // Parse DD/MM/YYYY HH:mm:ss format
     const [datePart] = metadata.submissionDateTime.split(' ')
@@ -13,8 +13,8 @@ export const buildDocumentUploadMessageBatch = (pendingMessages) => {
       id: message.messageId, // use messageId for idempotency, mongo ObjectId string
       source: 'fcp-sfd-object-processor',
       specversion: '1.0',
-      type: 'uk.gov.fcp.sfd.event',
-      subject: 'document.uploaded',
+      type: 'uk.gov.fcp.sfd.document',
+      subject: 'uploaded',
       datacontenttype: 'application/json',
       time: new Date().toISOString(),
       data: {
@@ -23,7 +23,7 @@ export const buildDocumentUploadMessageBatch = (pendingMessages) => {
           caseType: metadata.type,
           title
         },
-        correlationId: 'placeholder-correlation-id', // TODO: Generate correlation ID when persisting UploadMetadata and pass it in here
+        correlationId: messaging.correlationId,
         file: {
           fileId: file.fileId,
           fileName: file.filename,

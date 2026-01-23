@@ -40,7 +40,10 @@ const mockPendingMessageOne = {
       key: 'scanned/85a50fa1-3d1d-46b7-a9eb-b72fc9d97031/693db079-f82b-4bbc-87e9-86d822cc0bad',
       bucket: 'dev-fcp-sfd-object-processor-bucket-c63f2'
     },
-    messaging: { publishedAt: null },
+    messaging: {
+      publishedAt: null,
+      correlationId: '123e4567-e89b-12d3-a456-426655440000'
+    },
     _id: ObjectId.createFromHexString('6970ef40eb614141dffe78c6')
   },
   status: 'PENDING',
@@ -89,7 +92,10 @@ const mockPendingMessageTwo = {
       key: 'scanned/85a50fa1-3d1d-46b7-a9eb-b72fc9d97031/8a4fc18e-2c3d-4e5f-b7a2-9d3e6f8c1b4a',
       bucket: 'dev-fcp-sfd-object-processor-bucket-c63f2'
     },
-    messaging: { publishedAt: null },
+    messaging: {
+      publishedAt: null,
+      correlationId: '123e4567-e89b-12d3-a456-426655440001'
+    },
     _id: ObjectId.createFromHexString('6970ef40eb614141dffe78c7')
   },
   status: 'PENDING',
