@@ -10,7 +10,9 @@ export const buildDocumentUploadMessageBatch = (pendingMessages) => {
     const title = `${metadata.reference} - CRN ${metadata.crn} - ${uploadDate}`
 
     return {
-      id: message.messageId, // use messageId for idempotency, mongo ObjectId string
+      id: file.fileId,
+      // using fileId for idempotency, uuid.
+      // This can be used for idempotency in downstream services and ties back to fileId created at upload and to the document metadata stored in the DB.
       source: 'fcp-sfd-object-processor',
       specversion: '1.0',
       type: 'uk.gov.fcp.sfd.document.uploaded',

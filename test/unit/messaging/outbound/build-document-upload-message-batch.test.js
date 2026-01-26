@@ -21,8 +21,8 @@ describe('buildDocumentUploadMessageBatch', () => {
   })
 
   describe('top-level CloudEvents properties', () => {
-    test('should set id from messageId', () => {
-      expect(result[0].id).toBe(mockPendingMessages[0].messageId)
+    test('should set id from fileId', () => {
+      expect(result[0].id).toBe(mockPendingMessages[0].payload.file.fileId)
     })
 
     test('should set source to fcp-sfd-object-processor', () => {
@@ -128,7 +128,7 @@ describe('buildDocumentUploadMessageBatch', () => {
     })
 
     test('should have matching property types for CloudEvents envelope', () => {
-      expect(typeof result[0].id).toBe('object') // ObjectId
+      expect(typeof result[0].id).toBe('string')
       expect(typeof result[0].source).toBe('string')
       expect(typeof result[0].type).toBe('string')
       expect(typeof result[0].specversion).toBe('string')
