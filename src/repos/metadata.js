@@ -1,4 +1,3 @@
-import { ObjectId } from 'mongodb'
 import { randomUUID } from 'node:crypto'
 
 import { config } from '../config/index.js'
@@ -88,10 +87,10 @@ const persistMetadata = async (documents, session) => {
   return result
 }
 
-const bulkUpdatePublishedAtDate = async (session, ids) => {
+const bulkUpdatePublishedAtDate = async (session, fileIds) => {
   const collection = config.get(metadataCollection)
 
-  const filter = { _id: { $in: ids.map(id => ObjectId.createFromHexString(id)) } }
+  const filter = { 'file.fileId': { $in: fileIds } }
 
   const updateDoc = {
     $set: {

@@ -1,4 +1,3 @@
-import { ObjectId } from 'mongodb'
 import { config } from '../config/index.js'
 import { PENDING } from '../constants/outbox.js'
 import { db } from '../data/db.js'
@@ -35,10 +34,10 @@ const getPendingOutboxEntries = async () => {
   return pendingEntries
 }
 
-const bulkUpdateDeliveryStatus = async (session, messageIds, status, error = null) => {
+const bulkUpdateDeliveryStatus = async (session, fileIds, status, error = null) => {
   const collection = config.get(outboxCollection)
 
-  const filter = { messageId: { $in: messageIds.map(id => ObjectId.createFromHexString(id)) } }
+  const filter = { 'payload.file.fileId': { $in: fileIds } }
 
   const updateDoc = {
     $set: {

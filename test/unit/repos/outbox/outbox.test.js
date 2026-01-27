@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, vi, test } from 'vitest'
 import { ObjectId } from 'mongodb'
+import { randomUUID } from 'node:crypto'
+
 import { createOutboxEntries, getPendingOutboxEntries, bulkUpdateDeliveryStatus } from '../../../../src/repos/outbox.js'
 import { mockMetadataResponse as documents } from '../../../mocks/metadata.js'
 import { PENDING, SENT, FAILED } from '../../../../src/constants/outbox.js'
@@ -22,7 +24,6 @@ vi.mock('../../../../src/config/index.js', () => ({
 describe('Outbox Repository', () => {
   let mockCollection
   const mockSession = {}
-  const mockHexStringId1 = '507f1f77bcf86cd799439011'
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -229,14 +230,14 @@ describe('Outbox Repository', () => {
       }
 
       mockCollection.updateMany.mockResolvedValue(mockUpdateManyResult)
-      const mockMessageId = mockHexStringId1
+      const mockFileId = randomUUID()
 
-      const result = await bulkUpdateDeliveryStatus(mockSession, [mockMessageId], SENT)
+      const result = await bulkUpdateDeliveryStatus(mockSession, [mockFileId], SENT)
 
       // this is the response from the db operation
       const updatedEntry = mockCollection.updateMany.mock.calls[0]
 
-      expect(updatedEntry[0]).toEqual({ messageId: { $in: [ObjectId.createFromHexString(mockMessageId)] } })
+      expect(updatedEntry[0]).toEqual({ 'payload.file.fileId': { $in: [mockFileId] } })
       expect(updatedEntry[1].$set).toMatchObject({
         status: SENT,
         lastAttemptedAt: expect.any(Date)
@@ -256,13 +257,13 @@ describe('Outbox Repository', () => {
       }
 
       mockCollection.updateMany.mockResolvedValue(mockUpdateManyResult)
-      const mockMessageId = mockHexStringId1
-      const result = await bulkUpdateDeliveryStatus(mockSession, [mockMessageId], FAILED, 'Test error message')
+      const mockFileId = randomUUID()
+      const result = await bulkUpdateDeliveryStatus(mockSession, [mockFileId], FAILED, 'Test error message')
 
       // this is the response from the db operation
       const updatedEntry = mockCollection.updateMany.mock.calls[0]
 
-      expect(updatedEntry[0]).toEqual({ messageId: { $in: [ObjectId.createFromHexString(mockMessageId)] } })
+      expect(updatedEntry[0]).toEqual({ 'payload.file.fileId': { $in: [mockFileId] } })
       expect(updatedEntry[1].$set).toMatchObject({
         status: FAILED,
         lastAttemptedAt: expect.any(Date),
@@ -274,9 +275,10 @@ describe('Outbox Repository', () => {
     })
 
     test('should throw error when database update fails', async () => {
+      const mockFileId = randomUUID()
       mockCollection.updateMany.mockResolvedValue({ acknowledged: false })
 
-      await expect(bulkUpdateDeliveryStatus(mockSession, [mockHexStringId1], SENT))
+      await expect(bulkUpdateDeliveryStatus(mockSession, [mockFileId], SENT))
         .rejects.toThrow('Failed to update outbox entries')
     })
   })

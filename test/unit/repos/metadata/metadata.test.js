@@ -153,7 +153,7 @@ describe('bulkUpdatePublishedAtDate', () => {
     expect(db.collection).toHaveBeenCalledWith('uploadMetadata')
     expect(mockCollection.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        _id: { $in: expect.any(Array) }
+        'file.fileId': { $in: expect.any(Array) }
       }),
       expect.objectContaining({
         $set: {

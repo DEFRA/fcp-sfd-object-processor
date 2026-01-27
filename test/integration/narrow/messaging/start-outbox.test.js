@@ -104,7 +104,7 @@ describe('Outbox message processing', () => {
     // Mock SNS publishBatch to return successful response
     publishBatch.mockResolvedValue({
       Successful: insertedIds.map((id, index) => ({
-        Id: testMessages[index].messageId.toString(),
+        Id: testMessages[index].payload.file.fileId,
         MessageId: `sns-message-${index}`,
         SequenceNumber: String(index)
       })),
@@ -202,7 +202,7 @@ describe('Outbox message processing', () => {
     publishBatch.mockResolvedValue({
       Successful: [],
       Failed: insertedIds.map((id, index) => ({
-        Id: testMessages[index].messageId.toString(),
+        Id: testMessages[index].payload.file.fileId,
         Code: 'InternalError',
         Message: 'SNS publish failed',
         SenderFault: false
