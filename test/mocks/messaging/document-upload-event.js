@@ -15,8 +15,7 @@ export const mockDocumentUploadedEvent = {
     file: {
       fileId: '123e4567-e89b-12d3-a456-426655440001',
       fileName: 'receipt.pdf',
-      contentType: 'application/pdf',
-      url: 'https://example.com/files/123e4567-e89b-12d3-a456-426655440001'
+      contentType: 'application/pdf'
     },
     sbi: 123456789,
     sourceSystem: 'fcp-sfd-frontend',

@@ -28,8 +28,7 @@ export const buildDocumentUploadMessageBatch = (pendingMessages) => {
         file: {
           fileId: file.fileId,
           fileName: file.filename,
-          contentType: file.contentType,
-          url: `https://example.com/files/${file.fileId}` // if we send a presigned url it will expire, API link to retrieve file instead?
+          contentType: file.contentType
         },
         sbi: metadata.sbi,
         sourceSystem: metadata.service, // do we need to map this to something else?

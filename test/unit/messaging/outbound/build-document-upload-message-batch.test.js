@@ -97,10 +97,6 @@ describe('buildDocumentUploadMessageBatch', () => {
     test('should set data.file.contentType from file.contentType', () => {
       expect(result[0].data.file.contentType).toBe(file.contentType)
     })
-
-    test('should set data.file.url with fileId in path', () => {
-      expect(result[0].data.file.url).toBe(`https://example.com/files/${file.fileId}`)
-    })
   })
 
   describe('batch processing', () => {
@@ -171,7 +167,6 @@ describe('buildDocumentUploadMessageBatch', () => {
       expect(typeof result[0].data.file.fileId).toBe('string')
       expect(typeof result[0].data.file.fileName).toBe('string')
       expect(typeof result[0].data.file.contentType).toBe('string')
-      expect(typeof result[0].data.file.url).toBe('string')
     })
 
     test('should not have additional properties beyond AsyncAPI spec', () => {
