@@ -3,11 +3,11 @@ import { beforeEach, describe, expect, vi, test } from 'vitest'
 import { createLogger } from '../../../../src/logging/logger.js'
 import { snsClient } from '../../../../src/messaging/sns/client.js'
 import { publishBatch } from '../../../../src/messaging/sns/publish-batch.js'
-import { buildDocumentUploadMessageBatch } from '../../../../src/messaging/outbound/crm/doc-upload/document-upload-message-batch.js'
+import { buildDocumentUploadMessageBatch } from '../../../../src/messaging/outbound/crm/doc-upload/build-document-upload-message-batch.js'
 import { publishDocumentUploadMessageBatch } from '../../../../src/messaging/outbound/crm/doc-upload/publish-document-upload-message-batch.js'
 
 vi.mock('../../../../src/messaging/sns/publish-batch.js')
-vi.mock('../../../../src/messaging/outbound/crm/doc-upload/document-upload-message-batch.js')
+vi.mock('../../../../src/messaging/outbound/crm/doc-upload/build-document-upload-message-batch.js')
 
 vi.mock('../../../../src/logging/logger.js', () => ({
   createLogger: vi.fn().mockReturnValue({

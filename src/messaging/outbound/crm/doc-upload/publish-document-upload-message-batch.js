@@ -2,7 +2,7 @@ import { createLogger } from '../../../../logging/logger.js'
 import { config } from '../../../../config/index.js'
 import { snsClient } from '../../../sns/client.js'
 import { publishBatch } from '../../../sns/publish-batch.js'
-import { buildDocumentUploadMessageBatch } from './document-upload-message-batch.js'
+import { buildDocumentUploadMessageBatch } from './build-document-upload-message-batch.js'
 
 const snsTopic = config.get('aws.messaging.topics.documentUploadEvents')
 
