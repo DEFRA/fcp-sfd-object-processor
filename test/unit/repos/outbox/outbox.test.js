@@ -16,6 +16,7 @@ vi.mock('../../../../src/config/index.js', () => ({
   config: {
     get: vi.fn((key) => {
       if (key === 'mongo.collections.outbox') return 'outbox'
+      if (key === 'mongo.outboxQueryLimit') return 100
       return null
     })
   }
@@ -187,6 +188,7 @@ describe('Outbox Repository', () => {
 
       // A cursor is what is returned from mongo find operations
       const mockCursor = {
+        limit: vi.fn().mockReturnThis(),
         toArray: vi.fn().mockResolvedValue(mockPendingEntries)
       }
 
@@ -203,6 +205,7 @@ describe('Outbox Repository', () => {
     test('should return empty array when no pending entries found', async () => {
       // A cursor is what is returned from mongo find operations
       const mockCursor = {
+        limit: vi.fn().mockReturnThis(),
         toArray: vi.fn().mockResolvedValue([])
       }
 
@@ -214,6 +217,26 @@ describe('Outbox Repository', () => {
       expect(mockCollection.find).toHaveBeenCalledWith({ status: PENDING })
       expect(mockCursor.toArray).toHaveBeenCalled()
       expect(result).toEqual([])
+    })
+
+    test('should apply limit to query', async () => {
+      const mockPendingEntries = [
+        { _id: new ObjectId(), status: PENDING, payload: {} }
+      ]
+
+      const mockCursor = {
+        limit: vi.fn().mockReturnThis(),
+        toArray: vi.fn().mockResolvedValue(mockPendingEntries)
+      }
+
+      mockCollection.find.mockReturnValue(mockCursor)
+
+      const result = await getPendingOutboxEntries()
+
+      expect(mockCollection.find).toHaveBeenCalledWith({ status: PENDING })
+      expect(mockCursor.limit).toHaveBeenCalledWith(expect.any(Number))
+      expect(mockCursor.toArray).toHaveBeenCalled()
+      expect(result).toEqual(mockPendingEntries)
     })
   })
 

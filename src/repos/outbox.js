@@ -26,9 +26,11 @@ const createOutboxEntries = async (ids, documents, session) => {
 
 const getPendingOutboxEntries = async () => {
   const collection = config.get(outboxCollection)
+  const queryLimit = config.get('mongo.outboxQueryLimit')
 
   const pendingEntries = await db.collection(collection)
-    .find({ status: PENDING }) // .limit to stop loading everything into memory
+    .find({ status: PENDING })
+    .limit(queryLimit)
     .toArray()
 
   return pendingEntries
