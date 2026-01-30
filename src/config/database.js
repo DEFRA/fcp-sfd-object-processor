@@ -18,6 +18,12 @@ export const databaseConfig = {
       default: null,
       env: 'MONGO_READ_PREFERENCE'
     },
+    outboxQueryLimit: {
+      doc: 'Limit for number of outbox entries to query at once',
+      format: 'int',
+      default: 100,
+      env: 'MONGO_OUTBOX_QUERY_LIMIT'
+    },
     collections: {
       uploadMetadata: {
         doc: 'uploadMetadata collection',
