@@ -31,7 +31,7 @@ export const buildDocumentUploadMessageBatch = (pendingMessages) => {
           contentType: file.contentType
         },
         sbi: metadata.sbi,
-        sourceSystem: metadata.service, // do we need to map this to something else?
+        sourceSystem: metadata.service,
         submissionId: metadata.submissionId
       }
     }
