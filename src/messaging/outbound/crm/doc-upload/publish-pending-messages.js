@@ -12,10 +12,13 @@ const publishPendingMessages = async () => {
 
   try {
     const pendingMessages = await getPendingOutboxEntries()
-    logger.info(pendingMessages.length
-      ? `Processing ${pendingMessages.length} outbox message(s).`
-      : 'No pending outbox messages to process.'
-    )
+
+    if (!pendingMessages.length) {
+      logger.info('No pending outbox messages to process.')
+      return
+    }
+
+    logger.info(`Processing ${pendingMessages.length} outbox message(s).`)
 
     for (let i = 0; i < pendingMessages.length; i += BATCH_SIZE) {
       const batch = pendingMessages.slice(i, i + BATCH_SIZE)
