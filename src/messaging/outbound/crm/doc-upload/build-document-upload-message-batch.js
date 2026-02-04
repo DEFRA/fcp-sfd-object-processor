@@ -28,7 +28,8 @@ export const buildDocumentUploadMessageBatch = (pendingMessages) => {
         file: {
           fileId: file.fileId,
           fileName: file.filename,
-          contentType: file.contentType
+          contentType: file.contentType,
+          url: `https://fcp-placeholder.cdp-int.defra.cloud/api/v1/blobs/${file.fileId}`
         },
         sbi: metadata.sbi,
         sourceSystem: metadata.service,
