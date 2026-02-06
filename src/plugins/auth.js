@@ -1,5 +1,7 @@
 import { config } from '../config/index.js'
+import { createLogger } from '../logging/logger.js'
 
+const logger = createLogger()
 const tenant = config.get('auth.tenant')
 const allowedGroupIds = config.get('auth.allowedGroupIds') || []
 
@@ -12,6 +14,27 @@ export const auth = {
 
         // All routes will require authentication unless explicitly set to `auth: false`
         server.auth.default('entra')
+
+        // Additional logging for authentication failures for when a request is rejected
+        // by Hapi before it reaches our validate function (e.g. missing/invalid token)
+        server.ext('onPreResponse', (request, h) => {
+          const response = request.response
+
+          if (response.isBoom && response.output.statusCode === 401) {
+            logger.warn({
+              msg: 'Authentication failed',
+              reason: response.message || response.output.payload.message,
+              path: request.path,
+              method: request.method,
+              sourceIp: request.info.remoteAddress,
+              userAgent: request.headers['user-agent'],
+              // Only include if token was present and decoded
+              tokenGroups: request.auth?.artifacts?.decoded?.payload?.groups // includes groups from token if present, otherwise undefined
+            })
+          }
+
+          return h.continue
+        })
       }
     }
   }
@@ -29,23 +52,50 @@ function getAuthOptions () {
       nbf: true,
       exp: true
     },
-    validate: async (artifacts, _request, _h) => {
+    validate: async (artifacts, request, _h) => {
       const { payload } = artifacts.decoded
 
       if (payload.typ && payload.typ !== 'JWT' && payload.typ !== 'at+jwt') {
-        return { isValid: false, errorMessage: 'Provided token is not an access token' }
+        const errorMessage = 'Provided token is not an access token'
+        logger.warn({
+          msg: 'Authentication failed',
+          reason: errorMessage,
+          tokenType: payload.typ,
+          path: request.path,
+          method: request.method,
+          sourceIp: request.info.remoteAddress,
+        })
+        return { isValid: false, errorMessage }
       }
 
       const tokenGroups = Array.isArray(payload.groups) ? payload.groups : []
 
       // If no allowed groups are configured, reject the token
       if (allowedGroupIds.length === 0) {
-        return { isValid: false, errorMessage: 'No authorized security groups configured' }
+        const errorMessage = 'No authorized security groups configured'
+        logger.warn({
+          msg: 'Authentication failed',
+          reason: errorMessage,
+          path: request.path,
+          method: request.method,
+          sourceIp: request.info.remoteAddress,
+        })
+        return { isValid: false, errorMessage }
       }
 
       // Check if token has any matching security groups
       if (!tokenGroups.some(group => allowedGroupIds.includes(group))) {
-        return { isValid: false, errorMessage: 'Token does not belong to an authorized Security Group' }
+        const errorMessage = 'Token does not belong to an authorized Security Group'
+        logger.warn({
+          msg: 'Authentication failed',
+          reason: errorMessage,
+          tokenGroups,
+          requiredGroups: allowedGroupIds,
+          path: request.path,
+          method: request.method,
+          sourceIp: request.info.remoteAddress
+        })
+        return { isValid: false, errorMessage }
       }
 
       const credentials = {
