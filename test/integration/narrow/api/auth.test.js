@@ -1,10 +1,11 @@
 import { constants as httpConstants } from 'node:http2'
-import { vi, describe, test, expect, beforeAll, beforeEach, afterAll } from 'vitest'
+import { vi, describe, test, expect, beforeAll, afterAll } from 'vitest'
 
 import { db } from '../../../../src/data/db.js'
 import { config } from '../../../../src/config'
 import { createServer } from '../../../../src/api'
 import { mockFormattedMetadata } from '../../../mocks/metadata.js'
+import { mockScanAndUploadResponse } from '../../../mocks/cdp-uploader.js'
 
 let server
 let originalCollection
@@ -29,6 +30,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   config.set('auth.enabled', false) // restore default
+  config.set('mongo.collections.uploadMetadata', originalCollection)
 })
 
 describe('Authentication across all routes', () => {
@@ -54,7 +56,24 @@ describe('Authentication across all routes', () => {
 
     // returns 200 when auth is enabled and valid token provided
   })
-})
+  describe('Unprotected routes should be accessible without auth: /health /callback', () => {
+    test('GET /health returns 200 when no auth header is present', async () => {
+      const response = await server.inject({
+        method: 'GET',
+        url: '/health'
+      })
 
-// describe('and the auth token is valid', () => {
-// })
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+    })
+
+    test('POST /api/v1/callback returns 201 when no auth header is present', async () => {
+      const response = await server.inject({
+        method: 'POST',
+        url: '/api/v1/callback',
+        payload: mockScanAndUploadResponse
+      })
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+    })
+  })
+})

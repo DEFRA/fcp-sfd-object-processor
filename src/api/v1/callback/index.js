@@ -15,6 +15,7 @@ export const uploadCallback = {
   options: {
     description: 'Callback used by the CDP Uploader',
     notes: 'This endpoint is only called by the CDP Uploader service after processing an upload request.',
+    auth: false, // This endpoint is called by an external service (CDP Uploader) that does not have authentication capabilities, so auth is disabled for this route.
     tags: ['api', 'cdp-uploader'],
     validate: {
       payload: callbackPayloadSchema,
