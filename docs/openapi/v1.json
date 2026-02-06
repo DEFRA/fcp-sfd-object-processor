@@ -1,7 +1,7 @@
 {
   "info": {
     "title": "FCP SFD Object Processor API",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "description": "API for FCP Single Front Door Object Processor. Supporting integration with CDP uploader service, retrieving metadata and forwarding data to CRM.",
     "contact": {
       "name": "SFD Devs",
@@ -45,7 +45,16 @@
     }
   ],
   "openapi": "3.0.0",
-  "components": {},
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Azure AD JWT token authentication. Requires a valid access token with authorized security group membership.\n\nExample: `Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2xvZ2luLm1pY3Jvc...`"
+      }
+    }
+  },
   "paths": {
     "/health": {
       "get": {
@@ -70,6 +79,11 @@
     "/api/v1/blob/{fileId}": {
       "get": {
         "operationId": "getApiV1BlobFileid",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "fileId",
@@ -159,6 +173,30 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statusCode": {
+                      "type": "number",
+                      "example": 401
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Missing authentication"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -213,6 +251,11 @@
     "/api/v1/metadata/sbi/{sbi}": {
       "get": {
         "operationId": "getApiV1MetadataSbiSbi",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "sbi",
@@ -401,6 +444,30 @@
                           }
                         }
                       }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statusCode": {
+                      "type": "number",
+                      "example": 401
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Missing authentication"
                     }
                   }
                 }
