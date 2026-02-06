@@ -11,8 +11,12 @@ let originalCollection
 let collection
 
 beforeAll(async () => {
-  // set a new collection for each integration test to avoid db clashes between tests
+  // Auth is disabled by default for tests.
+  // This test file explicitly enables auth to test authentication behavior.
+  config.set('auth.enabled', true)
+
   vi.restoreAllMocks()
+  // set a new collection for each integration test to avoid db clashes between tests
   originalCollection = config.get('mongo.collections.uploadMetadata')
   config.set('mongo.collections.uploadMetadata', 'auth-test-collection')
   collection = config.get('mongo.collections.uploadMetadata')
@@ -21,6 +25,10 @@ beforeAll(async () => {
   await server.initialize()
 
   await db.collection(collection).insertOne(mockFormattedMetadata)
+})
+
+afterAll(async () => {
+  config.set('auth.enabled', false) // restore default
 })
 
 describe('Authentication across all routes', () => {
