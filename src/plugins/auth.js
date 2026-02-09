@@ -4,6 +4,7 @@ import { createLogger } from '../logging/logger.js'
 const logger = createLogger()
 const tenant = config.get('auth.tenant')
 const allowedGroupIds = config.get('auth.allowedGroupIds') || []
+const authFailedMessage = 'Authentication failed'
 
 export const auth = {
   plugin: {
@@ -22,7 +23,7 @@ export const auth = {
 
           if (response.isBoom && response.output.statusCode === 401) {
             logger.warn({
-              msg: 'Authentication failed',
+              msg: authFailedMessage,
               reason: response.message || response.output.payload.message,
               path: request.path,
               method: request.method,
@@ -58,12 +59,12 @@ function getAuthOptions () {
       if (payload.typ && payload.typ !== 'JWT' && payload.typ !== 'at+jwt') {
         const errorMessage = 'Provided token is not an access token'
         logger.warn({
-          msg: 'Authentication failed',
+          msg: authFailedMessage,
           reason: errorMessage,
           tokenType: payload.typ,
           path: request.path,
           method: request.method,
-          sourceIp: request.info.remoteAddress,
+          sourceIp: request.info.remoteAddress
         })
         return { isValid: false, errorMessage }
       }
@@ -74,11 +75,11 @@ function getAuthOptions () {
       if (allowedGroupIds.length === 0) {
         const errorMessage = 'No authorized security groups configured'
         logger.warn({
-          msg: 'Authentication failed',
+          msg: authFailedMessage,
           reason: errorMessage,
           path: request.path,
           method: request.method,
-          sourceIp: request.info.remoteAddress,
+          sourceIp: request.info.remoteAddress
         })
         return { isValid: false, errorMessage }
       }
@@ -87,7 +88,7 @@ function getAuthOptions () {
       if (!tokenGroups.some(group => allowedGroupIds.includes(group))) {
         const errorMessage = 'Token does not belong to an authorized Security Group'
         logger.warn({
-          msg: 'Authentication failed',
+          msg: authFailedMessage,
           reason: errorMessage,
           tokenGroups,
           requiredGroups: allowedGroupIds,

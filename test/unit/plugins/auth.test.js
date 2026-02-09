@@ -203,7 +203,7 @@ describe('auth plugin', () => {
         path: '/test',
         method: 'GET',
         info: { remoteAddress: '127.0.0.1' },
-        headers: { 'user-agent': 'test-agent' },
+        headers: { 'user-agent': 'test-agent' }
       }
       mockH = {}
     })
