@@ -1,5 +1,6 @@
 import { config } from '../config/index.js'
 import { createLogger } from '../logging/logger.js'
+import { constants as httpConstants } from 'node:http2'
 
 const logger = createLogger()
 const tenant = config.get('auth.tenant')
@@ -21,7 +22,7 @@ export const auth = {
         server.ext('onPreResponse', (request, h) => {
           const response = request.response
 
-          if (response.isBoom && response.output.statusCode === 401) {
+          if (response.isBoom && response.output.statusCode === httpConstants.HTTP_STATUS_UNAUTHORIZED) {
             logger.warn({
               msg: authFailedMessage,
               reason: response.message || response.output.payload.message,
