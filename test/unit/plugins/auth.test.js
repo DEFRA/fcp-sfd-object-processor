@@ -7,6 +7,14 @@ vi.mock('../../../src/config/index.js', () => ({
   }
 }))
 
+vi.mock('../../../src/logging/logger.js', () => ({
+  createLogger: vi.fn().mockReturnValue({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
+  })
+}))
+
 describe('auth plugin', () => {
   let mockServer
   let auth
@@ -19,7 +27,8 @@ describe('auth plugin', () => {
       auth: {
         strategy: vi.fn(),
         default: vi.fn()
-      }
+      },
+      ext: vi.fn()
     }
 
     mockConfigGet.mockImplementation((key) => {
@@ -86,6 +95,7 @@ describe('auth plugin', () => {
 
       expect(mockServer.auth.strategy).not.toHaveBeenCalled()
       expect(mockServer.auth.default).not.toHaveBeenCalled()
+      expect(mockServer.ext).not.toHaveBeenCalled()
     })
 
     test('should use correct JWKS URI with tenant ID', async () => {
@@ -108,7 +118,8 @@ describe('auth plugin', () => {
         auth: {
           strategy: vi.fn(),
           default: vi.fn()
-        }
+        },
+        ext: vi.fn()
       }
 
       await authWithCustomTenant.plugin.register(newMockServer)
@@ -126,6 +137,58 @@ describe('auth plugin', () => {
         'https://login.microsoftonline.com/test-tenant-id/v2.0'
       ])
     })
+
+    test('should register onPreResponse extension when auth is enabled', async () => {
+      await auth.plugin.register(mockServer)
+
+      expect(mockServer.ext).toHaveBeenCalledWith('onPreResponse', expect.any(Function))
+    })
+
+    test('should call h.continue in onPreResponse for non-401 responses', async () => {
+      await auth.plugin.register(mockServer)
+
+      const extensionHandler = mockServer.ext.mock.calls[0][1]
+      const mockRequest = {
+        response: {
+          isBoom: true,
+          output: { statusCode: 403 }
+        },
+        path: '/test',
+        method: 'GET',
+        info: { remoteAddress: '127.0.0.1' },
+        headers: {}
+      }
+      const mockH = { continue: Symbol('continue') }
+
+      const result = extensionHandler(mockRequest, mockH)
+
+      expect(result).toBe(mockH.continue)
+    })
+
+    test('should call h.continue in onPreResponse for 401 responses', async () => {
+      await auth.plugin.register(mockServer)
+
+      const extensionHandler = mockServer.ext.mock.calls[0][1]
+      const mockRequest = {
+        response: {
+          isBoom: true,
+          output: {
+            statusCode: 401,
+            payload: { message: 'Unauthorized' }
+          },
+          message: 'Invalid token'
+        },
+        path: '/test',
+        method: 'GET',
+        info: { remoteAddress: '127.0.0.1' },
+        headers: { 'user-agent': 'test-agent' }
+      }
+      const mockH = { continue: Symbol('continue') }
+
+      const result = extensionHandler(mockRequest, mockH)
+
+      expect(result).toBe(mockH.continue)
+    })
   })
 
   describe('validate function', () => {
@@ -136,7 +199,12 @@ describe('auth plugin', () => {
     beforeEach(async () => {
       await auth.plugin.register(mockServer)
       validateFunction = mockServer.auth.strategy.mock.calls[0][2].validate
-      mockRequest = {}
+      mockRequest = {
+        path: '/test',
+        method: 'GET',
+        info: { remoteAddress: '127.0.0.1' },
+        headers: { 'user-agent': 'test-agent' },
+      }
       mockH = {}
     })
 
@@ -352,6 +420,13 @@ describe('auth plugin', () => {
   })
 
   describe('configuration scenarios', () => {
+    const mockRequest = {
+      path: '/test',
+      method: 'GET',
+      info: { remoteAddress: '127.0.0.1' },
+      headers: { 'user-agent': 'test-agent' }
+    }
+
     test('should reject token when allowedGroupIds config is null', async () => {
       vi.resetModules()
       mockConfigGet.mockImplementation((key) => {
@@ -372,7 +447,8 @@ describe('auth plugin', () => {
         auth: {
           strategy: vi.fn(),
           default: vi.fn()
-        }
+        },
+        ext: vi.fn()
       }
 
       await authWithNullGroups.plugin.register(newMockServer)
@@ -388,7 +464,7 @@ describe('auth plugin', () => {
         decoded: { payload }
       }
 
-      const result = await validateFunc(artifacts, {}, {})
+      const result = await validateFunc(artifacts, mockRequest, {})
 
       expect(result.isValid).toBe(false)
       expect(result.errorMessage).toBe('No authorized security groups configured')
@@ -414,7 +490,8 @@ describe('auth plugin', () => {
         auth: {
           strategy: vi.fn(),
           default: vi.fn()
-        }
+        },
+        ext: vi.fn()
       }
 
       await authWithUndefinedGroups.plugin.register(newMockServer)
@@ -430,7 +507,7 @@ describe('auth plugin', () => {
         decoded: { payload }
       }
 
-      const result = await validateFunc(artifacts, {}, {})
+      const result = await validateFunc(artifacts, mockRequest, {})
 
       expect(result.isValid).toBe(false)
       expect(result.errorMessage).toBe('No authorized security groups configured')
