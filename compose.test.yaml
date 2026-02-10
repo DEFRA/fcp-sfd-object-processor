@@ -13,6 +13,9 @@ services:
       NODE_ENV: development
       LOCALSTACK_ENDPOINT: http://localstack:4566
       MONGO_URI: mongodb://mongodb:27017/
+      AUTH_ENABLED: ${AUTH_ENABLED:-false}
+      AUTH_TENANT_ID: ${AUTH_TENANT_ID}
+      AUTH_ALLOWED_GROUP_IDS: ${AUTH_ALLOWED_GROUP_IDS}
     volumes:
       - ./src/:/home/node/src
       - ./test/:/home/node/test
