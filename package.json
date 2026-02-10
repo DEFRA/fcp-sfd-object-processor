@@ -1,7 +1,7 @@
 {
   "name": "fcp-sfd-object-processor",
   "version": "0.2.0",
-  "description": "Messaging gateway service for Single Front Door",
+  "description": "File upload and processing service for Single Front Door",
   "main": "src/index.js",
   "type": "module",
   "engines": {
@@ -10,7 +10,7 @@
   "scripts": {
     "docker:debug": "docker compose -f compose.yaml -f compose.debug.yaml -p 'fcp-sfd-object-processor' up",
     "docker:dev": "docker compose up",
-    "docker:test": "npm run test:lint && mkdir -p coverage 2>/dev/null || true docker compose -p fcp-sfd-object-processor-test down -v && docker compose -f compose.yaml -f compose.test.yaml -p fcp-sfd-object-processor-test run --build --rm fcp-sfd-object-processor",
+    "docker:test": "npm run test:lint && (mkdir -p coverage 2>/dev/null || true) && docker compose -p fcp-sfd-object-processor-test down -v && docker compose -f compose.yaml -f compose.test.yaml -p fcp-sfd-object-processor-test run --build --rm fcp-sfd-object-processor",
     "docker:test:watch": "docker compose -p fcp-sfd-object-processor-test down -v && docker compose -f compose.yaml -f compose.test.yaml -f compose.test.watch.yaml -p fcp-sfd-object-processor-test run --build --rm fcp-sfd-object-processor",
     "generateOpenApiSpec": "node --experimental-vm-modules ./scripts/generate-openapi.js",
     "pretest": "npm run test:lint",
