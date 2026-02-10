@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, vi, test } from 'vitest'
 import { publishPendingMessages } from '../../../../src/messaging/outbound/crm/doc-upload/publish-pending-messages.js'
-import { getPendingOutboxEntries, bulkUpdateDeliveryStatus } from '../../../../src/repos/outbox.js'
+import { getProcessableOutboxEntries, bulkUpdateDeliveryStatus } from '../../../../src/repos/outbox.js'
 import { bulkUpdatePublishedAtDate } from '../../../../src/repos/metadata.js'
 import { publishDocumentUploadMessageBatch } from '../../../../src/messaging/outbound/crm/doc-upload/publish-document-upload-message-batch.js'
 import { client } from '../../../../src/data/db.js'
@@ -76,7 +76,7 @@ describe('publishPendingMessages', () => {
   })
 
   test('should fetch pending messages and publish them', async () => {
-    getPendingOutboxEntries.mockResolvedValue(mockPendingMessages)
+    getProcessableOutboxEntries.mockResolvedValue(mockPendingMessages)
     publishDocumentUploadMessageBatch.mockResolvedValue({
       Successful: [{ id: 'id-1', messageId: 'message-id-1', sequenceNumber: 1 }],
       Failed: [{ id: 'id-2', messageId: 'message-id-2', sequenceNumber: 2 }]
@@ -84,10 +84,10 @@ describe('publishPendingMessages', () => {
 
     await publishPendingMessages()
 
-    expect(getPendingOutboxEntries).toHaveBeenCalledOnce()
+    expect(getProcessableOutboxEntries).toHaveBeenCalledOnce()
   })
 
-  test('should process messages in batches of 10 when more than batch size returned from getPendingOutboxEntries', async () => {
+  test('should process messages in batches of 10 when more than batch size returned from getProcessableOutboxEntries', async () => {
   // Create 25 mock messages
     const largeBatch = Array.from({ length: 25 }, (_, index) => ({
       _id: `message-id-${index}`,
@@ -101,7 +101,7 @@ describe('publishPendingMessages', () => {
       createdAt: new Date()
     }))
 
-    getPendingOutboxEntries.mockResolvedValue(largeBatch)
+    getProcessableOutboxEntries.mockResolvedValue(largeBatch)
     publishDocumentUploadMessageBatch.mockResolvedValue({
       Successful: [],
       Failed: []
@@ -109,7 +109,7 @@ describe('publishPendingMessages', () => {
 
     await publishPendingMessages()
 
-    expect(getPendingOutboxEntries).toHaveBeenCalledOnce()
+    expect(getProcessableOutboxEntries).toHaveBeenCalledOnce()
 
     // Should be called 3 times: 10 + 10 + 5
     expect(publishDocumentUploadMessageBatch).toHaveBeenCalledTimes(3)
@@ -125,25 +125,25 @@ describe('publishPendingMessages', () => {
   })
 
   test('should handle when there are no pending messages', async () => {
-    getPendingOutboxEntries.mockResolvedValue([])
+    getProcessableOutboxEntries.mockResolvedValue([])
 
     await publishPendingMessages()
 
-    expect(getPendingOutboxEntries).toHaveBeenCalledOnce()
+    expect(getProcessableOutboxEntries).toHaveBeenCalledOnce()
     expect(publishDocumentUploadMessageBatch).not.toHaveBeenCalled()
     expect(bulkUpdateDeliveryStatus).not.toHaveBeenCalled()
     expect(bulkUpdatePublishedAtDate).not.toHaveBeenCalled()
   })
 
   test('should update status to FAILED when publishDocumentUploadMessageBatch returns Failed messages', async () => {
-    getPendingOutboxEntries.mockResolvedValue(mockPendingMessages)
+    getProcessableOutboxEntries.mockResolvedValue(mockPendingMessages)
     publishDocumentUploadMessageBatch.mockResolvedValue({
       Successful: [],
       Failed: [{ Id: 'message-id-1', messageId: 'sns-message-id', sequenceNumber: 1 }]
     })
     await publishPendingMessages()
 
-    expect(getPendingOutboxEntries).toHaveBeenCalledOnce()
+    expect(getProcessableOutboxEntries).toHaveBeenCalledOnce()
     expect(publishDocumentUploadMessageBatch).toHaveBeenCalledTimes(1)
 
     expect(bulkUpdateDeliveryStatus).toHaveBeenCalledTimes(1)
@@ -152,19 +152,19 @@ describe('publishPendingMessages', () => {
   })
 
   test('should throw error when publishDocumentUploadMessageBatch fails', async () => {
-    getPendingOutboxEntries.mockResolvedValue(mockPendingMessages)
+    getProcessableOutboxEntries.mockResolvedValue(mockPendingMessages)
     const publishError = new Error('Publishing failed')
     publishDocumentUploadMessageBatch.mockRejectedValue(publishError)
 
     await expect(publishPendingMessages()).rejects.toThrow('Publishing failed')
 
-    expect(getPendingOutboxEntries).toHaveBeenCalledOnce()
+    expect(getProcessableOutboxEntries).toHaveBeenCalledOnce()
     expect(publishDocumentUploadMessageBatch).toHaveBeenCalledTimes(1)
     expect(mockSession.endSession).toHaveBeenCalledOnce()
   })
 
   test('should use transaction session for database operations', async () => {
-    getPendingOutboxEntries.mockResolvedValue(mockPendingMessages)
+    getProcessableOutboxEntries.mockResolvedValue(mockPendingMessages)
     publishDocumentUploadMessageBatch.mockResolvedValue({
       Successful: [
         { Id: mockPendingMessages[0].messageId }, { Id: mockPendingMessages[1].messageId }
@@ -180,7 +180,7 @@ describe('publishPendingMessages', () => {
 
   test('should end session even if error occurs', async () => {
     const mockError = new Error('Database error')
-    getPendingOutboxEntries.mockRejectedValue(mockError)
+    getProcessableOutboxEntries.mockRejectedValue(mockError)
 
     await expect(publishPendingMessages()).rejects.toThrow('Database error')
 

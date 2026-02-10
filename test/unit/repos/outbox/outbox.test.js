@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, vi, test } from 'vitest'
 import { ObjectId } from 'mongodb'
 import { randomUUID } from 'node:crypto'
 
-import { createOutboxEntries, getPendingOutboxEntries, bulkUpdateDeliveryStatus } from '../../../../src/repos/outbox.js'
+import { createOutboxEntries, getProcessableOutboxEntries, bulkUpdateDeliveryStatus } from '../../../../src/repos/outbox.js'
 import { mockMetadataResponse as documents } from '../../../mocks/metadata.js'
 import { PENDING, SENT, FAILED } from '../../../../src/constants/outbox.js'
 import { db } from '../../../../src/data/db.js'
@@ -179,7 +179,7 @@ describe('Outbox Repository', () => {
     })
   })
 
-  describe('getPendingOutboxEntries', () => {
+  describe('getProcessableOutboxEntries', () => {
     test('should retrieve outbox entries with status pending and failed', async () => {
       const mockPendingEntries = [
         { _id: new ObjectId(), status: PENDING, payload: {} },
@@ -195,7 +195,7 @@ describe('Outbox Repository', () => {
 
       mockCollection.find.mockReturnValue(mockCursor)
 
-      const result = await getPendingOutboxEntries()
+      const result = await getProcessableOutboxEntries()
 
       expect(db.collection).toHaveBeenCalledWith('outbox')
       expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] } })
@@ -212,7 +212,7 @@ describe('Outbox Repository', () => {
 
       mockCollection.find.mockReturnValue(mockCursor)
 
-      const result = await getPendingOutboxEntries()
+      const result = await getProcessableOutboxEntries()
 
       expect(db.collection).toHaveBeenCalledWith('outbox')
       expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] } })
@@ -232,7 +232,7 @@ describe('Outbox Repository', () => {
 
       mockCollection.find.mockReturnValue(mockCursor)
 
-      const result = await getPendingOutboxEntries()
+      const result = await getProcessableOutboxEntries()
 
       expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] } })
       expect(mockCursor.limit).toHaveBeenCalledWith(expect.any(Number))
