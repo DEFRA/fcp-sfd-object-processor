@@ -180,10 +180,11 @@ describe('Outbox Repository', () => {
   })
 
   describe('getPendingOutboxEntries', () => {
-    test('should retrieve outbox entries with status pending', async () => {
+    test('should retrieve outbox entries with status pending and failed', async () => {
       const mockPendingEntries = [
         { _id: new ObjectId(), status: PENDING, payload: {} },
-        { _id: new ObjectId(), status: PENDING, payload: {} }
+        { _id: new ObjectId(), status: PENDING, payload: {} },
+        { _id: new ObjectId(), status: FAILED, payload: {} }
       ]
 
       // A cursor is what is returned from mongo find operations
@@ -197,7 +198,7 @@ describe('Outbox Repository', () => {
       const result = await getPendingOutboxEntries()
 
       expect(db.collection).toHaveBeenCalledWith('outbox')
-      expect(mockCollection.find).toHaveBeenCalledWith({ status: PENDING })
+      expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] } })
       expect(mockCursor.toArray).toHaveBeenCalled()
       expect(result).toEqual(mockPendingEntries)
     })
@@ -214,7 +215,7 @@ describe('Outbox Repository', () => {
       const result = await getPendingOutboxEntries()
 
       expect(db.collection).toHaveBeenCalledWith('outbox')
-      expect(mockCollection.find).toHaveBeenCalledWith({ status: PENDING })
+      expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] } })
       expect(mockCursor.toArray).toHaveBeenCalled()
       expect(result).toEqual([])
     })
@@ -233,7 +234,7 @@ describe('Outbox Repository', () => {
 
       const result = await getPendingOutboxEntries()
 
-      expect(mockCollection.find).toHaveBeenCalledWith({ status: PENDING })
+      expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] } })
       expect(mockCursor.limit).toHaveBeenCalledWith(expect.any(Number))
       expect(mockCursor.toArray).toHaveBeenCalled()
       expect(result).toEqual(mockPendingEntries)

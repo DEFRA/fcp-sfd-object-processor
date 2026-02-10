@@ -1,5 +1,5 @@
 import { config } from '../config/index.js'
-import { PENDING } from '../constants/outbox.js'
+import { PENDING, FAILED } from '../constants/outbox.js'
 import { db } from '../data/db.js'
 
 const outboxCollection = 'mongo.collections.outbox'
@@ -29,7 +29,7 @@ const getPendingOutboxEntries = async () => {
   const queryLimit = config.get('mongo.outboxQueryLimit')
 
   const pendingEntries = await db.collection(collection)
-    .find({ status: PENDING })
+    .find({ status: { $in: [PENDING, FAILED] } })
     .limit(queryLimit)
     .toArray()
 
