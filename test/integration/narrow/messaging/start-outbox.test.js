@@ -407,7 +407,6 @@ describe('Outbox message processing', () => {
 
     const insertResult = await db.collection(outboxCollection).insertMany(testMessages)
     const insertedIds = [Object.values(insertResult.insertedIds)[0]] // Only take the first PENDING message ID
-    console.log('Inserted Outbox IDs:', insertedIds)
 
     // Mock SNS publishBatch to return successful response
     publishBatch.mockResolvedValue({
@@ -422,7 +421,7 @@ describe('Outbox message processing', () => {
     // Act: Run publishPendingMessages
     await publishPendingMessages()
 
-    // Assert: All PENDING and FAILED messages should be processed
+    // Assert: All SENT messages should NOT be processed
     const updatedMessages = await db.collection(outboxCollection)
       .find({ _id: { $in: insertedIds } })
       .toArray()

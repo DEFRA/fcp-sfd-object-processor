@@ -27,8 +27,9 @@ const publishPendingMessages = async () => {
 
       await session.withTransaction(async () => {
         if (Successful.length > 0) {
-          await bulkUpdateDeliveryStatus(session, Successful.map(message => message.Id), SENT)
-          await bulkUpdatePublishedAtDate(session, Successful.map(message => message.Id))
+          const messageIds = Successful.map(message => message.Id)
+          await bulkUpdateDeliveryStatus(session, messageIds, SENT)
+          await bulkUpdatePublishedAtDate(session, messageIds)
         }
 
         if (Failed.length > 0) {
