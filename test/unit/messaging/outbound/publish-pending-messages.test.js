@@ -78,8 +78,8 @@ describe('publishPendingMessages', () => {
   test('should fetch pending messages and publish them', async () => {
     getProcessableOutboxEntries.mockResolvedValue(mockPendingMessages)
     publishDocumentUploadMessageBatch.mockResolvedValue({
-      Successful: [{ id: 'id-1', messageId: 'message-id-1', sequenceNumber: 1 }],
-      Failed: [{ id: 'id-2', messageId: 'message-id-2', sequenceNumber: 2 }]
+      Successful: [{ Id: 'id-1', messageId: 'message-id-1', SequenceNumber: 1 }],
+      Failed: [{ Id: 'id-2', messageId: 'message-id-2', SequenceNumber: 2 }]
     })
 
     await publishPendingMessages()
@@ -139,7 +139,7 @@ describe('publishPendingMessages', () => {
     getProcessableOutboxEntries.mockResolvedValue(mockPendingMessages)
     publishDocumentUploadMessageBatch.mockResolvedValue({
       Successful: [],
-      Failed: [{ Id: 'message-id-1', messageId: 'sns-message-id', sequenceNumber: 1 }]
+      Failed: [{ Id: 'message-id-1', messageId: 'sns-message-id', SequenceNumber: 1 }]
     })
     await publishPendingMessages()
 
