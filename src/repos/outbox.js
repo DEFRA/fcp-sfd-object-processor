@@ -7,7 +7,7 @@ const outboxCollection = 'mongo.collections.outbox'
 const createOutboxEntries = async (ids, documents, session) => {
   const collection = config.get(outboxCollection)
 
-  const outboxDocs = Object.values(ids).map((id, index) => {
+  const outboxDocs = Object.entries(ids).map(([index, id]) => {
     return {
       messageId: id,
       payload: documents[index],
