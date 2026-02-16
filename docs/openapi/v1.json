@@ -308,19 +308,19 @@
                             "description": "Metadata about the item",
                             "properties": {
                               "sbi": {
-                                "type": "string",
+                                "type": "integer",
                                 "description": "Single Business Identifier",
-                                "example": "105000000"
+                                "example": 105000000
                               },
                               "crn": {
-                                "type": "string",
+                                "type": "integer",
                                 "description": "Customer Reference Number",
-                                "example": "1050000000"
+                                "example": 1050000000
                               },
                               "frn": {
-                                "type": "string",
+                                "type": "integer",
                                 "description": "Firm Reference Number",
-                                "example": "1102658375"
+                                "example": 1102658375
                               },
                               "submissionId": {
                                 "type": "string",
@@ -455,18 +455,121 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "description": "Callback payload from CDP Uploader after file upload processing",
                 "properties": {
                   "uploadStatus": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Status of the upload process",
+                    "example": "ready",
+                    "enum": [
+                      "ready",
+                      "initiated",
+                      "pending"
+                    ]
                   },
                   "metadata": {
-                    "type": "object"
+                    "type": "object",
+                    "description": "Metadata about the upload submission",
+                    "properties": {
+                      "sbi": {
+                        "type": "integer",
+                        "description": "Single Business Identifier - must be exactly 9 digits",
+                        "example": 105000000,
+                        "minimum": 100000000,
+                        "maximum": 999999999
+                      },
+                      "crn": {
+                        "type": "integer",
+                        "description": "Customer Reference Number - must be exactly 10 digits",
+                        "example": 1050000000,
+                        "minimum": 1000000000,
+                        "maximum": 9999999999
+                      },
+                      "frn": {
+                        "type": "integer",
+                        "description": "Firm Reference Number - must be exactly 10 digits",
+                        "example": 1102658375,
+                        "minimum": 1000000000,
+                        "maximum": 9999999999
+                      },
+                      "submissionId": {
+                        "type": "string",
+                        "description": "Unique identifier for the submission",
+                        "example": "1733826312"
+                      },
+                      "uosr": {
+                        "type": "string",
+                        "description": "Unique Object Storage Reference combining SBI and submission ID",
+                        "example": "105000000_1733826312"
+                      },
+                      "submissionDateTime": {
+                        "type": "string",
+                        "description": "Date and time of submission",
+                        "example": "10/12/2024 10:25:12"
+                      },
+                      "files": {
+                        "type": "array",
+                        "description": "Array of file names submitted",
+                        "example": [
+                          "document.pdf",
+                          "receipt.jpg"
+                        ],
+                        "minItems": 1,
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "filesInSubmission": {
+                        "type": "integer",
+                        "description": "Total number of files in the submission",
+                        "example": 2,
+                        "minimum": 1
+                      },
+                      "type": {
+                        "type": "string",
+                        "description": "Type of submission - determines CRM queue",
+                        "example": "CS_Agreement_Evidence",
+                        "enum": [
+                          "CS_Agreement_Evidence"
+                        ]
+                      },
+                      "reference": {
+                        "type": "string",
+                        "description": "User-entered reference for the submission",
+                        "example": "user entered reference"
+                      },
+                      "service": {
+                        "type": "string",
+                        "description": "Source system that initiated the upload",
+                        "example": "fcp-sfd-frontend",
+                        "enum": [
+                          "fcp-sfd-frontend",
+                          "rps-portal"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "sbi",
+                      "crn",
+                      "frn",
+                      "submissionId",
+                      "uosr",
+                      "submissionDateTime",
+                      "files",
+                      "filesInSubmission",
+                      "type",
+                      "reference",
+                      "service"
+                    ]
                   },
                   "form": {
-                    "type": "object"
+                    "type": "object",
+                    "description": "Form data containing both text fields and file uploads"
                   },
                   "numberOfRejectedFiles": {
                     "type": "integer",
+                    "description": "Number of files rejected during upload",
+                    "example": 0,
                     "minimum": 0
                   }
                 },

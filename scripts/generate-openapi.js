@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises'
 
-const generateOpenapi = async (path = './src/docs/openapi/v1.json') => {
+const generateOpenapi = async (path = './docs/openapi/v1.json') => {
   try {
     const openApiResponse = await fetch('http://localhost:3004/documentation.json')
     const openApiJson = await openApiResponse.json()
