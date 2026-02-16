@@ -21,7 +21,7 @@ export const uploadCallback = {
     validate: {
       payload: callbackPayloadSchema,
       options: { abortEarly: false },
-      failAction: async (request, h, err) => {
+      failAction: async (request, _h, err) => {
         logValidationFailure(logger, err, request)
         throw err
       }
