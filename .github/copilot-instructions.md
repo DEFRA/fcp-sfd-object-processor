@@ -36,6 +36,51 @@ data/ (MongoDB client)
 - Repos accept `session` parameter for transactions
 - Never create DB queries in API handlers
 
+### Authentication Strategy
+This service uses **Microsoft Entra ID (Azure AD) JWT authentication** via `@hapi/jwt` plugin.
+
+**Key features:**
+- Configurable via `AUTH_ENABLED` environment variable (default: `true`)
+- Validates tokens from Azure AD tenant specified in `AUTH_TENANT_ID`
+- Requires security group membership - tokens must contain at least one group ID from `AUTH_ALLOWED_GROUP_IDS` (comma-separated UUIDs)
+- Default authentication on all routes unless explicitly disabled with `auth: false`
+- Accepts both v1.0 and v2.0 Azure AD access tokens
+
+**Implementation details:**
+- Auth plugin registered in [src/api/index.js](../src/api/index.js) after `@hapi/jwt`
+- Strategy configuration in [src/plugins/auth.js](../src/plugins/auth.js)
+- Config schema in [src/config/auth.js](../src/config/auth.js)
+- Custom format validator for security group UUIDs in [src/config/formats/security-groups.js](../src/config/formats/security-groups.js)
+
+**Token validation:**
+1. Verifies token signature against Azure AD public keys
+2. Checks token type is `JWT` or `at+jwt` (access token)
+3. Validates expiry (`exp`), not-before (`nbf`), and issuer (`iss`)
+4. Ensures token contains at least one matching security group from `AUTH_ALLOWED_GROUP_IDS`
+5. Logs authentication failures with request context (path, method, IP, user-agent, token groups)
+
+**Disabling authentication for routes:**
+```javascript
+// Health endpoint example
+{
+  method: 'GET',
+  path: '/health',
+  handler,
+  options: {
+    auth: false  // Disables authentication for this route
+  }
+}
+```
+
+**Current unauthenticated routes:**
+- `/health` - Health check endpoint
+- `/api/v1/callback` - CDP Uploader callback (external service without auth capabilities)
+
+**When adding new routes:**
+- Authentication is applied by default (via `server.auth.default('entra')`)
+- Only disable with `auth: false` for routes that must be publicly accessible
+- Document why authentication is disabled (see callback route for example)
+
 ## Technology Stack
 - **Runtime:** Node.js v22+ with ESM modules (`type: "module"`)
 - **API Framework:** Hapi.js with hapi-swagger for OpenAPI
@@ -121,6 +166,22 @@ const mockSession = {
   endSession: vi.fn()
 }
 client.startSession.mockReturnValue(mockSession)
+```
+- Mock pattern for auth config (see [test/unit/plugins/auth.test.js](../test/unit/plugins/auth.test.js)):
+```javascript
+const mockConfigGet = vi.fn()
+vi.mock('../../../src/config/index.js', () => ({
+  config: { get: mockConfigGet }
+}))
+
+mockConfigGet.mockImplementation((key) => {
+  switch (key) {
+    case 'auth.enabled': return true
+    case 'auth.tenant': return 'test-tenant-id'
+    case 'auth.allowedGroupIds': return ['group-1', 'group-2']
+    default: return null
+  }
+})
 ```
 
 ## Configuration Management
