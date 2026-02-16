@@ -1,5 +1,5 @@
 import { config } from '../config/index.js'
-import { PENDING } from '../constants/outbox.js'
+import { PENDING, FAILED } from '../constants/outbox.js'
 import { db } from '../data/db.js'
 
 const outboxCollection = 'mongo.collections.outbox'
@@ -7,7 +7,7 @@ const outboxCollection = 'mongo.collections.outbox'
 const createOutboxEntries = async (ids, documents, session) => {
   const collection = config.get(outboxCollection)
 
-  const outboxDocs = Object.values(ids).map((id, index) => {
+  const outboxDocs = Object.entries(ids).map(([index, id]) => {
     return {
       messageId: id,
       payload: documents[index],
@@ -24,16 +24,16 @@ const createOutboxEntries = async (ids, documents, session) => {
   return insertedIds
 }
 
-const getPendingOutboxEntries = async () => {
+const getProcessableOutboxEntries = async () => {
   const collection = config.get(outboxCollection)
   const queryLimit = config.get('mongo.outboxQueryLimit')
 
-  const pendingEntries = await db.collection(collection)
-    .find({ status: PENDING })
+  const processableEntries = await db.collection(collection)
+    .find({ status: { $in: [PENDING, FAILED] } })
     .limit(queryLimit)
     .toArray()
 
-  return pendingEntries
+  return processableEntries
 }
 
 const bulkUpdateDeliveryStatus = async (session, fileIds, status, error = null) => {
@@ -62,6 +62,6 @@ const bulkUpdateDeliveryStatus = async (session, fileIds, status, error = null) 
 
 export {
   createOutboxEntries,
-  getPendingOutboxEntries,
+  getProcessableOutboxEntries,
   bulkUpdateDeliveryStatus
 }

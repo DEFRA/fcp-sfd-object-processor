@@ -8,6 +8,7 @@ const health = {
         method: 'GET',
         path: '/health',
         options: {
+          auth: false,
           tags: ['api', 'health']
         },
         ...healthHandler

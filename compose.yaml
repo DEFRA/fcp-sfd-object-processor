@@ -14,17 +14,24 @@ services:
       - ./package.json:/home/node/package.json
     environment:
       NODE_ENV: development
-      LOCALSTACK_ENDPOINT: http://localstack:4566
+      CDP_UPLOADER_URL: ${CDP_UPLOADER_URL:-http://cdp-uploader:7337}
+      # Database
       MONGO_URI: mongodb://mongodb:27017/?replicaSet=rs0
       MONGO_READ_PREFERENCE: primary 
-      CDP_UPLOADER_URL: ${CDP_UPLOADER_URL:-http://cdp-uploader:7337}
+      MONGO_OUTBOX_QUERY_LIMIT: ${MONGO_OUTBOX_QUERY_LIMIT:-100}
+      # aws
+      LOCALSTACK_ENDPOINT: http://localstack:4566
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
       AWS_S3_FORCE_PATH_STYLE: true
-      DOCUMENT_UPLOAD_EVENTS_TOPIC_ARN: arn:aws:sns:eu-west-2:000000000000:fcp_sfd_object_processor_events
       S3_ENDPOINT: http://localhost:4566
       SNS_ENDPOINT: http://localstack:4566
-      MONGO_OUTBOX_QUERY_LIMIT: ${MONGO_OUTBOX_QUERY_LIMIT:-100}
+      # Messaging
+      DOCUMENT_UPLOAD_EVENTS_TOPIC_ARN: arn:aws:sns:eu-west-2:000000000000:fcp_sfd_object_processor_events
+      # Auth
+      AUTH_ENABLED: ${AUTH_ENABLED:-true}
+      AUTH_TENANT_ID: ${AUTH_TENANT_ID}
+      AUTH_ALLOWED_GROUP_IDS: ${AUTH_ALLOWED_GROUP_IDS}
     networks:
       - fcp-sfd
 
