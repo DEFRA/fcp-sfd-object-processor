@@ -2,9 +2,9 @@ export const mockMetadataResponse =
 [
   {
     metadata: {
-      sbi: '105000000',
-      crn: '1050000000',
-      frn: '1102658375',
+      sbi: 105000000,
+      crn: 1050000000,
+      frn: 1102658375,
       submissionId: '1733826312',
       uosr: '107220150_1733826312',
       submissionDateTime: '10/12/2024 10:25:12',
@@ -12,7 +12,7 @@ export const mockMetadataResponse =
       filesInSubmission: 2,
       type: 'CS_Agreement_Evidence',
       reference: 'user entered reference',
-      service: 'SFD'
+      service: 'fcp-sfd-frontend'
     },
     file: {
       fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
@@ -23,9 +23,9 @@ export const mockMetadataResponse =
   },
   {
     metadata: {
-      sbi: '105000000',
-      crn: '1050000000',
-      frn: '1102658375',
+      sbi: 105000000,
+      crn: 1050000000,
+      frn: 1102658375,
       submissionId: '1733826312',
       uosr: '107220150_1733826312',
       submissionDateTime: '10/12/2024 10:25:12',
@@ -33,7 +33,7 @@ export const mockMetadataResponse =
       filesInSubmission: 2,
       type: 'CS_Agreement_Evidence',
       reference: 'user entered reference',
-      service: 'SFD'
+      service: 'fcp-sfd-frontend'
     },
     file: {
       fileId: '3f90b889-eac7-4e98-975f-93fcef5b8554',

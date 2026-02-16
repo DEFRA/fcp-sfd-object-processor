@@ -7,9 +7,9 @@ const metadataSuccessSchema = Joi.object({
       _id: Joi.any().exist(), // update to support mongoId format ro convert to string before returning
 
       metadata: Joi.object({
-        sbi: Joi.string().description('Single Business Identifier').example('105000000'),
-        crn: Joi.string().description('Customer Reference Number').example('1050000000'),
-        frn: Joi.string().description('Firm Reference Number').example('1102658375'),
+        sbi: Joi.number().integer().description('Single Business Identifier').example(105000000),
+        crn: Joi.number().integer().description('Customer Reference Number').example(1050000000),
+        frn: Joi.number().integer().description('Firm Reference Number').example(1102658375),
         submissionId: Joi.string().description('ID for all files uploaded in request').example('1733826312'),
         uosr: Joi.string().description('Made up of sbi_submissionId').example('107220150_1733826312'),
         submissionDateTime: Joi.string().description('Date the uploads were made').example('10/12/2024 10:25:12'),

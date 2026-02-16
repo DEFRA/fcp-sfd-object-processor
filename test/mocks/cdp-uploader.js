@@ -1,8 +1,8 @@
 // an example of the metadata that is provided by a consuming service
 const mockMetadata = {
-  sbi: '105000000',
-  crn: '1050000000',
-  frn: '1102658375',
+  sbi: 105000000,
+  crn: 1050000000,
+  frn: 1102658375,
   submissionId: '1733826312',
   uosr: '107220150_1733826312',
   submissionDateTime: '10/12/2024 10:25:12',
@@ -10,7 +10,7 @@ const mockMetadata = {
   filesInSubmission: 2,
   type: 'CS_Agreement_Evidence',
   reference: 'user entered reference',
-  service: 'SFD'
+  service: 'fcp-sfd-frontend'
 }
 
 // examples of the file upload data that is returned from the cdp uploader for each file uploaded, this forms part of the scanAndUploadResponse

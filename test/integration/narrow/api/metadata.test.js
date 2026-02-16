@@ -37,7 +37,7 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
   describe('when there is valid data in the database', async () => {
     test('should return an array of metadata objects when one document found', async () => {
       await db.collection(collection).insertOne(mockMetadataResponse[0])
-      const sbi = '105000000'
+      const sbi = 105000000
 
       const response = await server.inject({
         method: 'GET',
@@ -55,7 +55,7 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
     test('should return an array of metadata objects when multiple documents found', async () => {
       await db.collection(collection).insertMany(mockMetadataResponse)
 
-      const sbi = '105000000'
+      const sbi = 105000000
       const response = await server.inject({
         method: 'GET',
         url: `/api/v1/metadata/sbi/${sbi}`
@@ -77,7 +77,7 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
     test('should return null and 404 status when no documents found', async () => {
       await db.collection(collection).insertMany(mockMetadataResponse)
 
-      const sbi = '123456789'
+      const sbi = 123456789
       const response = await server.inject({
         method: 'GET',
         url: `/api/v1/metadata/sbi/${sbi}`
