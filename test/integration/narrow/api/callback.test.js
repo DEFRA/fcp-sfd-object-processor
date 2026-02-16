@@ -50,20 +50,130 @@ describe('POST to the /api/v1/callback route', async () => {
   })
 
   describe('with an invalid payload', async () => {
-    test('should fail validation', async () => {
+    test('should return 400 for missing required fields', async () => {
       const response = await server.inject({
         method: 'POST',
         url: '/api/v1/callback',
         payload: {}
       })
 
-      const mappedErrors = response.result.err.details.map((detail) => detail.message)
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
+      expect(response.result.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
+      expect(response.result.error).toBe('Bad Request')
+      expect(response.result.message).toContain('"uploadStatus" is required')
+      expect(response.result.validation).toBeDefined()
+      expect(response.result.validation.source).toBe('payload')
+    })
+
+    test('should return 400 for invalid metadata.sbi format', async () => {
+      const invalidPayload = {
+        ...mockScanAndUploadResponse,
+        metadata: {
+          ...mockScanAndUploadResponse.metadata,
+          sbi: '12345' // Should be 9 digits
+        }
+      }
+
+      const response = await server.inject({
+        method: 'POST',
+        url: '/api/v1/callback',
+        payload: invalidPayload
+      })
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
+      expect(response.result.message).toContain('sbi')
+    })
 
-      expect(mappedErrors[0]).toBe('"uploadStatus" is required')
-      expect(mappedErrors[1]).toBe('"metadata" is required')
-      expect(mappedErrors[2]).toBe('"form" is required')
+    test('should return 400 for invalid metadata.crn format', async () => {
+      const invalidPayload = {
+        ...mockScanAndUploadResponse,
+        metadata: {
+          ...mockScanAndUploadResponse.metadata,
+          crn: '123' // Should be 10 digits
+        }
+      }
+
+      const response = await server.inject({
+        method: 'POST',
+        url: '/api/v1/callback',
+        payload: invalidPayload
+      })
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
+      expect(response.result.message).toContain('crn')
+    })
+
+    test('should return 400 for invalid file upload fileId', async () => {
+      const invalidPayload = {
+        ...mockScanAndUploadResponse,
+        form: {
+          'test-file': {
+            ...mockScanAndUploadResponse.form['a-file-upload-field'],
+            fileId: 'not-a-uuid'
+          }
+        }
+      }
+
+      const response = await server.inject({
+        method: 'POST',
+        url: '/api/v1/callback',
+        payload: invalidPayload
+      })
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
+      expect(response.result.message).toContain('fileId')
+    })
+
+    test('should return 400 for unknown fields (strict mode)', async () => {
+      const invalidPayload = {
+        ...mockScanAndUploadResponse,
+        unknownField: 'should-fail'
+      }
+
+      const response = await server.inject({
+        method: 'POST',
+        url: '/api/v1/callback',
+        payload: invalidPayload
+      })
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
+      expect(response.result.message).toContain('unknownField')
+    })
+
+    test('should return 400 with multiple validation errors', async () => {
+      const invalidPayload = {
+        uploadStatus: 'invalid-status',
+        metadata: {
+          sbi: '123', // Invalid format
+          crn: 'abc' // Invalid format
+          // Missing other required fields
+        },
+        form: {}
+      }
+
+      const response = await server.inject({
+        method: 'POST',
+        url: '/api/v1/callback',
+        payload: invalidPayload
+      })
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
+      expect(response.result.validation.keys.length).toBeGreaterThan(1)
+    })
+  })
+
+  describe('regression tests', async () => {
+    test('should still accept valid payloads after validation changes', async () => {
+      const response = await server.inject({
+        method: 'POST',
+        url: '/api/v1/callback',
+        payload: mockScanAndUploadResponse
+      })
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+      expect(response.result).toHaveProperty('message', 'Metadata created')
+      expect(response.result).toHaveProperty('count')
+      expect(response.result).toHaveProperty('ids')
     })
   })
 

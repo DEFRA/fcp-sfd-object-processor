@@ -5,6 +5,7 @@ import { createLogger } from '../../../logging/logger.js'
 import { callbackPayloadSchema } from './schema.js'
 import { config } from '../../../config/index.js'
 import { persistMetadataWithOutbox } from '../../../services/metadata-service.js'
+import { logValidationFailure } from '../../common/helpers/validation-logger.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -19,8 +20,9 @@ export const uploadCallback = {
     validate: {
       payload: callbackPayloadSchema,
       options: { abortEarly: false },
-      failAction: async (_request, h, err) => {
-        return h.response({ err }).code(httpConstants.HTTP_STATUS_BAD_REQUEST).takeover()
+      failAction: async (request, h, err) => {
+        logValidationFailure(logger, err, request)
+        throw err
       }
     },
     handler: async (request, h) => {
