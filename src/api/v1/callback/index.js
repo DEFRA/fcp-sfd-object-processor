@@ -6,6 +6,7 @@ import { callbackPayloadSchema } from './schema.js'
 import { config } from '../../../config/index.js'
 import { persistMetadataWithOutbox } from '../../../services/metadata-service.js'
 import { logValidationFailure } from '../../common/helpers/validation-logger.js'
+import { metricsCounter } from '../../common/helpers/metrics.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -23,6 +24,7 @@ export const uploadCallback = {
       options: { abortEarly: false },
       failAction: async (request, _h, err) => {
         logValidationFailure(logger, err, request)
+        await metricsCounter('callback_validation_failures')
         throw err
       }
     },
