@@ -32,6 +32,9 @@ services:
       AUTH_ENABLED: ${AUTH_ENABLED:-true}
       AUTH_TENANT_ID: ${AUTH_TENANT_ID}
       AUTH_ALLOWED_GROUP_IDS: ${AUTH_ALLOWED_GROUP_IDS}
+      # Grafana Metrics
+      ENABLE_METRICS: ${ENABLE_METRICS:-true}
+      AWS_EMF_ENVIRONMENT: Local
     networks:
       - fcp-sfd
 
