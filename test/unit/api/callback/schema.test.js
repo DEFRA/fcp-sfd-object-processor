@@ -265,6 +265,65 @@ describe('callbackPayloadSchema validation', () => {
       expect(error.details.some(d => d.path.includes('submissionDateTime'))).toBe(true)
     })
 
+    test('valid submissionDateTime format passes validation', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        metadata: {
+          ...validPayload.metadata,
+          submissionDateTime: '10/12/2024 10:25:12'
+        }
+      })
+      expect(error).toBeUndefined()
+    })
+
+    test('invalid submissionDateTime format (ISO 8601) fails validation', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        metadata: {
+          ...validPayload.metadata,
+          submissionDateTime: '2024-12-10 10:25:12'
+        }
+      })
+      expect(error).toBeDefined()
+      expect(error.details.some(d => d.path.includes('submissionDateTime') && d.type === 'string.pattern.base')).toBe(true)
+    })
+
+    test('invalid submissionDateTime format (short year) fails validation', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        metadata: {
+          ...validPayload.metadata,
+          submissionDateTime: '10/12/24 10:25'
+        }
+      })
+      expect(error).toBeDefined()
+      expect(error.details.some(d => d.path.includes('submissionDateTime') && d.type === 'string.pattern.base')).toBe(true)
+    })
+
+    test('invalid submissionDateTime format (dashes) fails validation', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        metadata: {
+          ...validPayload.metadata,
+          submissionDateTime: '10-12-2024 10:25:12'
+        }
+      })
+      expect(error).toBeDefined()
+      expect(error.details.some(d => d.path.includes('submissionDateTime') && d.type === 'string.pattern.base')).toBe(true)
+    })
+
+    test('invalid submissionDateTime format (date only) fails validation', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        metadata: {
+          ...validPayload.metadata,
+          submissionDateTime: '10/12/2024'
+        }
+      })
+      expect(error).toBeDefined()
+      expect(error.details.some(d => d.path.includes('submissionDateTime') && d.type === 'string.pattern.base')).toBe(true)
+    })
+
     test('missing files array fails validation', () => {
       const { files, ...metadata } = validPayload.metadata
       const { error } = callbackPayloadSchema.validate({
@@ -538,6 +597,72 @@ describe('callbackPayloadSchema validation', () => {
       })
       expect(error).toBeDefined()
       expect(error.details.some(d => d.path.includes('detectedContentType') && d.type === 'string.pattern.base')).toBe(true)
+    })
+
+    test('valid standard detectedContentType formats pass validation', () => {
+      const standardTypes = ['application/pdf', 'image/jpeg', 'text/plain', 'video/mp4', 'audio/mpeg']
+      standardTypes.forEach(detectedContentType => {
+        const { error } = callbackPayloadSchema.validate({
+          ...validPayload,
+          form: {
+            'test-file': { ...validFileUpload, detectedContentType }
+          }
+        })
+        expect(error).toBeUndefined()
+      })
+    })
+
+    test('valid vendor detectedContentType formats with dots pass validation', () => {
+      const vendorTypes = [
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'text/vnd.sun.j2me.app-descriptor',
+        'image/vnd.adobe.photoshop'
+      ]
+      vendorTypes.forEach(detectedContentType => {
+        const { error } = callbackPayloadSchema.validate({
+          ...validPayload,
+          form: {
+            'test-file': { ...validFileUpload, detectedContentType }
+          }
+        })
+        expect(error).toBeUndefined()
+      })
+    })
+
+    test('valid complex detectedContentType formats pass validation', () => {
+      const complexTypes = [
+        'application/vnd.api+json',
+        'application/calendar+xml',
+        'text/x-c++src'
+      ]
+      complexTypes.forEach(detectedContentType => {
+        const { error } = callbackPayloadSchema.validate({
+          ...validPayload,
+          form: {
+            'test-file': { ...validFileUpload, detectedContentType }
+          }
+        })
+        expect(error).toBeUndefined()
+      })
+    })
+
+    test('invalid detectedContentType edge cases fail validation', () => {
+      const invalidTypes = [
+        'applicationpdf',          // missing slash
+        'application/pdf/extra',   // multiple slashes
+        'application.test/pdf'     // dots before slash (not allowed in type)
+      ]
+      invalidTypes.forEach(detectedContentType => {
+        const { error } = callbackPayloadSchema.validate({
+          ...validPayload,
+          form: {
+            'test-file': { ...validFileUpload, detectedContentType }
+          }
+        })
+        expect(error).toBeDefined()
+        expect(error.details.some(d => d.path.includes('detectedContentType') && d.type === 'string.pattern.base')).toBe(true)
+      })
     })
 
     test('missing s3Key fails validation', () => {
