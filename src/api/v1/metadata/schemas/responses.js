@@ -33,7 +33,8 @@ const metadataSuccessSchema = Joi.object({
           .description('Made up of sbi_submissionId')
           .example(schemaConsts.UOSR_EXAMPLE),
         submissionDateTime: Joi.string()
-          .description('Date the uploads were made')
+          .pattern(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/)
+          .description('Date the uploads were made in DD/MM/YYYY HH:mm:ss format')
           .example(schemaConsts.SUBMISSION_DATE_TIME_EXAMPLE),
         files: Joi.array()
           .items(Joi.string().required())
@@ -55,7 +56,7 @@ const metadataSuccessSchema = Joi.object({
         service: Joi.string()
           .description('Name of the service that provided the uploads')
           .example(schemaConsts.SERVICE_EXAMPLE)
-      }).required().description('Metadata about the item'),
+      }).required().label('MetadataFields').description('Metadata about the item'),
 
       file: Joi.object({
         fileId: Joi.string()
@@ -75,10 +76,10 @@ const metadataSuccessSchema = Joi.object({
           .required()
           .description('Upload status of the file uploaded')
           .example(schemaConsts.FILE_STATUS_EXAMPLE)
-      }).required().description('File information')
+      }).required().label('FileFields').description('File information')
 
-    }).label('uploadMetadata')
-  ).label('uploadMetadataArray')
-}).label('responseData')
+    }).label('MetadataDocument')
+  )
+}).label('MetadataQueryResponse')
 
 export const metadataResponseSchema = generateResponseSchemas(metadataSuccessSchema)

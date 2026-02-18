@@ -7,11 +7,10 @@ const badRequestResponseSchema = Joi.object({
   statusCode: Joi.number().example(httpConstants.HTTP_STATUS_BAD_REQUEST),
   error: Joi.string().example('Bad Request'),
   message: Joi.string().example('Invalid query parameter'),
-  validation:
-      Joi.object({
-        source: Joi.string(),
-        keys: Joi.array().items(Joi.string())
-      })
+  validation: Joi.object({
+    source: Joi.string(),
+    keys: Joi.array().items(Joi.string())
+  })
 }).label('BadRequest')
 
 const notfoundResponseSchema = Joi.object({
@@ -26,9 +25,16 @@ const serverErrorResponseSchema = Joi.object({
   message: Joi.string().example('Something went wrong')
 }).label('ServerError')
 
+const unauthorizedResponseSchema = Joi.object({
+  statusCode: Joi.number().example(httpConstants.HTTP_STATUS_UNAUTHORIZED),
+  error: Joi.string().example('Unauthorized'),
+  message: Joi.string().example('Missing authentication')
+}).label('Unauthorized')
+
 export const generateResponseSchemas = (successSchema) => ({
   200: successSchema,
   400: badRequestResponseSchema,
+  401: unauthorizedResponseSchema,
   404: notfoundResponseSchema,
   500: serverErrorResponseSchema
 })

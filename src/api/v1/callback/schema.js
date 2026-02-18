@@ -120,7 +120,7 @@ const metadataSchema = Joi.object({
     })
     .example(schemaConsts.SERVICE_EXAMPLE)
 }).strict()
-  .description('Metadata about the upload submission')
+  .description('Metadata about the upload submission').label('UploadMetadata')
 
 // File upload schema for individual file objects in the form
 const fileUploadSchema = Joi.object({
@@ -210,7 +210,7 @@ const fileUploadSchema = Joi.object({
     })
     .example(schemaConsts.S3_BUCKET_EXAMPLE)
 }).strict()
-  .description('File upload metadata from CDP Uploader')
+  .description('File upload metadata from CDP Uploader').label('FileUploadMetadata')
 
 // Form schema - allows string values or file upload objects
 // Must contain at least one file upload object
@@ -238,7 +238,7 @@ const formSchema = Joi.object()
   .messages({
     'object.min': '"form" must contain at least one file upload',
     'any.required': '"form" is required'
-  })
+  }).label('CallbackForm')
 
 // Main callback payload schema
 export const callbackPayloadSchema = Joi.object({
@@ -268,4 +268,4 @@ export const callbackPayloadSchema = Joi.object({
     })
     .example(schemaConsts.NUMBER_OF_REJECTED_FILES_EXAMPLE)
 }).strict()
-  .description('Callback payload from CDP Uploader after file upload processing')
+  .description('Callback payload from CDP Uploader after file upload processing').label('CallbackPayload')
