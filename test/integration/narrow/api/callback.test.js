@@ -163,6 +163,144 @@ describe('POST to the /api/v1/callback route', async () => {
     })
   })
 
+  describe('MIME type validation (contentType and detectedContentType)', async () => {
+    describe('should accept valid MIME types', async () => {
+      const validMimeTypes = [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+        'text/plain',
+        'video/mp4',
+        'audio/mpeg',
+        // MIME types with plus signs
+        'application/ld+json',
+        'image/svg+xml',
+        'application/atom+xml',
+        'application/hal+json',
+        // MIME types with dots (vendor types)
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.api+json',
+        'application/vnd.oasis.opendocument.text',
+        // MIME types with hyphens
+        'application/x-www-form-urlencoded',
+        'application/x-pkcs7-signature',
+        'application/pkcs7-mime',
+        'text/x-markdown',
+        // MIME types with numbers
+        'video/3gpp',
+        'video/3gpp2',
+        'audio/mp4',
+        'application/x-7z-compressed',
+        'application/vnd.3gpp.pic-bw-small',
+        // MIME types with multiple special characters
+        'application/vnd.ms-excel.sheet.macroEnabled.12',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/x-pkcs12',
+        // MIME types with allowed special characters (!, #, $, &, ^, _)
+        'application/test!type',
+        'application/test#type',
+        'application/test$type',
+        'application/test&type',
+        'application/test^type',
+        'application/test_type'
+      ]
+
+      validMimeTypes.forEach((mimeType) => {
+        test(`should accept ${mimeType}`, async () => {
+          const payload = {
+            ...mockScanAndUploadResponse,
+            form: {
+              'test-field': {
+                ...mockScanAndUploadResponse.form['a-file-upload-field'],
+                contentType: mimeType,
+                detectedContentType: mimeType
+              }
+            }
+          }
+
+          const response = await server.inject({
+            method: 'POST',
+            url: '/api/v1/callback',
+            payload
+          })
+
+          expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+        })
+      })
+    })
+
+    describe('should reject invalid MIME types', async () => {
+      const invalidMimeTypes = [
+        { value: 'applicationpdf', reason: 'missing slash' },
+        { value: '/pdf', reason: 'starts with slash' },
+        { value: 'application/', reason: 'ends with slash' },
+        { value: 'application//pdf', reason: 'double slash' },
+        { value: '-application/pdf', reason: 'starts with hyphen' },
+        { value: '.application/pdf', reason: 'starts with dot' },
+        { value: '+application/pdf', reason: 'starts with plus' },
+        { value: 'application/ pdf', reason: 'contains space after slash' },
+        { value: 'application /pdf', reason: 'contains space before slash' },
+        { value: 'application/pdf test', reason: 'contains space in subtype' },
+        { value: 'application@pdf', reason: 'contains invalid character @' },
+        { value: 'application/pdf*test', reason: 'contains invalid character *' },
+        { value: 'application/pdf(test)', reason: 'contains invalid characters ()' },
+        { value: 'application/pdf[test]', reason: 'contains invalid characters []' },
+        { value: '', reason: 'empty string' },
+        { value: '/', reason: 'only slash' },
+        { value: 'application', reason: 'missing subtype' },
+        { value: '/application/pdf', reason: 'extra leading slash' },
+        { value: 'application/pdf/', reason: 'trailing slash' },
+        { value: 'application\\pdf', reason: 'backslash instead of slash' },
+        { value: 'application:pdf', reason: 'colon instead of slash' }
+      ]
+
+      invalidMimeTypes.forEach(({ value, reason }) => {
+        test(`should reject "${value}" (${reason})`, async () => {
+          const payload = {
+            ...mockScanAndUploadResponse,
+            form: {
+              'test-field': {
+                ...mockScanAndUploadResponse.form['a-file-upload-field'],
+                contentType: value
+              }
+            }
+          }
+
+          const response = await server.inject({
+            method: 'POST',
+            url: '/api/v1/callback',
+            payload
+          })
+
+          expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
+          expect(response.result.message).toContain('contentType')
+        })
+      })
+
+      test('should reject invalid detectedContentType', async () => {
+        const payload = {
+          ...mockScanAndUploadResponse,
+          form: {
+            'test-field': {
+              ...mockScanAndUploadResponse.form['a-file-upload-field'],
+              detectedContentType: 'invalid-mime-type'
+            }
+          }
+        }
+
+        const response = await server.inject({
+          method: 'POST',
+          url: '/api/v1/callback',
+          payload
+        })
+
+        expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
+        expect(response.result.message).toContain('detectedContentType')
+      })
+    })
+  })
+
   describe('regression tests', async () => {
     test('should still accept valid payloads after validation changes', async () => {
       const response = await server.inject({
