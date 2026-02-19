@@ -54,10 +54,11 @@ export const logValidationFailure = (logger, err, request) => {
     }
   })
 
-  logger.error({
-    message: 'Validation failed',
-    validationErrors,
-    path: request.path,
-    method: request.method
-  })
+  const errPayload = new Error('Validation failed')
+  errPayload.validationErrors = validationErrors
+  errPayload.path = request.path
+  errPayload.method = request.method
+
+  // Log the Error object and a custom message for structured output
+  logger.error(errPayload, 'Validation failed')
 }
