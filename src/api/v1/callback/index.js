@@ -2,7 +2,7 @@ import Boom from '@hapi/boom'
 
 import { constants as httpConstants } from 'node:http2'
 import { createLogger } from '../../../logging/logger.js'
-import { callbackPayloadSchema } from './schema.js'
+import { callbackPayloadSchema, callbackResponseSchema } from './schema.js'
 import { config } from '../../../config/index.js'
 import { persistMetadataWithOutbox } from '../../../services/metadata-service.js'
 import { logValidationFailure } from '../../common/helpers/validation-logger.js'
@@ -25,8 +25,11 @@ export const uploadCallback = {
       failAction: async (request, _h, err) => {
         logValidationFailure(logger, err, request)
         await metricsCounter('callback_validation_failures')
-        throw err
+        throw Boom.boomify(err, { statusCode: httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY })
       }
+    },
+    response: {
+      status: callbackResponseSchema
     },
     handler: async (request, h) => {
       try {
@@ -35,7 +38,7 @@ export const uploadCallback = {
         return h.response({
           message: 'Metadata created',
           count: result.insertedCount,
-          ids: Object.values(result.insertedIds)
+          ids: Object.values(result.insertedIds).map(id => id.toString())
         }).code(httpConstants.HTTP_STATUS_CREATED)
       } catch (err) {
         logger.error(err)

@@ -1,5 +1,6 @@
 import Joi from 'joi'
 import { schemaConsts } from '../../../constants/schemas.js'
+import { generateResponseSchemas } from '../schemas/responses.js'
 
 // Pattern for validating MIME types (basic but covers common cases)
 const mimeTypePattern = /^[a-zA-Z0-9][a-zA-Z0-9!#$&^_+-]*\/[a-zA-Z0-9][a-zA-Z0-9!#$&^_+.-]*$/
@@ -67,9 +68,11 @@ const metadataSchema = Joi.object({
     })
     .example(schemaConsts.UOSR_EXAMPLE),
   submissionDateTime: Joi.string()
+    .pattern(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/)
     .required()
-    .description('Date and time of submission')
+    .description('Date and time of submission in DD/MM/YYYY HH:MM:SS format')
     .messages({
+      'string.pattern.base': 'submissionDateTime must be in DD/MM/YYYY HH:MM:SS format',
       'any.required': 'submissionDateTime is required'
     })
     .example(schemaConsts.SUBMISSION_DATE_TIME_EXAMPLE),
@@ -269,3 +272,11 @@ export const callbackPayloadSchema = Joi.object({
     .example(schemaConsts.NUMBER_OF_REJECTED_FILES_EXAMPLE)
 }).strict()
   .description('Callback payload from CDP Uploader after file upload processing').label('CallbackPayload')
+
+const callbackSuccessResponseSchema = Joi.object({
+  message: Joi.string().example('Metadata created'),
+  count: Joi.number().integer().min(0).example(1),
+  ids: Joi.array().items(Joi.string()).example(['60b8d295f1d2c916c8a5e9b7'])
+}).label('CallbackSuccessResponse')
+
+export const callbackResponseSchema = generateResponseSchemas(callbackSuccessResponseSchema, 201)

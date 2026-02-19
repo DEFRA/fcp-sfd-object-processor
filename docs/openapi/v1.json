@@ -157,6 +157,23 @@
           }
         }
       },
+      "UnprocessableEntity": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 422
+          },
+          "error": {
+            "type": "string",
+            "example": "Unprocessable Entity"
+          },
+          "message": {
+            "type": "string",
+            "example": "\"property0\" is not allowed. \"property1\" is not allowed"
+          }
+        }
+      },
       "ServerError": {
         "type": "object",
         "properties": {
@@ -404,8 +421,9 @@
           },
           "submissionDateTime": {
             "type": "string",
-            "description": "Date and time of submission",
-            "example": "10/12/2024 10:25:12"
+            "description": "Date and time of submission in DD/MM/YYYY HH:MM:SS format",
+            "example": "10/12/2024 10:25:12",
+            "pattern": "^\\d{2}\\/\\d{2}\\/\\d{4} \\d{2}:\\d{2}:\\d{2}$"
           },
           "files": {
             "$ref": "#/components/schemas/Model1"
@@ -487,6 +505,32 @@
           "form",
           "numberOfRejectedFiles"
         ]
+      },
+      "ids": {
+        "type": "array",
+        "example": [
+          "60b8d295f1d2c916c8a5e9b7"
+        ],
+        "items": {
+          "type": "string"
+        }
+      },
+      "CallbackSuccessResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Metadata created"
+          },
+          "count": {
+            "type": "integer",
+            "example": 1,
+            "minimum": 0
+          },
+          "ids": {
+            "$ref": "#/components/schemas/ids"
+          }
+        }
       },
       "FileUpload": {
         "type": "object",
@@ -648,6 +692,16 @@
               }
             }
           },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnprocessableEntity"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal Server Error",
             "content": {
@@ -722,6 +776,16 @@
               }
             }
           },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnprocessableEntity"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal Server Error",
             "content": {
@@ -753,12 +817,62 @@
           }
         },
         "responses": {
-          "default": {
-            "description": "Successful",
+          "201": {
+            "description": "Created",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/CallbackSuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequest"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Unauthorized"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFound"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnprocessableEntity"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerError"
                 }
               }
             }

@@ -50,22 +50,20 @@ describe('POST to the /api/v1/callback route', async () => {
   })
 
   describe('with an invalid payload', async () => {
-    test('should return 400 for missing required fields', async () => {
+    test('should return 422 for missing required fields', async () => {
       const response = await server.inject({
         method: 'POST',
         url: '/api/v1/callback',
         payload: {}
       })
 
-      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
-      expect(response.result.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
-      expect(response.result.error).toBe('Bad Request')
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
+      expect(response.result.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
+      expect(response.result.error).toBe('Unprocessable Entity')
       expect(response.result.message).toContain('"uploadStatus" is required')
-      expect(response.result.validation).toBeDefined()
-      expect(response.result.validation.source).toBe('payload')
     })
 
-    test('should return 400 for invalid metadata.sbi format', async () => {
+    test('should return 422 for invalid metadata.sbi format', async () => {
       const invalidPayload = {
         ...mockScanAndUploadResponse,
         metadata: {
@@ -80,11 +78,11 @@ describe('POST to the /api/v1/callback route', async () => {
         payload: invalidPayload
       })
 
-      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
       expect(response.result.message).toContain('sbi')
     })
 
-    test('should return 400 for invalid metadata.crn format', async () => {
+    test('should return 422 for invalid metadata.crn format', async () => {
       const invalidPayload = {
         ...mockScanAndUploadResponse,
         metadata: {
@@ -99,11 +97,11 @@ describe('POST to the /api/v1/callback route', async () => {
         payload: invalidPayload
       })
 
-      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
       expect(response.result.message).toContain('crn')
     })
 
-    test('should return 400 for invalid file upload fileId', async () => {
+    test('should return 422 for invalid file upload fileId', async () => {
       const invalidPayload = {
         ...mockScanAndUploadResponse,
         form: {
@@ -120,11 +118,11 @@ describe('POST to the /api/v1/callback route', async () => {
         payload: invalidPayload
       })
 
-      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
       expect(response.result.message).toContain('fileId')
     })
 
-    test('should return 400 for unknown fields (strict mode)', async () => {
+    test('should return 422 for unknown fields (strict mode)', async () => {
       const invalidPayload = {
         ...mockScanAndUploadResponse,
         unknownField: 'should-fail'
@@ -136,11 +134,11 @@ describe('POST to the /api/v1/callback route', async () => {
         payload: invalidPayload
       })
 
-      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
       expect(response.result.message).toContain('unknownField')
     })
 
-    test('should return 400 with multiple validation errors', async () => {
+    test('should return 422 with multiple validation errors', async () => {
       const invalidPayload = {
         uploadStatus: 'invalid-status',
         metadata: {
@@ -157,8 +155,11 @@ describe('POST to the /api/v1/callback route', async () => {
         payload: invalidPayload
       })
 
-      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
-      expect(response.result.validation.keys.length).toBeGreaterThan(1)
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
+      expect(response.result.message).toContain('"uploadStatus" must be one of [ready, initiated, pending]')
+      expect(response.result.message).toContain('sbi')
+      expect(response.result.message).toContain('crn')
+      expect(response.result.message).toContain('"form" must contain at least one file upload')
     })
   })
 
