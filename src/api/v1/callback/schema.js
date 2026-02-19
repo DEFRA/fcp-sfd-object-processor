@@ -1,6 +1,7 @@
 import Joi from 'joi'
 import { schemaConsts } from '../../../constants/schemas.js'
 import { generateResponseSchemas } from '../schemas/responses.js'
+import { constants as httpConstants } from 'node:http2'
 
 // Pattern for validating MIME types (basic but covers common cases)
 const mimeTypePattern = /^[a-zA-Z0-9][a-zA-Z0-9!#$&^_+-]*\/[a-zA-Z0-9][a-zA-Z0-9!#$&^_+.-]*$/
@@ -279,4 +280,4 @@ const callbackSuccessResponseSchema = Joi.object({
   ids: Joi.array().items(Joi.string()).example(['60b8d295f1d2c916c8a5e9b7'])
 }).label('CallbackSuccessResponse')
 
-export const callbackResponseSchema = generateResponseSchemas(callbackSuccessResponseSchema, 201)
+export const callbackResponseSchema = generateResponseSchemas(callbackSuccessResponseSchema, httpConstants.HTTP_STATUS_CREATED)
