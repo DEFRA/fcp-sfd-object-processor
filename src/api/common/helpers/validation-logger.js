@@ -55,8 +55,9 @@ export const logValidationFailure = (logger, err, request) => {
   })
 
   logger.error({
+    message: 'Validation failed',
     validationErrors,
     path: request.path,
     method: request.method
-  }, 'Validation failed')
+  })
 }
