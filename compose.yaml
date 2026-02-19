@@ -29,7 +29,7 @@ services:
       # Messaging
       DOCUMENT_UPLOAD_EVENTS_TOPIC_ARN: arn:aws:sns:eu-west-2:000000000000:fcp_sfd_object_processor_events
       # Auth
-      AUTH_ENABLED: ${AUTH_ENABLED:-true}
+      AUTH_ENABLED: ${AUTH_ENABLED:-false}
       AUTH_TENANT_ID: ${AUTH_TENANT_ID}
       AUTH_ALLOWED_GROUP_IDS: ${AUTH_ALLOWED_GROUP_IDS}
     networks:
