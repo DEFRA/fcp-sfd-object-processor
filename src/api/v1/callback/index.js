@@ -21,7 +21,7 @@ export const uploadCallback = {
     validate: {
       payload: callbackPayloadSchema,
       options: { abortEarly: false },
-      failAction: async (request, _h, err) => {
+      failAction: async (_request, _h, err) => {
         logger.error({ error: { message: err.message } }, 'Validation failed')
         await metricsCounter('callback_validation_failures')
         throw Boom.boomify(err, { statusCode: httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY })
