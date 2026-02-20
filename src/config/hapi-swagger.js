@@ -9,7 +9,7 @@ export const hapiSwaggerConfig = {
       version: {
         doc: 'API version',
         format: String,
-        default: '0.0.1'
+        default: '0.1.0'
       },
       description: {
         doc: 'Description of the API',
@@ -58,7 +58,7 @@ export const hapiSwaggerConfig = {
     deReference: {
       doc: 'Whether to dereference JSON schemas',
       format: Boolean,
-      default: true
+      default: false
     },
     servers: {
       doc: 'List of server configurations',
@@ -103,6 +103,23 @@ export const hapiSwaggerConfig = {
           description: 'Operations supporting object processor metadata'
         }
       ]
+    },
+    securityDefinitions: {
+      doc: 'Security scheme definitions for OpenAPI (maps to components.securitySchemes)',
+      format: Object,
+      default: {
+        entra: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          description: 'Azure AD JWT token authentication. Requires a valid access token with authorized security group membership.\n\nExample: `Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...`'
+        }
+      }
+    },
+    security: {
+      doc: 'Global security requirements (routes with auth inherit this)',
+      format: Array,
+      default: [{ entra: [] }]
     }
   }
 }

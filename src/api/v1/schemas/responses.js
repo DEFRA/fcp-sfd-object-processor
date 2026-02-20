@@ -7,12 +7,17 @@ const badRequestResponseSchema = Joi.object({
   statusCode: Joi.number().example(httpConstants.HTTP_STATUS_BAD_REQUEST),
   error: Joi.string().example('Bad Request'),
   message: Joi.string().example('Invalid query parameter'),
-  validation:
-      Joi.object({
-        source: Joi.string(),
-        keys: Joi.array().items(Joi.string())
-      })
+  validation: Joi.object({
+    source: Joi.string(),
+    keys: Joi.array().items(Joi.string())
+  })
 }).label('BadRequest')
+
+const unprocessableEntityResponseSchema = Joi.object({
+  statusCode: Joi.number().example(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY),
+  error: Joi.string().example('Unprocessable Entity'),
+  message: Joi.string().example('"property0" is not allowed. "property1" is not allowed'),
+}).label('UnprocessableEntity')
 
 const notfoundResponseSchema = Joi.object({
   statusCode: Joi.number().example(httpConstants.HTTP_STATUS_NOT_FOUND),
@@ -26,9 +31,17 @@ const serverErrorResponseSchema = Joi.object({
   message: Joi.string().example('Something went wrong')
 }).label('ServerError')
 
-export const generateResponseSchemas = (successSchema) => ({
-  200: successSchema,
+const unauthorizedResponseSchema = Joi.object({
+  statusCode: Joi.number().example(httpConstants.HTTP_STATUS_UNAUTHORIZED),
+  error: Joi.string().example('Unauthorized'),
+  message: Joi.string().example('Missing authentication')
+}).label('Unauthorized')
+
+export const generateResponseSchemas = (successSchema, successCode = 200) => ({
+  [successCode]: successSchema,
   400: badRequestResponseSchema,
+  401: unauthorizedResponseSchema,
   404: notfoundResponseSchema,
+  422: unprocessableEntityResponseSchema,
   500: serverErrorResponseSchema
 })

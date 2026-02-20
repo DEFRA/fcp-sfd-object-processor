@@ -2,9 +2,10 @@ import Boom from '@hapi/boom'
 
 import { constants as httpConstants } from 'node:http2'
 import { createLogger } from '../../../logging/logger.js'
-import { callbackPayloadSchema } from './schema.js'
+import { callbackPayloadSchema, callbackResponseSchema } from './schema.js'
 import { config } from '../../../config/index.js'
 import { persistMetadataWithOutbox } from '../../../services/metadata-service.js'
+import { metricsCounter } from '../../common/helpers/metrics.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -20,9 +21,14 @@ export const uploadCallback = {
     validate: {
       payload: callbackPayloadSchema,
       options: { abortEarly: false },
-      failAction: async (_request, h, err) => {
-        return h.response({ err }).code(httpConstants.HTTP_STATUS_BAD_REQUEST).takeover()
+      failAction: async (_request, _h, err) => {
+        logger.error({ error: { message: err.message } }, 'Validation failed')
+        await metricsCounter('callback_validation_failures')
+        throw Boom.boomify(err, { statusCode: httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY })
       }
+    },
+    response: {
+      status: callbackResponseSchema
     },
     handler: async (request, h) => {
       try {
@@ -31,7 +37,7 @@ export const uploadCallback = {
         return h.response({
           message: 'Metadata created',
           count: result.insertedCount,
-          ids: Object.values(result.insertedIds)
+          ids: Object.values(result.insertedIds).map(id => id.toString())
         }).code(httpConstants.HTTP_STATUS_CREATED)
       } catch (err) {
         logger.error(err)
