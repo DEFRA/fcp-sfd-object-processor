@@ -5,7 +5,6 @@ import { createLogger } from '../../../logging/logger.js'
 import { callbackPayloadSchema, callbackResponseSchema } from './schema.js'
 import { config } from '../../../config/index.js'
 import { persistMetadataWithOutbox } from '../../../services/metadata-service.js'
-import { logValidationFailure } from '../../common/helpers/validation-logger.js'
 import { metricsCounter } from '../../common/helpers/metrics.js'
 
 const logger = createLogger()
@@ -23,7 +22,6 @@ export const uploadCallback = {
       payload: callbackPayloadSchema,
       options: { abortEarly: false },
       failAction: async (request, _h, err) => {
-        // logValidationFailure(logger, err, request)
         logger.error({ error: { message: err.message } }, 'Validation failed')
         await metricsCounter('callback_validation_failures')
         throw Boom.boomify(err, { statusCode: httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY })
