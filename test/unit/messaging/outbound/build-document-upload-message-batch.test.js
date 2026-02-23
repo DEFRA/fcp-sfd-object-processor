@@ -145,8 +145,8 @@ describe('buildDocumentUploadMessageBatch', () => {
     })
 
     test('should have matching data property types', () => {
-      expect(typeof result[0].data.crn).toBe('string')
-      expect(typeof result[0].data.sbi).toBe('string')
+      expect(typeof result[0].data.crn).toBe('number') // Per AsyncAPI spec: crn is type: number
+      expect(typeof result[0].data.sbi).toBe('number') // Per AsyncAPI spec: sbi is type: number
       expect(typeof result[0].data.submissionId).toBe('string')
       expect(typeof result[0].data.sourceSystem).toBe('string')
       expect(typeof result[0].data.correlationId).toBe('string')

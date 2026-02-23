@@ -1,3 +1,13 @@
+/**
+ * SNS Message Mock Data
+ *
+ * Represents CloudEvents v1.0 formatted messages published to SNS.
+ * These are the final OUTPUT messages sent to downstream consumers (CRM).
+ *
+ * Contract: docs/asyncapi/v1.yaml
+ */
+
+// Example CloudEvents message for document.uploaded event
 export const mockDocumentUploadedEvent = {
   id: '123e4567-e89b-12d3-a456-426655440000',
   source: 'fcp-sfd-object-processor',
@@ -15,7 +25,8 @@ export const mockDocumentUploadedEvent = {
     file: {
       fileId: '123e4567-e89b-12d3-a456-426655440001',
       fileName: 'receipt.pdf',
-      contentType: 'application/pdf'
+      contentType: 'application/pdf',
+      url: 'https://fcp-placeholder.cdp-int.defra.cloud/api/v1/blobs/123e4567-e89b-12d3-a456-426655440001'
     },
     sbi: 123456789,
     sourceSystem: 'fcp-sfd-frontend',

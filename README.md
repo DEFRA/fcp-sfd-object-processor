@@ -61,10 +61,13 @@ To update the static OpenAPI specification file in the `docs` folder please use 
 
 ## Tests
 
+
 ### Test structure
 
 The tests have been structured into subfolders of `./test` as per the
 [Microservice test approach and repository structure](https://eaflood.atlassian.net/wiki/spaces/FPS/pages/1845396477/Microservice+test+approach+and+repository+structure)
+
+Test mocks and sample payloads used by unit and integration tests are documented in the mocks README: [test/mocks/README.md](test/mocks/README.md)
 
 ### Running tests
 
