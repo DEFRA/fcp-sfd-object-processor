@@ -9,9 +9,11 @@ const blobSuccessSchema = Joi.object({
       .example('https://my-bucket.s3.amazonaws.com/photos/cat.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20251006%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20251006T121314Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=5a2e4b9c9e4b6d4b8b7a6b6f4f1d5b2c6e7d8a9e6c3f1b2e4d5a6b7c8d9e0f1a')
   })
     .required()
+    .label('BlobData')
     .description('Data payload containing the presigned URL.')
 })
   .required()
+  .label('BlobResponse')
   .description('Success response from blob endpoint')
 
 export const blobResponseSchema = generateResponseSchemas(blobSuccessSchema)

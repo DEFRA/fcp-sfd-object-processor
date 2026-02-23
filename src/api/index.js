@@ -3,6 +3,7 @@ import hapi from '@hapi/hapi'
 import hapiSwagger from 'hapi-swagger'
 import Inert from '@hapi/inert'
 import Vision from '@hapi/vision'
+import Jwt from '@hapi/jwt'
 
 import { config } from '../config/index.js'
 import { router } from './router.js'
@@ -11,6 +12,7 @@ import { secureContext } from './common/helpers/secure-context/secure-context.js
 import { pulse } from './common/helpers/pulse.js'
 import { requestTracing } from './common/helpers/request-tracing.js'
 import { setupProxy } from './common/helpers/proxy/setup-proxy.js'
+import { auth } from '../plugins/auth.js'
 
 const createServer = async () => {
   setupProxy()
@@ -43,6 +45,8 @@ const createServer = async () => {
   })
 
   await server.register([
+    Jwt,
+    auth,
     requestLogger,
     requestTracing,
     secureContext,

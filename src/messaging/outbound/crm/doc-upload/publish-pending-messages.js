@@ -1,5 +1,5 @@
 import { createLogger } from '../../../../logging/logger.js'
-import { getPendingOutboxEntries, bulkUpdateDeliveryStatus } from '../../../../repos/outbox.js'
+import { getProcessableOutboxEntries, bulkUpdateDeliveryStatus } from '../../../../repos/outbox.js'
 import { bulkUpdatePublishedAtDate } from '../../../../repos/metadata.js'
 import { publishDocumentUploadMessageBatch } from './publish-document-upload-message-batch.js'
 import { SENT, FAILED, BATCH_SIZE } from '../../../../constants/outbox.js'
@@ -11,7 +11,7 @@ const publishPendingMessages = async () => {
   const session = client.startSession()
 
   try {
-    const pendingMessages = await getPendingOutboxEntries()
+    const pendingMessages = await getProcessableOutboxEntries()
 
     if (!pendingMessages.length) {
       logger.info('No pending outbox messages to process.')
@@ -27,8 +27,9 @@ const publishPendingMessages = async () => {
 
       await session.withTransaction(async () => {
         if (Successful.length > 0) {
-          await bulkUpdateDeliveryStatus(session, Successful.map(message => message.Id), SENT)
-          await bulkUpdatePublishedAtDate(session, Successful.map(message => message.Id))
+          const messageIds = Successful.map(message => message.Id)
+          await bulkUpdateDeliveryStatus(session, messageIds, SENT)
+          await bulkUpdatePublishedAtDate(session, messageIds)
         }
 
         if (Failed.length > 0) {
