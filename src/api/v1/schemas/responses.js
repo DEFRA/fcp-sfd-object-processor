@@ -16,7 +16,7 @@ const badRequestResponseSchema = Joi.object({
 const unprocessableEntityResponseSchema = Joi.object({
   statusCode: Joi.number().example(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY),
   error: Joi.string().example('Unprocessable Entity'),
-  message: Joi.string().example('"property0" is not allowed. "property1" is not allowed'),
+  message: Joi.string().example('"property0" is not allowed. "property1" is not allowed')
 }).label('UnprocessableEntity')
 
 const notfoundResponseSchema = Joi.object({
