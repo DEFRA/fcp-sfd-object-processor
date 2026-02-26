@@ -22,4 +22,13 @@ describe('Create Mongo client', () => {
     const queryResult = await db.collection('test').findOne({ test: 'test' })
     expect(queryResult.test).toBe('test')
   })
+
+  test('status collection should include required indexes', async () => {
+    const indexes = await db.collection('status').indexes()
+    const indexNames = indexes.map(index => index.name)
+
+    expect(indexNames).toContain('status_sbi_idx')
+    expect(indexNames).toContain('status_timestamp_idx')
+    expect(indexNames).toContain('status_sbi_timestamp_idx')
+  })
 })
