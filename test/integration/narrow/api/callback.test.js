@@ -5,26 +5,45 @@ import { db } from '../../../../src/data/db.js'
 import { config } from '../../../../src/config'
 import { createServer } from '../../../../src/api'
 import { mockScanAndUploadResponse } from '../../../mocks/cdp-uploader.js'
-import { mockMetadataResponse } from '../../../mocks/metadata.js'
 
 let server
-let originalCollection
-let collection
+let originalMetadataCollection
+let originalOutboxCollection
+let originalStatusCollection
+let metadataCollection
+let outboxCollection
+let statusCollection
 
 beforeAll(async () => {
   // set a new collection for each integration test to avoid db clashes between tests
   vi.restoreAllMocks()
-  originalCollection = config.get('mongo.collections.uploadMetadata')
+  originalMetadataCollection = config.get('mongo.collections.uploadMetadata')
+  originalOutboxCollection = config.get('mongo.collections.outbox')
+  originalStatusCollection = config.get('mongo.collections.status')
+
   config.set('mongo.collections.uploadMetadata', 'callback-test-collection')
-  collection = config.get('mongo.collections.uploadMetadata')
-  await db.collection(collection).deleteMany({})
+  config.set('mongo.collections.outbox', 'callback-test-outbox-collection')
+  config.set('mongo.collections.status', 'callback-test-status-collection')
+
+  metadataCollection = config.get('mongo.collections.uploadMetadata')
+  outboxCollection = config.get('mongo.collections.outbox')
+  statusCollection = config.get('mongo.collections.status')
+
+  await db.collection(metadataCollection).deleteMany({})
+  await db.collection(outboxCollection).deleteMany({})
+  await db.collection(statusCollection).deleteMany({})
 })
 
 afterAll(async () => {
   // test cleanup
   vi.restoreAllMocks()
-  await db.collection(collection).deleteMany({})
-  config.set('mongo.collections.uploadMetadata', originalCollection)
+  await db.collection(metadataCollection).deleteMany({})
+  await db.collection(outboxCollection).deleteMany({})
+  await db.collection(statusCollection).deleteMany({})
+
+  config.set('mongo.collections.uploadMetadata', originalMetadataCollection)
+  config.set('mongo.collections.outbox', originalOutboxCollection)
+  config.set('mongo.collections.status', originalStatusCollection)
 })
 
 describe('POST to the /api/v1/callback route', async () => {
@@ -33,19 +52,39 @@ describe('POST to the /api/v1/callback route', async () => {
 
   describe('with a valid payload', async () => {
     test('should save a document into the collection', async () => {
+      const beforeMetadataCount = await db.collection(metadataCollection).countDocuments()
+      const beforeOutboxCount = await db.collection(outboxCollection).countDocuments()
+      const beforeStatusCount = await db.collection(statusCollection).countDocuments()
+
       const response = await server.inject({
         method: 'POST',
         url: '/api/v1/callback',
         payload: mockScanAndUploadResponse
       })
 
-      const records = await db.collection(collection).find({}).toArray()
+      const afterMetadataCount = await db.collection(metadataCollection).countDocuments()
+      const afterOutboxCount = await db.collection(outboxCollection).countDocuments()
+      const afterStatusCount = await db.collection(statusCollection).countDocuments()
+
+      const statusRecords = await db.collection(statusCollection)
+        .find({ sbi: mockScanAndUploadResponse.metadata.sbi, validated: true })
+        .sort({ timestamp: -1 })
+        .limit(2)
+        .toArray()
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
 
-      expect(records).toBeDefined()
-      expect(records.length).toBe(2)
-      expect(records[0]).toMatchObject(mockMetadataResponse[0])
+      expect(afterMetadataCount - beforeMetadataCount).toBe(2)
+      expect(afterOutboxCount - beforeOutboxCount).toBe(2)
+      expect(afterStatusCount - beforeStatusCount).toBe(2)
+
+      expect(statusRecords).toBeDefined()
+      expect(statusRecords).toHaveLength(2)
+      statusRecords.forEach((status) => {
+        expect(status.validated).toBe(true)
+        expect(status.errors).toBeNull()
+        expect(status.timestamp).toBeInstanceOf(Date)
+      })
     })
   })
 
@@ -61,6 +100,50 @@ describe('POST to the /api/v1/callback route', async () => {
       expect(response.result.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
       expect(response.result.error).toBe('Unprocessable Entity')
       expect(response.result.message).toContain('"uploadStatus" is required')
+    })
+
+    test('should persist status records only when validation fails', async () => {
+      const submissionId = `invalid-submission-${Date.now()}`
+
+      const invalidPayload = {
+        ...mockScanAndUploadResponse,
+        metadata: {
+          ...mockScanAndUploadResponse.metadata,
+          submissionId,
+          crn: '12345' // Invalid type to trigger validation failure
+        }
+      }
+
+      const response = await server.inject({
+        method: 'POST',
+        url: '/api/v1/callback',
+        payload: invalidPayload
+      })
+
+      const metadataRecords = await db.collection(metadataCollection)
+        .find({ 'metadata.submissionId': submissionId })
+        .toArray()
+
+      const outboxRecords = await db.collection(outboxCollection)
+        .find({ 'payload.metadata.submissionId': submissionId })
+        .toArray()
+
+      const statusRecords = await db.collection(statusCollection)
+        .find({ sbi: mockScanAndUploadResponse.metadata.sbi, validated: false })
+        .sort({ timestamp: -1 })
+        .limit(2)
+        .toArray()
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
+      expect(metadataRecords).toHaveLength(0)
+      expect(outboxRecords).toHaveLength(0)
+
+      expect(statusRecords).toHaveLength(2)
+      statusRecords.forEach((status) => {
+        expect(status.validated).toBe(false)
+        expect(status.errors).toBeInstanceOf(Array)
+        expect(status.errors.length).toBeGreaterThan(0)
+      })
     })
 
     test('should return 422 for invalid metadata.sbi format', async () => {

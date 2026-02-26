@@ -4,7 +4,7 @@ import { constants as httpConstants } from 'node:http2'
 import { createLogger } from '../../../logging/logger.js'
 import { callbackPayloadSchema, callbackResponseSchema } from './schema.js'
 import { config } from '../../../config/index.js'
-import { persistMetadataWithOutbox } from '../../../services/metadata-service.js'
+import { persistMetadataWithOutbox, persistValidationFailureStatus } from '../../../services/metadata-service.js'
 import { metricsCounter } from '../../common/helpers/metrics.js'
 
 const logger = createLogger()
@@ -21,9 +21,16 @@ export const uploadCallback = {
     validate: {
       payload: callbackPayloadSchema,
       options: { abortEarly: false },
-      failAction: async (_request, _h, err) => {
+      failAction: async (request, _h, err) => {
         logger.error({ error: { message: err.message } }, 'Validation failed')
         await metricsCounter('callback_validation_failures')
+
+        try {
+          await persistValidationFailureStatus(request.payload, err)
+        } catch (persistError) {
+          logger.error(persistError, 'Failed to persist status for callback validation failure')
+        }
+
         throw Boom.boomify(err, { statusCode: httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY })
       }
     },
