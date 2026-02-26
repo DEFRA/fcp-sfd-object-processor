@@ -1,7 +1,9 @@
 import { client } from '../data/db.js'
 import { persistMetadata, formatInboundMetadata } from '../repos/metadata.js'
 import { createOutboxEntries } from '../repos/outbox.js'
+import { insertStatus } from '../repos/status.js'
 import { createLogger } from '../logging/logger.js'
+import { buildValidatedStatusDocuments, buildValidationFailureStatusDocuments } from '../mappers/status.js'
 
 const logger = createLogger()
 
@@ -11,6 +13,9 @@ const persistMetadataWithOutbox = async (rawDocuments) => {
   try {
     return await session.withTransaction(async () => {
       const documents = formatInboundMetadata(rawDocuments)
+      const statusDocuments = buildValidatedStatusDocuments(documents)
+
+      await insertStatus(statusDocuments, session)
 
       const metadataResult = await persistMetadata(documents, session)
 
@@ -28,4 +33,17 @@ const persistMetadataWithOutbox = async (rawDocuments) => {
   }
 }
 
-export { persistMetadataWithOutbox }
+const persistValidationFailureStatus = async (payload, validationError) => {
+  try {
+    const statusDocuments = buildValidationFailureStatusDocuments(payload, validationError)
+    return await insertStatus(statusDocuments)
+  } catch (error) {
+    logger.error(error, 'Failed to persist status records for validation failure')
+    throw error
+  }
+}
+
+export {
+  persistMetadataWithOutbox,
+  persistValidationFailureStatus
+}
