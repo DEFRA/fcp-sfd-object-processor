@@ -595,6 +595,14 @@ describe('callbackPayloadSchema validation', () => {
   })
 
   describe('Form validation', () => {
+    test('numberOfRejectedFiles can equal filesInSubmission when all files are rejected', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        numberOfRejectedFiles: validPayload.metadata.filesInSubmission
+      })
+      expect(error).toBeUndefined()
+    })
+
     test('form with only string fields (no file uploads) fails validation', () => {
       const { error } = callbackPayloadSchema.validate({
         ...validPayload,

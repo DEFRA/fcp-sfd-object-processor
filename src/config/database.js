@@ -26,12 +26,17 @@ export const databaseConfig = {
     },
     collections: {
       uploadMetadata: {
-        doc: 'uploadMetadata collection',
+        doc: 'collection for enriched metadata about files including s3 location. This collection is populated by the callback endpoint and read by the outbox processor to send messages to CRM',
         format: String,
         default: 'uploadMetadata'
       },
+      status: {
+        doc: 'collection for status of inbound document requests including payload validation and cdp-uploader result',
+        format: String,
+        default: 'status'
+      },
       outbox: {
-        doc: 'outbox collection for storing pending outbound messages',
+        doc: 'collection for storing pending outbound messages to be processed and sent to external systems',
         format: String,
         default: 'outbox'
       }

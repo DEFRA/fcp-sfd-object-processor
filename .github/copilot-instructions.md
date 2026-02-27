@@ -121,11 +121,7 @@ npm run test:lint                      # ESLint only
 ```
 
 ** Testing Workflow:**
-- Test must be ran using: `npm run docker:test:watch` via a subagent
-- The subagent must watch the tests for the duration of the agent session
-- The subagent must report any testing error messages back to the main Agent
-- The subagent must NOT implement any fixes
-- The subagent can export any errors encountered to a markdown file called `[session-summary - date]`
+- Test must be ran using the watch-docker-tests skill.
 
 **Test Structure:**
 - `test/unit/` - Unit tests with mocked dependencies
