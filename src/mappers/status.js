@@ -1,6 +1,6 @@
 const sanitiseReceivedValue = (value) => {
   if (value === undefined || value === null) {
-    return null
+    return ''
   }
 
   if (typeof value === 'string') {
@@ -8,7 +8,7 @@ const sanitiseReceivedValue = (value) => {
   }
 
   if (typeof value === 'number' || typeof value === 'boolean') {
-    return value
+    return String(value)
   }
 
   return '[complex value]'

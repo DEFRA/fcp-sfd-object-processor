@@ -265,10 +265,10 @@ describe('Metadata Service', () => {
       })
 
       expect(mapped).toEqual([
-        { field: 'metadata.crn', errorType: 'any.required', receivedValue: null },
+        { field: 'metadata.crn', errorType: 'any.required', receivedValue: '' },
         { field: 'form.file.fileId', errorType: 'string.guid', receivedValue: 'not-a-uuid' },
         { field: 'metadata.service', errorType: 'any.only', receivedValue: 'invalid' },
-        { field: 'metadata.sbi', errorType: 'number.min', receivedValue: 1 }
+        { field: 'metadata.sbi', errorType: 'number.min', receivedValue: '1' }
       ])
     })
 
@@ -307,7 +307,7 @@ describe('Metadata Service', () => {
         sbi: 105000000,
         fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
         validated: false,
-        errors: [{ field: 'metadata.crn', errorType: 'any.required', receivedValue: null }]
+        errors: [{ field: 'metadata.crn', errorType: 'any.required', receivedValue: '' }]
       })
       expect(documents[0].timestamp).toBeInstanceOf(Date)
     })

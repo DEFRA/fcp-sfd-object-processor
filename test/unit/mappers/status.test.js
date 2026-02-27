@@ -46,7 +46,7 @@ describe('Status Mappers', () => {
         {
           field: 'metadata.crn',
           errorType: 'any.required',
-          receivedValue: null
+          receivedValue: ''
         }
       ])
     })
@@ -55,8 +55,8 @@ describe('Status Mappers', () => {
       const result = mapValidationErrors(mockMultipleErrors)
 
       expect(result).toEqual([
-        { field: 'metadata.crn', errorType: 'any.required', receivedValue: null },
-        { field: 'metadata.sbi', errorType: 'number.min', receivedValue: 123 },
+        { field: 'metadata.crn', errorType: 'any.required', receivedValue: '' },
+        { field: 'metadata.sbi', errorType: 'number.min', receivedValue: '123' },
         { field: 'form.fileId', errorType: 'string.guid', receivedValue: 'not-a-uuid' }
       ])
     })
@@ -67,7 +67,7 @@ describe('Status Mappers', () => {
       })
 
       expect(result).toEqual([
-        { field: 'unknown', errorType: 'any.required', receivedValue: null }
+        { field: 'unknown', errorType: 'any.required', receivedValue: '' }
       ])
     })
 
@@ -103,7 +103,7 @@ describe('Status Mappers', () => {
         details: [{ path: ['field'], type: 'number.min', context: { value: 42 } }]
       })
 
-      expect(result[0].receivedValue).toBe(42)
+      expect(result[0].receivedValue).toBe('42')
     })
 
     test('should handle boolean values', () => {
@@ -111,7 +111,7 @@ describe('Status Mappers', () => {
         details: [{ path: ['field'], type: 'boolean.base', context: { value: true } }]
       })
 
-      expect(result[0].receivedValue).toBe(true)
+      expect(result[0].receivedValue).toBe('true')
     })
 
     test('should handle null values', () => {
@@ -119,7 +119,7 @@ describe('Status Mappers', () => {
         details: [{ path: ['field'], type: 'any.required', context: { value: null } }]
       })
 
-      expect(result[0].receivedValue).toBeNull()
+      expect(result[0].receivedValue).toBe('')
     })
 
     test('should handle undefined values', () => {
@@ -127,7 +127,7 @@ describe('Status Mappers', () => {
         details: [{ path: ['field'], type: 'any.required', context: { value: undefined } }]
       })
 
-      expect(result[0].receivedValue).toBeNull()
+      expect(result[0].receivedValue).toBe('')
     })
 
     test('should handle complex values (objects/arrays) as "[complex value]"', () => {
@@ -143,7 +143,7 @@ describe('Status Mappers', () => {
         details: [{ path: ['field'], type: 'any.required' }]
       })
 
-      expect(result[0].receivedValue).toBeNull()
+      expect(result[0].receivedValue).toBe('')
     })
 
     test('should handle empty path array', () => {
@@ -235,7 +235,7 @@ describe('Status Mappers', () => {
             {
               field: 'metadata.crn',
               errorType: 'any.required',
-              receivedValue: null
+              receivedValue: ''
             }
           ]
         },
@@ -248,7 +248,7 @@ describe('Status Mappers', () => {
             {
               field: 'metadata.crn',
               errorType: 'any.required',
-              receivedValue: null
+              receivedValue: ''
             }
           ]
         }
@@ -271,7 +271,7 @@ describe('Status Mappers', () => {
             {
               field: 'metadata.crn',
               errorType: 'any.required',
-              receivedValue: null
+              receivedValue: ''
             }
           ]
         }
@@ -452,12 +452,12 @@ describe('Status Mappers', () => {
         {
           field: 'metadata.crn',
           errorType: 'any.required',
-          receivedValue: null
+          receivedValue: ''
         },
         {
           field: 'metadata.frn',
           errorType: 'any.required',
-          receivedValue: null
+          receivedValue: ''
         }
       ])
     })
