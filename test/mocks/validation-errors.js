@@ -50,13 +50,16 @@ export const mockPayloadNoFiles = {
 }
 
 // Validated documents for buildValidatedStatusDocuments tests
+// Validated documents for buildValidatedStatusDocuments tests
 export const mockValidatedDocuments = [
   {
     metadata: { sbi: 105000000 },
-    file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' }
+    file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' },
+    messaging: { correlationId: '550e8400-e29b-41d4-a716-446655440000' }
   },
   {
     metadata: { sbi: 205000000 },
-    file: { fileId: '3f90b889-eac7-4e98-975f-93fcef5b8554' }
+    file: { fileId: '3f90b889-eac7-4e98-975f-93fcef5b8554' },
+    messaging: { correlationId: '550e8400-e29b-41d4-a716-446655440000' }
   }
 ]

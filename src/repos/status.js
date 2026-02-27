@@ -17,6 +17,17 @@ const insertStatus = async (documents, session = undefined) => {
   return result
 }
 
+const getStatusByCorrelationId = async (correlationId) => {
+  const collection = config.get(statusCollection)
+
+  return await db
+    .collection(collection)
+    .find({ correlationId })
+    .sort({ timestamp: 1 })
+    .toArray()
+}
+
 export {
-  insertStatus
+  insertStatus,
+  getStatusByCorrelationId
 }
