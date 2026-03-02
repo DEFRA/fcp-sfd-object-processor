@@ -41,7 +41,8 @@ describe('getStatusByCorrelationId', () => {
   })
 
   test('should query the status collection with the correct correlationId', async () => {
-    mockToArray.mockResolvedValue([])
+    const mockDocuments = [{ correlationId, sbi: 105000000, fileId: '123', timestamp: new Date(), validated: true, errors: null }]
+    mockToArray.mockResolvedValue(mockDocuments)
 
     await getStatusByCorrelationId(correlationId)
 
@@ -50,7 +51,8 @@ describe('getStatusByCorrelationId', () => {
   })
 
   test('should sort results by timestamp ascending', async () => {
-    mockToArray.mockResolvedValue([])
+    const mockDocuments = [{ correlationId, sbi: 105000000, fileId: '123', timestamp: new Date(), validated: true, errors: null }]
+    mockToArray.mockResolvedValue(mockDocuments)
 
     await getStatusByCorrelationId(correlationId)
 
@@ -58,7 +60,8 @@ describe('getStatusByCorrelationId', () => {
   })
 
   test('should exclude _id field from results', async () => {
-    mockToArray.mockResolvedValue([])
+    const mockDocuments = [{ correlationId, sbi: 105000000, fileId: '123', timestamp: new Date(), validated: true, errors: null }]
+    mockToArray.mockResolvedValue(mockDocuments)
 
     await getStatusByCorrelationId(correlationId)
 
