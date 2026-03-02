@@ -138,7 +138,7 @@ describe('GET to the /api/v1/status/{correlationId} route', async () => {
   })
 
   describe('with a valid correlationId that has no records', () => {
-    test('should return 200 with empty array', async () => {
+    test('should return empty array', async () => {
       const correlationId = randomUUID()
 
       const response = await server.inject({
