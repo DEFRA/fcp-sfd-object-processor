@@ -19,6 +19,7 @@ vi.mock('../../../../src/config/index.js', () => ({
 describe('getStatusByCorrelationId', () => {
   let mockCollection
   let mockFind
+  let mockProject
   let mockSort
   let mockToArray
 
@@ -29,7 +30,8 @@ describe('getStatusByCorrelationId', () => {
 
     mockToArray = vi.fn()
     mockSort = vi.fn().mockReturnValue({ toArray: mockToArray })
-    mockFind = vi.fn().mockReturnValue({ sort: mockSort })
+    mockProject = vi.fn().mockReturnValue({ sort: mockSort })
+    mockFind = vi.fn().mockReturnValue({ project: mockProject })
 
     mockCollection = {
       find: mockFind
@@ -53,6 +55,14 @@ describe('getStatusByCorrelationId', () => {
     await getStatusByCorrelationId(correlationId)
 
     expect(mockSort).toHaveBeenCalledWith({ timestamp: 1 })
+  })
+
+  test('should exclude _id field from results', async () => {
+    mockToArray.mockResolvedValue([])
+
+    await getStatusByCorrelationId(correlationId)
+
+    expect(mockProject).toHaveBeenCalledWith({ _id: 0 })
   })
 
   test('should return array of status documents when records exist', async () => {

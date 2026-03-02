@@ -14,7 +14,7 @@ import { createOutboxEntries } from '../../../src/repos/outbox.js'
 import { insertStatus } from '../../../src/repos/status.js'
 import { client } from '../../../src/data/db.js'
 import { mockScanAndUploadResponseArray as rawDocuments } from '../../mocks/cdp-uploader.js'
-import { mockMetadataResponse as formattedDocuments } from '../../mocks/metadata.js'
+import { mockFormattedDocuments as formattedDocuments } from '../../mocks/metadata.js'
 
 vi.mock('../../../src/repos/metadata.js')
 vi.mock('../../../src/repos/outbox.js')

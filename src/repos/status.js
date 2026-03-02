@@ -23,6 +23,7 @@ const getStatusByCorrelationId = async (correlationId) => {
   return await db
     .collection(collection)
     .find({ correlationId })
+    .project({ _id: 0 })
     .sort({ timestamp: 1 })
     .toArray()
 }

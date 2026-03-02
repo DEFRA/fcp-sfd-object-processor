@@ -14,7 +14,7 @@ describe('statusParamSchema', () => {
 
   test('another valid UUID v4 passes validation', () => {
     const result = statusParamSchema.validate({
-      correlationId: '123e4567-e89b-12d3-a456-426655440000'
+      correlationId: '123e4567-e89b-42d3-a456-426655440000'
     })
 
     expect(result.error).toBeUndefined()

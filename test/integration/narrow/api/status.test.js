@@ -76,15 +76,15 @@ describe('GET to the /api/v1/status/{correlationId} route', async () => {
       const records = [
         createMockStatusRecord(correlationId, {
           timestamp: new Date('2026-02-26T10:03:00Z'),
-          fileId: 'c0000000-0000-0000-0000-000000000003'
+          fileId: randomUUID()
         }),
         createMockStatusRecord(correlationId, {
           timestamp: new Date('2026-02-26T10:01:00Z'),
-          fileId: 'a0000000-0000-0000-0000-000000000001'
+          fileId: randomUUID()
         }),
         createMockStatusRecord(correlationId, {
           timestamp: new Date('2026-02-26T10:02:00Z'),
-          fileId: 'b0000000-0000-0000-0000-000000000002'
+          fileId: randomUUID()
         })
       ]
 
@@ -112,7 +112,7 @@ describe('GET to the /api/v1/status/{correlationId} route', async () => {
         createMockStatusRecord(correlationId, {
           validated: false,
           errors: [
-            { field: 'metadata.crn', errorType: 'any.required', receivedValue: '' }
+            { field: 'metadata.crn', errorType: 'any.required', receivedValue: 'must-be-a-valid-value' }
           ],
           timestamp: new Date('2026-02-26T10:01:00Z')
         })
