@@ -1,5 +1,6 @@
 import Joi from 'joi'
 import { generateResponseSchemas } from '../../schemas/responses.js'
+import { schemaConsts } from '../../../../constants/schemas.js'
 
 const statusRecordSchema = Joi.object({
   correlationId: Joi.string()
@@ -7,8 +8,8 @@ const statusRecordSchema = Joi.object({
     .description('Correlation ID grouping files from the same submission'),
   sbi: Joi.number()
     .integer()
-    .min(105000000)
-    .max(999999999)
+    .min(schemaConsts.SBI_MIN)
+    .max(schemaConsts.SBI_MAX)
     .allow(null)
     .description('Single Business Identifier'),
   fileId: Joi.string()
