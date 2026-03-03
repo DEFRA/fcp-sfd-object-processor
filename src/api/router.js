@@ -2,6 +2,7 @@ import { health } from './health/index.js'
 import { blobRoute } from './v1/blobs/index.js'
 import { uploadCallback } from './v1/callback/index.js'
 import { metadataRoute } from './v1/metadata/index.js'
+import { statusRoute } from './v1/status/index.js'
 
 const router = {
   plugin: {
@@ -11,6 +12,7 @@ const router = {
       server.route(uploadCallback)
       server.route(metadataRoute)
       server.route(blobRoute)
+      server.route(statusRoute)
     }
   }
 }

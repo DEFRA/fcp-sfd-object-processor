@@ -33,6 +33,7 @@ const getSbiFromPayload = (payload) => {
 
 const buildValidatedStatusDocuments = (documents) => {
   return documents.map(document => ({
+    correlationId: document.messaging.correlationId,
     sbi: document.metadata.sbi,
     fileId: document.file.fileId,
     timestamp: new Date(),
@@ -54,12 +55,13 @@ const extractFileIdsFromPayload = (payload) => {
   return fileIds.length > 0 ? fileIds : ['unknown']
 }
 
-const buildValidationFailureStatusDocuments = (payload, validationError) => {
+const buildValidationFailureStatusDocuments = (payload, validationError, correlationId) => {
   const sbi = getSbiFromPayload(payload)
   const errors = mapValidationErrors(validationError)
   const fileIds = extractFileIdsFromPayload(payload)
 
   return fileIds.map(fileId => ({
+    correlationId,
     sbi,
     fileId,
     timestamp: new Date(),

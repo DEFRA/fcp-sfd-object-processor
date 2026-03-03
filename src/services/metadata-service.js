@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+
 import { client } from '../data/db.js'
 import { persistMetadata, formatInboundMetadata } from '../repos/metadata.js'
 import { createOutboxEntries } from '../repos/outbox.js'
@@ -35,7 +37,8 @@ const persistMetadataWithOutbox = async (rawDocuments) => {
 
 const persistValidationFailureStatus = async (payload, validationError) => {
   try {
-    const statusDocuments = buildValidationFailureStatusDocuments(payload, validationError)
+    const correlationId = randomUUID()
+    const statusDocuments = buildValidationFailureStatusDocuments(payload, validationError, correlationId)
     return await insertStatus(statusDocuments)
   } catch (error) {
     logger.error(error, 'Failed to persist status records for validation failure')

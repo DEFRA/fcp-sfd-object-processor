@@ -280,4 +280,13 @@ const callbackSuccessResponseSchema = Joi.object({
   ids: Joi.array().items(Joi.string()).example(['60b8d295f1d2c916c8a5e9b7'])
 }).label('CallbackSuccessResponse')
 
-export const callbackResponseSchema = generateResponseSchemas(callbackSuccessResponseSchema, httpConstants.HTTP_STATUS_CREATED)
+const unprocessableEntityResponseSchema = Joi.object({
+  statusCode: Joi.number().example(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY),
+  error: Joi.string().example('Unprocessable Entity'),
+  message: Joi.string().example('"property0" is not allowed. "property1" is not allowed')
+}).label('UnprocessableEntity')
+
+export const callbackResponseSchema = generateResponseSchemas(
+  callbackSuccessResponseSchema,
+  httpConstants.HTTP_STATUS_CREATED,
+  { 422: unprocessableEntityResponseSchema })
