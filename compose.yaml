@@ -107,3 +107,4 @@ volumes:
 networks:
   fcp-sfd:
     driver: bridge
+    name: fcp-sfd
