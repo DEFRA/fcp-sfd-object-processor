@@ -1,5 +1,8 @@
 # AI Coding Agent Instructions - fcp-sfd-object-processor
 
+## Language
+All answers, plans, and files must use **British English** spelling and conventions (e.g., `colour`, `organise`, `licence`, `optimise`, `realised`).
+
 ## Service Overview
 This is a **messaging gateway** for the Single Front Door (SFD) service that processes file upload metadata. It receives callbacks from [CDP Uploader](https://github.com/DEFRA/cdp-uploader), persists metadata to MongoDB, and publishes events to AWS SNS using the **Transactional Outbox pattern**.
 
