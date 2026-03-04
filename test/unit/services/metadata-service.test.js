@@ -14,7 +14,7 @@ import { createOutboxEntries } from '../../../src/repos/outbox.js'
 import { insertStatus } from '../../../src/repos/status.js'
 import { client } from '../../../src/data/db.js'
 import { mockScanAndUploadResponseArray as rawDocuments } from '../../mocks/cdp-uploader.js'
-import { mockMetadataResponse as formattedDocuments } from '../../mocks/metadata.js'
+import { mockFormattedDocuments as formattedDocuments } from '../../mocks/metadata.js'
 
 vi.mock('../../../src/repos/metadata.js')
 vi.mock('../../../src/repos/outbox.js')
@@ -245,11 +245,40 @@ describe('Metadata Service', () => {
 
       expect(insertStatus).toHaveBeenCalledWith(
         expect.arrayContaining([
-          expect.objectContaining({ validated: false }),
-          expect.objectContaining({ validated: false })
+          expect.objectContaining({ validated: false, correlationId: expect.any(String) }),
+          expect.objectContaining({ validated: false, correlationId: expect.any(String) })
         ])
       )
       expect(client.startSession).not.toHaveBeenCalled()
+    })
+
+    test('should generate a correlationId and pass it to the status mapper', async () => {
+      const validationError = {
+        details: [
+          {
+            path: ['metadata', 'crn'],
+            type: 'any.required',
+            context: { value: undefined }
+          }
+        ]
+      }
+
+      insertStatus.mockResolvedValue({ acknowledged: true, insertedCount: 2 })
+
+      await persistValidationFailureStatus(rawDocuments[0], validationError)
+
+      const statusDocuments = insertStatus.mock.calls[0][0]
+
+      // All documents in the batch should share the same correlationId
+      const correlationIds = statusDocuments.map(doc => doc.correlationId)
+      const uniqueCorrelationIds = [...new Set(correlationIds)]
+
+      expect(uniqueCorrelationIds).toHaveLength(1)
+      expect(uniqueCorrelationIds[0]).toBeDefined()
+      expect(typeof uniqueCorrelationIds[0]).toBe('string')
+      expect(uniqueCorrelationIds[0]).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      )
     })
   })
 
@@ -300,10 +329,12 @@ describe('Metadata Service', () => {
         ]
       }
 
-      const documents = buildValidationFailureStatusDocuments(payload, validationError)
+      const correlationId = '550e8400-e29b-41d4-a716-446655440000'
+      const documents = buildValidationFailureStatusDocuments(payload, validationError, correlationId)
 
       expect(documents).toHaveLength(2)
       expect(documents[0]).toMatchObject({
+        correlationId: '550e8400-e29b-41d4-a716-446655440000',
         sbi: 105000000,
         fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
         validated: false,

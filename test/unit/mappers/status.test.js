@@ -166,6 +166,7 @@ describe('Status Mappers', () => {
 
       expect(result).toEqual([
         {
+          correlationId: '550e8400-e29b-41d4-a716-446655440000',
           sbi: 105000000,
           fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
           timestamp: new Date('2026-02-26T10:00:00Z'),
@@ -173,6 +174,7 @@ describe('Status Mappers', () => {
           errors: null
         },
         {
+          correlationId: '550e8400-e29b-41d4-a716-446655440000',
           sbi: 205000000,
           fileId: '3f90b889-eac7-4e98-975f-93fcef5b8554',
           timestamp: new Date('2026-02-26T10:00:00Z'),
@@ -191,11 +193,13 @@ describe('Status Mappers', () => {
     test('should handle single document', () => {
       const result = buildValidatedStatusDocuments([{
         metadata: { sbi: 105000000 },
-        file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' }
+        file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' },
+        messaging: { correlationId: '550e8400-e29b-41d4-a716-446655440000' }
       }])
 
       expect(result).toHaveLength(1)
       expect(result[0]).toMatchObject({
+        correlationId: '550e8400-e29b-41d4-a716-446655440000',
         sbi: 105000000,
         fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
         validated: true,
@@ -206,7 +210,8 @@ describe('Status Mappers', () => {
     test('timestamp should be a Date instance', () => {
       const result = buildValidatedStatusDocuments([{
         metadata: { sbi: 105000000 },
-        file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' }
+        file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' },
+        messaging: { correlationId: '550e8400-e29b-41d4-a716-446655440000' }
       }])
 
       expect(result[0].timestamp).toBeInstanceOf(Date)
@@ -220,13 +225,16 @@ describe('Status Mappers', () => {
     })
 
     test('should build status documents with real fileIds from payload', () => {
+      const correlationId = '550e8400-e29b-41d4-a716-446655440000'
       const result = buildValidationFailureStatusDocuments(
         mockPayloadWithFiles,
-        mockRequiredFieldError
+        mockRequiredFieldError,
+        correlationId
       )
 
       expect(result).toEqual([
         {
+          correlationId: '550e8400-e29b-41d4-a716-446655440000',
           sbi: 105000000,
           fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
           timestamp: new Date('2026-02-26T10:00:00Z'),
@@ -240,6 +248,7 @@ describe('Status Mappers', () => {
           ]
         },
         {
+          correlationId: '550e8400-e29b-41d4-a716-446655440000',
           sbi: 105000000,
           fileId: '3f90b889-eac7-4e98-975f-93fcef5b8554',
           timestamp: new Date('2026-02-26T10:00:00Z'),
@@ -256,13 +265,16 @@ describe('Status Mappers', () => {
     })
 
     test('should use "unknown" fileId when no valid fileIds in payload', () => {
+      const correlationId = '550e8400-e29b-41d4-a716-446655440000'
       const result = buildValidationFailureStatusDocuments(
         mockPayloadNoFiles,
-        mockRequiredFieldError
+        mockRequiredFieldError,
+        correlationId
       )
 
       expect(result).toEqual([
         {
+          correlationId: '550e8400-e29b-41d4-a716-446655440000',
           sbi: 105000000,
           fileId: 'unknown',
           timestamp: new Date('2026-02-26T10:00:00Z'),
@@ -281,7 +293,8 @@ describe('Status Mappers', () => {
     test('should use "unknown" fileId when form is missing', () => {
       const result = buildValidationFailureStatusDocuments(
         { metadata: { sbi: 123456789 }, submissionId: 'sub-123' },
-        { details: [{ path: ['form'], type: 'any.required', context: { value: undefined } }] }
+        { details: [{ path: ['form'], type: 'any.required', context: { value: undefined } }] },
+        '550e8400-e29b-41d4-a716-446655440000'
       )
 
       expect(result).toHaveLength(1)
@@ -291,7 +304,8 @@ describe('Status Mappers', () => {
     test('should use "unknown" fileId when form is empty', () => {
       const result = buildValidationFailureStatusDocuments(
         { metadata: { sbi: 123456789 }, form: {}, submissionId: 'sub-123' },
-        mockRequiredFieldError
+        mockRequiredFieldError,
+        '550e8400-e29b-41d4-a716-446655440000'
       )
 
       expect(result).toHaveLength(1)
@@ -305,7 +319,8 @@ describe('Status Mappers', () => {
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' }, text: 'string value', number: 42 },
           submissionId: 'sub-123'
         },
-        mockRequiredFieldError
+        mockRequiredFieldError,
+        '550e8400-e29b-41d4-a716-446655440000'
       )
 
       expect(result).toHaveLength(1)
@@ -319,7 +334,8 @@ describe('Status Mappers', () => {
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' }, nullField: null },
           submissionId: 'sub-123'
         },
-        mockRequiredFieldError
+        mockRequiredFieldError,
+        '550e8400-e29b-41d4-a716-446655440000'
       )
 
       expect(result).toHaveLength(1)
@@ -333,7 +349,8 @@ describe('Status Mappers', () => {
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' }, noFileId: { name: 'field' } },
           submissionId: 'sub-123'
         },
-        mockRequiredFieldError
+        mockRequiredFieldError,
+        '550e8400-e29b-41d4-a716-446655440000'
       )
 
       expect(result).toHaveLength(1)
@@ -347,7 +364,8 @@ describe('Status Mappers', () => {
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' }, emptyFileId: { fileId: '' } },
           submissionId: 'sub-123'
         },
-        mockRequiredFieldError
+        mockRequiredFieldError,
+        '550e8400-e29b-41d4-a716-446655440000'
       )
 
       expect(result).toHaveLength(1)
@@ -361,7 +379,8 @@ describe('Status Mappers', () => {
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' }, numericFileId: { fileId: 12345 } },
           submissionId: 'sub-123'
         },
-        mockRequiredFieldError
+        mockRequiredFieldError,
+        '550e8400-e29b-41d4-a716-446655440000'
       )
 
       expect(result).toHaveLength(1)
@@ -375,7 +394,8 @@ describe('Status Mappers', () => {
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' } },
           submissionId: 'sub-123'
         },
-        mockRequiredFieldError
+        mockRequiredFieldError,
+        '550e8400-e29b-41d4-a716-446655440000'
       )
 
       expect(result[0].sbi).toBe(105000000)
@@ -388,7 +408,8 @@ describe('Status Mappers', () => {
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' } },
           submissionId: 'sub-123'
         },
-        mockRequiredFieldError
+        mockRequiredFieldError,
+        '550e8400-e29b-41d4-a716-446655440000'
       )
 
       expect(result[0].sbi).toBeNull()
@@ -401,7 +422,8 @@ describe('Status Mappers', () => {
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' } },
           submissionId: 'sub-123'
         },
-        { details: [{ path: ['metadata', 'sbi'], type: 'number.base', context: { value: 'not a number' } }] }
+        { details: [{ path: ['metadata', 'sbi'], type: 'number.base', context: { value: 'not a number' } }] },
+        '550e8400-e29b-41d4-a716-446655440000'
       )
 
       expect(result[0].sbi).toBeNull()
@@ -414,7 +436,8 @@ describe('Status Mappers', () => {
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' } },
           submissionId: 'sub-123'
         },
-        { details: [{ path: ['metadata', 'sbi'], type: 'number.integer', context: { value: 105000000.5 } }] }
+        { details: [{ path: ['metadata', 'sbi'], type: 'number.integer', context: { value: 105000000.5 } }] },
+        '550e8400-e29b-41d4-a716-446655440000'
       )
 
       expect(result[0].sbi).toBeNull()
@@ -426,7 +449,8 @@ describe('Status Mappers', () => {
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' } },
           submissionId: 'sub-123'
         },
-        { details: [{ path: ['metadata'], type: 'any.required', context: { value: undefined } }] }
+        { details: [{ path: ['metadata'], type: 'any.required', context: { value: undefined } }] },
+        '550e8400-e29b-41d4-a716-446655440000'
       )
 
       expect(result[0].sbi).toBeNull()
@@ -444,7 +468,8 @@ describe('Status Mappers', () => {
             { path: ['metadata', 'crn'], type: 'any.required', context: { value: null } },
             { path: ['metadata', 'frn'], type: 'any.required', context: { value: null } }
           ]
-        }
+        },
+        '550e8400-e29b-41d4-a716-446655440000'
       )
 
       expect(result[0].errors).toHaveLength(2)
@@ -469,7 +494,8 @@ describe('Status Mappers', () => {
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' } },
           submissionId: 'sub-123'
         },
-        mockRequiredFieldError
+        mockRequiredFieldError,
+        '550e8400-e29b-41d4-a716-446655440000'
       )
 
       expect(result[0].timestamp).toBeInstanceOf(Date)
@@ -482,7 +508,8 @@ describe('Status Mappers', () => {
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' } },
           submissionId: 'sub-123'
         },
-        mockRequiredFieldError
+        mockRequiredFieldError,
+        '550e8400-e29b-41d4-a716-446655440000'
       )
 
       expect(result[0].validated).toBe(false)

@@ -13,12 +13,6 @@ const badRequestResponseSchema = Joi.object({
   })
 }).label('BadRequest')
 
-const unprocessableEntityResponseSchema = Joi.object({
-  statusCode: Joi.number().example(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY),
-  error: Joi.string().example('Unprocessable Entity'),
-  message: Joi.string().example('"property0" is not allowed. "property1" is not allowed')
-}).label('UnprocessableEntity')
-
 const notfoundResponseSchema = Joi.object({
   statusCode: Joi.number().example(httpConstants.HTTP_STATUS_NOT_FOUND),
   error: Joi.string().example('Not found'),
@@ -37,11 +31,11 @@ const unauthorizedResponseSchema = Joi.object({
   message: Joi.string().example('Missing authentication')
 }).label('Unauthorized')
 
-export const generateResponseSchemas = (successSchema, successCode = 200) => ({
+export const generateResponseSchemas = (successSchema, successCode = 200, customSchemas = {}) => ({
   [successCode]: successSchema,
   400: badRequestResponseSchema,
   401: unauthorizedResponseSchema,
   404: notfoundResponseSchema,
-  422: unprocessableEntityResponseSchema,
-  500: serverErrorResponseSchema
+  500: serverErrorResponseSchema,
+  ...customSchemas
 })
