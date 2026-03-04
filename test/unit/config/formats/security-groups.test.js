@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { securityGroupArray } from '../../../../src/config/formats/security-groups.js'
+import { securityGroupArray } from '../../../../src/config/formats/entra-security-groups.js'
 
 describe('securityGroupArray format', () => {
   describe('validate function', () => {

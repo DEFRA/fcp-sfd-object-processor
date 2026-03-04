@@ -7,9 +7,11 @@ import { hapiSwaggerConfig } from './hapi-swagger.js'
 import { awsConfig } from './aws.js'
 import { authConfig } from './auth.js'
 
-import { securityGroupArray } from './formats/security-groups.js'
+import { securityGroupArray } from './formats/entra-security-groups.js'
+import { cognitoClientIdArray } from './formats/cognito-client-ids.js'
 
 convict.addFormat(securityGroupArray)
+convict.addFormat(cognitoClientIdArray)
 
 const config = convict({
   ...serverConfig,
