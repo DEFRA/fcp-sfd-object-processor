@@ -6,6 +6,7 @@
 
 // Cognito client IDs are alphanumeric strings, typically 26 characters
 // Example: 1234567890abcdefghijklmnop
+// https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_UserPoolClientDescription.html
 const cognitoClientIdPattern = /^[a-zA-Z0-9]+$/
 
 /**

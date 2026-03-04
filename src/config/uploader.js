@@ -8,14 +8,14 @@ export const uploaderConfig = {
   },
   uploaderInitiateEndpoint: {
     doc: 'The endpoint path for initiating document scans',
-    format: String,
+    format: 'endpoint-path',
     nullable: false,
     default: '/initiate',
     env: 'CDP_UPLOADER_INITIATE_ENDPOINT'
   },
   uploaderStatusEndpoint: {
     doc: 'The endpoint path for checking scan completion status',
-    format: String,
+    format: 'endpoint-path',
     nullable: false,
     default: '/status',
     env: 'CDP_UPLOADER_STATUS_ENDPOINT'

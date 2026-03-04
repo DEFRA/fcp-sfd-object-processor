@@ -193,7 +193,7 @@
             "type": "integer",
             "description": "Single Business Identifier",
             "nullable": true,
-            "minimum": 105000000,
+            "minimum": 100000000,
             "maximum": 999999999
           },
           "fileId": {
