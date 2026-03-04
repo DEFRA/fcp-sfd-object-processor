@@ -2,6 +2,7 @@ import Joi from 'joi'
 import { schemaConsts } from '../../../constants/schemas.js'
 import { generateResponseSchemas } from '../schemas/responses.js'
 import { constants as httpConstants } from 'node:http2'
+import { SCAN_STATUSES, REJECTION_REASONS } from '../../../constants/scan-results.js'
 
 // Pattern for validating MIME types (basic but covers common cases)
 const mimeTypePattern = /^[a-zA-Z0-9][a-zA-Z0-9!#$&^_+-]*\/[a-zA-Z0-9][a-zA-Z0-9!#$&^_+.-]*$/
@@ -212,7 +213,36 @@ const fileUploadSchema = Joi.object({
       'string.empty': 's3Bucket cannot be empty',
       'any.required': 's3Bucket is required'
     })
-    .example(schemaConsts.S3_BUCKET_EXAMPLE)
+    .example(schemaConsts.S3_BUCKET_EXAMPLE),
+
+  // Scan result fields - optional during transition, will become required in future
+  scanStatus: Joi.string()
+    .valid(...Object.values(SCAN_STATUSES))
+    .optional()
+    .description('File scan result status (CLEAN, INFECTED, INVALID_FILE_TYPE, SCAN_TIMEOUT, REJECTED)')
+    .messages({
+      'any.only': `scanStatus must be one of [${Object.values(SCAN_STATUSES).join(', ')}]`
+    }),
+
+  virusResult: Joi.string()
+    .optional()
+    .description('Name/type of virus detected (only when scanStatus is INFECTED)'),
+
+  rejectionReason: Joi.string()
+    .valid(...Object.values(REJECTION_REASONS))
+    .optional()
+    .description('Reason for file rejection (required for INVALID_FILE_TYPE, SCAN_TIMEOUT, REJECTED statuses)')
+    .messages({
+      'any.only': `rejectionReason must be one of [${Object.values(REJECTION_REASONS).join(', ')}]`
+    }),
+
+  scanTimestamp: Joi.string()
+    .isoDate()
+    .optional()
+    .description('ISO 8601 timestamp of when the scan completed')
+    .messages({
+      'string.isoDate': 'scanTimestamp must be a valid ISO 8601 date string'
+    })
 }).strict()
   .description('File upload metadata from CDP Uploader').label('FileUploadMetadata')
 
