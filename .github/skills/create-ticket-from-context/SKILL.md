@@ -65,23 +65,38 @@ Bad: `[SFD2] Something about file sizes`
 
 ### Description
 
-Write three sections in this order:
+Write four sections in this order:
 
-#### 1. Context
+#### 1. Main Goal
 
-A short paragraph (2–4 sentences) explaining **what the user wants**, **why it matters**, and **where it applies**. Include source material references.
+A single concise statement describing **what the ticket aims to achieve** and **why it matters** — the primary objective in SMART format. This should capture the "What" and "Why" of the work. Include measurable outcomes where applicable (e.g., performance improvements, reduction in errors, quality metrics).
+
+```
+**Main Goal:** {Action statement describing what will be accomplished}, {outcome/benefit statement with optional measurable impact}.
+```
+
+Examples:
+- Refactor the legacy payment processing module to use the new API wrapper, reducing codebase complexity and decreasing checkout latency by 100ms.
+- Implement user authentication via OAuth (Google/GitHub) to reduce login-related support tickets by 20% and improve user onboarding retention.
+- Develop the GraphQL endpoint for user profile retrieval, reducing frontend data fetching time by 50%.
+- Fix file size validation logic in metadata processor to prevent incorrect rejection of valid uploads.
+
+Note: Measurable metrics (percentages, milliseconds, counts) are encouraged but optional.
+
+#### 2. Source and Context
+
+A short paragraph (2–4 sentences) explaining the **source of the request** and **key contextual information** extracted from what the user shared (images, logs, text, files, etc.).
 
 ```
 **User Request:** {Brief summary of user's stated need}
-**Source:** {Where the context came from — e.g. "User screenshot", "Error log", "Feature discussion", "Code excerpt"}
+**Source:** {Where the context came from — e.g. "User screenshot", "Error log", "Feature discussion", "Code excerpt", "Performance analysis"}
 {If applicable: **File(s):** `{file_path}` (lines {start}–{end})}
 {If applicable: **Repository:** {REPOSITORY_URL}}
 
-**Context provided:**
-{Summary of the user's context — what they shared (images, logs, text, etc.) and the key facts extracted from it}
+{Summary of the key facts extracted from the user's context — what they shared and what was observed/identified}
 ```
 
-#### 2. What needs to change
+#### 3. What needs to change
 
 A numbered list of concrete, actionable steps. Each step should be specific enough for an engineer (or AI agent) to execute.
 
@@ -108,7 +123,7 @@ If the ticket involves investigation (vs. direct implementation), frame steps as
 3. {Add/update tests}
 ```
 
-#### 3. Authoritative source (if applicable)
+#### 4. Authoritative source (if applicable)
 
 If the change relates to a best practice, security guideline, library API, or technical specification, include a link to the authoritative documentation.
 
@@ -189,7 +204,8 @@ Rules:
 
 - [ ] Model was selected in conversation with user
 - [ ] Title is concise, starts with a verb, and reflects the work requested
-- [ ] Context section summarizes the user's input and source material
+- [ ] Main Goal clearly states the primary objective with "what" and "why" (measurable outcomes if applicable)
+- [ ] Source and Context section summarizes the user's input and source material
 - [ ] "What needs to change" steps are specific and actionable (reference files/functions/endpoints if applicable)
 - [ ] Acceptance criteria are independently verifiable and tied to user's intent
 - [ ] Testing guide includes concrete examples and expected outcomes (with endpoint specifications for API changes)
