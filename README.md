@@ -13,6 +13,8 @@ The service works alongside the [CDP Uploader](https://github.com/DEFRA/cdp-uplo
 ## Features
 - Persist metadata after upload ✅
 - Retrieve metadata about uploaded files ✅
+- Validate file scan results (antivirus, file type checks) ✅
+- Enforce scan result contract rules (cross-field validation) ✅
 - Push metadata to CRM (in progress) 🏗️
 
 
@@ -58,6 +60,33 @@ The service uses hapi-swagger to auto generate Openapi spec available on the `/d
 A static Openapi specification can be found in the `src/docs` folder.
 
 To update the static OpenAPI specification file in the `docs` folder please use the npm script `generateOpenApiSpec` when the server is running locally. This can be used to generate up-to-date information in a OpenAPI specification file which can be pushed to Github and shared with stakeholders.
+
+## Scan Result Validation
+
+The callback endpoint validates file scan results from CDP Uploader using a multi-layer validation approach:
+
+### Validation Layers
+1. **Joi Schema** - Type checking, enum validation, format checking (ISO 8601 timestamps)
+2. **Custom Validators** - Cross-field business logic to ensure scan result consistency
+3. **Status Persistence** - Records validation outcome per file for audit trail
+
+### Scan Status Values
+- `CLEAN` - File passed all checks (no virus, valid type, within limits)
+- `INFECTED` - Virus/malware detected (requires virus details)
+- `INVALID_FILE_TYPE` - File type not allowed
+- `SCAN_TIMEOUT` - Scan exceeded timeout limit
+- `REJECTED` - Generic rejection (requires rejection reason)
+
+### Validation Rules
+Each scan status has associated validation rules:
+- **CLEAN**: Forbids `virusResult` and `rejectionReason` fields
+- **INFECTED**: Requires `virusResult` field, forbids `rejectionReason`
+- **INFECTED, INVALID_FILE_TYPE, SCAN_TIMEOUT, REJECTED**: Require `rejectionReason` field
+
+### Optional Fields During Transition
+Scan result fields (`scanStatus`, `virusResult`, `rejectionReason`, `scanTimestamp`) are currently optional to support incremental rollout. Once all upload sources emit scan results, these fields will become required.
+
+For detailed implementation guidance, see [.github/copilot-instructions.md](.github/copilot-instructions.md#scan-result-contract-validation).
 
 ## Tests
 

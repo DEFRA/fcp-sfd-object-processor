@@ -226,6 +226,81 @@ Uses **convict** with environment-specific configs ([src/config/](../src/config/
 
 **Note:** CDP Uploader integration patterns are still under active testing - verify edge cases when implementing new callback features.
 
+## Scan Result Contract Validation
+
+The callback endpoint enforces strict validation of file scan results from CDP Uploader using a multi-layer validation approach:
+
+### Validation Layers
+1. **Joi Schema** - Basic type and enum validation
+2. **Custom Validators** - Cross-field business logic
+3. **Status Persistence** - Records validation results per file
+
+### Scan Status Enum
+Five valid scan statuses defined in [src/constants/scan-results.js](../src/constants/scan-results.js):
+- `CLEAN` - File passed all checks (no virus, valid type, within limits)
+- `INFECTED` - Virus/malware detected → **requires virusResult**, forbids rejectionReason
+- `INVALID_FILE_TYPE` - File type not allowed → **requires rejectionReason=INVALID_FILE_TYPE**
+- `SCAN_TIMEOUT` - Scan exceeded timeout → **requires rejectionReason=SCAN_TIMEOUT**
+- `REJECTED` - Generic rejection → **requires rejectionReason** (one of 4 values: VIRUS_DETECTED, INVALID_FILE_TYPE, SCAN_TIMEOUT, FILE_TOO_LARGE)
+
+### Rejection Reason Enum
+Four valid rejection reasons (only for rejection-requiring statuses):
+- `VIRUS_DETECTED` - Valid for: REJECTED
+- `INVALID_FILE_TYPE` - Valid for: INVALID_FILE_TYPE, REJECTED
+- `SCAN_TIMEOUT` - Valid for: SCAN_TIMEOUT, REJECTED
+- `FILE_TOO_LARGE` - Valid for: REJECTED
+
+### Cross-Field Rules
+**virusResult field:**
+- Required when `scanStatus === INFECTED`
+- Forbidden for all other statuses (CLEAN, INVALID_FILE_TYPE, SCAN_TIMEOUT, REJECTED)
+
+**rejectionReason field:**
+- Required when `scanStatus` is INVALID_FILE_TYPE, SCAN_TIMEOUT, or REJECTED
+- Forbidden for CLEAN and INFECTED
+- Must match valid reasons for the given status (see STATUS_TO_REJECTION_REASON_MAPPING)
+
+**scanTimestamp field:**
+- Required, must be valid ISO 8601 format (e.g., `2026-03-04T10:00:00Z`)
+
+**numberOfRejectedFiles field:**
+- Optional integer, must be ≥ 0
+- If present, must not exceed total file count in payload
+- REJECTED status implies numberOfRejectedFiles > 0
+
+### Implementation Details
+- Schema defined in [src/api/v1/schemas/scan-result-contract.js](../src/api/v1/schemas/scan-result-contract.js)
+- Custom validators in [src/api/v1/callback/validators.js](../src/api/v1/callback/validators.js):
+  - `validateScanResultConsistency()` - Checks virusResult alignment
+  - `validateRejectionReasonAlignment()` - Validates rejectionReason and status combination
+  - `validateFileCountConsistency()` - Verifies numberOfRejectedFiles logic
+- Validation called in callback handler after Joi schema validation passes
+- Failed validation persists status record with errors (`validated: false, errors: [...]`) and returns HTTP 422
+
+### Transition Phase
+During transition to full scan result support:
+- Scan fields are **optional** in callback payload
+- If present, they are fully validated
+- Allows incremental rollout without breaking existing integrations
+- Once all sources (CDP Uploader, RPS Portal) emit scan results, fields will become required
+
+### Using Constants Module
+Always reference scan status/reason values from [src/constants/scan-results.js](../src/constants/scan-results.js):
+```javascript
+import {
+  SCAN_STATUSES,           // enum: { CLEAN, INFECTED, INVALID_FILE_TYPE, SCAN_TIMEOUT, REJECTED }
+  REJECTION_REASONS,       // enum: { VIRUS_DETECTED, INVALID_FILE_TYPE, SCAN_TIMEOUT, FILE_TOO_LARGE }
+  statusRequiresRejectionReason,    // (status) => boolean
+  statusForbidsRejectionReason,     // (status) => boolean
+  statusRequiresVirusResult,        // (status) => boolean
+  statusForbidsVirusResult,         // (status) => boolean
+  isValidRejectionReasonForStatus,  // (status, reason) => boolean
+  validateScanResultContract        // (payload) => { isValid, errors[] }
+} from '../constants/scan-results.js'
+```
+
+**Note:** When modifying scan status or rejection reason enums, update the constants file to ensure consistency across all layers (schema, validators, tests, mocks).
+
 ## SNS Message Format & CRM Integration
 
 Messages published to SNS follow **CloudEvents v1.0** specification. Contract defined in [docs/asyncapi/v1.yaml](../docs/asyncapi/v1.yaml).
