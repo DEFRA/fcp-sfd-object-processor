@@ -33,11 +33,11 @@ describe('auth plugin', () => {
 
     mockConfigGet.mockImplementation((key) => {
       switch (key) {
-        case 'auth.enabled':
+        case 'auth.entra.enabled':
           return true
-        case 'auth.tenant':
+        case 'auth.entra.tenant':
           return 'test-tenant-id'
-        case 'auth.allowedGroupIds':
+        case 'auth.entra.allowedGroupIds':
           return ['group-1', 'group-2']
         default:
           return null
@@ -87,7 +87,7 @@ describe('auth plugin', () => {
 
     test('should not register auth strategy when auth is disabled', async () => {
       mockConfigGet.mockImplementation((key) => {
-        if (key === 'auth.enabled') return false
+        if (key === 'auth.entra.enabled') return false
         return null
       })
 
@@ -102,11 +102,11 @@ describe('auth plugin', () => {
       vi.resetModules()
       mockConfigGet.mockImplementation((key) => {
         switch (key) {
-          case 'auth.enabled':
+          case 'auth.entra.enabled':
             return true
-          case 'auth.tenant':
+          case 'auth.entra.tenant':
             return 'my-custom-tenant'
-          case 'auth.allowedGroupIds':
+          case 'auth.entra.allowedGroupIds':
             return ['group-1']
           default:
             return null
@@ -264,11 +264,11 @@ describe('auth plugin', () => {
     test('should reject token when no allowed groups are configured', async () => {
       mockConfigGet.mockImplementation((key) => {
         switch (key) {
-          case 'auth.enabled':
+          case 'auth.entra.enabled':
             return true
-          case 'auth.tenant':
+          case 'auth.entra.tenant':
             return 'test-tenant-id'
-          case 'auth.allowedGroupIds':
+          case 'auth.entra.allowedGroupIds':
             return []
           default:
             return null
@@ -431,11 +431,11 @@ describe('auth plugin', () => {
       vi.resetModules()
       mockConfigGet.mockImplementation((key) => {
         switch (key) {
-          case 'auth.enabled':
+          case 'auth.entra.enabled':
             return true
-          case 'auth.tenant':
+          case 'auth.entra.tenant':
             return 'test-tenant-id'
-          case 'auth.allowedGroupIds':
+          case 'auth.entra.allowedGroupIds':
             return null
           default:
             return null
@@ -474,11 +474,11 @@ describe('auth plugin', () => {
       vi.resetModules()
       mockConfigGet.mockImplementation((key) => {
         switch (key) {
-          case 'auth.enabled':
+          case 'auth.entra.enabled':
             return true
-          case 'auth.tenant':
+          case 'auth.entra.tenant':
             return 'test-tenant-id'
-          case 'auth.allowedGroupIds':
+          case 'auth.entra.allowedGroupIds':
             return undefined
           default:
             return null

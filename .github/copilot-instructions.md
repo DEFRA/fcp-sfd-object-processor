@@ -172,9 +172,9 @@ vi.mock('../../../src/config/index.js', () => ({
 
 mockConfigGet.mockImplementation((key) => {
   switch (key) {
-    case 'auth.enabled': return true
-    case 'auth.tenant': return 'test-tenant-id'
-    case 'auth.allowedGroupIds': return ['group-1', 'group-2']
+    case 'auth.entra.enabled': return true
+    case 'auth.entra.tenant': return 'test-tenant-id'
+    case 'auth.entra.allowedGroupIds': return ['group-1', 'group-2']
     default: return null
   }
 })

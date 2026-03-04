@@ -46,8 +46,8 @@ describe('authConfig - Cognito', () => {
   })
 
   test('should maintain existing Entra fields', () => {
-    expect(authConfig.auth.enabled).toBeDefined()
-    expect(authConfig.auth.tenant).toBeDefined()
-    expect(authConfig.auth.allowedGroupIds).toBeDefined()
+    expect(authConfig.auth.entra.enabled).toBeDefined()
+    expect(authConfig.auth.entra.tenant).toBeDefined()
+    expect(authConfig.auth.entra.allowedGroupIds).toBeDefined()
   })
 })

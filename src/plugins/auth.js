@@ -3,15 +3,15 @@ import { createLogger } from '../logging/logger.js'
 import { constants as httpConstants } from 'node:http2'
 
 const logger = createLogger()
-const tenant = config.get('auth.tenant')
-const allowedGroupIds = config.get('auth.allowedGroupIds') || []
+const tenant = config.get('auth.entra.tenant')
+const allowedGroupIds = config.get('auth.entra.allowedGroupIds') || []
 const authFailedMessage = 'Authentication failed'
 
 export const auth = {
   plugin: {
     name: 'auth',
     register: async (server) => {
-      if (config.get('auth.enabled')) {
+      if (config.get('auth.entra.enabled')) {
         server.auth.strategy('entra', 'jwt', getAuthOptions())
 
         // All routes will require authentication unless explicitly set to `auth: false`
