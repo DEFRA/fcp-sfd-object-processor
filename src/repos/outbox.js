@@ -7,7 +7,7 @@ const outboxCollection = 'mongo.collections.outbox'
 const createOutboxEntries = async (ids, documents, session) => {
   const collection = config.get(outboxCollection)
 
-  const outboxDocs = Object.entries(ids)
+  const outboxDocsToInsert = Object.entries(ids)
     .filter(([index]) => documents[index].file.fileStatus === 'complete')
     .map(([index, id]) => {
       return {
@@ -19,11 +19,11 @@ const createOutboxEntries = async (ids, documents, session) => {
       }
     })
 
-  if (outboxDocs.length === 0) {
+  if (outboxDocsToInsert.length === 0) {
     return {}
   }
 
-  const { acknowledged, insertedIds } = await db.collection(collection).insertMany(outboxDocs, { session })
+  const { acknowledged, insertedIds } = await db.collection(collection).insertMany(outboxDocsToInsert, { session })
   if (!acknowledged) {
     throw new Error('Failed to insert outbox entries')
   }

@@ -528,7 +528,7 @@ describe('POST to the /api/v1/callback route', async () => {
             url: '/api/v1/callback',
             payload
           })
-
+          expect(response).toBe({})
           expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
           expect(response.result.message).toContain('contentType')
         })

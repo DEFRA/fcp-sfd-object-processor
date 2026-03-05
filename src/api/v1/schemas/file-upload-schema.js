@@ -22,8 +22,7 @@ export const fileUploadSchema = Joi.object({
     .required()
     .description('Unique identifier for the uploaded file')
     .messages({
-      'string.guid': 'fileId must be a valid UUID v4',
-      'any.required': 'fileId is required'
+      'string.guid': '"{#label}" must be a valid UUID v4'
     })
     .example(schemaConsts.FILE_ID_EXAMPLE).label('fileId'),
 
@@ -32,8 +31,7 @@ export const fileUploadSchema = Joi.object({
     .required()
     .description('Original name of the uploaded file')
     .messages({
-      'string.empty': 'filename cannot be empty',
-      'any.required': 'filename is required'
+      'string.empty': '"{#label}" cannot be empty'
     })
     .example(schemaConsts.FILENAME_EXAMPLE).label('filename'),
 
@@ -42,8 +40,7 @@ export const fileUploadSchema = Joi.object({
     .required()
     .description('MIME type of the uploaded file')
     .messages({
-      'string.pattern.base': 'contentType must be a valid MIME type',
-      'any.required': 'contentType is required'
+      'string.pattern.base': '"{#label}" must be a valid MIME type'
     })
     .example(schemaConsts.CONTENT_TYPE_EXAMPLE).label('contentType'),
 
@@ -52,8 +49,7 @@ export const fileUploadSchema = Joi.object({
     .required()
     .description('MIME type detected by virus scanning')
     .messages({
-      'string.pattern.base': 'detectedContentType must be a valid MIME type',
-      'any.required': 'detectedContentType is required'
+      'string.pattern.base': '"{#label}" must be a valid MIME type'
     })
     .example(schemaConsts.DETECTED_CONTENT_TYPE_EXAMPLE).label('detectedContentType'),
 
@@ -62,8 +58,8 @@ export const fileUploadSchema = Joi.object({
     .min(0)
     .description('Size of the file in bytes')
     .messages({
-      'number.min': 'contentLength must be a non-negative integer',
-      'number.integer': 'contentLength must be an integer'
+      'number.min': '"{#label}" must be a non-negative integer',
+      'number.integer': '"{#label}" must be an integer'
     })
     .example(schemaConsts.CONTENT_LENGTH_EXAMPLE).label('contentLength'),
 
@@ -72,8 +68,7 @@ export const fileUploadSchema = Joi.object({
     .required()
     .description('Status of the file upload')
     .messages({
-      'any.only': `fileStatus must be one of: ${schemaConsts.FILE_STATUS_ENUM.join(', ')}`,
-      'any.required': 'fileStatus is required'
+      'any.only': `"{#label}" must be one of: ${schemaConsts.FILE_STATUS_ENUM.join(', ')}`
     })
     .example(schemaConsts.FILE_STATUS_EXAMPLE).label('fileStatus'),
 
@@ -84,19 +79,19 @@ export const fileUploadSchema = Joi.object({
   checksumSha256: Joi.string()
     .pattern(base64Pattern)
     .description('SHA-256 checksum of the file encoded in base64')
-    .messages({ 'string.pattern.base': 'checksumSha256 must be a valid base64 string' })
+    .messages({ 'string.pattern.base': '"{#label}" must be a valid base64 string' })
     .example(schemaConsts.CHECKSUM_SHA256_EXAMPLE).label('checksumSha256'),
 
   s3Key: Joi.string()
     .min(1)
     .description('S3 object key where the file is stored')
-    .messages({ 'string.empty': 's3Key cannot be empty' })
+    .messages({ 'string.empty': '"{#label}" cannot be empty' })
     .example(schemaConsts.S3_KEY_EXAMPLE).label('s3Key'),
 
   s3Bucket: Joi.string()
     .min(1)
     .description('S3 bucket name where the file is stored')
-    .messages({ 'string.empty': 's3Bucket cannot be empty' })
+    .messages({ 'string.empty': '"{#label}" cannot be empty' })
     .example(schemaConsts.S3_BUCKET_EXAMPLE).label('s3Bucket')
 })
   .when(Joi.object({ fileStatus: 'complete' }).unknown(), {
@@ -121,5 +116,3 @@ export const fileUploadSchema = Joi.object({
   .strict()
   .description('File upload metadata from CDP Uploader')
   .label('FileUploadMetadata')
-
-export default fileUploadSchema

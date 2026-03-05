@@ -144,7 +144,7 @@ const formSchema = Joi.object()
   .required()
   .description('Form data containing both text fields and file uploads')
   .messages({
-    'object.min': '"form" must contain at least one file upload',
+    'object.min': '"form" must contain at least one file upload'
   }).label('CallbackForm')
 
 // Main callback payload schema
