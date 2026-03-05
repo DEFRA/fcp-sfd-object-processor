@@ -3,20 +3,19 @@
 const base64Std = /^(?:[A-Za-z0-9+/]+=*)$/
 const base64Url = /^(?:[A-Za-z0-9-_]+=*)$/
 
-export function validateChecksumFormat (checksumSha256) {
+const validateChecksumFormat = (checksumSha256) => {
   if (!checksumSha256) return { isValid: false, error: 'checksumSha256 is required' }
   const ok = base64Std.test(checksumSha256) || base64Url.test(checksumSha256)
   return ok ? { isValid: true } : { isValid: false, error: 'checksumSha256 must be valid base64' }
 }
 
-export function validateErrorMessageFormat (errorMessage) {
+const validateErrorMessageFormat = (errorMessage) => {
   if (typeof errorMessage !== 'string') return { isValid: false, error: 'errorMessage must be a string' }
   if (errorMessage.trim().length === 0) return { isValid: false, error: 'errorMessage cannot be empty' }
-  if (errorMessage.length > 2000) return { isValid: false, error: 'errorMessage too long' }
   return { isValid: true }
 }
 
-export function validateFileUploadConsistency (fileObject) {
+export const validateFileUploadConsistency = (fileObject) => {
   const { fileStatus } = fileObject
   if (!fileStatus) return { isValid: false, error: 'fileStatus is required' }
   // Accept 'complete' and 'rejected' statuses. 'pending' and unknown statuses are invalid.
@@ -47,5 +46,3 @@ export function validateFileUploadConsistency (fileObject) {
   // pending or other statuses are not acceptable for callbacks
   return { isValid: false, error: `fileStatus must be 'complete' or 'rejected' but was '${fileStatus}'` }
 }
-
-export default validateFileUploadConsistency
