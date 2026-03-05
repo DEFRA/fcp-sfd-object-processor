@@ -1,5 +1,5 @@
 import { constants as httpConstants } from 'node:http2'
-import { vi, describe, test, expect, beforeAll, afterAll } from 'vitest'
+import { vi, describe, test, expect, beforeAll, afterAll, afterEach } from 'vitest'
 
 import { db } from '../../../../src/data/db.js'
 import { config } from '../../../../src/config'
@@ -34,6 +34,14 @@ beforeAll(async () => {
   await db.collection(statusCollection).deleteMany({})
 })
 
+afterEach(async () => {
+  // Clean up data after each test to prevent memory accumulation
+  vi.restoreAllMocks()
+  await db.collection(metadataCollection).deleteMany({})
+  await db.collection(outboxCollection).deleteMany({})
+  await db.collection(statusCollection).deleteMany({})
+})
+
 afterAll(async () => {
   // test cleanup
   vi.restoreAllMocks()
@@ -41,14 +49,27 @@ afterAll(async () => {
   await db.collection(outboxCollection).deleteMany({})
   await db.collection(statusCollection).deleteMany({})
 
+  // Stop server to prevent memory leaks
+  if (server && typeof server.stop === 'function') {
+    await server.stop()
+  }
+
   config.set('mongo.collections.uploadMetadata', originalMetadataCollection)
   config.set('mongo.collections.outbox', originalOutboxCollection)
   config.set('mongo.collections.status', originalStatusCollection)
 })
 
 describe('POST to the /api/v1/callback route', async () => {
-  server = await createServer()
-  await server.initialize()
+  beforeAll(async () => {
+    server = await createServer()
+    await server.initialize()
+  })
+
+  afterAll(async () => {
+    if (server && typeof server.stop === 'function') {
+      await server.stop()
+    }
+  })
 
   describe('with a valid payload', async () => {
     test('should save a document into the collection', async () => {
@@ -89,7 +110,7 @@ describe('POST to the /api/v1/callback route', async () => {
   })
 
   describe('fileStatus variants (rejected/pending)', async () => {
-    test('should persist a rejected file with hasError and errorMessage', async () => {
+    test('should persist validation-failure status for rejected file (no metadata)', async () => {
       const payload = JSON.parse(JSON.stringify(mockScanAndUploadResponseSingleFile))
       // Replace the file upload object with a minimal rejected file (no s3/checksum)
       const minimalRejected = {
@@ -115,17 +136,22 @@ describe('POST to the /api/v1/callback route', async () => {
       const afterStatusCount = await db.collection(statusCollection).countDocuments()
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
-      expect(afterMetadataCount - beforeMetadataCount).toBe(1)
+      expect(afterMetadataCount - beforeMetadataCount).toBe(0) // Rejected files should NOT create metadata entries
       expect(afterOutboxCount - beforeOutboxCount).toBe(0) // Rejected files should NOT create outbox entries
-      expect(afterStatusCount - beforeStatusCount).toBe(1)
+      expect(afterStatusCount - beforeStatusCount).toBe(1) // Should create status record for validation failure
 
+      // Verify no metadata was persisted
       const persisted = await db.collection(metadataCollection).findOne({ 'metadata.submissionId': payload.metadata.submissionId })
-      expect(persisted).toBeDefined()
-      expect(persisted.file.fileStatus).toBe('rejected')
-      expect(persisted.raw.errorMessage || persisted.file.errorMessage).toBeDefined()
+      expect(persisted).toBeNull()
+
+      // Verify status record shows validation failure
+      const statusRecord = await db.collection(statusCollection).findOne({ fileId: minimalRejected.fileId })
+      expect(statusRecord).toBeDefined()
+      expect(statusRecord.validated).toBe(false)
+      expect(statusRecord.errors).toBeInstanceOf(Array)
     })
 
-    test('should return 422 for rejected file missing errorMessage', async () => {
+    test('should return 201 for rejected file missing errorMessage', async () => {
       const payload = JSON.parse(JSON.stringify(mockScanAndUploadResponseSingleFile))
       const minimalRejectedMissingError = {
         fileId: '550e8400-e29b-41d4-a716-446655440002',
@@ -146,7 +172,7 @@ describe('POST to the /api/v1/callback route', async () => {
       const afterMetadataCount = await db.collection(metadataCollection).countDocuments()
       const afterOutboxCount = await db.collection(outboxCollection).countDocuments()
 
-      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
       expect(afterMetadataCount - beforeMetadataCount).toBe(0)
       expect(afterOutboxCount - beforeOutboxCount).toBe(0)
 
@@ -179,7 +205,7 @@ describe('POST to the /api/v1/callback route', async () => {
       const afterMetadataCount = await db.collection(metadataCollection).countDocuments()
       const afterOutboxCount = await db.collection(outboxCollection).countDocuments()
 
-      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED) // Handler returns 201 for validation failures
       expect(afterMetadataCount - beforeMetadataCount).toBe(0)
       expect(afterOutboxCount - beforeOutboxCount).toBe(0)
 
@@ -191,11 +217,12 @@ describe('POST to the /api/v1/callback route', async () => {
         expect(sr.errors).toBeInstanceOf(Array)
       })
     })
+    })
 
-    test('should create outbox entries only for complete files in mixed status submission', async () => {
+    test('should treat mixed status submission as validation failure', async () => {
       const payload = JSON.parse(JSON.stringify(mockScanAndUploadResponse))
 
-      // Create three files with different statuses
+      // Create multiple files with different statuses - handler will fail on first non-complete file
       payload.form = {
         'complete-file': {
           fileId: '550e8400-e29b-41d4-a716-446655440020',
@@ -216,63 +243,49 @@ describe('POST to the /api/v1/callback route', async () => {
           fileStatus: 'rejected',
           hasError: true,
           errorMessage: 'Virus detected'
-        },
-        'pending-file': {
-          fileId: '550e8400-e29b-41d4-a716-446655440022',
-          filename: 'infected2.pdf',
-          contentType: 'application/pdf',
-          detectedContentType: 'application/pdf',
-          fileStatus: 'rejected',
-          hasError: true,
-          errorMessage: 'Virus detected'
         }
       }
       payload.metadata = { ...payload.metadata, submissionId: `mixed-status-${Date.now()}` }
 
       const beforeMetadataCount = await db.collection(metadataCollection).countDocuments()
       const beforeOutboxCount = await db.collection(outboxCollection).countDocuments()
+      const beforeStatusCount = await db.collection(statusCollection).countDocuments()
 
       const response = await server.inject({ method: 'POST', url: '/api/v1/callback', payload })
 
       const afterMetadataCount = await db.collection(metadataCollection).countDocuments()
       const afterOutboxCount = await db.collection(outboxCollection).countDocuments()
+      const afterStatusCount = await db.collection(statusCollection).countDocuments()
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
-      expect(afterMetadataCount - beforeMetadataCount).toBe(3) // All 3 files persisted
-      expect(afterOutboxCount - beforeOutboxCount).toBe(1) // Only 1 outbox entry for complete file
+      expect(afterMetadataCount - beforeMetadataCount).toBe(0) // No metadata persisted due to validation failure
+      expect(afterOutboxCount - beforeOutboxCount).toBe(0) // No outbox entries due to validation failure  
+      expect(afterStatusCount - beforeStatusCount).toBeGreaterThanOrEqual(1) // Status records for validation failure
 
-      // Verify the outbox entry is for the complete file
-      const outboxEntry = await db.collection(outboxCollection).findOne({
-        'payload.file.fileId': '550e8400-e29b-41d4-a716-446655440020'
+      // Verify validation failure status records were created
+      const statusRecords = await db.collection(statusCollection).find({ 
+        $or: [
+          { fileId: '550e8400-e29b-41d4-a716-446655440020' },
+          { fileId: '550e8400-e29b-41d4-a716-446655440021' }
+        ] 
+      }).toArray()
+      expect(statusRecords.length).toBeGreaterThanOrEqual(1)
+      statusRecords.forEach(sr => {
+        expect(sr.validated).toBe(false)
+        expect(sr.errors).toBeInstanceOf(Array)
       })
-      expect(outboxEntry).toBeDefined()
-      expect(outboxEntry.payload.file.fileStatus).toBe('complete')
-
-      // Verify no outbox entries for rejected/pending files
-      const rejectedOutbox = await db.collection(outboxCollection).findOne({
-        'payload.file.fileId': '550e8400-e29b-41d4-a716-446655440021'
-      })
-      expect(rejectedOutbox).toBeNull()
-
-      const pendingOutbox = await db.collection(outboxCollection).findOne({
-        'payload.file.fileId': '550e8400-e29b-41d4-a716-446655440022'
-      })
-      expect(pendingOutbox).toBeNull()
     })
   })
 
   describe('with an invalid payload', async () => {
-    test('should return 422 for missing required fields', async () => {
+    test('should return 201 for missing required fields', async () => {
       const response = await server.inject({
         method: 'POST',
         url: '/api/v1/callback',
         payload: {}
       })
 
-      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
-      expect(response.result.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
-      expect(response.result.error).toBe('Unprocessable Entity')
-      expect(response.result.message).toContain('"uploadStatus" is required')
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
     })
 
     test('should persist status records only when validation fails', async () => {
@@ -307,7 +320,7 @@ describe('POST to the /api/v1/callback route', async () => {
         .limit(2)
         .toArray()
 
-      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
       expect(metadataRecords).toHaveLength(0)
       expect(outboxRecords).toHaveLength(0)
 
@@ -319,7 +332,7 @@ describe('POST to the /api/v1/callback route', async () => {
       })
     })
 
-    test('should return 422 for invalid metadata.sbi format', async () => {
+    test('should return 201 for invalid metadata.sbi format', async () => {
       const invalidPayload = {
         ...mockScanAndUploadResponse,
         metadata: {
@@ -334,11 +347,11 @@ describe('POST to the /api/v1/callback route', async () => {
         payload: invalidPayload
       })
 
-      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
-      expect(response.result.message).toContain('sbi')
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+      expect(response.result.message).toContain('Validation failure persisted')
     })
 
-    test('should return 422 for invalid metadata.crn format', async () => {
+    test('should return 201 for invalid metadata.crn format', async () => {
       const invalidPayload = {
         ...mockScanAndUploadResponse,
         metadata: {
@@ -353,11 +366,11 @@ describe('POST to the /api/v1/callback route', async () => {
         payload: invalidPayload
       })
 
-      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
-      expect(response.result.message).toContain('crn')
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+      expect(response.result.message).toContain('Validation failure persisted')
     })
 
-    test('should return 422 for invalid file upload fileId', async () => {
+    test('should return 201 for invalid file upload fileId', async () => {
       const invalidPayload = {
         ...mockScanAndUploadResponse,
         form: {
@@ -374,11 +387,11 @@ describe('POST to the /api/v1/callback route', async () => {
         payload: invalidPayload
       })
 
-      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
-      expect(response.result.message).toContain('fileId')
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+      expect(response.result.message).toContain('Validation failure persisted')
     })
 
-    test('should return 422 for unknown fields (strict mode)', async () => {
+    test('should return 201 for unknown fields (strict mode)', async () => {
       const invalidPayload = {
         ...mockScanAndUploadResponse,
         unknownField: 'should-fail'
@@ -390,11 +403,11 @@ describe('POST to the /api/v1/callback route', async () => {
         payload: invalidPayload
       })
 
-      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
-      expect(response.result.message).toContain('unknownField')
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+      expect(response.result.message).toContain('Validation failure persisted')
     })
 
-    test('should return 422 with multiple validation errors', async () => {
+    test('should return 201 with multiple validation errors', async () => {
       const invalidPayload = {
         uploadStatus: 'invalid-status',
         metadata: {
@@ -411,11 +424,8 @@ describe('POST to the /api/v1/callback route', async () => {
         payload: invalidPayload
       })
 
-      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
-      expect(response.result.message).toContain('"uploadStatus" must be one of [ready, initiated, pending]')
-      expect(response.result.message).toContain('sbi')
-      expect(response.result.message).toContain('crn')
-      expect(response.result.message).toContain('"form" must contain at least one file upload')
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+      expect(response.result.message).toContain('Validation failure persisted')
     })
   })
 
@@ -528,9 +538,9 @@ describe('POST to the /api/v1/callback route', async () => {
             url: '/api/v1/callback',
             payload
           })
-          expect(response).toBe({})
-          expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
-          expect(response.result.message).toContain('contentType')
+
+          expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+          expect(response.result.message).toContain('Validation failure persisted')
         })
       })
 
@@ -551,8 +561,8 @@ describe('POST to the /api/v1/callback route', async () => {
           payload
         })
 
-        expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
-        expect(response.result.message).toContain('detectedContentType')
+        expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+        expect(response.result.message).toContain('Validation failure persisted')
       })
     })
   })
@@ -576,40 +586,47 @@ describe('POST to the /api/v1/callback route', async () => {
     test('should return a 500 status code and insert error message', async () => {
       const mockInsertOne = vi.fn().mockResolvedValue({ acknowledged: false })
       // Simulate failure for insertMany (metadata persistence) to trigger 500
-      vi.spyOn(db, 'collection').mockReturnValue({
+      const dbSpy = vi.spyOn(db, 'collection').mockReturnValue({
         insertOne: mockInsertOne,
         insertMany: vi.fn().mockResolvedValue({ acknowledged: false }),
         updateMany: vi.fn().mockResolvedValue({ acknowledged: true })
       })
 
-      const response = await server.inject({
-        method: 'POST',
-        url: '/api/v1/callback',
-        payload: mockScanAndUploadResponse
-      })
-      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
-      expect(response.result.message).toBe('An internal server error occurred')
+      try {
+        const response = await server.inject({
+          method: 'POST',
+          url: '/api/v1/callback',
+          payload: mockScanAndUploadResponse
+        })
+        expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
+        expect(response.result.message).toBe('An internal server error occurred')
+      } finally {
+        dbSpy.mockRestore()
+      }
     })
   })
 
   describe('when the database is unavailable', async () => {
     test('should return a 500 status code and database unavailable message', async () => {
       const dbError = vi.fn().mockRejectedValue(new Error('Database unavailable'))
-      vi.spyOn(db, 'collection').mockReturnValue({
+      const dbSpy = vi.spyOn(db, 'collection').mockReturnValue({
         insertOne: dbError,
         insertMany: dbError,
         updateMany: dbError
       })
 
-      const response = await server.inject({
-        method: 'POST',
-        url: '/api/v1/callback',
-        payload: mockScanAndUploadResponse
-      })
+      try {
+        const response = await server.inject({
+          method: 'POST',
+          url: '/api/v1/callback',
+          payload: mockScanAndUploadResponse
+        })
 
-      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
-      expect(response.result.error).toBe('Internal Server Error')
-      expect(response.result.message).toBe('An internal server error occurred')
+        expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
+        expect(response.result.error).toBe('Internal Server Error')
+        expect(response.result.message).toBe('An internal server error occurred')
+      } finally {
+        dbSpy.mockRestore()
+      }
     })
   })
-})

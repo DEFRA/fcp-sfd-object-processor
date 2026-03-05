@@ -60,6 +60,32 @@ async function handleValidationFailure (payload, error, file, h) {
   return { status: httpConstants.HTTP_STATUS_CREATED, body: { message: 'Validation failure persisted' } }
 }
 
+// generate jsdoc
+/**
+ * Hapi route definition for the CDP Uploader callback endpoint
+ * This route is called by the CDP Uploader service after processing an upload request.
+ * It validates the payload, persists metadata for valid uploads, and handles validation failures.
+ * @type {Object}
+ * @property {string} method - The HTTP method (POST)
+ * @property {string} path - The route path
+ * @property {Object} options - Route options including validation and handler
+ * @property {Function} options.handler - The route handler function
+ * @property {Object} options.validate - Validation rules for the payload
+ * @property {Object} options.response - Response schema validation
+ * @property {boolean} options.auth - Authentication requirement (false for this route)
+ * @returns {Object} Hapi route definition
+ * @throws {Error} Throws an error if metadata persistence fails
+ * @throws {Error} Throws an error if post-Joi semantic validation fails
+ * @throws {Error} Throws an error if validation failure handling fails
+ * @description This route performs the following steps:
+ * 1. Validates that the uploadStatus is 'ready' and all files have fileStatus 'complete'.
+ * 2. Performs additional semantic validation on the file uploads.
+ * 3. If validation fails, it persists a validation failure status and returns a 201 response.
+ * 4. If validation succeeds, it persists metadata with outbox entries in a transaction and returns a 201 response with inserted document details.
+ * The reasoning for this flow can be found here: https://eaflood.atlassian.net/wiki/spaces/SFD/pages/6463259966/File+upload+and+callback+status+processing
+ * 
+ */
+
 export const uploadCallback = {
   method: 'POST',
   path: `${baseUrl}/callback`,
@@ -82,7 +108,7 @@ export const uploadCallback = {
         }
 
         // Return success response while persisting the validation failure for audit
-        return h.response({ message: 'Validation failure persisted' }).code(httpConstants.HTTP_STATUS_CREATED)
+        return h.response({ message: 'Validation failure persisted' }).code(httpConstants.HTTP_STATUS_CREATED).takeover()
       }
     },
     response: {

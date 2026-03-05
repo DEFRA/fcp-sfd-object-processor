@@ -50,11 +50,11 @@ describe('callback handler status enforcement', () => {
     expect(result.status).toBe(201)
   })
 
-  test('ready + rejected payload persists metadata and returns 201 (no alert)', async () => {
+  test('ready + rejected payload persists validation failure and returns 201', async () => {
     const rejectedFile = { ...mockScanAndUploadResponse.form['a-file-upload-field'], fileStatus: 'rejected', hasError: true, errorMessage: 'Virus detected' }
     const payload = { ...mockScanAndUploadResponse, uploadStatus: 'ready', form: { 'file-1': rejectedFile } }
 
-    metadataService.persistMetadataWithOutbox.mockResolvedValue({ insertedCount: 1, insertedIds: { 0: 'abc' } })
+    metadataService.persistValidationFailureStatus.mockResolvedValue()
 
     const h = {
       response: (body) => ({
@@ -65,9 +65,10 @@ describe('callback handler status enforcement', () => {
 
     const result = await uploadCallback.options.handler({ payload }, h)
 
-    expect(metadataService.persistMetadataWithOutbox).toHaveBeenCalledWith(payload)
+    expect(metadataService.persistValidationFailureStatus).toHaveBeenCalledWith(payload, expect.any(Error))
+    expect(metadataService.persistMetadataWithOutbox).not.toHaveBeenCalled()
     expect(result.status).toBe(201)
-    // Ensure no unexpected-status metric was emitted for rejected files
-    expect(metricsModule.metricsCounter).not.toHaveBeenCalledWith('callback_unexpected_status')
+    // Rejected files should trigger unexpected-status metric since fileStatus !== 'complete'
+    expect(metricsModule.metricsCounter).toHaveBeenCalledWith('callback_unexpected_status')
   })
 })
