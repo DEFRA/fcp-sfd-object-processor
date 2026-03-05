@@ -164,18 +164,53 @@ describe('Outbox Repository', () => {
       const insertedIds = {}
       const documents = []
 
-      const mockResult = {
-        acknowledged: true,
-        insertedCount: 0,
-        insertedIds: {}
-      }
-
-      mockCollection.insertMany.mockResolvedValue(mockResult)
-
       const result = await createOutboxEntries(insertedIds, documents, mockSession)
 
-      expect(mockCollection.insertMany).toHaveBeenCalledWith([], { session: mockSession })
-      expect(result).toEqual(mockResult.insertedIds)
+      expect(mockCollection.insertMany).not.toHaveBeenCalled()
+      expect(result).toEqual({})
+    })
+
+    test('should only create outbox entries for files with status complete', async () => {
+      const metadataInsertedIds = {
+        0: new ObjectId(),
+        1: new ObjectId(),
+        2: new ObjectId()
+      }
+
+      const documentsWithMixedStatus = [
+        { ...documents[0], file: { ...documents[0].file, fileStatus: 'complete' } },
+        { ...documents[1], file: { ...documents[1].file, fileStatus: 'rejected' } },
+        { ...documents[0], file: { ...documents[0].file, fileStatus: 'pending' } }
+      ]
+
+      mockCollection.insertMany.mockResolvedValue({
+        acknowledged: true,
+        insertedIds: { 0: new ObjectId() }
+      })
+
+      await createOutboxEntries(metadataInsertedIds, documentsWithMixedStatus, mockSession)
+
+      const insertedEntries = mockCollection.insertMany.mock.calls[0][0]
+      expect(insertedEntries).toHaveLength(1)
+      expect(insertedEntries[0].payload.file.fileStatus).toBe('complete')
+      expect(insertedEntries[0].messageId).toBe(metadataInsertedIds[0])
+    })
+
+    test('should return empty object when no files have complete status', async () => {
+      const metadataInsertedIds = {
+        0: new ObjectId(),
+        1: new ObjectId()
+      }
+
+      const documentsWithoutComplete = [
+        { ...documents[0], file: { ...documents[0].file, fileStatus: 'rejected' } },
+        { ...documents[1], file: { ...documents[1].file, fileStatus: 'pending' } }
+      ]
+
+      const result = await createOutboxEntries(metadataInsertedIds, documentsWithoutComplete, mockSession)
+
+      expect(mockCollection.insertMany).not.toHaveBeenCalled()
+      expect(result).toEqual({})
     })
   })
 
