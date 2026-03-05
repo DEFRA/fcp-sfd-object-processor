@@ -4,7 +4,7 @@ import { vi, describe, test, expect, beforeAll, afterAll } from 'vitest'
 import { db } from '../../../../src/data/db.js'
 import { config } from '../../../../src/config'
 import { createServer } from '../../../../src/api'
-import { mockScanAndUploadResponse } from '../../../mocks/cdp-uploader.js'
+import { mockScanAndUploadResponse, mockScanAndUploadResponseSingleFile } from '../../../mocks/cdp-uploader.js'
 
 let server
 let originalMetadataCollection
@@ -85,6 +85,179 @@ describe('POST to the /api/v1/callback route', async () => {
         expect(status.errors).toBeNull()
         expect(status.timestamp).toBeInstanceOf(Date)
       })
+    })
+  })
+
+  describe('fileStatus variants (rejected/pending)', async () => {
+    test('should persist a rejected file with hasError and errorMessage', async () => {
+      const payload = JSON.parse(JSON.stringify(mockScanAndUploadResponseSingleFile))
+      // Replace the file upload object with a minimal rejected file (no s3/checksum)
+      const minimalRejected = {
+        fileId: '550e8400-e29b-41d4-a716-446655440001',
+        filename: 'infected.pdf',
+        contentType: 'application/pdf',
+        detectedContentType: 'application/pdf',
+        fileStatus: 'rejected',
+        hasError: true,
+        errorMessage: 'File contains virus: Trojan.Generic'
+      }
+      payload.form = { 'rejected-file': minimalRejected }
+      payload.metadata = { ...payload.metadata, submissionId: `rejected-${Date.now()}` }
+
+      const beforeMetadataCount = await db.collection(metadataCollection).countDocuments()
+      const beforeOutboxCount = await db.collection(outboxCollection).countDocuments()
+      const beforeStatusCount = await db.collection(statusCollection).countDocuments()
+
+      const response = await server.inject({ method: 'POST', url: '/api/v1/callback', payload })
+
+      const afterMetadataCount = await db.collection(metadataCollection).countDocuments()
+      const afterOutboxCount = await db.collection(outboxCollection).countDocuments()
+      const afterStatusCount = await db.collection(statusCollection).countDocuments()
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+      expect(afterMetadataCount - beforeMetadataCount).toBe(1)
+      expect(afterOutboxCount - beforeOutboxCount).toBe(0) // Rejected files should NOT create outbox entries
+      expect(afterStatusCount - beforeStatusCount).toBe(1)
+
+      const persisted = await db.collection(metadataCollection).findOne({ 'metadata.submissionId': payload.metadata.submissionId })
+      expect(persisted).toBeDefined()
+      expect(persisted.file.fileStatus).toBe('rejected')
+      expect(persisted.raw.errorMessage || persisted.file.errorMessage).toBeDefined()
+    })
+
+    test('should return 422 for rejected file missing errorMessage', async () => {
+      const payload = JSON.parse(JSON.stringify(mockScanAndUploadResponseSingleFile))
+      const minimalRejectedMissingError = {
+        fileId: '550e8400-e29b-41d4-a716-446655440002',
+        filename: 'rejected-no-msg.pdf',
+        contentType: 'application/pdf',
+        detectedContentType: 'application/pdf',
+        fileStatus: 'rejected',
+        hasError: true
+      }
+      payload.form = { 'rejected-file': minimalRejectedMissingError }
+      payload.metadata = { ...payload.metadata, submissionId: `rejected-missing-msg-${Date.now()}` }
+
+      const beforeMetadataCount = await db.collection(metadataCollection).countDocuments()
+      const beforeOutboxCount = await db.collection(outboxCollection).countDocuments()
+
+      const response = await server.inject({ method: 'POST', url: '/api/v1/callback', payload })
+
+      const afterMetadataCount = await db.collection(metadataCollection).countDocuments()
+      const afterOutboxCount = await db.collection(outboxCollection).countDocuments()
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
+      expect(afterMetadataCount - beforeMetadataCount).toBe(0)
+      expect(afterOutboxCount - beforeOutboxCount).toBe(0)
+
+      const fileId = Object.values(payload.form)[0].fileId
+      const statusRecords = await db.collection(statusCollection).find({ fileId }).toArray()
+      expect(statusRecords.length).toBeGreaterThanOrEqual(1)
+      statusRecords.forEach(sr => {
+        expect(sr.validated).toBe(false)
+        expect(sr.errors).toBeInstanceOf(Array)
+      })
+    })
+
+    test('should reject pending file status (persist validation-failure)', async () => {
+      const payload = JSON.parse(JSON.stringify(mockScanAndUploadResponseSingleFile))
+      const minimalPending = {
+        fileId: '550e8400-e29b-41d4-a716-446655440010',
+        filename: 'maybe.pdf',
+        contentType: 'application/pdf',
+        detectedContentType: 'application/pdf',
+        fileStatus: 'pending'
+      }
+      payload.form = { 'pending-file': minimalPending }
+      payload.metadata = { ...payload.metadata, submissionId: `pending-${Date.now()}` }
+
+      const beforeMetadataCount = await db.collection(metadataCollection).countDocuments()
+      const beforeOutboxCount = await db.collection(outboxCollection).countDocuments()
+
+      const response = await server.inject({ method: 'POST', url: '/api/v1/callback', payload })
+
+      const afterMetadataCount = await db.collection(metadataCollection).countDocuments()
+      const afterOutboxCount = await db.collection(outboxCollection).countDocuments()
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY)
+      expect(afterMetadataCount - beforeMetadataCount).toBe(0)
+      expect(afterOutboxCount - beforeOutboxCount).toBe(0)
+
+      const fileId = Object.values(payload.form)[0].fileId
+      const statusRecords = await db.collection(statusCollection).find({ fileId }).toArray()
+      expect(statusRecords.length).toBeGreaterThanOrEqual(1)
+      statusRecords.forEach(sr => {
+        expect(sr.validated).toBe(false)
+        expect(sr.errors).toBeInstanceOf(Array)
+      })
+    })
+
+    test('should create outbox entries only for complete files in mixed status submission', async () => {
+      const payload = JSON.parse(JSON.stringify(mockScanAndUploadResponse))
+
+      // Create three files with different statuses
+      payload.form = {
+        'complete-file': {
+          fileId: '550e8400-e29b-41d4-a716-446655440020',
+          filename: 'valid.pdf',
+          contentType: 'application/pdf',
+          detectedContentType: 'application/pdf',
+          fileStatus: 'complete',
+          contentLength: 12345,
+          checksumSha256: 'abc123==',
+          s3Key: 'scanned/complete-file',
+          s3Bucket: 'test-bucket'
+        },
+        'rejected-file': {
+          fileId: '550e8400-e29b-41d4-a716-446655440021',
+          filename: 'infected.pdf',
+          contentType: 'application/pdf',
+          detectedContentType: 'application/pdf',
+          fileStatus: 'rejected',
+          hasError: true,
+          errorMessage: 'Virus detected'
+        },
+        'pending-file': {
+          fileId: '550e8400-e29b-41d4-a716-446655440022',
+          filename: 'infected2.pdf',
+          contentType: 'application/pdf',
+          detectedContentType: 'application/pdf',
+          fileStatus: 'rejected',
+          hasError: true,
+          errorMessage: 'Virus detected'
+        }
+      }
+      payload.metadata = { ...payload.metadata, submissionId: `mixed-status-${Date.now()}` }
+
+      const beforeMetadataCount = await db.collection(metadataCollection).countDocuments()
+      const beforeOutboxCount = await db.collection(outboxCollection).countDocuments()
+
+      const response = await server.inject({ method: 'POST', url: '/api/v1/callback', payload })
+
+      const afterMetadataCount = await db.collection(metadataCollection).countDocuments()
+      const afterOutboxCount = await db.collection(outboxCollection).countDocuments()
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+      expect(afterMetadataCount - beforeMetadataCount).toBe(3) // All 3 files persisted
+      expect(afterOutboxCount - beforeOutboxCount).toBe(1) // Only 1 outbox entry for complete file
+
+      // Verify the outbox entry is for the complete file
+      const outboxEntry = await db.collection(outboxCollection).findOne({
+        'payload.file.fileId': '550e8400-e29b-41d4-a716-446655440020'
+      })
+      expect(outboxEntry).toBeDefined()
+      expect(outboxEntry.payload.file.fileStatus).toBe('complete')
+
+      // Verify no outbox entries for rejected/pending files
+      const rejectedOutbox = await db.collection(outboxCollection).findOne({
+        'payload.file.fileId': '550e8400-e29b-41d4-a716-446655440021'
+      })
+      expect(rejectedOutbox).toBeNull()
+
+      const pendingOutbox = await db.collection(outboxCollection).findOne({
+        'payload.file.fileId': '550e8400-e29b-41d4-a716-446655440022'
+      })
+      expect(pendingOutbox).toBeNull()
     })
   })
 
@@ -402,7 +575,12 @@ describe('POST to the /api/v1/callback route', async () => {
   describe('when the database fails to store the document', async () => {
     test('should return a 500 status code and insert error message', async () => {
       const mockInsertOne = vi.fn().mockResolvedValue({ acknowledged: false })
-      vi.spyOn(db, 'collection').mockReturnValue({ insertOne: mockInsertOne })
+      // Simulate failure for insertMany (metadata persistence) to trigger 500
+      vi.spyOn(db, 'collection').mockReturnValue({
+        insertOne: mockInsertOne,
+        insertMany: vi.fn().mockResolvedValue({ acknowledged: false }),
+        updateMany: vi.fn().mockResolvedValue({ acknowledged: true })
+      })
 
       const response = await server.inject({
         method: 'POST',
@@ -417,7 +595,11 @@ describe('POST to the /api/v1/callback route', async () => {
   describe('when the database is unavailable', async () => {
     test('should return a 500 status code and database unavailable message', async () => {
       const dbError = vi.fn().mockRejectedValue(new Error('Database unavailable'))
-      vi.spyOn(db, 'collection').mockReturnValue({ insertOne: dbError })
+      vi.spyOn(db, 'collection').mockReturnValue({
+        insertOne: dbError,
+        insertMany: dbError,
+        updateMany: dbError
+      })
 
       const response = await server.inject({
         method: 'POST',

@@ -7,15 +7,21 @@ const outboxCollection = 'mongo.collections.outbox'
 const createOutboxEntries = async (ids, documents, session) => {
   const collection = config.get(outboxCollection)
 
-  const outboxDocs = Object.entries(ids).map(([index, id]) => {
-    return {
-      messageId: id,
-      payload: documents[index],
-      status: PENDING,
-      attempts: 0,
-      createdAt: new Date()
-    }
-  })
+  const outboxDocs = Object.entries(ids)
+    .filter(([index]) => documents[index].file.fileStatus === 'complete')
+    .map(([index, id]) => {
+      return {
+        messageId: id,
+        payload: documents[index],
+        status: PENDING,
+        attempts: 0,
+        createdAt: new Date()
+      }
+    })
+
+  if (outboxDocs.length === 0) {
+    return {}
+  }
 
   const { acknowledged, insertedIds } = await db.collection(collection).insertMany(outboxDocs, { session })
   if (!acknowledged) {
