@@ -6,6 +6,10 @@ const mimeTypePattern = /^[a-zA-Z0-9][a-zA-Z0-9!#$&^_+-]*\/[a-zA-Z0-9][a-zA-Z0-9
 // Base64 pattern (accept standard and URL-safe variants)
 const base64Pattern = /^(?:[A-Za-z0-9+/]+=*|[A-Za-z0-9-_]+=*)$/
 
+// Schema validation constants
+const ERROR_MESSAGE_MAX_LENGTH = 2000
+const EMPTY_FIELD_MESSAGE = '"{#label}" cannot be empty'
+
 /**
  * Canonical CDP Uploader file-upload contract.
  *
@@ -31,7 +35,7 @@ export const fileUploadSchema = Joi.object({
     .required()
     .description('Original name of the uploaded file')
     .messages({
-      'string.empty': '"{#label}" cannot be empty'
+      'string.empty': EMPTY_FIELD_MESSAGE
     })
     .example(schemaConsts.FILENAME_EXAMPLE).label('filename'),
 
@@ -74,7 +78,7 @@ export const fileUploadSchema = Joi.object({
 
   hasError: Joi.boolean().example(schemaConsts.HAS_ERROR_EXAMPLE).label('hasError'),
 
-  errorMessage: Joi.string().min(1).max(2000).example(schemaConsts.ERROR_MESSAGE_EXAMPLE).label('errorMessage'),
+  errorMessage: Joi.string().min(1).max(ERROR_MESSAGE_MAX_LENGTH).example(schemaConsts.ERROR_MESSAGE_EXAMPLE).label('errorMessage'),
 
   checksumSha256: Joi.string()
     .pattern(base64Pattern)
@@ -85,13 +89,13 @@ export const fileUploadSchema = Joi.object({
   s3Key: Joi.string()
     .min(1)
     .description('S3 object key where the file is stored')
-    .messages({ 'string.empty': '"{#label}" cannot be empty' })
+    .messages({ 'string.empty': EMPTY_FIELD_MESSAGE })
     .example(schemaConsts.S3_KEY_EXAMPLE).label('s3Key'),
 
   s3Bucket: Joi.string()
     .min(1)
     .description('S3 bucket name where the file is stored')
-    .messages({ 'string.empty': '"{#label}" cannot be empty' })
+    .messages({ 'string.empty': EMPTY_FIELD_MESSAGE })
     .example(schemaConsts.S3_BUCKET_EXAMPLE).label('s3Bucket')
 })
   .when(Joi.object({ fileStatus: 'complete' }).unknown(), {
