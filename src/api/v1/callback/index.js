@@ -6,8 +6,7 @@ import { callbackPayloadSchema, callbackResponseSchema } from './schema.js'
 import { config } from '../../../config/index.js'
 import { persistMetadataWithOutbox, persistValidationFailureStatus } from '../../../services/metadata-service.js'
 import { metricsCounter } from '../../common/helpers/metrics.js'
-import { validateFormFiles } from './validation/validate-form-files.js'
-import { handleValidationFailure } from './validation/handle-validation-failure.js'
+import { validateCallbackPayload } from './validation/validate-callback-payload.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -51,29 +50,9 @@ export const uploadCallback = {
     },
     handler: async (request, h) => {
       try {
-        const payload = request.payload || {}
-
-        // Stage 2: Contract validation — uploadStatus must be 'ready'
-        if (payload.uploadStatus !== 'ready') {
-          await metricsCounter('callback_unexpected_status')
-          return await handleValidationFailure(payload, new Error(`uploadStatus must be 'ready' but was '${payload.uploadStatus}'`), undefined, h)
-        }
-
-        // Stage 2 (continued): Every file in the form must have fileStatus 'complete'
-        const form = payload.form || {}
-        for (const [, val] of Object.entries(form)) {
-          if (val && typeof val === 'object' && 'fileId' in val) {
-            if (val.fileStatus !== 'complete') {
-              await metricsCounter('callback_unexpected_status')
-              return await handleValidationFailure(payload, new Error(`fileStatus must be 'complete' but was '${val.fileStatus}'`), val, h)
-            }
-          }
-        }
-
-        // Stage 3: Post-Joi semantic validation for each file upload
-        const validation = await validateFormFiles(form)
-        if (!validation.isValid) {
-          return await handleValidationFailure(payload, new Error(validation.error), validation.file, h)
+        const validationError = await validateCallbackPayload(request.payload, h)
+        if (validationError) {
+          return validationError
         }
       } catch (validationErr) {
         logger.error(validationErr, 'Post-Joi validation error')
