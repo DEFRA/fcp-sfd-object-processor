@@ -83,7 +83,7 @@ async function handleValidationFailure (payload, error, file, h) {
  * 3. If validation fails, it persists a validation failure status and returns a 201 response.
  * 4. If validation succeeds, it persists metadata with outbox entries in a transaction and returns a 201 response with inserted document details.
  * The reasoning for this flow can be found here: https://eaflood.atlassian.net/wiki/spaces/SFD/pages/6463259966/File+upload+and+callback+status+processing
- * 
+ *
  */
 
 export const uploadCallback = {
