@@ -631,7 +631,9 @@
             "description": "Status of the file upload",
             "example": "complete",
             "enum": [
-              "complete"
+              "complete",
+              "rejected",
+              "pending"
             ]
           },
           "contentLength": {
@@ -644,7 +646,7 @@
             "type": "string",
             "description": "SHA-256 checksum of the file encoded in base64",
             "example": "bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=",
-            "pattern": "^[A-Za-z0-9+/]+=*$"
+            "pattern": "^(?:[A-Za-z0-9+/]+=*|[A-Za-z0-9-_]+=*)$"
           },
           "detectedContentType": {
             "type": "string",
@@ -670,12 +672,21 @@
           "filename",
           "contentType",
           "fileStatus",
-          "contentLength",
-          "checksumSha256",
-          "detectedContentType",
-          "s3Key",
-          "s3Bucket"
-        ]
+          "detectedContentType"
+        ],
+        "properties": {
+          "hasError": {
+            "type": "boolean",
+            "description": "Indicates whether the file was rejected due to an error",
+            "example": false
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Human-readable error message for rejected files",
+            "example": "File rejected: virus detected",
+            "maxLength": 2000
+          }
+        }
       }
     }
   },
