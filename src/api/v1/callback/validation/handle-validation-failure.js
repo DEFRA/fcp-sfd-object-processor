@@ -21,7 +21,7 @@ export async function handleValidationFailure (payload, error, file, h) {
     logger.error(persistErr, 'Failed to persist status for semantic validation failure')
   }
 
-  if (file && file.fileId) {
+  if (file?.fileId) {
     logger.error(
       { file: { id: file.fileId, fileStatus: file.fileStatus, error: error.message } },
       'File upload contract validation failed'
