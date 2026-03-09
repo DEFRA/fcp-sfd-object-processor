@@ -5,13 +5,14 @@ import Joi from 'joi'
 
 const schemas = generateResponseSchemas(Joi.object({ id: Joi.string() }))
 const unauthorizedSchema = schemas[httpConstants.HTTP_STATUS_UNAUTHORIZED]
+const errorMessage = 'Missing authentication'
 
 describe('unauthorizedResponseSchema', () => {
   test('validates a response with only required fields', () => {
     const { error } = unauthorizedSchema.validate({
       statusCode: httpConstants.HTTP_STATUS_UNAUTHORIZED,
       error: 'Unauthorized',
-      message: 'Missing authentication'
+      message: errorMessage
     })
     expect(error).toBeUndefined()
   })
@@ -20,7 +21,7 @@ describe('unauthorizedResponseSchema', () => {
     const { error } = unauthorizedSchema.validate({
       statusCode: httpConstants.HTTP_STATUS_UNAUTHORIZED,
       error: 'Unauthorized',
-      message: 'Missing authentication',
+      message: errorMessage,
       attributes: {
         error: 'Bearer token missing',
         error_description: 'The request requires a valid access token to be provided'
@@ -33,7 +34,7 @@ describe('unauthorizedResponseSchema', () => {
     const { error } = unauthorizedSchema.validate({
       statusCode: httpConstants.HTTP_STATUS_UNAUTHORIZED,
       error: 'Unauthorized',
-      message: 'Missing authentication',
+      message: errorMessage,
       attributes: {}
     })
     expect(error).toBeUndefined()
@@ -43,7 +44,7 @@ describe('unauthorizedResponseSchema', () => {
     const { error } = unauthorizedSchema.validate({
       statusCode: httpConstants.HTTP_STATUS_UNAUTHORIZED,
       error: 'Unauthorized',
-      message: 'Missing authentication',
+      message: errorMessage,
       attributes: { error: 'Bearer token missing' }
     })
     expect(error).toBeUndefined()
@@ -53,7 +54,7 @@ describe('unauthorizedResponseSchema', () => {
     const { error } = unauthorizedSchema.validate({
       statusCode: httpConstants.HTTP_STATUS_UNAUTHORIZED,
       error: 'Unauthorized',
-      message: 'Missing authentication',
+      message: errorMessage,
       attributes: { error_description: 'Token has expired' }
     })
     expect(error).toBeUndefined()
@@ -63,7 +64,7 @@ describe('unauthorizedResponseSchema', () => {
     const { error } = unauthorizedSchema.validate({
       statusCode: httpConstants.HTTP_STATUS_UNAUTHORIZED,
       error: 'Unauthorized',
-      message: 'Missing authentication',
+      message: errorMessage,
       attributes: { error: 123 }
     })
     expect(error).toBeDefined()
