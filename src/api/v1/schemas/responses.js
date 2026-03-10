@@ -28,7 +28,11 @@ const serverErrorResponseSchema = Joi.object({
 const unauthorizedResponseSchema = Joi.object({
   statusCode: Joi.number().example(httpConstants.HTTP_STATUS_UNAUTHORIZED),
   error: Joi.string().example('Unauthorized'),
-  message: Joi.string().example('Missing authentication')
+  message: Joi.string().example('Missing authentication'),
+  attributes: Joi.object({
+    error: Joi.string().example('Bearer token missing').optional(),
+    error_description: Joi.string().example('The request requires a valid access token to be provided').optional()
+  }).optional().label('UnauthorizedAttributes').description('Additional details about the unauthorized error')
 }).label('Unauthorized')
 
 export const generateResponseSchemas = (successSchema, successCode = 200, customSchemas = {}) => ({

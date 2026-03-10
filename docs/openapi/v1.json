@@ -123,6 +123,20 @@
           }
         }
       },
+      "UnauthorizedAttributes": {
+        "type": "object",
+        "description": "Additional details about the unauthorized error",
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "Bearer token missing"
+          },
+          "error_description": {
+            "type": "string",
+            "example": "The request requires a valid access token to be provided"
+          }
+        }
+      },
       "Unauthorized": {
         "type": "object",
         "properties": {
@@ -137,6 +151,9 @@
           "message": {
             "type": "string",
             "example": "Missing authentication"
+          },
+          "attributes": {
+            "$ref": "#/components/schemas/UnauthorizedAttributes"
           }
         }
       },
