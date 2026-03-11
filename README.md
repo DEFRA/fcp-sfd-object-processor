@@ -116,6 +116,34 @@ Metadata relating to a given SBI (Single Business Identifier) can be retrieved b
 curl -X GET "http://localhost:3004/api/v1/metadata/sbi/123456789"
 ```
 
+### Retrieve file status
+
+After uploading a file via the CDP Uploader using the object processor as the callback route, the status of the file can be seen by providing the `correlationId`. The status can also be seen directly in the database and it's from the database the `correlationId` can be retrieved. [MongoDB Compass](https://www.mongodb.com/products/tools/compass) is the official GUI for interacting with local MongoDB instances. When accessing the `status` collection, the documents in there will appear as shown below.
+
+```
+{
+  "_id": {
+    "$oid": "69b152a122fb223fe73d1c28"
+  },
+  "correlationId": "ab32fd43-5e10-4eab-aff9-83522ca91042", # this is the correlationId
+  "sbi": 123456789,
+  "fileId": "aa0bd0ce-e254-40b4-84b6-f5acded17fe8",
+  "timestamp": {
+    "$date": "2026-03-11T11:31:45.078Z"
+  },
+  "validated": true,
+  "errors": null
+}
+```
+
+With this `correlationId` noted, the status can be retrieved by submitting a `GET` request.
+
+```
+curl -X GET "http://localhost:3004/api/v1/status/{correlationId}" # where {correlationId} is ab32fd43-5e10-4eab-aff9-83522ca91042
+```
+
+The information returned will be the same as what is stored in the database.
+
 ## Tests
 
 
