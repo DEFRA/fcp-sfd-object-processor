@@ -5,18 +5,17 @@
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=DEFRA_fcp-sfd-object-processor&metric=coverage)](https://sonarcloud.io/summary/new_code?id=DEFRA_fcp-sfd-object-processor)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=DEFRA_fcp-sfd-object-processor&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=DEFRA_fcp-sfd-object-processor)
 
-This service is part of the [Single Front Door (SFD) service](https://github.com/DEFRA/fcp-sfd-core).
+This service is part of the [Single Front Door (SFD) project](https://github.com/DEFRA/fcp-sfd-core).
 
-REST API Object processor for the Single Front Door (SFD) service. This service provides endpoints to persist and retrieve metadata relating to uploaded files to support the Single Front Door project.
+The object processor is a REST API and messaging gateway for the Single Front Door (SFD) service, providing endpoints to persist and retrieve metadata relating to uploaded files to support the Single Front Door project.
 
-The service works alongside the [CDP Uploader](https://github.com/DEFRA/cdp-uploader). If the upload request to the CDP Uploader is made using the object processor as the callback route the service receives the payload and persists the metadata to the database.
+The service works alongside the [CDP Uploader](https://github.com/DEFRA/cdp-uploader). If the upload request to the CDP Uploader is made using the object processor as the callback route the service receives the payload and persists the metadata to the database. Using the [Transactional Outbox pattern](https://microservices.io/patterns/data/transactional-outbox.html), the service publishes events to AWS SNS topics. These events include metadata intended to be pushed to CRM and to the FCP audit service.
 
 ## Features
 
 - Persist metadata after upload ✅
 - Retrieve metadata about uploaded files ✅
 - Push metadata to CRM (in progress) 🏗️
-
 
 ## Prerequisites
 
