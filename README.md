@@ -1,4 +1,5 @@
 # fcp-sfd-object-processor
+
 ![Publish](https://github.com/defra/fcp-sfd-object-processor/actions/workflows/publish.yml/badge.svg)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=DEFRA_fcp-sfd-object-processor&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=DEFRA_fcp-sfd-object-processor)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=DEFRA_fcp-sfd-object-processor&metric=coverage)](https://sonarcloud.io/summary/new_code?id=DEFRA_fcp-sfd-object-processor)
@@ -11,17 +12,17 @@ REST API Object processor for the Single Front Door (SFD) service. This service 
 The service works alongside the [CDP Uploader](https://github.com/DEFRA/cdp-uploader). If the upload request to the CDP Uploader is made using the object processor as the callback route the service receives the payload and persists the metadata to the database.
 
 ## Features
+
 - Persist metadata after upload ✅
 - Retrieve metadata about uploaded files ✅
 - Push metadata to CRM (in progress) 🏗️
 
 
 ## Prerequisites
+
 - Docker
 - Docker Compose
 - Node.js (v22 LTS)
-
-### Configuration
 
 ## Running the application
 
@@ -29,35 +30,33 @@ We recommend using the [fcp-sfd-core](https://github.com/DEFRA/fcp-sfd-core) rep
 
 ### Build container image
 
-Container images are built using Docker Compose, with the same images used to run the service with either Docker Compose or Kubernetes.
+Container images are built using Docker Compose.
 
-When using the Docker Compose files in development the local `app` folder will
-be mounted on top of the `app` folder within the Docker container, hiding the CSS files that were generated during the Docker build.  For the site to render correctly locally `npm run build` must be run on the host system.
-
-
-By default, the start script will build (or rebuild) images so there will
-rarely be a need to build images manually. However, this can be achieved
-through the Docker Compose
-[build](https://docs.docker.com/compose/reference/build/) command:
 ```
-# Build container images
-docker-compose build
+docker compose build
 ```
 
 ### Start
 
-Use Docker Compose to run service locally.
+Use Docker Compose to start running the service locally.
 
 ```
-docker-compose up --build
+docker compose up
 ```
 
 ### Documentation
-The service uses hapi-swagger to auto generate Openapi spec available on the `/documentation` endpoint when running the service locally.
+
+The service uses `hapi-swagger` to auto generate OpenAPI spec available on the [`/documentation`](http://localhost:3004/documentation) endpoint when running the service locally.
 
 A static Openapi specification can be found in the `src/docs` folder.
 
-To update the static OpenAPI specification file in the `docs` folder please use the npm script `generateOpenApiSpec` when the server is running locally. This can be used to generate up-to-date information in a OpenAPI specification file which can be pushed to Github and shared with stakeholders.
+To update the static OpenAPI specification file in the `docs` folder please use the npm script `generateOpenApiSpec` when the server is running locally:
+
+```
+npm run generateOpenApiSpec
+```
+
+This can be used to generate up-to-date information in a OpenAPI specification file which can be pushed to Github and shared with stakeholders.
 
 ## Tests
 
@@ -65,24 +64,18 @@ To update the static OpenAPI specification file in the `docs` folder please use 
 ### Test structure
 
 The tests have been structured into subfolders of `./test` as per the
-[Microservice test approach and repository structure](https://eaflood.atlassian.net/wiki/spaces/FPS/pages/1845396477/Microservice+test+approach+and+repository+structure)
+[Microservice test approach and repository structure](https://eaflood.atlassian.net/wiki/spaces/FPS/pages/1845396477/Microservice+test+approach+and+repository+structure). 
 
-Test mocks and sample payloads used by unit and integration tests are documented in the mocks README: [test/mocks/README.md](test/mocks/README.md)
+Test mocks and sample payloads used by unit and integration tests are documented in the [mocks README](test/mocks/README.md).
 
 ### Running tests
 
 A convenience npm script is provided to run automated tests in a containerised
-environment. This will rebuild images before running tests via docker-compose,
-using a combination of `compose.yaml` and `compose.test.yaml`.
+environment. This will rebuild images before running tests via Docker Compose,
+using a combination of the `compose.yaml` and `compose.test.yaml` files.
 
-To run the tests:
 ```
 npm run docker:test
-```
-
-You can also run the tests directly using docker compose:
-```
-docker compose -f compose.yaml -f compose.test.yaml run --rm "fcp-sfd-object-processor"
 ```
 
 ## Licence
