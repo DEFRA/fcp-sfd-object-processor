@@ -58,12 +58,71 @@ npm run generateOpenApiSpec
 
 This can be used to generate up-to-date information in a OpenAPI specification file which can be pushed to Github and shared with stakeholders.
 
+## Using the service
+
+Once the service is running locally, the REST API can be used to interact with the CDP uploader and also retrieve information regarding blobs, metadata and specific SBIs. Below is a series of cURL commands that will enable these interactions. As mentioned, all API interactions available (including the possible responses) are described in detail via the `/documentation` endpoint.
+
+### Making a request to the CDP Uploader
+
+When using the service for local development, it's recommended to first `POST` a request to the CDP Uploader using the service as the call back route. This is so that existing information is available from which various `GET` requests can be made. 
+
+```
+curl -X POST "http://localhost:3004/api/v1/callback" \
+-H "Content-Type: application/json" \
+-d '{
+  "uploadStatus": "ready",
+  "metadata": {
+    "sbi": 123456789,
+    "crn": 1234567890,
+    "frn": 1102658375,
+    "submissionId": "0987654321",
+    "uosr": "123456789_0987654321",
+    "submissionDateTime": "10/12/2024 10:25:12",
+    "files": ["test-file.pdf"],
+    "filesInSubmission": 1,
+    "type": "CS_Agreement_Evidence",
+    "reference": "user entered reference",
+    "service": "fcp-sfd-frontend"
+  },
+  "form": {
+    "file1": {
+      "fileId": "aa0bd0ce-e254-40b4-84b6-f5acded17fe8",
+      "filename": "test-file.pdf",
+      "contentType": "application/pdf",
+      "fileStatus": "complete",
+      "contentLength": 102400,
+      "checksumSha256": "dGVzdGNoZWNrc3Vt",
+      "detectedContentType": "application/pdf",
+      "s3Key": "uploads/test-file.pdf",
+      "s3Bucket": "test-bucket"
+    }
+  },
+  "numberOfRejectedFiles": 0
+}'
+```
+
+### Retrieve a file
+
+After uploading a file/files, we can retrieve information about an individual file using its `fileId`. From the previous step, this would be `aa0bd0ce-e254-40b4-84b6-f5acded17fe8`.
+
+```
+curl -X GET "http://localhost:3004/api/v1/blob/aa0bd0ce-e254-40b4-84b6-f5acded17fe8"
+```
+
+### Retrieve metadata
+
+Metadata relating to a given SBI (Single Business Identifier) can be retrieved by providing the SBI in question. In this case, from the previous examples this would be `123456789`.
+
+```
+curl -X GET "http://localhost:3004/api/v1/metadata/sbi/123456789"
+```
+
 ## Tests
 
 
 ### Test structure
 
-The tests have been structured into subfolders of `./test` as per the
+The tests have been structured into sub-folders of `./test` as per the
 [Microservice test approach and repository structure](https://eaflood.atlassian.net/wiki/spaces/FPS/pages/1845396477/Microservice+test+approach+and+repository+structure). 
 
 Test mocks and sample payloads used by unit and integration tests are documented in the [mocks README](test/mocks/README.md).
