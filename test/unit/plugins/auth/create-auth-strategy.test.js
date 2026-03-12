@@ -43,7 +43,7 @@ describe('createAuthStrategy', () => {
       getAllowedList: () => ['allowed-value-1', 'allowed-value-2'],
       checkAllowed: mockCheckAllowed,
       emptyListMessage: 'No authorized values configured',
-      unauthorizedMessage: 'Token is not authorized'
+      unauthorisedMessage: 'Token is not authorized'
     })
 
     validateFunction = strategyOptions.validate
@@ -125,7 +125,7 @@ describe('createAuthStrategy', () => {
         getAllowedList: () => [],
         checkAllowed: mockCheckAllowed,
         emptyListMessage: 'No authorized values configured',
-        unauthorizedMessage: 'Token is not authorized'
+        unauthorisedMessage: 'Token is not authorized'
       })
       validateFunction = strategyOptions.validate
     })

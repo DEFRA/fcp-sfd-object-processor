@@ -34,6 +34,6 @@ export function getCognitoAuthOptions () {
       return { allowed, failureContext: { clientId: tokenClientId, issuer: payload.iss } }
     },
     emptyListMessage: 'No authorized Cognito client IDs configured',
-    unauthorizedMessage: 'Token client_id is not in the list of authorized Cognito client IDs'
+    unauthorisedMessage: 'Token client_id is not in the list of authorized Cognito client IDs'
   })
 }

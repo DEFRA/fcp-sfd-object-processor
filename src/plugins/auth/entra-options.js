@@ -26,6 +26,6 @@ export function getEntraAuthOptions () {
       return { allowed, failureContext: { tokenGroups, requiredGroups: allowedGroupIds } }
     },
     emptyListMessage: 'No authorized security groups configured',
-    unauthorizedMessage: 'Token does not belong to an authorized Security Group'
+    unauthorisedMessage: 'Token does not belong to an authorized Security Group'
   })
 }

@@ -14,8 +14,8 @@ const logger = createLogger()
  * @param {object}   opts.verify            - Hapi JWT verify config (iss, aud, sub, nbf, exp…)
  * @param {Function} opts.getAllowedList     - Zero-arg function; returns the allowed values array (lazy, called per request)
  * @param {Function} opts.checkAllowed      - `(payload, allowedList) => { allowed: boolean, failureContext: object }`
- * @param {string}   opts.emptyListMessage  - Error message when the allowed list is unconfigured
- * @param {string}   opts.unauthorizedMessage - Error message when the token is not in the allowed list
+ * @param {string}   opts.emptyListMessage     - Error message when the allowed list is unconfigured
+ * @param {string}   opts.unauthorisedMessage  - Error message when the token is not in the allowed list
  * @returns {{ keys: object, verify: object, validate: Function }}
  */
 export function createAuthStrategy ({
@@ -25,7 +25,7 @@ export function createAuthStrategy ({
   getAllowedList,
   checkAllowed,
   emptyListMessage,
-  unauthorizedMessage
+  unauthorisedMessage
 }) {
   return {
     keys: {
@@ -51,8 +51,8 @@ export function createAuthStrategy ({
       const { allowed, failureContext } = checkAllowed(payload, allowedList)
 
       if (!allowed) {
-        logger.warn(buildAuthFailureLog(unauthorizedMessage, request, { ...failureContext, strategy: strategyName }))
-        return { isValid: false, errorMessage: unauthorizedMessage }
+        logger.warn(buildAuthFailureLog(unauthorisedMessage, request, { ...failureContext, strategy: strategyName }))
+        return { isValid: false, errorMessage: unauthorisedMessage }
       }
 
       const credentials = {
