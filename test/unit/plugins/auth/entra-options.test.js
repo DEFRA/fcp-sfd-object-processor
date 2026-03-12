@@ -268,6 +268,7 @@ describe('getEntraAuthOptions', () => {
         mockRequest,
         { tokenType: 'refresh', strategy: 'entra' }
       )
+      expect(mockLogger.warn).toHaveBeenCalledWith(mockBuildAuthFailureLog.mock.results[0].value)
     })
 
     test('should call buildAuthFailureLog with request context when token has no matching security groups', async () => {
@@ -280,6 +281,7 @@ describe('getEntraAuthOptions', () => {
         mockRequest,
         { tokenGroups: ['group-3', 'group-4'], requiredGroups: ['group-1', 'group-2'], strategy: 'entra' }
       )
+      expect(mockLogger.warn).toHaveBeenCalledWith(mockBuildAuthFailureLog.mock.results[0].value)
     })
 
     test('should not call buildAuthFailureLog when token is valid', async () => {
@@ -287,6 +289,7 @@ describe('getEntraAuthOptions', () => {
       await validateFunction({ decoded: { payload } }, mockRequest, {})
 
       expect(mockBuildAuthFailureLog).not.toHaveBeenCalled()
+      expect(mockLogger.warn).not.toHaveBeenCalled()
     })
   })
 })

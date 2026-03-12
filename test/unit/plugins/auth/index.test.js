@@ -216,6 +216,7 @@ describe('auth plugin', () => {
       const result = extensionHandler(mockRequest, mockH)
 
       expect(result).toBe(mockH.continue)
+      expect(mockWarn).not.toHaveBeenCalled()
     })
 
     test('should call h.continue for 401 responses', async () => {
