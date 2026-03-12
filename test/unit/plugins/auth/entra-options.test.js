@@ -14,6 +14,10 @@ vi.mock('../../../../src/logging/logger.js', () => ({
   createLogger: vi.fn().mockReturnValue(mockLogger)
 }))
 
+vi.mock('../../../../src/utils/build-auth-failure-log.js', () => ({
+  buildAuthFailureLog: vi.fn()
+}))
+
 describe('getEntraAuthOptions', () => {
   let getEntraAuthOptions
 
@@ -236,6 +240,12 @@ describe('getEntraAuthOptions', () => {
 
       expect(result.isValid).toBe(false)
       expect(result.errorMessage).toBe('No authorized security groups configured')
+    })
+  })
+
+  describe('build auth failure log configuration', () => {
+    test('should reject token when allowedGroupIds config is an empty array', async () => {
+
     })
   })
 })

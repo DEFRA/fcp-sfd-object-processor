@@ -5,7 +5,6 @@ import { buildAuthFailureLog } from '../../utils/build-auth-failure-log.js'
 const logger = createLogger()
 const tenant = config.get('auth.entra.tenant')
 const allowedGroupIds = config.get('auth.entra.allowedGroupIds') || []
-const authFailedMessage = 'Authentication failed'
 
 /**
  * Builds Hapi JWT strategy options for Microsoft Entra ID (Azure AD) authentication.
