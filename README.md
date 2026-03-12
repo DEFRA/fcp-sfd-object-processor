@@ -59,7 +59,11 @@ This can be used to generate up-to-date information in a OpenAPI specification f
 
 ## Using the service
 
-Once the service is running locally, the REST API can be used to interact with the CDP uploader and also retrieve information regarding blobs, metadata and specific SBIs. Below is a series of cURL commands that will enable these interactions. As mentioned, all API interactions available (including the possible responses) are described in detail via the `/documentation` endpoint.
+Once the service is running locally, the REST API can be used to interact with the CDP uploader and also retrieve information regarding blobs, metadata and specific SBIs. Below is a series of cURL commands that will enable these interactions. 
+
+For any developers who prefer to use a GUI such as Postman, there is a [Postman collection available to use](https://github.com/DEFRA/fcp-sfd-core/blob/main/resources/postman/fcp-sfd-object-processor.postman_collection.json).
+
+As mentioned, all API interactions available (including the possible responses) are described in detail via the `/documentation` endpoint.
 
 ### Making a request to the CDP Uploader
 
