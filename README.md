@@ -25,7 +25,7 @@ The service works alongside the [CDP Uploader](https://github.com/DEFRA/cdp-uplo
 
 ## Running the application
 
-We recommend using the [fcp-sfd-core](https://github.com/DEFRA/fcp-sfd-core) repository for local development. You can however run this service independently by following the instructions below.
+We recommend using the [fcp-sfd-core](https://github.com/DEFRA/fcp-sfd-core) repository for local development. You can however run this service independently by following the instructions below using either Docker Compose or the provided [npm scripts](./package.json).
 
 ### Build container image
 
