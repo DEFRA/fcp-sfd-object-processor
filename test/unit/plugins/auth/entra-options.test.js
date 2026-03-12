@@ -102,18 +102,6 @@ describe('getEntraAuthOptions', () => {
       expect(result.credentials).toEqual({ token: payload, principalId: 'user-123' })
     })
 
-    test('should return valid result for at+jwt token type', async () => {
-      const payload = { typ: 'at+jwt', sub: 'user-123', groups: ['group-1'] }
-      const result = await validateFunction({ decoded: { payload } }, mockRequest, {})
-      expect(result.isValid).toBe(true)
-    })
-
-    test('should accept token without typ claim', async () => {
-      const payload = { sub: 'user-123', groups: ['group-1'] }
-      const result = await validateFunction({ decoded: { payload } }, mockRequest, {})
-      expect(result.isValid).toBe(true)
-    })
-
     test('should accept token with one matching group among many', async () => {
       const payload = { typ: 'JWT', sub: 'user-123', groups: ['group-3', 'group-2', 'group-4'] }
       const result = await validateFunction({ decoded: { payload } }, mockRequest, {})
@@ -121,31 +109,7 @@ describe('getEntraAuthOptions', () => {
       expect(result.credentials.principalId).toBe('user-123')
     })
 
-    test('should preserve all token payload fields in credentials', async () => {
-      const payload = {
-        typ: 'JWT',
-        sub: 'user-123',
-        groups: ['group-1'],
-        name: 'Test User',
-        email: 'test@example.com',
-        custom_claim: 'custom_value'
-      }
-      const result = await validateFunction({ decoded: { payload } }, mockRequest, {})
-      expect(result.isValid).toBe(true)
-      expect(result.credentials.token).toEqual(payload)
-      expect(result.credentials.token.name).toBe('Test User')
-      expect(result.credentials.token.email).toBe('test@example.com')
-      expect(result.credentials.token.custom_claim).toBe('custom_value')
-    })
-
     // Invalid token rejection
-    test('should reject token with invalid type', async () => {
-      const payload = { typ: 'refresh', sub: 'user-123', groups: ['group-1'] }
-      const result = await validateFunction({ decoded: { payload } }, mockRequest, {})
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('Provided token is not an access token')
-    })
-
     test('should reject token without matching security groups', async () => {
       const payload = { typ: 'JWT', sub: 'user-123', groups: ['group-3', 'group-4'] }
       const result = await validateFunction({ decoded: { payload } }, mockRequest, {})
@@ -172,124 +136,6 @@ describe('getEntraAuthOptions', () => {
       const result = await validateFunction({ decoded: { payload } }, mockRequest, {})
       expect(result.isValid).toBe(false)
       expect(result.errorMessage).toBe('Token does not belong to an authorized Security Group')
-    })
-  })
-
-  // Configuration edge cases — null/empty/undefined allowedGroupIds
-  // Note: allowedGroupIds is read at module level, so vi.resetModules() + re-import is required
-  // to test different config values
-  describe('configuration scenarios', () => {
-    const mockRequest = {
-      path: '/test',
-      method: 'GET',
-      info: { remoteAddress: '127.0.0.1' },
-      headers: { 'user-agent': 'test-agent' }
-    }
-
-    test('should reject token when allowedGroupIds config is an empty array', async () => {
-      vi.resetModules()
-      mockConfigGet.mockImplementation((key) => {
-        switch (key) {
-          case 'auth.entra.tenant': return 'test-tenant-id'
-          case 'auth.entra.allowedGroupIds': return []
-          default: return null
-        }
-      })
-
-      const { getEntraAuthOptions: freshOptions } = await import('../../../../src/plugins/auth/entra-options.js')
-      const validateFunc = freshOptions().validate
-      const payload = { typ: 'JWT', sub: 'user-123', groups: ['group-1'] }
-      const result = await validateFunc({ decoded: { payload } }, mockRequest, {})
-
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('No authorized security groups configured')
-    })
-
-    test('should reject token when allowedGroupIds config is null', async () => {
-      vi.resetModules()
-      mockConfigGet.mockImplementation((key) => {
-        switch (key) {
-          case 'auth.entra.tenant': return 'test-tenant-id'
-          case 'auth.entra.allowedGroupIds': return null
-          default: return null
-        }
-      })
-
-      const { getEntraAuthOptions: freshOptions } = await import('../../../../src/plugins/auth/entra-options.js')
-      const validateFunc = freshOptions().validate
-      const payload = { typ: 'JWT', sub: 'user-123', groups: ['some-group'] }
-      const result = await validateFunc({ decoded: { payload } }, mockRequest, {})
-
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('No authorized security groups configured')
-    })
-
-    test('should reject token when allowedGroupIds config is undefined', async () => {
-      vi.resetModules()
-      mockConfigGet.mockImplementation((key) => {
-        switch (key) {
-          case 'auth.entra.tenant': return 'test-tenant-id'
-          case 'auth.entra.allowedGroupIds': return undefined
-          default: return null
-        }
-      })
-
-      const { getEntraAuthOptions: freshOptions } = await import('../../../../src/plugins/auth/entra-options.js')
-      const validateFunc = freshOptions().validate
-      const payload = { typ: 'JWT', sub: 'user-123', groups: ['some-group'] }
-      const result = await validateFunc({ decoded: { payload } }, mockRequest, {})
-
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('No authorized security groups configured')
-    })
-  })
-
-  describe('build auth failure log configuration', () => {
-    let validateFunction
-    let mockRequest
-
-    beforeEach(() => {
-      validateFunction = getEntraAuthOptions().validate
-      mockRequest = {
-        path: '/test',
-        method: 'GET',
-        info: { remoteAddress: '127.0.0.1' },
-        headers: { 'user-agent': 'test-agent' }
-      }
-    })
-
-    test('should call buildAuthFailureLog with request context when token type is invalid', async () => {
-      const payload = { typ: 'refresh', sub: 'user-123', groups: ['group-1'] }
-      await validateFunction({ decoded: { payload } }, mockRequest, {})
-
-      expect(mockBuildAuthFailureLog).toHaveBeenCalledOnce()
-      expect(mockBuildAuthFailureLog).toHaveBeenCalledWith(
-        'Provided token is not an access token',
-        mockRequest,
-        { tokenType: 'refresh', strategy: 'entra' }
-      )
-      expect(mockLogger.warn).toHaveBeenCalledWith(mockBuildAuthFailureLog.mock.results[0].value)
-    })
-
-    test('should call buildAuthFailureLog with request context when token has no matching security groups', async () => {
-      const payload = { typ: 'JWT', sub: 'user-123', groups: ['group-3', 'group-4'] }
-      await validateFunction({ decoded: { payload } }, mockRequest, {})
-
-      expect(mockBuildAuthFailureLog).toHaveBeenCalledOnce()
-      expect(mockBuildAuthFailureLog).toHaveBeenCalledWith(
-        'Token does not belong to an authorized Security Group',
-        mockRequest,
-        { tokenGroups: ['group-3', 'group-4'], requiredGroups: ['group-1', 'group-2'], strategy: 'entra' }
-      )
-      expect(mockLogger.warn).toHaveBeenCalledWith(mockBuildAuthFailureLog.mock.results[0].value)
-    })
-
-    test('should not call buildAuthFailureLog when token is valid', async () => {
-      const payload = { typ: 'JWT', sub: 'user-123', groups: ['group-1'] }
-      await validateFunction({ decoded: { payload } }, mockRequest, {})
-
-      expect(mockBuildAuthFailureLog).not.toHaveBeenCalled()
-      expect(mockLogger.warn).not.toHaveBeenCalled()
     })
   })
 })

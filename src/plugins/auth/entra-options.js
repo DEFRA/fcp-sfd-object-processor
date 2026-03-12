@@ -1,20 +1,17 @@
 import { config } from '../../config/index.js'
-import { createLogger } from '../../logging/logger.js'
-import { buildAuthFailureLog } from '../../utils/build-auth-failure-log.js'
-
-const logger = createLogger()
-const tenant = config.get('auth.entra.tenant')
-const allowedGroupIds = config.get('auth.entra.allowedGroupIds') || []
+import { AUTH_STRATEGY_NAMES } from '../../constants/auth.js'
+import { createAuthStrategy } from './create-auth-strategy.js'
 
 /**
  * Builds Hapi JWT strategy options for Microsoft Entra ID (Azure AD) authentication.
  * Validates tokens against the tenant's JWKS endpoint and checks security group membership.
  */
 export function getEntraAuthOptions () {
-  return {
-    keys: {
-      uri: `https://login.microsoftonline.com/${tenant}/discovery/v2.0/keys`
-    },
+  const tenant = config.get('auth.entra.tenant')
+
+  return createAuthStrategy({
+    strategyName: AUTH_STRATEGY_NAMES.ENTRA,
+    jwksUri: `https://login.microsoftonline.com/${tenant}/discovery/v2.0/keys`,
     verify: {
       aud: false,
       sub: false,
@@ -22,37 +19,13 @@ export function getEntraAuthOptions () {
       nbf: true,
       exp: true
     },
-    validate: async (artifacts, request, _h) => {
-      const { payload } = artifacts.decoded
-
-      if (payload.typ && payload.typ !== 'JWT' && payload.typ !== 'at+jwt') {
-        const errorMessage = 'Provided token is not an access token'
-        logger.warn(buildAuthFailureLog(errorMessage, request, { tokenType: payload.typ, strategy: 'entra' }))
-        return { isValid: false, errorMessage }
-      }
-
+    getAllowedList: () => config.get('auth.entra.allowedGroupIds') || [],
+    checkAllowed: (payload, allowedGroupIds) => {
       const tokenGroups = Array.isArray(payload.groups) ? payload.groups : []
-
-      // If no allowed groups are configured, reject the token
-      if (allowedGroupIds.length === 0) {
-        const errorMessage = 'No authorized security groups configured'
-        logger.warn(buildAuthFailureLog(errorMessage, request, { strategy: 'entra' }))
-        return { isValid: false, errorMessage }
-      }
-
-      // Check if token has any matching security groups
-      if (!tokenGroups.some(group => allowedGroupIds.includes(group))) {
-        const errorMessage = 'Token does not belong to an authorized Security Group'
-        logger.warn(buildAuthFailureLog(errorMessage, request, { tokenGroups, requiredGroups: allowedGroupIds, strategy: 'entra' }))
-        return { isValid: false, errorMessage }
-      }
-
-      const credentials = {
-        token: payload,
-        principalId: payload.sub
-      }
-
-      return { isValid: true, credentials }
-    }
-  }
+      const allowed = tokenGroups.some(group => allowedGroupIds.includes(group))
+      return { allowed, failureContext: { tokenGroups, requiredGroups: allowedGroupIds } }
+    },
+    emptyListMessage: 'No authorized security groups configured',
+    unauthorizedMessage: 'Token does not belong to an authorized Security Group'
+  })
 }
