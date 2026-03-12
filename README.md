@@ -35,12 +35,24 @@ Container images are built using Docker Compose.
 docker compose build
 ```
 
+Alternatively, an npm script is available:
+
+```
+npm run docker:build
+```
+
 ### Start
 
 Use Docker Compose to start running the service locally.
 
 ```
 docker compose up
+```
+
+Alternatively, an npm script is available:
+
+```
+npm run docker:dev
 ```
 
 ### Documentation
@@ -166,6 +178,18 @@ using a combination of the `compose.yaml` and `compose.test.yaml` files.
 
 ```
 npm run docker:test
+```
+
+Tests can also be started in watch mode to support Test Driven Development (TDD):
+
+```
+npm run docker:test:watch
+```
+
+Docker Compose can also be used directly for starting tests:
+
+```
+docker compose -f compose.yaml -f compose.test.yaml run --rm "fcp-sfd-object-processor"
 ```
 
 ## Licence
