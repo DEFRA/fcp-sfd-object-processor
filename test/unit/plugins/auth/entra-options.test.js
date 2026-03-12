@@ -14,8 +14,9 @@ vi.mock('../../../../src/logging/logger.js', () => ({
   createLogger: vi.fn().mockReturnValue(mockLogger)
 }))
 
+const mockBuildAuthFailureLog = vi.fn()
 vi.mock('../../../../src/utils/build-auth-failure-log.js', () => ({
-  buildAuthFailureLog: vi.fn()
+  buildAuthFailureLog: mockBuildAuthFailureLog
 }))
 
 describe('getEntraAuthOptions', () => {
@@ -244,8 +245,48 @@ describe('getEntraAuthOptions', () => {
   })
 
   describe('build auth failure log configuration', () => {
-    test('should reject token when allowedGroupIds config is an empty array', async () => {
+    let validateFunction
+    let mockRequest
 
+    beforeEach(() => {
+      validateFunction = getEntraAuthOptions().validate
+      mockRequest = {
+        path: '/test',
+        method: 'GET',
+        info: { remoteAddress: '127.0.0.1' },
+        headers: { 'user-agent': 'test-agent' }
+      }
+    })
+
+    test('should call buildAuthFailureLog with request context when token type is invalid', async () => {
+      const payload = { typ: 'refresh', sub: 'user-123', groups: ['group-1'] }
+      await validateFunction({ decoded: { payload } }, mockRequest, {})
+
+      expect(mockBuildAuthFailureLog).toHaveBeenCalledOnce()
+      expect(mockBuildAuthFailureLog).toHaveBeenCalledWith(
+        'Provided token is not an access token',
+        mockRequest,
+        { tokenType: 'refresh', strategy: 'entra' }
+      )
+    })
+
+    test('should call buildAuthFailureLog with request context when token has no matching security groups', async () => {
+      const payload = { typ: 'JWT', sub: 'user-123', groups: ['group-3', 'group-4'] }
+      await validateFunction({ decoded: { payload } }, mockRequest, {})
+
+      expect(mockBuildAuthFailureLog).toHaveBeenCalledOnce()
+      expect(mockBuildAuthFailureLog).toHaveBeenCalledWith(
+        'Token does not belong to an authorized Security Group',
+        mockRequest,
+        { tokenGroups: ['group-3', 'group-4'], requiredGroups: ['group-1', 'group-2'], strategy: 'entra' }
+      )
+    })
+
+    test('should not call buildAuthFailureLog when token is valid', async () => {
+      const payload = { typ: 'JWT', sub: 'user-123', groups: ['group-1'] }
+      await validateFunction({ decoded: { payload } }, mockRequest, {})
+
+      expect(mockBuildAuthFailureLog).not.toHaveBeenCalled()
     })
   })
 })
