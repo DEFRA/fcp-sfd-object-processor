@@ -47,7 +47,8 @@ export const auth = {
             sourceIp: request.info.remoteAddress,
             userAgent: request.headers['user-agent'],
             // Only include if token was present and decoded
-            tokenGroups: request.auth?.artifacts?.decoded?.payload?.groups // includes groups from token if present, otherwise undefined
+            tokenGroups: request.auth?.artifacts?.decoded?.payload?.groups, // includes groups from token if present, otherwise undefined
+            tokenClientId: request.auth?.artifacts?.decoded?.payload?.client_id // includes client_id from Cognito token if present, otherwise undefined
           })
         }
 
