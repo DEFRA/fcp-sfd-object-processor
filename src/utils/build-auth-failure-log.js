@@ -8,7 +8,6 @@ export const buildAuthFailureLog = (reason, request, extra = {}) => {
   return {
     msg: 'Authentication failed',
     reason,
-    strategy: 'cognito',
     path: request.path,
     method: request.method,
     sourceIp: request.info.remoteAddress,

@@ -31,20 +31,20 @@ export function getCognitoAuthOptions () {
 
       if (payload.typ && payload.typ !== 'JWT' && payload.typ !== 'at+jwt') {
         const errorMessage = 'Provided token is not an access token'
-        logger.warn(buildAuthFailureLog(errorMessage, request, { tokenType: payload.typ, issuer: payload.iss }))
+        logger.warn(buildAuthFailureLog(errorMessage, request, { tokenType: payload.typ, issuer: payload.iss, strategy: 'cognito' }))
         return { isValid: false, errorMessage }
       }
 
       if (clientIds.length === 0) {
         const errorMessage = 'No authorized Cognito client IDs configured'
-        logger.warn(buildAuthFailureLog(errorMessage, request))
+        logger.warn(buildAuthFailureLog(errorMessage, request, { strategy: 'cognito' }))
         return { isValid: false, errorMessage }
       }
 
       const tokenClientId = payload.client_id
       if (!tokenClientId || !clientIds.includes(tokenClientId)) {
         const errorMessage = 'Token client_id is not in the list of authorized Cognito client IDs'
-        logger.warn(buildAuthFailureLog(errorMessage, request, { clientId: tokenClientId, issuer: payload.iss }))
+        logger.warn(buildAuthFailureLog(errorMessage, request, { clientId: tokenClientId, issuer: payload.iss, strategy: 'cognito' }))
         return { isValid: false, errorMessage }
       }
 
