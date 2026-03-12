@@ -186,7 +186,7 @@ Tests can also be started in watch mode to support Test Driven Development (TDD)
 npm run docker:test:watch
 ```
 
-Docker Compose can also be used directly for starting tests:
+As mentioned previously, Docker Compose can be used directly for starting tests:
 
 ```
 docker compose -f compose.yaml -f compose.test.yaml run --rm "fcp-sfd-object-processor"
