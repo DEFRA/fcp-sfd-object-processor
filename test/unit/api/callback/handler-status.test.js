@@ -51,7 +51,8 @@ describe('callback handler status enforcement', () => {
   })
 
   test('ready + rejected payload persists validation failure and returns 201', async () => {
-    const rejectedFile = { ...mockScanAndUploadResponse.form['a-file-upload-field'], fileStatus: 'rejected', hasError: true, errorMessage: 'Virus detected' }
+    const { s3Key, s3Bucket, checksumSha256, ...baseFile } = mockScanAndUploadResponse.form['a-file-upload-field']
+    const rejectedFile = { ...baseFile, fileStatus: 'rejected', hasError: true, errorMessage: 'Virus detected' }
     const payload = { ...mockScanAndUploadResponse, uploadStatus: 'ready', form: { 'file-1': rejectedFile } }
 
     metadataService.persistValidationFailureStatus.mockResolvedValue()

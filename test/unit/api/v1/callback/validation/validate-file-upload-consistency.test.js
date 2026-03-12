@@ -74,6 +74,13 @@ describe('validateFileUploadConsistency', () => {
       expect(result.error).toContain('contentLength')
     })
 
+    test('Infinity contentLength fails', () => {
+      const file = { ...completeFile, contentLength: Infinity }
+      const result = validateFileUploadConsistency(file)
+      expect(result.isValid).toBe(false)
+      expect(result.error).toContain('contentLength')
+    })
+
     test('hasError present fails', () => {
       const file = { ...completeFile, hasError: false }
       const result = validateFileUploadConsistency(file)
@@ -165,14 +172,15 @@ describe('validateFileUploadConsistency', () => {
     })
   })
 
-  describe('unknown fileStatus', () => {
-    test('pending status returns invalid', () => {
+  describe('pending files', () => {
+    test('pending status returns valid with minimal constraints', () => {
       const file = { ...completeFile, fileStatus: 'pending' }
       const result = validateFileUploadConsistency(file)
-      expect(result.isValid).toBe(false)
-      expect(result.error).toContain('pending')
+      expect(result.isValid).toBe(true)
     })
+  })
 
+  describe('unknown fileStatus', () => {
     test('unknown status returns invalid', () => {
       const file = { ...completeFile, fileStatus: 'processing' }
       const result = validateFileUploadConsistency(file)

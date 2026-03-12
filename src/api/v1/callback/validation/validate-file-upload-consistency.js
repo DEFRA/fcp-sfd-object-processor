@@ -57,7 +57,7 @@ function validateCompleteFile (fileObject) {
     return { isValid: false, error: 'checksumSha256 is required for complete files' }
   }
 
-  if (!fileObject.contentLength || fileObject.contentLength <= 0) {
+  if (!fileObject.contentLength || fileObject.contentLength <= 0 || !Number.isFinite(fileObject.contentLength)) {
     return { isValid: false, error: 'contentLength must be > 0 for complete files' }
   }
 
@@ -132,5 +132,9 @@ export const validateFileUploadConsistency = (fileObject) => {
     return validateRejectedFile(fileObject)
   }
 
-  return { isValid: false, error: `fileStatus must be 'complete' or 'rejected' but was '${fileStatus}'` }
+  if (fileStatus === 'pending') {
+    return { isValid: true }
+  }
+
+  return { isValid: false, error: `fileStatus must be one of 'complete', 'rejected', 'pending' but was '${fileStatus}'` }
 }

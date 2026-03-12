@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'vitest'
 import { callbackPayloadSchema } from '../../../../../src/api/v1/callback/schema.js'
+import { fileUploadSchema } from '../../../../../src/api/v1/schemas/file-upload-schema.js'
 import { mockScanAndUploadResponse } from '../../../../mocks/cdp-uploader.js'
 
 describe('callback contract validation (fileStatus variants)', () => {
@@ -65,5 +66,84 @@ describe('callback contract validation (fileStatus variants)', () => {
     const { error } = callbackPayloadSchema.validate(payload)
     expect(error).toBeDefined()
     expect(error.details.some(d => d.path.join('.').includes('fileStatus') && d.type === 'any.only')).toBe(true)
+  })
+})
+
+describe('fileUploadSchema Joi edge cases', () => {
+  test('should reject complete file with empty string s3Key', () => {
+    const file = {
+      fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+      filename: 'test.pdf',
+      contentType: 'application/pdf',
+      detectedContentType: 'application/pdf',
+      fileStatus: 'complete',
+      s3Key: '',
+      s3Bucket: 'bucket',
+      checksumSha256: 'abc=',
+      contentLength: 1024
+    }
+    const result = fileUploadSchema.validate(file)
+    expect(result.error).toBeDefined()
+  })
+
+  test('should reject complete file with contentLength 0', () => {
+    const file = {
+      fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+      filename: 'test.pdf',
+      contentType: 'application/pdf',
+      detectedContentType: 'application/pdf',
+      fileStatus: 'complete',
+      s3Key: 'key',
+      s3Bucket: 'bucket',
+      checksumSha256: 'abc=',
+      contentLength: 0
+    }
+    const result = fileUploadSchema.validate(file)
+    expect(result.error).toBeDefined()
+  })
+
+  test('should reject rejected file with empty errorMessage', () => {
+    const file = {
+      fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+      filename: 'test.pdf',
+      contentType: 'application/pdf',
+      detectedContentType: 'application/pdf',
+      fileStatus: 'rejected',
+      hasError: true,
+      errorMessage: ''
+    }
+    const result = fileUploadSchema.validate(file)
+    expect(result.error).toBeDefined()
+  })
+
+  test('should reject rejected file with hasError=false', () => {
+    const file = {
+      fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+      filename: 'test.pdf',
+      contentType: 'application/pdf',
+      detectedContentType: 'application/pdf',
+      fileStatus: 'rejected',
+      hasError: false,
+      errorMessage: 'error'
+    }
+    const result = fileUploadSchema.validate(file)
+    expect(result.error).toBeDefined()
+  })
+
+  test('should reject complete file with hasError field present', () => {
+    const file = {
+      fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+      filename: 'test.pdf',
+      contentType: 'application/pdf',
+      detectedContentType: 'application/pdf',
+      fileStatus: 'complete',
+      s3Key: 'key',
+      s3Bucket: 'bucket',
+      checksumSha256: 'abc=',
+      contentLength: 1024,
+      hasError: false
+    }
+    const result = fileUploadSchema.validate(file)
+    expect(result.error).toBeDefined()
   })
 })
