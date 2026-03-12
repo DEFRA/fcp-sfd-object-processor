@@ -39,8 +39,8 @@ export const authConfig = {
       userPoolId: {
         doc: 'AWS Cognito User Pool identifier',
         format: String,
-        nullable: true,
-        default: null,
+        nullable: false,
+        default: '',
         env: 'AUTH_COGNITO_USER_POOL_ID'
       },
       clientIds: {

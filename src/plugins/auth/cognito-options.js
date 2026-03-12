@@ -11,6 +11,11 @@ const logger = createLogger()
  */
 export function getCognitoAuthOptions () {
   const userPoolId = config.get('auth.cognito.userPoolId')
+
+  if (!userPoolId) {
+    throw new Error('AUTH_COGNITO_USER_POOL_ID is required when Cognito authentication is enabled')
+  }
+
   const clientIds = config.get('auth.cognito.clientIds') || []
   const region = userPoolId.split('_')[0]
   const issuer = `https://cognito-idp.${region}.amazonaws.com/${userPoolId}`

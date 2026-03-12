@@ -273,4 +273,35 @@ describe('getCognitoAuthOptions', () => {
       expect(mockBuildAuthFailureLog).not.toHaveBeenCalled()
     })
   })
+
+  // Guard — missing userPoolId
+  describe('guard - missing userPoolId', () => {
+    test('should throw when userPoolId is an empty string', async () => {
+      vi.resetModules()
+      mockConfigGet.mockImplementation((key) => {
+        switch (key) {
+          case 'auth.cognito.userPoolId': return ''
+          case 'auth.cognito.clientIds': return ['client-1']
+          default: return null
+        }
+      })
+
+      const { getCognitoAuthOptions: freshOptions } = await import('../../../../src/plugins/auth/cognito-options.js')
+      expect(() => freshOptions()).toThrow('AUTH_COGNITO_USER_POOL_ID is required when Cognito authentication is enabled')
+    })
+
+    test('should throw when userPoolId is null', async () => {
+      vi.resetModules()
+      mockConfigGet.mockImplementation((key) => {
+        switch (key) {
+          case 'auth.cognito.userPoolId': return null
+          case 'auth.cognito.clientIds': return ['client-1']
+          default: return null
+        }
+      })
+
+      const { getCognitoAuthOptions: freshOptions } = await import('../../../../src/plugins/auth/cognito-options.js')
+      expect(() => freshOptions()).toThrow('AUTH_COGNITO_USER_POOL_ID is required when Cognito authentication is enabled')
+    })
+  })
 })
