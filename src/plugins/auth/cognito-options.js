@@ -1,25 +1,9 @@
 import { config } from '../../config/index.js'
 import { createLogger } from '../../logging/logger.js'
+import { buildAuthFailureLog } from '../../utils/build-auth-failure-log.js'
 
 const logger = createLogger()
 
-/**
- * Builds base log object for authentication failures with request context.
- * @param {string} reason - Error reason/message
- * @param {object} request - Hapi request object
- * @param {object} extra - Additional fields to merge (e.g., tokenType, clientId, issuer)
- */
-const buildAuthFailureLog = (reason, request, extra = {}) => {
-  return {
-    msg: 'Authentication failed',
-    reason,
-    strategy: 'cognito',
-    path: request.path,
-    method: request.method,
-    sourceIp: request.info.remoteAddress,
-    ...extra
-  }
-}
 /**
  * Builds Hapi JWT strategy options for AWS Cognito authentication.
  * Validates tokens against the Cognito User Pool JWKS endpoint and checks client ID membership.

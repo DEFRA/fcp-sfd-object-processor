@@ -1,5 +1,6 @@
 import { config } from '../../config/index.js'
 import { createLogger } from '../../logging/logger.js'
+import { buildAuthFailureLog } from '../../utils/build-auth-failure-log.js'
 
 const logger = createLogger()
 const tenant = config.get('auth.entra.tenant')
