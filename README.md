@@ -25,7 +25,11 @@ The service works alongside the [CDP Uploader](https://github.com/DEFRA/cdp-uplo
 
 ## Running the application
 
-We recommend using the [fcp-sfd-core](https://github.com/DEFRA/fcp-sfd-core) repository for local development. You can however run this service independently by following the instructions below using either Docker Compose or the provided [npm scripts](./package.json).
+We recommend using the [fcp-sfd-core](https://github.com/DEFRA/fcp-sfd-core) repository for local development. You can however run this service independently by following the instructions below using either Docker Compose or the provided [npm scripts](./package.json). Alternatively, for VS Code users, a set of [VS Code tasks](.vscode/tasks.json) are available to use and can be access via the command palette: 
+
+- `Ctrl` + `shift` + `P` on Windows or `Cmd` + `shift` + `P` on Mac.
+- Select `Tasks: Run Task`.
+- Choose from the available tasks listed.
 
 ### Build container image
 
