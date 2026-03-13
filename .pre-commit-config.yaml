@@ -16,7 +16,7 @@ repos:
         entry: >
           bash -c "set -a &&
           source .env &&
-          docker run --name pre-commit-sonar-scan
+          docker run --rm --name pre-commit-sonar-scan
           -v \"$PWD:/usr/src\"
           -e SONAR_TOKEN=\"$SONAR_TOKEN\"
           sonarsource/sonar-scanner-cli
@@ -27,5 +27,6 @@ repos:
           -Dsonar.tests=src/
           -Dsonar.test.inclusions=src/**/*.test.js
           -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info"
+          -Dsonar.issuesReport.console.enable=true
         language: system
         pass_filenames: false
