@@ -19,5 +19,39 @@ export const uploaderConfig = {
     nullable: false,
     default: '/status',
     env: 'CDP_UPLOADER_STATUS_ENDPOINT'
+  },
+  cdpUploaderS3Bucket: {
+    doc: 'The S3 bucket name for CDP Uploader file storage',
+    format: String,
+    nullable: false,
+    default: null,
+    env: 'CDP_UPLOADER_S3_BUCKET'
+  },
+  cdpUploaderS3Path: {
+    doc: 'The S3 path prefix for CDP Uploader file storage',
+    format: String,
+    nullable: false,
+    default: null,
+    env: 'CDP_UPLOADER_S3_PATH'
+  },
+  cdpUploaderCallbackUrl: {
+    doc: 'The callback URL CDP Uploader will call after processing',
+    format: String,
+    nullable: false,
+    default: null,
+    env: 'CDP_UPLOADER_CALLBACK_URL'
+  },
+  cdpUploaderMimeTypes: {
+    doc: 'Comma-separated list of allowed MIME types for uploads',
+    format: 'mime-type-array',
+    default: [],
+    env: 'CDP_UPLOADER_MIME_TYPES'
+  },
+  cdpUploaderMaxFileSize: {
+    doc: 'Maximum file size in bytes allowed for uploads',
+    format: Number,
+    nullable: false,
+    default: null,
+    env: 'CDP_UPLOADER_MAX_FILE_SIZE'
   }
 }
