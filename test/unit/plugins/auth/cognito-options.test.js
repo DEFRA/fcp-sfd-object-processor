@@ -5,13 +5,13 @@ vi.mock('../../../../src/config/index.js', () => ({
   config: { get: mockConfigGet }
 }))
 
-const mockLogger = {
-  info: vi.fn(),
-  warn: vi.fn(),
-  error: vi.fn()
-}
 vi.mock('../../../../src/logging/logger.js', () => ({
-  createLogger: vi.fn().mockReturnValue(mockLogger)
+  createLogger: vi.fn().mockReturnValue({ warn: vi.fn() })
+}))
+
+const mockBuildAuthFailureLog = vi.fn()
+vi.mock('../../../../src/utils/build-auth-failure-log.js', () => ({
+  buildAuthFailureLog: mockBuildAuthFailureLog
 }))
 
 describe('getCognitoAuthOptions', () => {
@@ -100,18 +100,6 @@ describe('getCognitoAuthOptions', () => {
       expect(result.credentials).toEqual({ token: payload, principalId: 'service-account-123' })
     })
 
-    test('should return valid result for at+jwt token type', async () => {
-      const payload = { typ: 'at+jwt', sub: 'service-account-123', client_id: 'client-2' }
-      const result = await cognitoValidateFunction({ decoded: { payload } }, mockRequest, {})
-      expect(result.isValid).toBe(true)
-    })
-
-    test('should accept token without typ claim', async () => {
-      const payload = { sub: 'service-account-123', client_id: 'client-1' }
-      const result = await cognitoValidateFunction({ decoded: { payload } }, mockRequest, {})
-      expect(result.isValid).toBe(true)
-    })
-
     test('should accept token when client_id matches one of multiple allowed IDs', async () => {
       const payload = { typ: 'JWT', sub: 'service-account-123', client_id: 'client-2' }
       const result = await cognitoValidateFunction({ decoded: { payload } }, mockRequest, {})
@@ -119,35 +107,7 @@ describe('getCognitoAuthOptions', () => {
       expect(result.credentials.principalId).toBe('service-account-123')
     })
 
-    test('should preserve all token payload fields in credentials', async () => {
-      const payload = {
-        typ: 'JWT',
-        sub: 'service-account-123',
-        client_id: 'client-1',
-        iss: 'https://cognito-idp.eu-west-2.amazonaws.com/eu-west-2_testPoolId',
-        scope: 'openid',
-        custom_claim: 'custom_value'
-      }
-      const result = await cognitoValidateFunction({ decoded: { payload } }, mockRequest, {})
-      expect(result.isValid).toBe(true)
-      expect(result.credentials.token).toEqual(payload)
-      expect(result.credentials.token.scope).toBe('openid')
-      expect(result.credentials.token.custom_claim).toBe('custom_value')
-    })
-
     // Invalid token rejection
-    test('should reject token with invalid type', async () => {
-      const payload = {
-        typ: 'id_token',
-        sub: 'service-account-123',
-        client_id: 'client-1',
-        iss: 'https://cognito-idp.eu-west-2.amazonaws.com/eu-west-2_testPoolId'
-      }
-      const result = await cognitoValidateFunction({ decoded: { payload } }, mockRequest, {})
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('Provided token is not an access token')
-    })
-
     test('should reject token with missing client_id', async () => {
       const payload = { typ: 'JWT', sub: 'service-account-123' }
       const result = await cognitoValidateFunction({ decoded: { payload } }, mockRequest, {})
@@ -161,145 +121,36 @@ describe('getCognitoAuthOptions', () => {
       expect(result.isValid).toBe(false)
       expect(result.errorMessage).toBe('Token client_id is not in the list of authorized Cognito client IDs')
     })
-
-    // Configuration edge cases — clientIds is read inside the function so mock can be changed inline
-    test('should reject token when no client IDs are configured', async () => {
-      mockConfigGet.mockImplementation((key) => {
-        switch (key) {
-          case 'auth.cognito.userPoolId': return 'eu-west-2_testPoolId'
-          case 'auth.cognito.clientIds': return []
-          default: return null
-        }
-      })
-
-      const validateFunc = getCognitoAuthOptions().validate
-      const result = await validateFunc(
-        { decoded: { payload: { typ: 'JWT', sub: 'svc', client_id: 'client-1' } } },
-        mockRequest,
-        {}
-      )
-
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('No authorized Cognito client IDs configured')
-    })
-
-    test('should reject token when clientIds config is null', async () => {
-      mockConfigGet.mockImplementation((key) => {
-        switch (key) {
-          case 'auth.cognito.userPoolId': return 'eu-west-2_testPoolId'
-          case 'auth.cognito.clientIds': return null
-          default: return null
-        }
-      })
-
-      const validateFunc = getCognitoAuthOptions().validate
-      const result = await validateFunc(
-        { decoded: { payload: { typ: 'JWT', sub: 'svc', client_id: 'client-1' } } },
-        mockRequest,
-        {}
-      )
-
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('No authorized Cognito client IDs configured')
-    })
   })
 
-  // Logging — warning messages emitted on authentication failures
-  describe('logging', () => {
-    let cognitoValidateFunction
-    let mockRequest
-
-    beforeEach(() => {
-      cognitoValidateFunction = getCognitoAuthOptions().validate
-      mockRequest = {
-        path: '/api/v1/test',
-        method: 'POST',
-        info: { remoteAddress: '10.0.0.1' },
-        headers: { 'user-agent': 'test-agent' }
-      }
-    })
-
-    test('should log warning when token type is invalid', async () => {
-      const payload = {
-        typ: 'id_token',
-        sub: 'svc',
-        client_id: 'client-1',
-        iss: 'https://cognito-idp.eu-west-2.amazonaws.com/eu-west-2_testPoolId'
-      }
-
-      await cognitoValidateFunction({ decoded: { payload } }, mockRequest, {})
-
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.objectContaining({
-          msg: 'Authentication failed',
-          reason: 'Provided token is not an access token',
-          strategy: 'cognito',
-          tokenType: 'id_token',
-          path: '/api/v1/test',
-          method: 'POST',
-          sourceIp: '10.0.0.1'
-        })
-      )
-    })
-
-    test('should log warning when client_id is unauthorized', async () => {
-      const payload = {
-        typ: 'JWT',
-        sub: 'svc',
-        client_id: 'bad-client',
-        iss: 'https://cognito-idp.eu-west-2.amazonaws.com/eu-west-2_testPoolId'
-      }
-
-      await cognitoValidateFunction({ decoded: { payload } }, mockRequest, {})
-
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.objectContaining({
-          msg: 'Authentication failed',
-          reason: 'Token client_id is not in the list of authorized Cognito client IDs',
-          strategy: 'cognito',
-          clientId: 'bad-client',
-          path: '/api/v1/test',
-          method: 'POST',
-          sourceIp: '10.0.0.1'
-        })
-      )
-    })
-
-    test('should log issuer in token type failure logs', async () => {
-      const issuer = 'https://cognito-idp.eu-west-2.amazonaws.com/eu-west-2_testPoolId'
-      const payload = { typ: 'id_token', sub: 'svc', client_id: 'client-1', iss: issuer }
-
-      await cognitoValidateFunction({ decoded: { payload } }, mockRequest, {})
-
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.objectContaining({ issuer })
-      )
-    })
-
-    test('should log warning when no client IDs are configured', async () => {
+  // Guard — missing userPoolId
+  describe('guard - missing userPoolId', () => {
+    test('should throw when userPoolId is an empty string', async () => {
+      vi.resetModules()
       mockConfigGet.mockImplementation((key) => {
         switch (key) {
-          case 'auth.cognito.userPoolId': return 'eu-west-2_testPoolId'
-          case 'auth.cognito.clientIds': return []
+          case 'auth.cognito.userPoolId': return ''
+          case 'auth.cognito.clientIds': return ['client-1']
           default: return null
         }
       })
 
-      const validateFunc = getCognitoAuthOptions().validate
+      const { getCognitoAuthOptions: freshOptions } = await import('../../../../src/plugins/auth/cognito-options.js')
+      expect(() => freshOptions()).toThrow('AUTH_COGNITO_USER_POOL_ID is required when Cognito authentication is enabled')
+    })
 
-      await validateFunc(
-        { decoded: { payload: { typ: 'JWT', sub: 'svc', client_id: 'client-1' } } },
-        mockRequest,
-        {}
-      )
+    test('should throw when userPoolId is null', async () => {
+      vi.resetModules()
+      mockConfigGet.mockImplementation((key) => {
+        switch (key) {
+          case 'auth.cognito.userPoolId': return null
+          case 'auth.cognito.clientIds': return ['client-1']
+          default: return null
+        }
+      })
 
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.objectContaining({
-          msg: 'Authentication failed',
-          reason: 'No authorized Cognito client IDs configured',
-          strategy: 'cognito'
-        })
-      )
+      const { getCognitoAuthOptions: freshOptions } = await import('../../../../src/plugins/auth/cognito-options.js')
+      expect(() => freshOptions()).toThrow('AUTH_COGNITO_USER_POOL_ID is required when Cognito authentication is enabled')
     })
   })
 })

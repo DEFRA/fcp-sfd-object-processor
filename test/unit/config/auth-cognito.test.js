@@ -23,8 +23,8 @@ describe('authConfig - Cognito', () => {
     expect(authConfig.auth.cognito.userPoolId).toBeDefined()
     expect(authConfig.auth.cognito.userPoolId.doc).toBe('AWS Cognito User Pool identifier')
     expect(authConfig.auth.cognito.userPoolId.format).toBe(String)
-    expect(authConfig.auth.cognito.userPoolId.nullable).toBe(true)
-    expect(authConfig.auth.cognito.userPoolId.default).toBe(null)
+    expect(authConfig.auth.cognito.userPoolId.nullable).toBe(false)
+    expect(authConfig.auth.cognito.userPoolId.default).toBe('')
     expect(authConfig.auth.cognito.userPoolId.env).toBe('AUTH_COGNITO_USER_POOL_ID')
   })
 
