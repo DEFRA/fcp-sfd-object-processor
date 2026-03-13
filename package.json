@@ -26,7 +26,8 @@
   "author": "Defra DDTS",
   "contributors": [
     "Amirs Ishmuhametovs amirs.ishmuhametovs@defra.gov.uk>",
-    "Simon Dunn <simon.dunn1@defra.gov.uk>"
+    "Simon Dunn <simon.dunn1@defra.gov.uk>",
+    "Rana Salem <rana.salem@defra.gov.uk>"
   ],
   "license": "OGL-UK-3.0",
   "dependencies": {
