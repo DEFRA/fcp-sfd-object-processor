@@ -15,8 +15,18 @@
     {
       "type": "npm",
       "label": "✂️ Start Docker container (detached mode)",
-      "script": "docker:dev:detached",
+      "script": "docker:dev:d",
       "problemMatcher": []
+    },
+    {
+      "type": "npm",
+      "label": "🛑 Stop Docker container",
+      "script": "docker:stop"
+    },
+    {
+      "type": "npm",
+      "label": "😵 Stop Docker container + delete volumes",
+      "script": "docker:stop:v"
     },
     {
       "type": "npm",
