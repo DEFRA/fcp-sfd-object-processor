@@ -14,6 +14,12 @@
     },
     {
       "type": "npm",
+      "label": "Start Docker container (detached mode)",
+      "script": "docker:dev:detached",
+      "problemMatcher": []
+    },
+    {
+      "type": "npm",
       "label": "Run tests",
       "script": "docker:test",
       "problemMatcher": []
@@ -27,7 +33,9 @@
     {
       "type": "npm",
       "label": "Generate OpenAPI spec",
-      "script": "generateOpenApiSpec"
+      "script": "generateOpenApiSpec",
+      "problemMatcher": [],
+      "dependsOn": "Start Docker container (detached mode)"
     }
   ]
 }
