@@ -1,0 +1,33 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "npm",
+      "label": "Build Docker container",
+      "script": "docker:build"
+    },
+    {
+      "type": "npm",
+      "label": "Start Docker container",
+      "script": "docker:dev",
+      "problemMatcher": []
+    },
+    {
+      "type": "npm",
+      "label": "Run tests",
+      "script": "docker:test",
+      "problemMatcher": []
+    },
+    {
+      "type": "npm",
+      "label": "Run tests (watch mode)",
+      "script": "docker:test:watch",
+      "problemMatcher": []
+    },
+    {
+      "type": "npm",
+      "label": "Generate OpenAPI spec",
+      "script": "generateOpenApiSpec"
+    }
+  ]
+}
