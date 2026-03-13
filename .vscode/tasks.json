@@ -28,18 +28,20 @@
       "type": "npm",
       "label": "👀 Run tests (watch mode)",
       "script": "docker:test:watch",
-      "problemMatcher": []
     },
     {
       "type": "npm",
       "label": "📄 Generate OpenAPI spec",
       "script": "generateOpenApiSpec",
       "problemMatcher": [],
-      "dependsOn": "Start Docker container (detached mode)"
+      "dependsOn": [
+        "✂️ Start Docker container (detached mode)"
+      ]
     },
     {
       "type": "npm",
       "label": "🪲 Run debugger",
+      "problemMatcher": [],
       "script": "docker:debug"
     }
   ]
