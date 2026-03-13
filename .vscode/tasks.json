@@ -53,6 +53,16 @@
       "label": "🪲 Run debugger",
       "problemMatcher": [],
       "script": "docker:debug"
+    },
+    {
+      "type": "npm",
+      "label": "📋 Run linter",
+      "script": "lint"
+    },
+    {
+      "type": "npm",
+      "label": "🧹 Run linter + auto fix known issues",
+      "script": "lint:fix"
     }
   ]
 }

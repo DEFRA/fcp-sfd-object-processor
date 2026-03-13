@@ -20,7 +20,8 @@
     "pretest": "npm run test:lint",
     "test": "rm -rf ./coverage/** && vitest run --coverage",
     "test:watch": "vitest watch",
-    "test:lint": "npx eslint",
+    "lint": "npx eslint . --ext .js",
+    "lint:fix": "npx eslint . --ext .js --fix",
     "start:watch": "nodemon --watch src --exec 'node --experimental-vm-modules --inspect=0.0.0.0 src/index.js'",
     "start:debug": "nodemon --watch src --exec 'node --experimental-vm-modules --inspect-brk=0.0.0.0 src/index.js'",
     "start": "node --experimental-vm-modules src/index.js"
