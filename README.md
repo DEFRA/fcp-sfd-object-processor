@@ -23,6 +23,15 @@ The service works alongside the [CDP Uploader](https://github.com/DEFRA/cdp-uplo
 - Docker Compose
 - Node.js (v22 LTS)
 
+### SonarQube Cloud token
+
+One of the `pre-commit` hooks configured for this service enables code scanning by SonarQube Cloud. This will look for any issues before committing. This pre-commit hook has been enabled to ensure fewer issues are pushed to GitHub leading to earlier resolution of existing vulnerabilities. In order for this pre-commit hook to run successfully during local development you will need to generate your own personal `SONAR_TOKEN` and add it to your `.env`.
+
+- Log into [SonarQube Cloud](https://sonarcloud.io/login).
+- On the left-hand sidebar navigate to the `Security` tab.
+- Under `Generate Tokens` enter a name for your token and click `Generate Token`.
+- Copy the token and add it to your `.env`, referring to it as [`SONAR_TOKEN`](.env.example).
+
 ## Running the application
 
 We recommend using the [fcp-sfd-core](https://github.com/DEFRA/fcp-sfd-core) repository for local development. You can however run this service independently by following the instructions below using either Docker Compose or the provided [npm scripts](./package.json). Alternatively, for VS Code users, a set of [VS Code tasks](.vscode/tasks.json) are available to use and can be access via the command palette: 
