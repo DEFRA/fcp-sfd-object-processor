@@ -59,7 +59,7 @@ npm run docker:dev
 
 The service uses `hapi-swagger` to auto generate OpenAPI spec available on the [`/documentation`](http://localhost:3004/documentation) endpoint when running the service locally.
 
-A static Openapi specification can be found in the `src/docs` folder.
+A static OpenAPI specification can be found in the `docs/openapi` folder.
 
 To update the static OpenAPI specification file in the `docs` folder please use the npm script `generateOpenApiSpec` when the server is running locally:
 
