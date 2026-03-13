@@ -11,19 +11,21 @@ repos:
         name: ESLint with neostandard
         entry: npm run lint:fix
         language: node
-      # - id: sonarqube-cloud
-      #   name: SonarQube Cloud Scan
-      #   entry: >
-      #     docker run --rm \
-      #       -v $(pwd):/usr/src \
-      #       -e SONAR_TOKEN=$SONAR_TOKEN \
-      #       sonarsource/sonar-scanner-cli \
-      #       -Dsonar.projectKey=DEFRA_fcp-sfd-object-processor \
-      #       -Dsonar.organization=defra \
-      #       -Dsonar.sources=src/ \
-      #       -Dsonar.exclusions='src/**/*.test.js' \
-      #       -Dsonar.tests=src/ \
-      #       -Dsonar.test.inclusions='src/**/*.test.js' \
-      #       -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info
-      #   language: system
-      #   pass_filenames: false
+      - id: sonarqube-cloud
+        name: SonarQube Cloud Scan
+        entry: >
+          bash -c "set -a &&
+          source .env &&
+          docker run --rm
+          -v \"$PWD:/usr/src\"
+          -e SONAR_TOKEN=\"$SONAR_TOKEN\"
+          sonarsource/sonar-scanner-cli
+          -Dsonar.projectKey=DEFRA_fcp-sfd-object-processor
+          -Dsonar.organization=defra
+          -Dsonar.sources=src/
+          -Dsonar.exclusions=src/**/*.test.js
+          -Dsonar.tests=src/
+          -Dsonar.test.inclusions=src/**/*.test.js
+          -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info"
+        language: system
+        pass_filenames: false
