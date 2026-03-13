@@ -16,7 +16,7 @@ repos:
         entry: >
           bash -c "set -a &&
           source .env &&
-          docker run --rm --name pre-commit-sonar-scan
+          docker run --name pre-commit-sonar-scan
           -v \"$PWD:/usr/src\"
           -e SONAR_TOKEN=\"$SONAR_TOKEN\"
           sonarsource/sonar-scanner-cli
