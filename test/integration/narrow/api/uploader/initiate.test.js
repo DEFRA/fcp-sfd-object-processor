@@ -2,7 +2,7 @@ import { constants as httpConstants } from 'node:http2'
 import { vi, describe, test, expect, beforeAll, afterAll, afterEach } from 'vitest'
 
 import { config } from '../../../../../src/config/index.js'
-import { createServer } from '../../../../src/api'
+import { createServer } from '../../../../../src/api'
 
 let server
 const originalFetch = global.fetch
@@ -112,7 +112,7 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
       })
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
-      expect(response.result.message).toContain('metadata')
+      expect(response.result.message).toContain('Metadata')
     })
 
     test('should return 400 for invalid sbi format', async () => {
