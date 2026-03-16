@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { constants as httpConstants } from 'node:http2'
 
-import { initiatePayloadSchema } from '../../../../src/api/v1/uploader/schema.js'
+import { initiatePayloadSchema } from '../../../../src/api/v1/uploader/initiate/schema.js'
 
 const mockValidPayload = {
   redirect: '/upload-complete',
@@ -31,7 +31,8 @@ const mockConfigValues = {
   cdpUploaderS3Path: 'uploads',
   cdpUploaderCallbackUrl: 'http://localhost:3004/api/v1/callback',
   cdpUploaderMimeTypes: ['application/pdf', 'image/jpeg'],
-  cdpUploaderMaxFileSize: 10485760
+  cdpUploaderMaxFileSize: 10485760,
+  cdpUploaderTimeoutMs: 30000
 }
 
 vi.mock('../../../../src/config/index.js', () => ({
@@ -271,7 +272,7 @@ describe('uploader initiate handler', () => {
       })
     }))
 
-    const mod = await import('../../../../src/api/v1/uploader/index.js')
+    const mod = await import('../../../../src/api/v1/uploader/initiate/index.js')
     uploaderInitiateRoute = mod.uploaderInitiateRoute
     buildCdpUploaderPayload = mod.buildCdpUploaderPayload
     rewriteResponseUrls = mod.rewriteResponseUrls

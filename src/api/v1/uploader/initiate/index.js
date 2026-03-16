@@ -1,17 +1,15 @@
 import Boom from '@hapi/boom'
 import { constants as httpConstants } from 'node:http2'
 
-import { createLogger } from '../../../logging/logger.js'
-import { config } from '../../../config/index.js'
-import { failAction } from '../../common/helpers/fail-action.js'
+import { createLogger } from '../../../../logging/logger.js'
+import { config } from '../../../../config/index.js'
+import { failAction } from '../../../common/helpers/fail-action.js'
 import { initiatePayloadSchema, initiateResponseSchema } from './schema.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
 
-const TIMEOUT_MS = 30_000
-
-export function buildCdpUploaderPayload (clientPayload) {
+export const buildCdpUploaderPayload = (clientPayload) => {
   return {
     redirect: clientPayload.redirect,
     s3Bucket: config.get('cdpUploaderS3Bucket'),
@@ -23,7 +21,7 @@ export function buildCdpUploaderPayload (clientPayload) {
   }
 }
 
-export function rewriteResponseUrls (cdpResponse) {
+export const rewriteResponseUrls = (cdpResponse) => {
   const { uploadId } = cdpResponse
   const uploaderUrl = config.get('uploaderUrl')
   return {
@@ -64,7 +62,7 @@ export const uploaderInitiateRoute = {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(TIMEOUT_MS)
+          signal: AbortSignal.timeout(config.get('cdpUploaderTimeoutMs'))
         })
       } catch (err) {
         if (err.name === 'TimeoutError') {
@@ -89,6 +87,11 @@ export const uploaderInitiateRoute = {
         cdpResponse = await response.json()
       } catch (err) {
         logger.error({ error: { message: err.message }, url }, 'Failed to parse CDP Uploader response')
+        return Boom.badGateway('Invalid response from CDP Uploader')
+      }
+
+      if (!cdpResponse?.uploadId) {
+        logger.error({ cdpResponse, url }, 'CDP Uploader response missing uploadId')
         return Boom.badGateway('Invalid response from CDP Uploader')
       }
 

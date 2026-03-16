@@ -3,7 +3,7 @@ import { blobRoute } from './v1/blobs/index.js'
 import { uploadCallback } from './v1/callback/index.js'
 import { metadataRoute } from './v1/metadata/index.js'
 import { statusRoute } from './v1/status/index.js'
-import { uploaderInitiateRoute } from './v1/uploader/index.js'
+import { uploaderInitiateRoute } from './v1/uploader/initiate/index.js'
 
 const router = {
   plugin: {

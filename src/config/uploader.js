@@ -53,5 +53,12 @@ export const uploaderConfig = {
     nullable: false,
     default: null,
     env: 'CDP_UPLOADER_MAX_FILE_SIZE'
+  },
+  cdpUploaderTimeoutMs: {
+    doc: 'Timeout in milliseconds for CDP Uploader requests',
+    format: Number,
+    nullable: false,
+    default: 30000,
+    env: 'CDP_UPLOADER_TIMEOUT_MS'
   }
 }
