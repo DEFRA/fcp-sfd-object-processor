@@ -1,8 +1,16 @@
 import { beforeEach, afterEach, describe, expect, vi, test } from 'vitest'
-
 import { buildDocumentUploadMessageBatch } from '../../../../src/messaging/outbound/crm/doc-upload/build-document-upload-message-batch.js'
 import { mockPendingMessages } from '../../../mocks/outbox.js'
 import { mockDocumentUploadedEvent } from '../../../mocks/messaging/document-upload-event.js'
+
+vi.mock('../../../../src/config/index.js', () => ({
+  config: {
+    get: vi.fn((key) => {
+      if (key === 'publicApiBaseUrl') return 'https://mock-public-api-base-url'
+      return null
+    })
+  }
+}))
 
 describe('buildDocumentUploadMessageBatch', () => {
   let result
@@ -99,7 +107,7 @@ describe('buildDocumentUploadMessageBatch', () => {
     })
 
     test('should set data.file.url from file.fileId', () => {
-      expect(result[0].data.file.url).toBe(`https://fcp-placeholder.cdp-int.defra.cloud/api/v1/blobs/${file.fileId}`)
+      expect(result[0].data.file.url).toBe(`https://mock-public-api-base-url/api/v1/blobs/${file.fileId}`)
     })
   })
 
