@@ -32,21 +32,6 @@ const metadataSuccessSchema = Joi.object({
         uosr: Joi.string()
           .description('Made up of sbi_submissionId')
           .example(schemaConsts.UOSR_EXAMPLE),
-        submissionDateTime: Joi.string()
-          .pattern(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/)
-          .description('Date the uploads were made in DD/MM/YYYY HH:mm:ss format')
-          .example(schemaConsts.SUBMISSION_DATE_TIME_EXAMPLE),
-        files: Joi.array()
-          .items(Joi.string().required())
-          .required()
-          .description('Array of filenames')
-          .example(schemaConsts.FILES_EXAMPLE),
-        filesInSubmission: Joi.number()
-          .integer()
-          .positive()
-          .required()
-          .description('Size of the file in bytes')
-          .example(schemaConsts.FILES_IN_SUBMISSION_EXAMPLE),
         type: Joi.string()
           .description('Name of the CRM queue the uploads should be tagged with')
           .example(schemaConsts.TYPE_EXAMPLE),

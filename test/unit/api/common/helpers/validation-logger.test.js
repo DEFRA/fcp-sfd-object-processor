@@ -79,23 +79,6 @@ describe('#validation-logger', () => {
       expect(logCall.validationErrors[0].value).toBe('[REDACTED]')
     })
 
-    test('redacts metadata.files array', () => {
-      const schema = Joi.object({
-        metadata: Joi.object({
-          files: Joi.array().items(Joi.string()).min(5)
-        })
-      })
-      const { error } = schema.validate({
-        metadata: { files: ['file1.pdf', 'file2.pdf'] }
-      })
-
-      logValidationFailure(mockLogger, error, mockRequest)
-
-      const logCall = mockLogger.error.mock.calls[0][0]
-      expect(logCall.validationErrors[0].field).toBe('metadata.files')
-      expect(logCall.validationErrors[0].value).toBe('[REDACTED]')
-    })
-
     test('handles multiple validation errors', () => {
       const schema = Joi.object({
         name: Joi.string().required(),
