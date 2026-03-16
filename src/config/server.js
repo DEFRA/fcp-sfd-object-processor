@@ -124,5 +124,10 @@ export const serverConfig = {
       format: 'int',
       default: 30000
     }
+  },
+  publicApiBaseUrl: {
+    doc: 'Public API base URL used by downstream services e.g. CRM to retrieve an uploaded file by it fileId',
+    format: String,
+    env: 'PUBLIC_API_BASE_URL'
   }
 }

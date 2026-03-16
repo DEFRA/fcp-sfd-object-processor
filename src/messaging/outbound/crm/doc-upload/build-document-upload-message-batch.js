@@ -1,4 +1,8 @@
+import { config } from '../../../../config/index.js'
+
 export const buildDocumentUploadMessageBatch = (pendingMessages) => {
+  const baseUrl = config.get('server.publicBaseApiUrl')
+
   return pendingMessages.map(message => {
     const { metadata, file, messaging } = message.payload
 
@@ -29,7 +33,7 @@ export const buildDocumentUploadMessageBatch = (pendingMessages) => {
           fileId: file.fileId,
           fileName: file.filename,
           contentType: file.contentType,
-          url: `https://fcp-placeholder.cdp-int.defra.cloud/api/v1/blobs/${file.fileId}`
+          url: `${baseUrl}/api/v1/blobs/${file.fileId}`
         },
         sbi: metadata.sbi,
         sourceSystem: metadata.service,

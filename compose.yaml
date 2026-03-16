@@ -17,6 +17,7 @@ services:
       CDP_UPLOADER_URL: ${CDP_UPLOADER_URL:-http://cdp-uploader:7337}
       CDP_UPLOADER_INITIATE_ENDPOINT: ${CDP_UPLOADER_INITIATE_ENDPOINT:-/initiate}
       CDP_UPLOADER_STATUS_ENDPOINT: ${CDP_UPLOADER_STATUS_ENDPOINT:-/status}
+      PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL:-http://localhost:3004}
       # Database
       MONGO_URI: mongodb://mongodb:27017/?replicaSet=rs0
       MONGO_READ_PREFERENCE: primary 
