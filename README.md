@@ -38,9 +38,15 @@ For local development, this repository includes [`pre-commit` hooks](https://pre
 
 - [`detect-secrets`](https://github.com/Yelp/detect-secrets): for detecting and preventing secrets in the codebase being pushed to public/open-source repositories.
 - `eslint-fix`: a custom hook for running the linter, ESLint + [neostandard](https://www.npmjs.com/package/neostandard?activeTab=readme), to ensure consistent code formatting and styling and additionally uses the `--fix` option to automatically fix any identified issues where possible to reduce the need for manual correction.
-- `sonarqube-cloud-scan`: a custom hook which runs the official SonarScanner CLI Docker image enabling code scanning by SonarQube Cloud for early identification of issues, bugs, vulnerabilities etc., reducing the number of failed builds in upstream CI pipelines. 
+- `sonarqube-cloud-scan`: a custom hook which runs the official [SonarScanner CLI Docker image](https://hub.docker.com/r/sonarsource/sonar-scanner-cli) enabling code scanning by SonarQube Cloud for early identification of issues, bugs, vulnerabilities etc., reducing the number of failed builds in upstream CI pipelines. 
 
 To see the full output of the above hooks it is recommended to commit via the command line as using the source control panel does not provide the same feedback and loses sight of the `pre-commit` logs. All `pre-commit` hooks are listed in the [`.pre-commit-config.yaml`](.pre-commit-config.yaml) configuration file.
+
+For these hooks to successfully apply during local development ensure  Python and its package manager, `pip3`, are installed on your machine. Installation of `pre-commit` can then be completed via `pip3`:
+
+```
+pip3 install pre-commit
+```
 
 > Note: The `sonarqube-cloud-scan` hook will typically take around 2 minutes to run.
 
