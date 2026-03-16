@@ -11,13 +11,17 @@
     "docker:debug": "docker compose -f compose.yaml -f compose.debug.yaml -p 'fcp-sfd-object-processor' up",
     "docker:build": "docker compose build",
     "docker:dev": "docker compose up",
-    "docker:test": "npm run test:lint && (mkdir -p coverage 2>/dev/null || true) && docker compose -p fcp-sfd-object-processor-test down -v && docker compose -f compose.yaml -f compose.test.yaml -p fcp-sfd-object-processor-test run --build --rm fcp-sfd-object-processor",
+    "docker:dev:d": "docker compose up -d",
+    "docker:stop": "docker compose down",
+    "docker:stop:v": "docker compose down -v",
+    "docker:test": "npm run lint && (mkdir -p coverage 2>/dev/null || true) && docker compose -p fcp-sfd-object-processor-test down -v && docker compose -f compose.yaml -f compose.test.yaml -p fcp-sfd-object-processor-test run --build --rm fcp-sfd-object-processor",
     "docker:test:watch": "docker compose -p fcp-sfd-object-processor-test down -v && docker compose -f compose.yaml -f compose.test.yaml -f compose.test.watch.yaml -p fcp-sfd-object-processor-test run --build --rm fcp-sfd-object-processor",
     "generateOpenApiSpec": "node --experimental-vm-modules ./scripts/generate-openapi.js",
-    "pretest": "npm run test:lint",
+    "pretest": "npm run lint",
     "test": "rm -rf ./coverage/** && vitest run --coverage",
     "test:watch": "vitest watch",
-    "test:lint": "npx eslint",
+    "lint": "npx eslint . --ext .js",
+    "lint:fix": "npx eslint . --ext .js --fix",
     "start:watch": "nodemon --watch src --exec 'node --experimental-vm-modules --inspect=0.0.0.0 src/index.js'",
     "start:debug": "nodemon --watch src --exec 'node --experimental-vm-modules --inspect-brk=0.0.0.0 src/index.js'",
     "start": "node --experimental-vm-modules src/index.js"
@@ -25,7 +29,8 @@
   "author": "Defra DDTS",
   "contributors": [
     "Amirs Ishmuhametovs amirs.ishmuhametovs@defra.gov.uk>",
-    "Simon Dunn <simon.dunn1@defra.gov.uk>"
+    "Simon Dunn <simon.dunn1@defra.gov.uk>",
+    "Rana Salem <rana.salem@defra.gov.uk>"
   ],
   "license": "OGL-UK-3.0",
   "dependencies": {
