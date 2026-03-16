@@ -6,10 +6,21 @@ import { callbackPayloadSchema, callbackResponseSchema } from './schema.js'
 import { config } from '../../../config/index.js'
 import { persistMetadataWithOutbox, persistValidationFailureStatus } from '../../../services/metadata-service.js'
 import { metricsCounter } from '../../common/helpers/metrics.js'
+import { validateCallbackPayload } from './validation/validate-callback-payload.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
 
+/**
+ * Hapi route definition for the CDP Uploader callback endpoint.
+ *
+ * Validation stages:
+ *   1. Joi schema validation (callbackPayloadSchema via Hapi validate.payload)
+ *   2. Contract validation — uploadStatus must be 'ready', all files must be 'complete'
+ *   3. Semantic validation — file-level consistency checks (checksums, error fields, etc.)
+ *
+ * @see https://eaflood.atlassian.net/wiki/spaces/SFD/pages/6463259966
+ */
 export const uploadCallback = {
   method: 'POST',
   path: `${baseUrl}/callback`,
@@ -21,7 +32,7 @@ export const uploadCallback = {
     validate: {
       payload: callbackPayloadSchema,
       options: { abortEarly: false },
-      failAction: async (request, _h, err) => {
+      failAction: async (request, h, err) => {
         logger.error({ error: { message: err.message } }, 'Validation failed')
         await metricsCounter('callback_validation_failures')
 
@@ -31,13 +42,23 @@ export const uploadCallback = {
           logger.error(persistError, 'Failed to persist status for callback validation failure')
         }
 
-        throw Boom.boomify(err, { statusCode: httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY })
+        return h.response({ message: 'Validation failure persisted' }).code(httpConstants.HTTP_STATUS_CREATED).takeover()
       }
     },
     response: {
       status: callbackResponseSchema
     },
     handler: async (request, h) => {
+      try {
+        const validationError = await validateCallbackPayload(request.payload, h)
+        if (validationError) {
+          return validationError
+        }
+      } catch (validationErr) {
+        logger.error(validationErr, 'Post-Joi validation error')
+        return Boom.internal(validationErr)
+      }
+
       try {
         const result = await persistMetadataWithOutbox(request.payload)
 

@@ -1,14 +1,15 @@
-import { expect, test, describe, beforeEach, vi } from 'vitest'
+import { expect, test, describe, beforeEach, vi, afterEach } from 'vitest'
 
 const mockConfigGet = vi.fn()
 vi.mock('../../../../src/config/index.js', () => ({
   config: { get: mockConfigGet }
 }))
 
+const mockWarn = vi.fn()
 vi.mock('../../../../src/logging/logger.js', () => ({
   createLogger: vi.fn().mockReturnValue({
     info: vi.fn(),
-    warn: vi.fn(),
+    warn: mockWarn,
     error: vi.fn()
   })
 }))
@@ -195,6 +196,10 @@ describe('auth plugin', () => {
 
   // onPreResponse lifecycle hook — logs 401 failures and continues for all responses
   describe('onPreResponse extension', () => {
+    afterEach(() => {
+      mockWarn.mockClear()
+    })
+
     test('should call h.continue for non-401 boom responses', async () => {
       await auth.plugin.register(mockServer)
 
@@ -211,6 +216,7 @@ describe('auth plugin', () => {
       const result = extensionHandler(mockRequest, mockH)
 
       expect(result).toBe(mockH.continue)
+      expect(mockWarn).not.toHaveBeenCalled()
     })
 
     test('should call h.continue for 401 responses', async () => {
@@ -233,6 +239,102 @@ describe('auth plugin', () => {
       const result = extensionHandler(mockRequest, mockH)
 
       expect(result).toBe(mockH.continue)
+    })
+
+    test('should log tokenGroups and undefined tokenClientId for an Entra 401', async () => {
+      await auth.plugin.register(mockServer)
+
+      const extensionHandler = mockServer.ext.mock.calls[0][1]
+      const mockRequest = {
+        response: {
+          isBoom: true,
+          output: { statusCode: 401, payload: { message: 'Unauthorized' } },
+          message: 'Invalid token'
+        },
+        path: '/api/v1/metadata',
+        method: 'GET',
+        info: { remoteAddress: '10.0.0.1' },
+        headers: { 'user-agent': 'test-agent' },
+        auth: {
+          artifacts: {
+            decoded: {
+              payload: { groups: ['group-1', 'group-2'] }
+            }
+          }
+        }
+      }
+      const mockH = { continue: Symbol('continue') }
+
+      extensionHandler(mockRequest, mockH)
+
+      expect(mockWarn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tokenGroups: ['group-1', 'group-2'],
+          tokenClientId: undefined
+        })
+      )
+    })
+
+    test('should log tokenClientId and undefined tokenGroups for a Cognito 401', async () => {
+      await auth.plugin.register(mockServer)
+
+      const extensionHandler = mockServer.ext.mock.calls[0][1]
+      const mockRequest = {
+        response: {
+          isBoom: true,
+          output: { statusCode: 401, payload: { message: 'Unauthorized' } },
+          message: 'Invalid token'
+        },
+        path: '/api/v1/metadata',
+        method: 'GET',
+        info: { remoteAddress: '10.0.0.1' },
+        headers: { 'user-agent': 'test-agent' },
+        auth: {
+          artifacts: {
+            decoded: {
+              payload: { client_id: 'cognito-client-1' }
+            }
+          }
+        }
+      }
+      const mockH = { continue: Symbol('continue') }
+
+      extensionHandler(mockRequest, mockH)
+
+      expect(mockWarn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tokenClientId: 'cognito-client-1',
+          tokenGroups: undefined
+        })
+      )
+    })
+
+    test('should log undefined tokenGroups and tokenClientId when no token is decoded', async () => {
+      await auth.plugin.register(mockServer)
+
+      const extensionHandler = mockServer.ext.mock.calls[0][1]
+      const mockRequest = {
+        response: {
+          isBoom: true,
+          output: { statusCode: 401, payload: { message: 'Unauthorized' } },
+          message: 'Missing token'
+        },
+        path: '/api/v1/metadata',
+        method: 'GET',
+        info: { remoteAddress: '10.0.0.1' },
+        headers: { 'user-agent': 'test-agent' }
+        // no auth property — token was absent
+      }
+      const mockH = { continue: Symbol('continue') }
+
+      extensionHandler(mockRequest, mockH)
+
+      expect(mockWarn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tokenGroups: undefined,
+          tokenClientId: undefined
+        })
+      )
     })
   })
 })

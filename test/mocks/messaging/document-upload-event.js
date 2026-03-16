@@ -26,7 +26,7 @@ export const mockDocumentUploadedEvent = {
       fileId: '123e4567-e89b-12d3-a456-426655440001',
       fileName: 'receipt.pdf',
       contentType: 'application/pdf',
-      url: 'https://fcp-placeholder.cdp-int.defra.cloud/api/v1/blobs/123e4567-e89b-12d3-a456-426655440001'
+      url: 'https://mock-public-api-base-url/api/v1/blobs/123e4567-e89b-12d3-a456-426655440001'
     },
     sbi: 123456789,
     sourceSystem: 'fcp-sfd-frontend',

@@ -1,9 +1,9 @@
 import Joi from 'joi'
 import { schemaConsts } from '../../../constants/schemas.js'
+import { fileUploadSchema } from '../schemas/file-upload-schema.js'
+import { baseMetadataSchema } from '../schemas/uploader-common.js'
 import { generateResponseSchemas } from '../schemas/responses.js'
 import { constants as httpConstants } from 'node:http2'
-
-import { baseMetadataSchema, fileUploadSchema } from '../schemas/uploader-common.js'
 
 // Extended metadata schema for callback endpoint (restricted type)
 const callbackMetadataSchema = baseMetadataSchema.keys({
@@ -47,8 +47,7 @@ const formSchema = Joi.object()
   .required()
   .description('Form data containing both text fields and file uploads')
   .messages({
-    'object.min': '"form" must contain at least one file upload',
-    'any.required': '"form" is required'
+    'object.min': '"form" must contain at least one file upload'
   }).label('CallbackForm')
 
 // Main callback payload schema

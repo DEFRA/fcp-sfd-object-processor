@@ -10,6 +10,7 @@ coverage
 .eslintcache
 .env
 .github/prompts
+docs/plans/
 
 # @shelf/jest-mongodb generated file
 globalConfig.json
