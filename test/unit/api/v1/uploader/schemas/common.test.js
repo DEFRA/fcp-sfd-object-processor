@@ -5,7 +5,7 @@ import {
   submissionFields,
   baseMetadataSchema,
   fileUploadSchema
-} from '../../../../../../src/api/v1/uploader/schemas/index.js'
+} from '../../../../../../src/api/v1/schemas/uploader-common.js'
 
 describe('Shared Schema Components', () => {
   describe('patterns', () => {

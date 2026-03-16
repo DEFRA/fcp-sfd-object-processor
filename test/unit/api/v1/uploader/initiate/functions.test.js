@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { buildCdpUploaderPayload, rewriteResponseUrls } from '../../../../../../src/api/v1/uploader/initiate/index.js'
 
 // Use vi.hoisted so mockConfigGet is available when vi.mock factory is hoisted.
@@ -41,7 +41,7 @@ describe('Uploader Initiate Functions', () => {
       })
     })
 
-    it('should build correct CDP uploader payload', () => {
+    test('should build correct CDP uploader payload', () => {
       const clientPayload = {
         redirect: '/upload-complete',
         metadata: {
@@ -77,7 +77,7 @@ describe('Uploader Initiate Functions', () => {
       expect(mockConfigGet).toHaveBeenCalledWith('cdpUploaderMaxFileSize')
     })
 
-    it('should preserve all metadata fields from client payload', () => {
+    test('should preserve all metadata fields from client payload', () => {
       const clientPayload = {
         redirect: '/complete',
         metadata: {
@@ -97,7 +97,7 @@ describe('Uploader Initiate Functions', () => {
       expect(result.metadata).toEqual(clientPayload.metadata)
     })
 
-    it('should handle different redirect paths', () => {
+    test('should handle different redirect paths', () => {
       const testCases = [
         '/upload-complete',
         '/success',
@@ -116,7 +116,7 @@ describe('Uploader Initiate Functions', () => {
       })
     })
 
-    it('should handle empty metadata gracefully', () => {
+    test('should handle empty metadata gracefully', () => {
       const clientPayload = {
         redirect: '/test',
         metadata: {}
@@ -138,7 +138,7 @@ describe('Uploader Initiate Functions', () => {
       })
     })
 
-    it('should rewrite URLs correctly', () => {
+    test('should rewrite URLs correctly', () => {
       const cdpResponse = {
         uploadId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
         originalUploadUrl: 'http://cdp-uploader:7337/upload/9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
@@ -156,7 +156,7 @@ describe('Uploader Initiate Functions', () => {
       expect(mockConfigGet).toHaveBeenCalledWith('uploaderUrl')
     })
 
-    it('should handle different uploadIds', () => {
+    test('should handle different uploadIds', () => {
       const testUploadIds = [
         'test-123',
         'a0b1c2d3-e4f5-6789-abcd-ef0123456789',
@@ -173,7 +173,7 @@ describe('Uploader Initiate Functions', () => {
       })
     })
 
-    it('should ignore extra fields in CDP response', () => {
+    test('should ignore extra fields in CDP response', () => {
       const cdpResponse = {
         uploadId: 'test-id',
         extraField: 'ignored',
@@ -194,7 +194,7 @@ describe('Uploader Initiate Functions', () => {
   })
 
   describe('Configuration Integration', () => {
-    it('should handle missing config values gracefully in buildCdpUploaderPayload', () => {
+    test('should handle missing config values gracefully in buildCdpUploaderPayload', () => {
       mockConfigGet.mockReturnValue(null)
 
       const clientPayload = {
@@ -215,7 +215,7 @@ describe('Uploader Initiate Functions', () => {
       })
     })
 
-    it('should handle missing config values gracefully in rewriteResponseUrls', () => {
+    test('should handle missing config values gracefully in rewriteResponseUrls', () => {
       mockConfigGet.mockReturnValue(null)
 
       const cdpResponse = { uploadId: 'test-123' }

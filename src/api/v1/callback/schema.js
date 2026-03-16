@@ -3,43 +3,10 @@ import { schemaConsts } from '../../../constants/schemas.js'
 import { generateResponseSchemas } from '../schemas/responses.js'
 import { constants as httpConstants } from 'node:http2'
 
-import { baseMetadataSchema, fileUploadSchema, patterns } from '../uploader/schemas/index.js'
+import { baseMetadataSchema, fileUploadSchema } from '../schemas/uploader-common.js'
 
-// Extended metadata schema for callback endpoint (includes additional fields)
+// Extended metadata schema for callback endpoint (restricted type)
 const callbackMetadataSchema = baseMetadataSchema.keys({
-  submissionDateTime: Joi.string()
-    .pattern(patterns.dateTime)
-    .required()
-    .description('Date and time of submission in DD/MM/YYYY HH:MM:SS format')
-    .messages({
-      'string.pattern.base': 'submissionDateTime must be in DD/MM/YYYY HH:MM:SS format',
-      'any.required': 'submissionDateTime is required'
-    })
-    .example(schemaConsts.SUBMISSION_DATE_TIME_EXAMPLE),
-
-  files: Joi.array()
-    .items(Joi.string())
-    .min(1)
-    .required()
-    .description('Array of file names submitted')
-    .messages({
-      'array.min': 'files array must contain at least one file',
-      'any.required': 'files array is required'
-    })
-    .example(schemaConsts.FILES_EXAMPLE),
-
-  filesInSubmission: Joi.number()
-    .integer()
-    .min(1)
-    .required()
-    .description('Total number of files in the submission')
-    .messages({
-      'number.min': 'filesInSubmission must be at least 1',
-      'number.integer': 'filesInSubmission must be an integer',
-      'any.required': 'filesInSubmission is required'
-    })
-    .example(schemaConsts.FILES_IN_SUBMISSION_EXAMPLE),
-
   type: Joi.string()
     .valid(schemaConsts.TYPE_EXAMPLE)
     .required()

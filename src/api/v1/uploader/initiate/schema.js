@@ -2,7 +2,7 @@ import Joi from 'joi'
 import { constants as httpConstants } from 'node:http2'
 
 import { generateResponseSchemas } from '../../schemas/responses.js'
-import { baseMetadataSchema, patterns } from '../schemas/index.js'
+import { baseMetadataSchema, patterns } from '../../schemas/uploader-common.js'
 
 export const initiatePayloadSchema = Joi.object({
   redirect: Joi.string()

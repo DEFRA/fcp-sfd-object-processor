@@ -1,5 +1,5 @@
 import Joi from 'joi'
-import { schemaConsts } from '../../../../constants/schemas.js'
+import { schemaConsts } from '../../../constants/schemas.js'
 
 // Common validation patterns used across schemas
 export const patterns = {
