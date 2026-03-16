@@ -99,7 +99,7 @@ describe('buildDocumentUploadMessageBatch', () => {
     })
 
     test('should set data.file.url from file.fileId', () => {
-      expect(result[0].data.file.url).toBe(`https://fcp-placeholder.cdp-int.defra.cloud/api/v1/blobs/${file.fileId}`)
+      expect(result[0].data.file.url).toBe(`https://mock-public-api-base-url/api/v1/blobs/${file.fileId}`)
     })
   })
 

@@ -1,7 +1,7 @@
 import { config } from '../../../../config/index.js'
 
 export const buildDocumentUploadMessageBatch = (pendingMessages) => {
-  const baseUrl = config.get('server.publicBaseApiUrl')
+  const baseUrl = config.get('publicApiBaseUrl')
 
   return pendingMessages.map(message => {
     const { metadata, file, messaging } = message.payload
