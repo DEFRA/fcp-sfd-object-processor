@@ -32,6 +32,16 @@ One of the `pre-commit` hooks configured for this service enables code scanning 
 - Under `Generate Tokens` enter a name for your token and click `Generate Token`.
 - Copy the token and add it to your `.env`, referring to it as [`SONAR_TOKEN`](.env.example).
 
+## Pre-commit Hooks
+
+For local development, this repository includes [`pre-commit` hooks](https://pre-commit.com/). These hooks allow for early identification of issues and vulnerabilities so that the developer can resolve any issues before pushing up to the public repository on GitHub. The hooks include:
+
+- [`detect-secrets`](https://github.com/Yelp/detect-secrets): for detecting and preventing secrets in the codebase being pushed to public/open-source repositories.
+- `eslint-fix`: a custom hook for running the linter, ESLint + [neostandard](https://www.npmjs.com/package/neostandard?activeTab=readme), to ensure consistent code formatting and styling and additionally uses the `--fix` option to automatically fix any identified issues where possible to reduce the need for manual correction.
+- `sonarqube-cloud-scan`: a custom hook which runs the official SonarScanner CLI Docker image enabling code scanning by SonarQube Cloud for early identification of issues, bugs, vulnerabilities etc., reducing the number of failed builds in upstream CI pipelines. 
+
+To see the full output of the above hooks it is recommended to commit via the command line as using the source control panel does not provide the same feedback and loses sight of the `pre-commit` logs. All `pre-commit` hooks are listed in the [`.pre-commit-config.yaml`](.pre-commit-config.yaml) configuration file.
+
 ## Running the application
 
 We recommend using the [fcp-sfd-core](https://github.com/DEFRA/fcp-sfd-core) repository for local development. You can however run this service independently by following the instructions below using either Docker Compose or the provided [npm scripts](./package.json). Alternatively, for VS Code users, a set of [VS Code tasks](.vscode/tasks.json) are available to use and can be access via the command palette: 

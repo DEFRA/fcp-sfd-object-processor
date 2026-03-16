@@ -11,7 +11,7 @@ repos:
         name: ESLint with neostandard
         entry: npm run lint:fix
         language: node
-      - id: sonarqube-cloud
+      - id: sonarqube-cloud-scan
         name: SonarQube Cloud Scan
         entry: >
           bash -c "set -a &&
