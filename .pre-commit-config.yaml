@@ -1,6 +1,32 @@
 repos:
-- repo: https://github.com/Yelp/detect-secrets
-  rev: v1.2.0
-  hooks:
-  - id: detect-secrets
-    args: ['--baseline', '.secrets.baseline']
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+    - id: detect-secrets
+      args: ['--baseline', '.secrets.baseline']
+
+  - repo: local
+    hooks:
+      - id: eslint-fix
+        name: ESLint with neostandard
+        entry: npm run lint:fix
+        language: node
+      - id: sonarqube-cloud-scan
+        name: SonarQube Cloud Scan
+        entry: >
+          bash -c "set -a &&
+          source .env &&
+          docker run --rm --name pre-commit-sonar-scan
+          -v \"$PWD:/usr/src\"
+          -e SONAR_TOKEN=\"$SONAR_TOKEN\"
+          sonarsource/sonar-scanner-cli
+          -Dsonar.projectKey=DEFRA_fcp-sfd-object-processor
+          -Dsonar.organization=defra
+          -Dsonar.sources=src/
+          -Dsonar.exclusions=src/**/*.test.js
+          -Dsonar.tests=src/
+          -Dsonar.test.inclusions=src/**/*.test.js
+          -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info"
+          -Dsonar.issuesReport.console.enable=true
+        language: system
+        pass_filenames: false

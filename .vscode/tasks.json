@@ -1,0 +1,68 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "npm",
+      "label": "🛠️ Build Docker container",
+      "script": "docker:build"
+    },
+    {
+      "type": "npm",
+      "label": "🏁 Start Docker container",
+      "script": "docker:dev",
+      "problemMatcher": []
+    },
+    {
+      "type": "npm",
+      "label": "✂️ Start Docker container (detached mode)",
+      "script": "docker:dev:d",
+      "problemMatcher": []
+    },
+    {
+      "type": "npm",
+      "label": "🛑 Stop Docker container",
+      "script": "docker:stop"
+    },
+    {
+      "type": "npm",
+      "label": "😵 Stop Docker container + delete volumes",
+      "script": "docker:stop:v"
+    },
+    {
+      "type": "npm",
+      "label": "🧪 Run tests",
+      "script": "docker:test",
+      "problemMatcher": []
+    },
+    {
+      "type": "npm",
+      "label": "👀 Run tests (watch mode)",
+      "script": "docker:test:watch",
+    },
+    {
+      "type": "npm",
+      "label": "📄 Generate OpenAPI spec",
+      "script": "generateOpenApiSpec",
+      "problemMatcher": [],
+      "dependsOn": [
+        "✂️ Start Docker container (detached mode)"
+      ]
+    },
+    {
+      "type": "npm",
+      "label": "🪲 Run debugger",
+      "problemMatcher": [],
+      "script": "docker:debug"
+    },
+    {
+      "type": "npm",
+      "label": "📋 Run linter",
+      "script": "lint"
+    },
+    {
+      "type": "npm",
+      "label": "🧹 Run linter + auto fix known issues",
+      "script": "lint:fix"
+    }
+  ]
+}
