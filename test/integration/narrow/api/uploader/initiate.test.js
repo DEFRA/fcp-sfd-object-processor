@@ -1,14 +1,14 @@
 import { constants as httpConstants } from 'node:http2'
 import { vi, describe, test, expect, beforeAll, afterAll, afterEach } from 'vitest'
 
-import { config } from '../../../../src/config'
+import { config } from '../../../../../src/config/index.js'
 import { createServer } from '../../../../src/api'
 
 let server
 const originalFetch = global.fetch
 
 const mockValidPayload = {
-  redirect: 'https://example.com/upload-complete',
+  redirect: '/upload-complete',
   metadata: {
     sbi: 105000000,
     crn: 1050000000,
@@ -59,7 +59,7 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
       expect(response.result.data.uploadId).toBe('9fcaabe5-77ec-44db-8356-3a6e8dc51b13')
-      expect(response.result.data.uploadUrl).toBe('/api/v1/uploader/upload-and-scan/9fcaabe5-77ec-44db-8356-3a6e8dc51b13')
+      expect(response.result.data.uploadUrl).toBe(`${config.get('uploaderUrl')}/upload-and-scan/9fcaabe5-77ec-44db-8356-3a6e8dc51b13`)
       expect(response.result.data.statusUrl).toBe('/api/v1/uploader/status/9fcaabe5-77ec-44db-8356-3a6e8dc51b13')
     })
 
@@ -83,7 +83,7 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
       expect(body.redirect).toBe(mockValidPayload.redirect)
       expect(body.s3Bucket).toBe(config.get('cdpUploaderS3Bucket'))
       expect(body.s3Path).toBe(config.get('cdpUploaderS3Path'))
-      expect(body.callbackUrl).toBe(config.get('cdpUploaderCallbackUrl'))
+      expect(body.callback).toBe(config.get('cdpUploaderCallbackUrl'))
       expect(body.metadata).toEqual(mockValidPayload.metadata)
     })
   })

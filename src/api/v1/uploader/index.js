@@ -25,9 +25,10 @@ export function buildCdpUploaderPayload (clientPayload) {
 
 export function rewriteResponseUrls (cdpResponse) {
   const { uploadId } = cdpResponse
+  const uploaderUrl = config.get('uploaderUrl')
   return {
     uploadId,
-    uploadUrl: `${baseUrl}/uploader/upload-and-scan/${uploadId}`,
+    uploadUrl: `${uploaderUrl}/upload-and-scan/${uploadId}`,
     statusUrl: `${baseUrl}/uploader/status/${uploadId}`
   }
 }

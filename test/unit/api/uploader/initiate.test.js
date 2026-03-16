@@ -4,7 +4,7 @@ import { constants as httpConstants } from 'node:http2'
 import { initiatePayloadSchema } from '../../../../src/api/v1/uploader/schema.js'
 
 const mockValidPayload = {
-  redirect: 'https://example.com/upload-complete',
+  redirect: '/upload-complete',
   metadata: {
     sbi: 105000000,
     crn: 1050000000,
@@ -73,14 +73,32 @@ describe('initiatePayloadSchema validation', () => {
       expect(error.details[0].type).toBe('any.required')
     })
 
-    test('invalid redirect URI fails validation', () => {
+    test('valid relative redirect URL passes validation', () => {
       const { error } = initiatePayloadSchema.validate({
         ...mockValidPayload,
-        redirect: 'not-a-uri'
+        redirect: '/some/path/to/success'
+      })
+      expect(error).toBeUndefined()
+    })
+
+    test('absolute redirect URL fails validation', () => {
+      const { error } = initiatePayloadSchema.validate({
+        ...mockValidPayload,
+        redirect: 'https://example.com/upload-complete'
       })
       expect(error).toBeDefined()
       expect(error.details[0].path).toEqual(['redirect'])
-      expect(error.details[0].type).toBe('string.uri')
+      expect(error.details[0].type).toBe('string.pattern.base')
+    })
+
+    test('redirect not starting with / fails validation', () => {
+      const { error } = initiatePayloadSchema.validate({
+        ...mockValidPayload,
+        redirect: 'not-starting-with-slash'
+      })
+      expect(error).toBeDefined()
+      expect(error.details[0].path).toEqual(['redirect'])
+      expect(error.details[0].type).toBe('string.pattern.base')
     })
   })
 
@@ -140,6 +158,14 @@ describe('initiatePayloadSchema validation', () => {
       })
       expect(error).toBeDefined()
       expect(error.details[0].path).toEqual(['metadata', 'type'])
+    })
+
+    test('any string value for type passes validation', () => {
+      const { error } = initiatePayloadSchema.validate({
+        ...mockValidPayload,
+        metadata: { ...mockValidPayload.metadata, type: 'SomeNewType' }
+      })
+      expect(error).toBeUndefined()
     })
 
     test('missing reference fails validation', () => {
@@ -264,7 +290,7 @@ describe('uploader initiate handler', () => {
         redirect: mockValidPayload.redirect,
         s3Bucket: 'test-bucket',
         s3Path: 'uploads',
-        callbackUrl: 'http://localhost:3004/api/v1/callback',
+        callback: 'http://localhost:3004/api/v1/callback',
         mimeTypes: ['application/pdf', 'image/jpeg'],
         maxFileSize: 10485760,
         metadata: mockValidPayload.metadata
@@ -284,12 +310,12 @@ describe('uploader initiate handler', () => {
   })
 
   describe('rewriteResponseUrls', () => {
-    test('rewrites uploadUrl and statusUrl to proxy paths', () => {
+    test('rewrites uploadUrl to direct CDP URL and statusUrl to proxy path', () => {
       const result = rewriteResponseUrls(mockCdpUploaderResponse)
 
       expect(result).toEqual({
         uploadId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
-        uploadUrl: '/api/v1/uploader/upload-and-scan/9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+        uploadUrl: 'http://cdp-uploader:7337/upload-and-scan/9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
         statusUrl: '/api/v1/uploader/status/9fcaabe5-77ec-44db-8356-3a6e8dc51b13'
       })
     })
@@ -329,7 +355,7 @@ describe('uploader initiate handler', () => {
       expect(mockH.response).toHaveBeenCalledWith({
         data: {
           uploadId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
-          uploadUrl: '/api/v1/uploader/upload-and-scan/9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+          uploadUrl: 'http://cdp-uploader:7337/upload-and-scan/9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
           statusUrl: '/api/v1/uploader/status/9fcaabe5-77ec-44db-8356-3a6e8dc51b13'
         }
       })
@@ -350,7 +376,7 @@ describe('uploader initiate handler', () => {
         redirect: mockValidPayload.redirect,
         s3Bucket: 'test-bucket',
         s3Path: 'uploads',
-        callbackUrl: 'http://localhost:3004/api/v1/callback',
+        callback: 'http://localhost:3004/api/v1/callback',
         mimeTypes: ['application/pdf', 'image/jpeg'],
         maxFileSize: 10485760,
         metadata: mockValidPayload.metadata

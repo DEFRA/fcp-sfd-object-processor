@@ -6,14 +6,14 @@ import { generateResponseSchemas } from '../schemas/responses.js'
 
 export const initiatePayloadSchema = Joi.object({
   redirect: Joi.string()
-    .uri()
+    .pattern(/^\//)
     .required()
-    .description('URL to redirect the user to after upload completes')
+    .description('Relative URL to redirect the user to after upload completes')
     .messages({
-      'string.uri': 'redirect must be a valid URI',
+      'string.pattern.base': 'redirect must be a relative URL starting with /',
       'any.required': 'redirect is required'
     })
-    .example('https://example.com/upload-complete'),
+    .example('/upload-complete'),
 
   metadata: Joi.object({
     sbi: Joi.number()
@@ -65,12 +65,11 @@ export const initiatePayloadSchema = Joi.object({
         'any.required': 'submissionId is required'
       })
       .example(schemaConsts.SUBMISSION_ID_EXAMPLE),
+    // TODO: Make this an enumerable type in the future when we have a better understanding of the possible values
     type: Joi.string()
-      .valid(schemaConsts.TYPE_EXAMPLE)
       .required()
       .description('Type of submission - determines CRM queue')
       .messages({
-        'any.only': 'type must be CS_Agreement_Evidence',
         'any.required': 'type is required'
       })
       .example(schemaConsts.TYPE_EXAMPLE),
