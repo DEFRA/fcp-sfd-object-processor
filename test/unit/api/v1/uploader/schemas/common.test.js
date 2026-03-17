@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, test, expect } from 'vitest'
 import {
   patterns,
   businessIdentifierFields,
@@ -10,7 +10,7 @@ import {
 describe('Shared Schema Components', () => {
   describe('patterns', () => {
     describe('mimeType pattern', () => {
-      it('should validate valid MIME types', () => {
+      test('should validate valid MIME types', () => {
         const validMimeTypes = [
           'application/pdf',
           'image/jpeg',
@@ -24,7 +24,7 @@ describe('Shared Schema Components', () => {
         })
       })
 
-      it('should reject invalid MIME types', () => {
+      test('should reject invalid MIME types', () => {
         const invalidMimeTypes = [
           '',
           'invalid',
@@ -41,7 +41,7 @@ describe('Shared Schema Components', () => {
     })
 
     describe('base64 pattern', () => {
-      it('should validate valid base64 strings', () => {
+      test('should validate valid base64 strings', () => {
         const validBase64 = [
           'SGVsbG8gV29ybGQ=',
           'YWJjZGVmZ2hpams=',
@@ -53,7 +53,7 @@ describe('Shared Schema Components', () => {
         })
       })
 
-      it('should reject invalid base64 strings', () => {
+      test('should reject invalid base64 strings', () => {
         const invalidBase64 = [
           '',
           'not base64',
@@ -68,7 +68,7 @@ describe('Shared Schema Components', () => {
     })
 
     describe('dateTime pattern', () => {
-      it('should validate valid date time format', () => {
+      test('should validate valid date time format', () => {
         const validDateTime = [
           '01/02/2023 14:30:45',
           '31/12/2023 23:59:59',
@@ -80,7 +80,7 @@ describe('Shared Schema Components', () => {
         })
       })
 
-      it('should reject invalid date time formats', () => {
+      test('should reject invalid date time formats', () => {
         const invalidDateTime = [
           '',
           '2023-02-01 14:30:45',
@@ -97,7 +97,7 @@ describe('Shared Schema Components', () => {
     })
 
     describe('relativePath pattern', () => {
-      it('should validate valid relative paths', () => {
+      test('should validate valid relative paths', () => {
         const validPaths = [
           '/',
           '/home',
@@ -110,12 +110,13 @@ describe('Shared Schema Components', () => {
         })
       })
 
-      it('should reject invalid relative paths', () => {
+      test('should reject invalid relative paths', () => {
         const invalidPaths = [
           '',
           'relative',
           'path/without/leading/slash',
-          'https://example.com/path'
+          'https://example.com/path',
+          '//evil.com'
         ]
 
         invalidPaths.forEach(path => {
@@ -127,13 +128,13 @@ describe('Shared Schema Components', () => {
 
   describe('businessIdentifierFields', () => {
     describe('sbi field', () => {
-      it('should validate valid SBI numbers', () => {
+      test('should validate valid SBI numbers', () => {
         const validSBI = 123456789
         const result = businessIdentifierFields.sbi.validate(validSBI)
         expect(result.error).toBeUndefined()
       })
 
-      it('should reject invalid SBI numbers', () => {
+      test('should reject invalid SBI numbers', () => {
         const invalidSBIs = [
           null,
           undefined,
@@ -150,20 +151,20 @@ describe('Shared Schema Components', () => {
         })
       })
 
-      it('should provide proper error messages for SBI', () => {
+      test('should provide proper error messages for SBI', () => {
         const result = businessIdentifierFields.sbi.validate(12345678)
         expect(result.error.message).toContain('sbi must be exactly 9 digits')
       })
     })
 
     describe('crn field', () => {
-      it('should validate valid CRN numbers', () => {
+      test('should validate valid CRN numbers', () => {
         const validCRN = 1234567890
         const result = businessIdentifierFields.crn.validate(validCRN)
         expect(result.error).toBeUndefined()
       })
 
-      it('should reject invalid CRN numbers', () => {
+      test('should reject invalid CRN numbers', () => {
         const invalidCRNs = [
           null,
           undefined,
@@ -182,13 +183,13 @@ describe('Shared Schema Components', () => {
     })
 
     describe('frn field', () => {
-      it('should validate valid FRN numbers', () => {
+      test('should validate valid FRN numbers', () => {
         const validFRN = 1234567890
         const result = businessIdentifierFields.frn.validate(validFRN)
         expect(result.error).toBeUndefined()
       })
 
-      it('should reject invalid FRN numbers', () => {
+      test('should reject invalid FRN numbers', () => {
         const invalidFRNs = [
           null,
           undefined,
@@ -209,7 +210,7 @@ describe('Shared Schema Components', () => {
 
   describe('submissionFields', () => {
     describe('submissionId field', () => {
-      it('should validate valid submission IDs', () => {
+      test('should validate valid submission IDs', () => {
         const validSubmissionIds = [
           'abc123',
           'submission-123',
@@ -222,7 +223,7 @@ describe('Shared Schema Components', () => {
         })
       })
 
-      it('should reject invalid submission IDs', () => {
+      test('should reject invalid submission IDs', () => {
         const invalidSubmissionIds = [
           null,
           undefined,
@@ -238,13 +239,13 @@ describe('Shared Schema Components', () => {
     })
 
     describe('type field', () => {
-      it('should validate required type field', () => {
+      test('should validate required type field', () => {
         const validType = 'CS_Agreement_Evidence'
         const result = submissionFields.type.validate(validType)
         expect(result.error).toBeUndefined()
       })
 
-      it('should reject missing type field', () => {
+      test('should reject missing type field', () => {
         const result = submissionFields.type.validate(undefined)
         expect(result.error).toBeDefined()
         expect(result.error.message).toContain('type is required')
@@ -252,7 +253,7 @@ describe('Shared Schema Components', () => {
     })
 
     describe('service field', () => {
-      it('should validate allowed service values', () => {
+      test('should validate allowed service values', () => {
         const validServices = ['fcp-sfd-frontend', 'rps-portal']
 
         validServices.forEach(service => {
@@ -261,7 +262,7 @@ describe('Shared Schema Components', () => {
         })
       })
 
-      it('should reject invalid service values', () => {
+      test('should reject invalid service values', () => {
         const invalidServices = [
           '',
           'invalid-service',
@@ -277,7 +278,7 @@ describe('Shared Schema Components', () => {
     })
 
     describe('uosr field', () => {
-      it('should validate valid UOSR values', () => {
+      test('should validate valid UOSR values', () => {
         const validUOSRs = [
           '123456789-submission123',
           'uosr-value',
@@ -290,7 +291,7 @@ describe('Shared Schema Components', () => {
         })
       })
 
-      it('should reject invalid UOSR values', () => {
+      test('should reject invalid UOSR values', () => {
         const invalidUOSRs = [
           null,
           undefined,
@@ -317,13 +318,13 @@ describe('Shared Schema Components', () => {
       uosr: 'uosr-test-123'
     }
 
-    it('should validate complete valid base metadata', () => {
+    test('should validate complete valid base metadata', () => {
       const result = baseMetadataSchema.validate(validBaseMetadata)
       expect(result.error).toBeUndefined()
       expect(result.value).toEqual(validBaseMetadata)
     })
 
-    it('should reject metadata missing required fields', () => {
+    test('should reject metadata missing required fields', () => {
       const requiredFields = ['sbi', 'crn', 'frn', 'submissionId', 'type', 'reference', 'service', 'uosr']
 
       requiredFields.forEach(field => {
@@ -336,7 +337,7 @@ describe('Shared Schema Components', () => {
       })
     })
 
-    it('should reject metadata with extra fields (strict mode)', () => {
+    test('should reject metadata with extra fields (strict mode)', () => {
       const metadataWithExtraField = {
         ...validBaseMetadata,
         extraField: 'not allowed'
@@ -349,42 +350,37 @@ describe('Shared Schema Components', () => {
   })
 
   describe('fileUploadSchema', () => {
-    const validFileUpload = {
+    const baseFileUpload = {
       fileId: 'a0b1c2d3-e4f5-4789-abcd-ef0123456789',
       filename: 'test-document.pdf',
       contentType: 'application/pdf',
-      fileStatus: 'complete',
-      contentLength: 1024,
-      checksumSha256: 'SGVsbG8gV29ybGQ=',
-      detectedContentType: 'application/pdf',
-      s3Key: 'test/path/file.pdf',
-      s3Bucket: 'test-bucket'
+      detectedContentType: 'application/pdf'
     }
 
-    it('should validate complete valid file upload', () => {
-      const result = fileUploadSchema.validate(validFileUpload)
+    test('should validate complete valid file upload', () => {
+      const completeFileUpload = {
+        ...baseFileUpload,
+        fileStatus: 'complete',
+        contentLength: 1024,
+        checksumSha256: 'SGVsbG8gV29ybGQ=',
+        s3Key: 'test/path/file.pdf',
+        s3Bucket: 'test-bucket'
+      }
+      const result = fileUploadSchema.validate(completeFileUpload)
       expect(result.error).toBeUndefined()
-      expect(result.value).toEqual(validFileUpload)
+      expect(result.value).toEqual(completeFileUpload)
     })
 
-    it('should reject file upload missing required fields', () => {
-      const requiredFields = [
-        'fileId', 'filename', 'contentType', 'fileStatus',
-        'contentLength', 'checksumSha256', 'detectedContentType',
-        's3Key', 's3Bucket'
-      ]
-
-      requiredFields.forEach(field => {
-        const incompleteFileUpload = { ...validFileUpload }
-        delete incompleteFileUpload[field]
-
-        const result = fileUploadSchema.validate(incompleteFileUpload)
-        expect(result.error).toBeDefined()
-        expect(result.error.message).toContain(`${field} is required`)
-      })
+    test('should validate pending file upload with minimal required fields', () => {
+      const pendingFileUpload = {
+        ...baseFileUpload,
+        fileStatus: 'pending'
+      }
+      const result = fileUploadSchema.validate(pendingFileUpload)
+      expect(result.error).toBeUndefined()
     })
 
-    it('should validate fileId as UUID', () => {
+    test('should validate fileId as UUID', () => {
       const invalidFileIds = [
         'not-a-uuid',
         '123',
@@ -392,58 +388,65 @@ describe('Shared Schema Components', () => {
       ]
 
       invalidFileIds.forEach(fileId => {
-        const fileUploadWithInvalidId = { ...validFileUpload, fileId }
+        const fileUploadWithInvalidId = { ...baseFileUpload, fileStatus: 'pending', fileId }
         const result = fileUploadSchema.validate(fileUploadWithInvalidId)
         expect(result.error).toBeDefined()
-        expect(result.error.message).toContain('fileId must be a valid UUID v4')
+        expect(result.error.message).toContain('fileId')
       })
     })
 
-    it('should validate MIME types', () => {
+    test('should validate MIME types', () => {
       const invalidMimeTypes = [
         'invalid',
         'text/'
       ]
 
       invalidMimeTypes.forEach(contentType => {
-        const fileUploadWithInvalidMime = { ...validFileUpload, contentType }
+        const fileUploadWithInvalidMime = { ...baseFileUpload, fileStatus: 'pending', contentType }
         const result = fileUploadSchema.validate(fileUploadWithInvalidMime)
         expect(result.error).toBeDefined()
-        expect(result.error.message).toContain('contentType must be a valid MIME type')
+        expect(result.error.message).toContain('contentType')
       })
     })
 
-    it('should validate contentLength as non-negative integer', () => {
-      const invalidContentLengths = [
-        -1,
-        1.5,
-        'string'
-      ]
-
-      invalidContentLengths.forEach(contentLength => {
-        const fileUploadWithInvalidLength = { ...validFileUpload, contentLength }
-        const result = fileUploadSchema.validate(fileUploadWithInvalidLength)
-        expect(result.error).toBeDefined()
-      })
+    test('should require complete-file storage fields', () => {
+      const incompleteCompleteFile = {
+        ...baseFileUpload,
+        fileStatus: 'complete',
+        contentLength: 1024,
+        checksumSha256: 'SGVsbG8gV29ybGQ=',
+        s3Bucket: 'test-bucket'
+      }
+      const result = fileUploadSchema.validate(incompleteCompleteFile)
+      expect(result.error).toBeDefined()
+      expect(result.error.message).toContain('s3Key')
     })
 
-    it('should validate checksumSha256 as base64', () => {
-      const invalidChecksums = [
-        'not-base64',
-        '!!!invalid'
-      ]
+    test('should require hasError=true and errorMessage for rejected files', () => {
+      const rejectedFile = {
+        ...baseFileUpload,
+        fileStatus: 'rejected',
+        hasError: true,
+        errorMessage: 'Virus detected'
+      }
+      const validResult = fileUploadSchema.validate(rejectedFile)
+      expect(validResult.error).toBeUndefined()
 
-      invalidChecksums.forEach(checksumSha256 => {
-        const fileUploadWithInvalidChecksum = { ...validFileUpload, checksumSha256 }
-        const result = fileUploadSchema.validate(fileUploadWithInvalidChecksum)
-        expect(result.error).toBeDefined()
-        expect(result.error.message).toContain('checksumSha256 must be a valid base64 string')
-      })
+      const invalidRejectedFile = {
+        ...baseFileUpload,
+        fileStatus: 'rejected',
+        hasError: false,
+        errorMessage: 'Virus detected'
+      }
+      const invalidResult = fileUploadSchema.validate(invalidRejectedFile)
+      expect(invalidResult.error).toBeDefined()
+      expect(invalidResult.error.message).toContain('hasError')
     })
 
-    it('should reject extra fields (strict mode)', () => {
+    test('should reject extra fields (strict mode)', () => {
       const fileUploadWithExtraField = {
-        ...validFileUpload,
+        ...baseFileUpload,
+        fileStatus: 'pending',
         extraField: 'not allowed'
       }
 
@@ -454,13 +457,13 @@ describe('Shared Schema Components', () => {
   })
 
   describe('Edge Cases and Error Scenarios', () => {
-    it('should handle null values gracefully', () => {
+    test('should handle null values gracefully', () => {
       const result = baseMetadataSchema.validate(null)
       expect(result.error).toBeDefined()
       expect(result.error.message).toContain('must be of type object')
     })
 
-    it('should handle empty objects', () => {
+    test('should handle empty objects', () => {
       const result = baseMetadataSchema.validate({}, { abortEarly: false })
       expect(result.error).toBeDefined()
       // Should contain errors for all required fields
@@ -470,7 +473,7 @@ describe('Shared Schema Components', () => {
       })
     })
 
-    it('should handle very large numbers gracefully', () => {
+    test('should handle very large numbers gracefully', () => {
       const metadataWithLargeNumbers = {
         sbi: 99999999999999, // way too large
         crn: 99999999999999,

@@ -37,10 +37,15 @@ describe('uploader initiate handler', () => {
   let uploaderInitiateRoute
   let buildCdpUploaderPayload
   let rewriteResponseUrls
+  let mockLogger
+  let mockMetricsCounter
   const originalFetch = global.fetch
 
   beforeEach(async () => {
     vi.resetModules()
+
+    mockLogger = { info: vi.fn(), error: vi.fn(), warn: vi.fn() }
+    mockMetricsCounter = vi.fn().mockResolvedValue(undefined)
 
     vi.doMock('../../../../src/config/index.js', () => ({
       config: {
@@ -49,11 +54,11 @@ describe('uploader initiate handler', () => {
     }))
 
     vi.doMock('../../../../src/logging/logger.js', () => ({
-      createLogger: () => ({
-        info: vi.fn(),
-        error: vi.fn(),
-        warn: vi.fn()
-      })
+      createLogger: () => mockLogger
+    }))
+
+    vi.doMock('../../../../src/api/common/helpers/metrics.js', () => ({
+      metricsCounter: mockMetricsCounter
     }))
 
     const mod = await import('../../../../src/api/v1/uploader/initiate/index.js')
@@ -247,6 +252,35 @@ describe('uploader initiate handler', () => {
 
       expect(result.isBoom).toBe(true)
       expect(result.output.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_GATEWAY)
+    })
+  })
+
+  describe('validate.failAction', () => {
+    const mockErr = new Error('"redirect" is required')
+
+    test('logs the validation error', async () => {
+      await expect(
+        uploaderInitiateRoute.options.validate.failAction(null, null, mockErr)
+      ).rejects.toThrow(mockErr)
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        { error: { message: mockErr.message } },
+        '/uploader/initiate validation failed'
+      )
+    })
+
+    test('increments the metrics counter', async () => {
+      await expect(
+        uploaderInitiateRoute.options.validate.failAction(null, null, mockErr)
+      ).rejects.toThrow(mockErr)
+
+      expect(mockMetricsCounter).toHaveBeenCalledWith('initiate_validation_failures')
+    })
+
+    test('throws the validation error', async () => {
+      await expect(
+        uploaderInitiateRoute.options.validate.failAction(null, null, mockErr)
+      ).rejects.toThrow(mockErr)
     })
   })
 })

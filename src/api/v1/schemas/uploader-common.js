@@ -6,7 +6,7 @@ export const patterns = {
   mimeType: /^[a-zA-Z0-9][a-zA-Z0-9!#$&^_+-]*\/[a-zA-Z0-9][a-zA-Z0-9!#$&^_+.-]*$/,
   base64: /^[A-Za-z0-9+/]+=*$/,
   dateTime: /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/,
-  relativePath: /^\//
+  relativePath: /^\/(?!\/)[^\s]*$/
 }
 
 // Shared field schemas for business identifiers
@@ -108,99 +108,5 @@ export const baseMetadataSchema = Joi.object({
   ...submissionFields
 }).strict()
 
-// File upload schema for callback endpoint
-export const fileUploadSchema = Joi.object({
-  fileId: Joi.string()
-    .guid({ version: ['uuidv4'] })
-    .required()
-    .description('Unique identifier for the uploaded file')
-    .messages({
-      'string.guid': 'fileId must be a valid UUID v4',
-      'any.required': 'fileId is required'
-    })
-    .example(schemaConsts.FILE_ID_EXAMPLE),
-
-  filename: Joi.string()
-    .min(1)
-    .required()
-    .description('Original name of the uploaded file')
-    .messages({
-      'string.empty': 'filename cannot be empty',
-      'any.required': 'filename is required'
-    })
-    .example(schemaConsts.FILENAME_EXAMPLE),
-
-  contentType: Joi.string()
-    .pattern(patterns.mimeType)
-    .required()
-    .description('MIME type of the uploaded file')
-    .messages({
-      'string.pattern.base': 'contentType must be a valid MIME type',
-      'any.required': 'contentType is required'
-    })
-    .example(schemaConsts.CONTENT_TYPE_EXAMPLE),
-
-  fileStatus: Joi.string()
-    .valid(schemaConsts.FILE_STATUS_EXAMPLE)
-    .required()
-    .description('Status of the file upload')
-    .messages({
-      'any.only': 'fileStatus must be complete',
-      'any.required': 'fileStatus is required'
-    })
-    .example(schemaConsts.FILE_STATUS_EXAMPLE),
-
-  contentLength: Joi.number()
-    .integer()
-    .min(0)
-    .required()
-    .description('Size of the file in bytes')
-    .messages({
-      'number.min': 'contentLength must be a non-negative integer',
-      'number.integer': 'contentLength must be an integer',
-      'any.required': 'contentLength is required'
-    })
-    .example(schemaConsts.CONTENT_LENGTH_EXAMPLE),
-
-  checksumSha256: Joi.string()
-    .pattern(patterns.base64)
-    .required()
-    .description('SHA-256 checksum of the file encoded in base64')
-    .messages({
-      'string.pattern.base': 'checksumSha256 must be a valid base64 string',
-      'any.required': 'checksumSha256 is required'
-    })
-    .example(schemaConsts.CHECKSUM_SHA256_EXAMPLE),
-
-  detectedContentType: Joi.string()
-    .pattern(patterns.mimeType)
-    .required()
-    .description('MIME type detected by virus scanning')
-    .messages({
-      'string.pattern.base': 'detectedContentType must be a valid MIME type',
-      'any.required': 'detectedContentType is required'
-    })
-    .example(schemaConsts.DETECTED_CONTENT_TYPE_EXAMPLE),
-
-  s3Key: Joi.string()
-    .min(1)
-    .required()
-    .description('S3 object key where the file is stored')
-    .messages({
-      'string.empty': 's3Key cannot be empty',
-      'any.required': 's3Key is required'
-    })
-    .example(schemaConsts.S3_KEY_EXAMPLE),
-
-  s3Bucket: Joi.string()
-    .min(1)
-    .required()
-    .description('S3 bucket name where the file is stored')
-    .messages({
-      'string.empty': 's3Bucket cannot be empty',
-      'any.required': 's3Bucket is required'
-    })
-    .example(schemaConsts.S3_BUCKET_EXAMPLE)
-}).strict()
-  .description('File upload metadata from CDP Uploader')
-  .label('FileUploadMetadata')
+// Re-export canonical file upload schema to avoid duplication and drift.
+export { fileUploadSchema } from './file-upload-schema.js'

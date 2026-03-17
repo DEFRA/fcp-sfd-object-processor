@@ -263,17 +263,6 @@
           }
         }
       },
-      "files": {
-        "type": "array",
-        "description": "Array of filenames",
-        "example": [
-          "document.pdf",
-          "receipt.jpg"
-        ],
-        "items": {
-          "type": "string"
-        }
-      },
       "MetadataFields": {
         "type": "object",
         "description": "Metadata about the item",
@@ -309,23 +298,6 @@
             "description": "Made up of sbi_submissionId",
             "example": "105000000_1733826312"
           },
-          "submissionDateTime": {
-            "type": "string",
-            "description": "Date the uploads were made in DD/MM/YYYY HH:mm:ss format",
-            "example": "10/12/2024 10:25:12",
-            "pattern": "^\\d{2}\\/\\d{2}\\/\\d{4} \\d{2}:\\d{2}:\\d{2}$"
-          },
-          "files": {
-            "$ref": "#/components/schemas/files"
-          },
-          "filesInSubmission": {
-            "type": "integer",
-            "description": "Size of the file in bytes",
-            "example": 2,
-            "x-constraint": {
-              "sign": "positive"
-            }
-          },
           "type": {
             "type": "string",
             "description": "Name of the CRM queue the uploads should be tagged with",
@@ -341,11 +313,7 @@
             "description": "Name of the service that provided the uploads",
             "example": "fcp-sfd-frontend"
           }
-        },
-        "required": [
-          "files",
-          "filesInSubmission"
-        ]
+        }
       },
       "FileFields": {
         "type": "object",
@@ -427,26 +395,6 @@
           "pending"
         ]
       },
-      "Model2": {
-        "type": "array",
-        "description": "Array of file names submitted",
-        "example": [
-          "document.pdf",
-          "receipt.jpg"
-        ],
-        "minItems": 1,
-        "items": {
-          "type": "string"
-        }
-      },
-      "type": {
-        "type": "string",
-        "description": "Type of submission - determines CRM queue",
-        "example": "CS_Agreement_Evidence",
-        "enum": [
-          "CS_Agreement_Evidence"
-        ]
-      },
       "service": {
         "type": "string",
         "description": "Source system that initiated the upload",
@@ -454,6 +402,14 @@
         "enum": [
           "fcp-sfd-frontend",
           "rps-portal"
+        ]
+      },
+      "type": {
+        "type": "string",
+        "description": "Type of submission - determines CRM queue",
+        "example": "CS_Agreement_Evidence",
+        "enum": [
+          "CS_Agreement_Evidence"
         ]
       },
       "UploadMetadata": {
@@ -486,29 +442,6 @@
             "description": "Unique identifier for the submission",
             "example": "1733826312"
           },
-          "uosr": {
-            "type": "string",
-            "description": "Unique Object Storage Reference combining SBI and submission ID",
-            "example": "105000000_1733826312"
-          },
-          "submissionDateTime": {
-            "type": "string",
-            "description": "Date and time of submission in DD/MM/YYYY HH:MM:SS format",
-            "example": "10/12/2024 10:25:12",
-            "pattern": "^\\d{2}\\/\\d{2}\\/\\d{4} \\d{2}:\\d{2}:\\d{2}$"
-          },
-          "files": {
-            "$ref": "#/components/schemas/Model2"
-          },
-          "filesInSubmission": {
-            "type": "integer",
-            "description": "Total number of files in the submission",
-            "example": 2,
-            "minimum": 1
-          },
-          "type": {
-            "$ref": "#/components/schemas/type"
-          },
           "reference": {
             "type": "string",
             "description": "User-entered reference for the submission",
@@ -516,6 +449,14 @@
           },
           "service": {
             "$ref": "#/components/schemas/service"
+          },
+          "uosr": {
+            "type": "string",
+            "description": "Unique Object Storage Reference combining SBI and submission ID",
+            "example": "105000000_1733826312"
+          },
+          "type": {
+            "$ref": "#/components/schemas/type"
           }
         },
         "required": [
@@ -523,13 +464,10 @@
           "crn",
           "frn",
           "submissionId",
-          "uosr",
-          "submissionDateTime",
-          "files",
-          "filesInSubmission",
-          "type",
           "reference",
-          "service"
+          "service",
+          "uosr",
+          "type"
         ]
       },
       "CallbackForm": {
@@ -652,7 +590,9 @@
             "example": "1733826312"
           },
           "type": {
-            "$ref": "#/components/schemas/type"
+            "type": "string",
+            "description": "Type of submission - determines CRM queue",
+            "example": "CS_Agreement_Evidence"
           },
           "reference": {
             "type": "string",
@@ -685,11 +625,9 @@
         "properties": {
           "redirect": {
             "type": "string",
-            "description": "URL to redirect the user to after upload completes",
-            "example": "https://example.com/upload-complete",
-            "x-format": {
-              "uri": true
-            }
+            "description": "Relative URL to redirect the user to after upload completes",
+            "example": "/upload-complete",
+            "pattern": "^\\/"
           },
           "metadata": {
             "$ref": "#/components/schemas/InitiateMetadata"

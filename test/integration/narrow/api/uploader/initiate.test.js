@@ -102,6 +102,20 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
       expect(response.result.message).toContain('redirect')
     })
 
+    test('should return 400 for protocol-relative redirect', async () => {
+      const response = await server.inject({
+        method: 'POST',
+        url: '/api/v1/uploader/initiate',
+        payload: {
+          ...mockValidPayload,
+          redirect: '//evil.com/upload-complete'
+        }
+      })
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
+      expect(response.result.message).toContain('redirect')
+    })
+
     test('should return 400 for missing metadata', async () => {
       const { metadata, ...payload } = mockValidPayload
 

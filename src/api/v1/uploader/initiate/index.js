@@ -3,8 +3,8 @@ import { constants as httpConstants } from 'node:http2'
 
 import { createLogger } from '../../../../logging/logger.js'
 import { config } from '../../../../config/index.js'
-import { failAction } from '../../../common/helpers/fail-action.js'
 import { initiatePayloadSchema, initiateResponseSchema } from './schema.js'
+import { metricsCounter } from '../../../../api/common/helpers/metrics.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -41,7 +41,11 @@ export const uploaderInitiateRoute = {
     validate: {
       payload: initiatePayloadSchema,
       options: { abortEarly: false },
-      failAction
+      failAction: async (_request, _h, err) => {
+        logger.error({ error: { message: err.message } }, '/uploader/initiate validation failed')
+        await metricsCounter('initiate_validation_failures')
+        throw err
+      }
     },
     response: {
       status: initiateResponseSchema

@@ -33,7 +33,7 @@ const initiateSuccessSchema = Joi.object({
     uploadUrl: Joi.string()
       .required()
       .description('URL to upload files to')
-      .example('/api/v1/uploader/upload-and-scan/9fcaabe5-77ec-44db-8356-3a6e8dc51b13'),
+      .example('https://cdp-uploader.{env}.cdp-int.defra.cloud/api/v1/uploader/upload-and-scan/9fcaabe5-77ec-44db-8356-3a6e8dc51b13'),
     statusUrl: Joi.string()
       .required()
       .description('URL to check upload status')

@@ -58,6 +58,16 @@ describe('initiatePayloadSchema validation', () => {
       expect(error.details[0].type).toBe('string.pattern.base')
     })
 
+    test('protocol-relative redirect URL fails validation', () => {
+      const { error } = initiatePayloadSchema.validate({
+        ...mockValidPayload,
+        redirect: '//evil.com/upload-complete'
+      })
+      expect(error).toBeDefined()
+      expect(error.details[0].path).toEqual(['redirect'])
+      expect(error.details[0].type).toBe('string.pattern.base')
+    })
+
     test('redirect not starting with / fails validation', () => {
       const { error } = initiatePayloadSchema.validate({
         ...mockValidPayload,
