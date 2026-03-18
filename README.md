@@ -28,6 +28,7 @@ The service works alongside the [CDP Uploader](https://github.com/DEFRA/cdp-uplo
 One of the npm scripts configured for this service enables code scanning by SonarQube Cloud. This will look for any issues and can be ran optionally before committing if the developer wishes to resolve issues during local development. This script helps ensure fewer issues are pushed to GitHub leading to earlier resolution of existing vulnerabilities. In order for this script to run successfully during local development you will need to generate your own personal `SONAR_TOKEN` and add it to your `.env`:
 
 - Log into [SonarQube Cloud](https://sonarcloud.io/login).
+- Navigate to your `My Account` settings.
 - On the left-hand sidebar navigate to the `Security` tab.
 - Under `Generate Tokens` enter a name for your token and click `Generate Token`.
 - Copy the token and add it to your `.env`, referring to it as [`SONAR_TOKEN`](.env.example).

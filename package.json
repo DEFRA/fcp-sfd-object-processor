@@ -17,7 +17,7 @@
     "docker:test": "npm run lint && (mkdir -p coverage 2>/dev/null || true) && docker compose -p fcp-sfd-object-processor-test down -v && docker compose -f compose.yaml -f compose.test.yaml -p fcp-sfd-object-processor-test run --build --rm fcp-sfd-object-processor",
     "docker:test:watch": "docker compose -p fcp-sfd-object-processor-test down -v && docker compose -f compose.yaml -f compose.test.yaml -f compose.test.watch.yaml -p fcp-sfd-object-processor-test run --build --rm fcp-sfd-object-processor",
     "generateOpenApiSpec": "node --experimental-vm-modules ./scripts/generate-openapi.js",
-    "sonar": "set -a && source .env && docker run --rm --name sonar-scan -v \"$PWD:/usr/src\" -e SONAR_TOKEN=\"$SONAR_TOKEN\" sonarsource/sonar-scanner-cli -Dsonar.issuesReport.console.enable=true",
+    "sonar": "node scripts/sonar-scan.js",
     "pretest": "npm run lint",
     "test": "rm -rf ./coverage/** && vitest run --coverage",
     "test:watch": "vitest watch",
