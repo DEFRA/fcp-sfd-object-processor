@@ -84,39 +84,50 @@ const fetchQualityGate = (projectKey, sonarToken) =>
 
 const fetchMeasures = (projectKey, sonarToken) =>
   sonarcloudFetch(
-    `/api/measures/component?component=${encodeURIComponent(projectKey)}&metricKeys=bugs,vulnerabilities,code_smells,coverage,duplicated_lines_density`,
+    `/api/measures/component?component=${encodeURIComponent(projectKey)}&metricKeys=new_violations,accepted_issues,security_hotspots,new_coverage,new_duplicated_lines_density`,
     sonarToken
   )
 
 const getMeasureValue = (measures, key) => {
   const measure = measures.find((m) => m.metric === key)
-  return measure ? measure.value : 'N/A'
+  if (!measure) return 'N/A'
+  // "new code" metrics are returned under periods[0].value rather than value
+  return measure.value ?? measure.periods?.[0]?.value ?? 'N/A'
 }
 
 const formatPercent = (value) => (value === 'N/A' ? 'N/A' : `${parseFloat(value).toFixed(1)}%`)
 
-const printSummary = (qualityGate, measuresComponent, projectKey) => {
-  const measures = measuresComponent.measures ?? []
+// Pad a label+value pair to align values in the same column
+const row = (label, value) => ` ${`  ${label}`.padEnd(28)}${value}`
+
+const printSummary = (qualityGate, measuresResponse, projectKey) => {
+  const measures = measuresResponse.component?.measures ?? []
   const status = qualityGate.projectStatus?.status
 
   const passed = status === 'OK'
   const statusLabel = passed ? '✅ PASSED' : status === 'WARN' ? '⚠️  WARN' : '❌ FAILED'
 
-  const coverage = formatPercent(getMeasureValue(measures, 'coverage'))
-  const bugs = getMeasureValue(measures, 'bugs')
-  const vulnerabilities = getMeasureValue(measures, 'vulnerabilities')
-  const codeSmells = getMeasureValue(measures, 'code_smells')
-  const duplications = formatPercent(getMeasureValue(measures, 'duplicated_lines_density'))
+  // Issues
+  const newIssues = getMeasureValue(measures, 'new_violations')
+  const acceptedIssues = getMeasureValue(measures, 'accepted_issues')
+
+  // Measures
+  const securityHotspots = getMeasureValue(measures, 'security_hotspots')
+  const coverageOnNew = formatPercent(getMeasureValue(measures, 'new_coverage'))
+  const duplicationOnNew = formatPercent(getMeasureValue(measures, 'new_duplicated_lines_density'))
+
   const dashboardUrl = `${SONARCLOUD_BASE_URL}/summary/overall?id=${encodeURIComponent(projectKey)}`
 
   console.log(`\n${BORDER}`)
   console.log(` SonarCloud Quality Gate: ${statusLabel}`)
   console.log(BORDER)
-  console.log(` Coverage:         ${coverage}`)
-  console.log(` Bugs:             ${bugs}`)
-  console.log(` Vulnerabilities:  ${vulnerabilities}`)
-  console.log(` Code Smells:      ${codeSmells}`)
-  console.log(` Duplications:     ${duplications}`)
+  console.log(' Issues')
+  console.log(row('New Issues:', newIssues))
+  console.log(row('Accepted Issues:', acceptedIssues))
+  console.log(' Measures')
+  console.log(row('Security Hotspots:', securityHotspots))
+  console.log(row('Coverage on New Code:', coverageOnNew))
+  console.log(row('Duplication on New Code:', duplicationOnNew))
   console.log(BORDER)
   console.log(` 🔗 ${dashboardUrl}`)
   console.log(`${BORDER}\n`)
@@ -154,9 +165,9 @@ const sonarScan = async () => {
   const scanCode = await runScanner(sonarToken, cwd)
 
   // Fetch quality gate + metrics and print summary
-  let qualityGate, measuresComponent
+  let qualityGate, measuresResponse
   try {
-    ;[qualityGate, measuresComponent] = await Promise.all([
+    ;[qualityGate, measuresResponse] = await Promise.all([
       fetchQualityGate(projectKey, sonarToken),
       fetchMeasures(projectKey, sonarToken)
     ])
@@ -169,7 +180,7 @@ const sonarScan = async () => {
     throw apiErr
   }
 
-  const passed = printSummary(qualityGate, measuresComponent, projectKey)
+  const passed = printSummary(qualityGate, measuresResponse, projectKey)
 
   if (!passed) {
     process.exit(1)
