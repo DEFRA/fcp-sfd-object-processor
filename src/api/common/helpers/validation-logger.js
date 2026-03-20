@@ -1,7 +1,7 @@
 /**
  * Sanitizes a validation error value for logging
  * - Truncates strings longer than 100 characters
- * - Redacts sensitive fields (metadata.reference, metadata.files)
+ * - Redacts sensitive fields (metadata.reference)
  * - Returns original value for non-sensitive, short values
  *
  * @param {string} fieldPath - The full field path (e.g., 'metadata.reference')
@@ -10,7 +10,7 @@
  */
 const sanitizeValue = (fieldPath, value) => {
   // Redact sensitive fields that may contain PII
-  if (fieldPath === 'metadata.reference' || fieldPath === 'metadata.files') {
+  if (fieldPath === 'metadata.reference') {
     return '[REDACTED]'
   }
 

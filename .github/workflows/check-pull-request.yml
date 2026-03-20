@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history required for SonarCloud to detect changes
 
       - name: Test code and Create Test Coverage Reports
         uses: actions/setup-node@v4
@@ -41,7 +43,18 @@ jobs:
           chmod -R a+rw ./coverage
           docker compose -f compose.yaml -f compose.test.yaml run --build --rm 'fcp-sfd-object-processor'
 
+      - name: Verify Coverage Generation
+        run: |
+          if [ ! -f "./coverage/lcov.info" ]; then
+            echo "WARNING: Coverage file not found at ./coverage/lcov.info"
+            ls -la ./coverage/ || echo "Coverage directory does not exist"
+          else
+            echo "Coverage file found: $(wc -l < ./coverage/lcov.info) lines"
+          fi
+
       - name: SonarQubeScan
         uses: SonarSource/sonarqube-scan-action@v7
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_SCANNER_OPTS: "-Dsonar.verbose=true"
