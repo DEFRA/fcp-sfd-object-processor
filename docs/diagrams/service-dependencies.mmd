@@ -1,0 +1,68 @@
+---
+title: fcp-sfd-object-processor — Service Dependencies
+---
+flowchart TB
+    subgraph Clients["Clients"]
+        frontend["fcp-sfd-frontend<br/>(SFD Web App)"]
+        rpsPortal["rps-portal<br/>(Rural Payments)"]
+    end
+
+    subgraph ObjectProcessor["fcp-sfd-object-processor"]
+        direction TB
+        callbackAPI["/api/v1/callback<br/>CDP Uploader webhook"]
+        uploaderProxy["/api/v1/uploader/initiate<br/>Upload proxy"]
+        blobAPI["/api/v1/blob/{fileId}<br/>Presigned URL"]
+        metadataAPI["/api/v1/metadata/sbi/{sbi}<br/>Query metadata"]
+        statusAPI["/api/v1/status/{correlationId}<br/>Query status"]
+        outboxProcessor["Outbox Processor<br/>(background loop)"]
+    end
+
+    subgraph DataStore["Data Store"]
+        mongoDB[("MongoDB<br/>(replica set)<br/>uploadMetadata | status | outbox")]
+    end
+
+    subgraph AWS["AWS Services"]
+        s3[("S3 Bucket<br/>File storage")]
+        sns["SNS Topic<br/>document.uploaded events"]
+    end
+
+    subgraph ExternalServices["External Services"]
+        cdpUploader["CDP Uploader<br/>(scan & upload)"]
+    end
+
+    subgraph Auth["Identity Providers"]
+        entraID["Microsoft Entra ID<br/>(Azure AD)"]
+        cognito["AWS Cognito<br/>(User Pools)"]
+    end
+
+    subgraph Downstream["Downstream Consumers"]
+        crmService["CRM Service<br/>(case creation)"]
+    end
+
+    %% Client flows
+    frontend -->|"upload files"| cdpUploader
+    rpsPortal -->|"upload files"| cdpUploader
+    frontend -->|"initiate upload"| uploaderProxy
+    frontend -->|"get file URL"| blobAPI
+    frontend -->|"query metadata"| metadataAPI
+    frontend -->|"query status"| statusAPI
+
+    %% CDP Uploader callback
+    cdpUploader -->|"POST callback<br/>(scan results + metadata)"| callbackAPI
+
+    %% Auth
+    entraID -.->|"JWT validation"| ObjectProcessor
+    cognito -.->|"JWT validation"| ObjectProcessor
+
+    %% Internal data flows
+    callbackAPI -->|"persist metadata +<br/>outbox entries"| mongoDB
+    uploaderProxy -->|"proxy /initiate"| cdpUploader
+    blobAPI -->|"query file ref"| mongoDB
+    blobAPI -->|"presigned URL"| s3
+    metadataAPI -->|"query by SBI"| mongoDB
+    statusAPI -->|"query by correlationId"| mongoDB
+
+    %% Outbox pattern
+    outboxProcessor -->|"poll PENDING entries"| mongoDB
+    outboxProcessor -->|"publishBatch<br/>(CloudEvents v1.0)"| sns
+    sns -->|"document.uploaded"| crmService

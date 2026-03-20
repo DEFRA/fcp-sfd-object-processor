@@ -1,0 +1,48 @@
+---
+title: fcp-sfd-object-processor — Happy Path
+---
+sequenceDiagram
+    actor User as User / Frontend
+    participant CDPUploader as CDP Uploader
+    participant CallbackAPI as POST /api/v1/callback
+    participant MetadataService as Metadata Service
+    participant MongoDB as MongoDB
+    participant OutboxProcessor as Outbox Processor
+    participant SNS as AWS SNS
+    actor CRMService as CRM Service
+
+    User->>CDPUploader: Upload file(s)
+    CDPUploader->>CDPUploader: Scan file & upload to S3
+
+    CDPUploader->>CallbackAPI: POST callback payload<br/>(uploadStatus: ready, fileStatus: complete)
+
+    CallbackAPI->>CallbackAPI: Joi schema validation ✓
+    CallbackAPI->>CallbackAPI: Contract validation ✓<br/>(uploadStatus=ready, fileStatus=complete)
+    CallbackAPI->>CallbackAPI: Semantic validation ✓<br/>(checksums, content length, no errors)
+
+    CallbackAPI->>MetadataService: persistMetadataWithOutbox(payload)
+
+    rect rgb(230, 240, 255)
+        Note over MetadataService,MongoDB: MongoDB Transaction (atomic)
+        MetadataService->>MongoDB: insertStatus (validated)
+        MetadataService->>MongoDB: insertMany uploadMetadata
+        MetadataService->>MongoDB: createOutboxEntries (PENDING)
+    end
+
+    MetadataService-->>CallbackAPI: insertedCount + insertedIds
+    CallbackAPI-->>CDPUploader: 201 Metadata created
+
+    Note over OutboxProcessor: Background loop (every outboxIntervalMs)
+    OutboxProcessor->>MongoDB: getProcessableOutboxEntries()
+    MongoDB-->>OutboxProcessor: PENDING entries
+
+    OutboxProcessor->>SNS: publishBatch (CloudEvents v1.0)
+    SNS-->>OutboxProcessor: Successful[]
+
+    rect rgb(230, 255, 230)
+        Note over OutboxProcessor,MongoDB: MongoDB Transaction
+        OutboxProcessor->>MongoDB: outbox status → SENT
+        OutboxProcessor->>MongoDB: set publishedAt timestamp
+    end
+
+    SNS--)CRMService: document.uploaded event<br/>(correlationId, fileId, CRN, SBI)

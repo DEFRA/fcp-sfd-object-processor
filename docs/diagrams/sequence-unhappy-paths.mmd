@@ -1,0 +1,85 @@
+---
+title: fcp-sfd-object-processor — Unhappy Paths
+---
+sequenceDiagram
+    actor CDPUploader as CDP Uploader
+    participant CallbackAPI as POST /api/v1/callback
+    participant Validation as Validation Layer
+    participant MetadataService as Metadata Service
+    participant MongoDB as MongoDB
+    participant OutboxProcessor as Outbox Processor
+    participant SNS as AWS SNS
+    participant UploaderProxy as POST /api/v1/uploader/initiate
+    participant CDPUploaderSvc as CDP Uploader Service
+    participant BlobAPI as GET /api/v1/blob
+    participant S3 as AWS S3
+    actor Client as Authenticated Client
+
+    Note over CDPUploader,MongoDB: ❌ Callback — Joi Schema Validation Failure
+    CDPUploader->>CallbackAPI: POST (malformed payload)
+    CallbackAPI->>Validation: Joi schema validation
+    Validation-->>CallbackAPI: ❌ schema error
+    CallbackAPI->>MongoDB: persistValidationFailureStatus()
+    CallbackAPI-->>CDPUploader: 201 Validation failure persisted
+
+    Note over CDPUploader,MongoDB: ❌ Callback — Contract Validation Failure
+    CDPUploader->>CallbackAPI: POST (uploadStatus ≠ ready)
+    CallbackAPI->>Validation: Contract check
+    Validation-->>CallbackAPI: ❌ uploadStatus must be ready
+    CallbackAPI->>MongoDB: persistValidationFailureStatus()
+    CallbackAPI-->>CDPUploader: 201 Validation failure persisted
+
+    Note over CDPUploader,MongoDB: ❌ Callback — Semantic Validation Failure
+    CDPUploader->>CallbackAPI: POST (missing checksumSha256)
+    CallbackAPI->>Validation: Semantic file checks
+    Validation-->>CallbackAPI: ❌ checksumSha256 required
+    CallbackAPI->>MongoDB: persistValidationFailureStatus()
+    CallbackAPI-->>CDPUploader: 201 Validation failure persisted
+
+    Note over CDPUploader,MongoDB: ❌ Callback — MongoDB Transaction Failure
+    CDPUploader->>CallbackAPI: POST (valid payload)
+    CallbackAPI->>MetadataService: persistMetadataWithOutbox()
+    MetadataService->>MongoDB: withTransaction()
+    MongoDB-->>MetadataService: ❌ transaction error (lock/network)
+    MetadataService->>MetadataService: session.endSession()
+    MetadataService-->>CallbackAPI: throws error
+    CallbackAPI-->>CDPUploader: 500 Internal Server Error
+
+    Note over OutboxProcessor,SNS: ❌ Outbox — SNS Partial Failure
+    OutboxProcessor->>MongoDB: getProcessableOutboxEntries()
+    MongoDB-->>OutboxProcessor: PENDING entries
+    OutboxProcessor->>SNS: publishBatch(messages)
+    SNS-->>OutboxProcessor: Successful[msg1] + Failed[msg2]
+    OutboxProcessor->>MongoDB: msg1 → SENT
+    OutboxProcessor->>MongoDB: msg2 → FAILED (retry next poll)
+
+    Note over OutboxProcessor,SNS: ❌ Outbox — SNS Complete Failure
+    OutboxProcessor->>SNS: publishBatch(messages)
+    SNS-->>OutboxProcessor: ❌ exception (auth/network)
+    OutboxProcessor->>OutboxProcessor: log error, reschedule poll
+
+    Note over Client,S3: ❌ Blob — File Not Found
+    Client->>BlobAPI: GET /api/v1/blob/{fileId}
+    BlobAPI->>MongoDB: getS3ReferenceByFileId()
+    MongoDB-->>BlobAPI: ❌ no document found
+    BlobAPI-->>Client: 404 Not Found
+
+    Note over Client,S3: ❌ Blob — S3 Unavailable
+    Client->>BlobAPI: GET /api/v1/blob/{fileId}
+    BlobAPI->>MongoDB: getS3ReferenceByFileId()
+    MongoDB-->>BlobAPI: s3Key + s3Bucket
+    BlobAPI->>S3: generatePresignedUrl()
+    S3-->>BlobAPI: ❌ S3 unavailable
+    BlobAPI-->>Client: 500 Internal Server Error
+
+    Note over Client,CDPUploaderSvc: ❌ Uploader Proxy — Timeout
+    Client->>UploaderProxy: POST /api/v1/uploader/initiate
+    UploaderProxy->>CDPUploaderSvc: fetch /initiate
+    CDPUploaderSvc-->>UploaderProxy: ❌ timeout (>30s)
+    UploaderProxy-->>Client: 504 Gateway Timeout
+
+    Note over Client,CDPUploaderSvc: ❌ Uploader Proxy — Service Down
+    Client->>UploaderProxy: POST /api/v1/uploader/initiate
+    UploaderProxy->>CDPUploaderSvc: fetch /initiate
+    CDPUploaderSvc-->>UploaderProxy: ❌ connection refused
+    UploaderProxy-->>Client: 502 Bad Gateway

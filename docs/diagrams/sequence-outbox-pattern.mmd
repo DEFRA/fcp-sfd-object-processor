@@ -1,0 +1,67 @@
+---
+title: Transactional Outbox Pattern
+id: 3a5c534a-9f46-4c4b-8fdc-6e12010e1d8b
+---
+sequenceDiagram
+    participant CallbackAPI as Callback API
+    participant MetadataService as Metadata Service
+    participant MongoSession as MongoDB Session
+    participant StatusCol as status collection
+    participant MetadataCol as uploadMetadata collection
+    participant OutboxCol as outbox collection
+    participant OutboxProcessor as Outbox Processor
+    participant SNS as AWS SNS
+
+    Note over CallbackAPI,MetadataService: Phase 1 — Atomic Write (single transaction)
+
+    CallbackAPI->>MetadataService: persistMetadataWithOutbox(payload)
+    MetadataService->>MongoSession: startSession()
+    MetadataService->>MongoSession: withTransaction()
+
+    rect rgb(230, 240, 255)
+        Note over MongoSession,OutboxCol: All-or-nothing: commit together or rollback together
+
+        MongoSession->>MetadataService: transaction started
+        MetadataService->>MetadataService: formatInboundMetadata(payload)
+        MetadataService->>MetadataService: buildValidatedStatusDocuments()
+
+        MetadataService->>StatusCol: insertStatus(statusDocs, session)
+        StatusCol-->>MetadataService: acknowledged ✓
+
+        MetadataService->>MetadataCol: insertMany(documents, session)
+        MetadataCol-->>MetadataService: insertedIds ✓
+
+        MetadataService->>OutboxCol: createOutboxEntries(insertedIds, docs, session)
+        Note right of OutboxCol: status: PENDING<br/>attempts: 0
+        OutboxCol-->>MetadataService: acknowledged ✓
+
+        MongoSession->>MongoSession: COMMIT
+    end
+
+    MetadataService->>MongoSession: endSession()
+    MetadataService-->>CallbackAPI: insertedCount + insertedIds
+
+    Note over OutboxProcessor,SNS: Phase 2 — Background delivery (polling loop)
+
+    loop Every outboxIntervalMs
+        OutboxProcessor->>OutboxCol: getProcessableOutboxEntries()
+        Note right of OutboxCol: WHERE status = PENDING<br/>OR (status = FAILED AND<br/>attempts < maxAttempts)
+        OutboxCol-->>OutboxProcessor: pending batch
+
+        alt No pending entries
+            OutboxProcessor->>OutboxProcessor: skip (wait for next poll)
+        else Entries found
+            loop Batches of 10
+                OutboxProcessor->>OutboxProcessor: buildDocumentUploadMessageBatch()<br/>(CloudEvents v1.0 format)
+                OutboxProcessor->>SNS: publishBatch(messages)
+                SNS-->>OutboxProcessor: Successful[] + Failed[]
+
+                rect rgb(230, 255, 230)
+                    Note over OutboxProcessor,OutboxCol: Update transaction
+                    OutboxProcessor->>OutboxCol: SENT entries → status: SENT
+                    OutboxProcessor->>MetadataCol: set publishedAt timestamp
+                    OutboxProcessor->>OutboxCol: FAILED entries → status: FAILED<br/>(error message, increment attempts)
+                end
+            end
+        end
+    end

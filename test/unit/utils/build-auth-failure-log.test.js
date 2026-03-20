@@ -1,12 +1,11 @@
-import { describe, expect, test } from 'vitest'
+import { describe, test, expect } from 'vitest'
 import { buildAuthFailureLog } from '../../../src/utils/build-auth-failure-log.js'
 
 describe('buildAuthFailureLog', () => {
   const mockRequest = {
     path: '/test',
     method: 'GET',
-    info: { remoteAddress: '127.0.0.1' },
-    headers: { 'user-agent': 'test-agent' }
+    info: { remoteAddress: '127.0.0.1' }
   }
 
   test('should set msg to Authentication failed', () => {
@@ -34,7 +33,9 @@ describe('buildAuthFailureLog', () => {
   })
 
   test('should merge minimal extra with strategy into result', () => {
-    const result = buildAuthFailureLog('some reason', mockRequest, { strategy: 'entra' })
+    const result = buildAuthFailureLog('some reason', mockRequest, {
+      strategy: 'entra'
+    })
 
     expect(result).toEqual({
       msg: 'Authentication failed',
@@ -47,10 +48,11 @@ describe('buildAuthFailureLog', () => {
   })
 
   test('should merge tokenType and strategy into result', () => {
-    const result = buildAuthFailureLog('Provided token is not an access token', mockRequest, {
-      tokenType: 'refresh',
-      strategy: 'entra'
-    })
+    const result = buildAuthFailureLog(
+      'Provided token is not an access token',
+      mockRequest,
+      { tokenType: 'refresh', strategy: 'entra' }
+    )
 
     expect(result).toEqual({
       msg: 'Authentication failed',
@@ -67,7 +69,11 @@ describe('buildAuthFailureLog', () => {
     const result = buildAuthFailureLog(
       'Token does not belong to an authorized Security Group',
       mockRequest,
-      { tokenGroups: ['group-3', 'group-4'], requiredGroups: ['group-1', 'group-2'], strategy: 'entra' }
+      {
+        tokenGroups: ['group-3', 'group-4'],
+        requiredGroups: ['group-1', 'group-2'],
+        strategy: 'entra'
+      }
     )
 
     expect(result).toEqual({
@@ -88,20 +94,34 @@ describe('buildAuthFailureLog', () => {
       mockRequest,
       {
         clientId: 'unauthorized-client',
-        issuer: 'https://cognito-idp.eu-west-2.amazonaws.com/eu-west-2_testPoolId',
+        issuer:
+          'https://cognito-idp.eu-west-2.amazonaws.com/eu-west-2_testPoolId',
         strategy: 'cognito'
       }
     )
 
     expect(result).toEqual({
       msg: 'Authentication failed',
-      reason: 'Token client_id is not in the list of authorized Cognito client IDs',
+      reason:
+        'Token client_id is not in the list of authorized Cognito client IDs',
       path: '/test',
       method: 'GET',
       sourceIp: '127.0.0.1',
       clientId: 'unauthorized-client',
-      issuer: 'https://cognito-idp.eu-west-2.amazonaws.com/eu-west-2_testPoolId',
+      issuer:
+        'https://cognito-idp.eu-west-2.amazonaws.com/eu-west-2_testPoolId',
       strategy: 'cognito'
     })
+  })
+
+  test('should allow extra fields to override base fields', () => {
+    const result = buildAuthFailureLog('original reason', mockRequest, {
+      msg: 'Overridden message',
+      sourceIp: '10.0.0.1'
+    })
+
+    expect(result.msg).toEqual('Overridden message')
+    expect(result.sourceIp).toEqual('10.0.0.1')
+    expect(result.reason).toEqual('original reason')
   })
 })
