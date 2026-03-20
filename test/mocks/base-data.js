@@ -12,9 +12,6 @@ export const baseMetadata = {
   frn: 1102658375,
   submissionId: '1733826312',
   uosr: '107220150_1733826312',
-  submissionDateTime: '10/12/2024 10:25:12',
-  files: ['107220150_1733826312_SBI107220150.pdf'],
-  filesInSubmission: 2,
   type: 'CS_Agreement_Evidence',
   reference: 'user entered reference',
   service: 'fcp-sfd-frontend'
@@ -27,9 +24,6 @@ export const alternateMetadata = {
   frn: 2102658375,
   submissionId: '1733826314',
   uosr: '107220150_1733826312',
-  submissionDateTime: '10/12/2024 10:25:12',
-  files: ['107220150_1733826312_SBI107220150.pdf'],
-  filesInSubmission: 2,
   type: 'CS_Agreement_Evidence',
   reference: 'user entered reference',
   service: 'fcp-sfd-frontend'
@@ -42,7 +36,7 @@ export const baseFileUpload1 = {
   contentType: 'image/jpeg',
   fileStatus: 'complete',
   contentLength: 11264,
-  checksumSha256: 'bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=',
+  checksumSha256: 'bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=', // pragma: allowlist secret
   detectedContentType: 'image/jpeg',
   s3Key: '3b0b2a02-a669-44ba-9b78-bd5cb8460253/9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
   s3Bucket: 'cdp-example-node-frontend'
@@ -55,7 +49,7 @@ export const baseFileUpload2 = {
   contentType: 'application/pdf',
   fileStatus: 'complete',
   contentLength: 115307,
-  checksumSha256: 'ZbILFUsbS2Pio0Sv2ifwyg+SSQsnzVF1h6fQzAiBt4Q=',
+  checksumSha256: 'ZbILFUsbS2Pio0Sv2ifwyg+SSQsnzVF1h6fQzAiBt4Q=', // pragma: allowlist secret
   detectedContentType: 'application/pdf',
   s3Key: 'scanned/8ea63b47-f5ac-410e-8b1c-3ae522b0a96c/3f90b889-eac7-4e98-975f-93fcef5b8554',
   s3Bucket: 'fcp-sfd-object-processor-bucket'
@@ -68,7 +62,7 @@ export const baseFileUpload3 = {
   contentType: 'image/png',
   fileStatus: 'complete',
   contentLength: 338195,
-  checksumSha256: 'WzfoGsFx/lsHpqGG8KGErp+w7+T5MvkDKt5dZlcOqAc=',
+  checksumSha256: 'WzfoGsFx/lsHpqGG8KGErp+w7+T5MvkDKt5dZlcOqAc=', // pragma: allowlist secret
   detectedContentType: 'image/png',
   s3Key: 'scanned/85a50fa1-3d1d-46b7-a9eb-b72fc9d97031/693db079-f82b-4bbc-87e9-86d822cc0bad',
   s3Bucket: 'dev-fcp-sfd-object-processor-bucket-c63f2'
@@ -81,7 +75,7 @@ export const baseFileUpload4 = {
   contentType: 'application/pdf',
   fileStatus: 'complete',
   contentLength: 524288,
-  checksumSha256: 'XyBpHtGkY/mnRpFH9LHFqr+x8+U6NwlELu6eAmdPrBd=',
+  checksumSha256: 'XyBpHtGkY/mnRpFH9LHFqr+x8+U6NwlELu6eAmdPrBd=', // pragma: allowlist secret
   detectedContentType: 'application/pdf',
   s3Key: 'scanned/85a50fa1-3d1d-46b7-a9eb-b72fc9d97031/8a4fc18e-2c3d-4e5f-b7a2-9d3e6f8c1b4a',
   s3Bucket: 'dev-fcp-sfd-object-processor-bucket-c63f2'

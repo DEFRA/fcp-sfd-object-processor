@@ -43,6 +43,15 @@ jobs:
           chmod -R a+rw ./coverage
           docker compose -f compose.yaml -f compose.test.yaml run --build --rm 'fcp-sfd-object-processor'
 
+      - name: Verify Coverage Generation
+        run: |
+          if [ ! -f "./coverage/lcov.info" ]; then
+            echo "WARNING: Coverage file not found at ./coverage/lcov.info"
+            ls -la ./coverage/ || echo "Coverage directory does not exist"
+          else
+            echo "Coverage file found: $(wc -l < ./coverage/lcov.info) lines"
+          fi
+
       - name: SonarQubeScan
         uses: SonarSource/sonarqube-scan-action@v7
         env:
