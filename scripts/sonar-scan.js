@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises'
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -38,7 +38,10 @@ const parseSonarProperties = async (filePath) => {
   return props
 }
 
-const runScanner = (sonarToken, cwd) =>
+const getCurrentBranch = () =>
+  execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf8' }).trim()
+
+const runScanner = (sonarToken, cwd, branch) =>
   new Promise((resolve, reject) => {
     const args = [
       'run',
@@ -51,7 +54,8 @@ const runScanner = (sonarToken, cwd) =>
       `SONAR_TOKEN=${sonarToken}`,
       'sonarsource/sonar-scanner-cli',
       '-Dsonar.issuesReport.console.enable=true',
-      '-Dsonar.qualitygate.wait=true'
+      '-Dsonar.qualitygate.wait=true',
+      `-Dsonar.branch.name=${branch}`
     ]
 
     const child = spawn('docker', args, { stdio: 'inherit' })
@@ -76,15 +80,15 @@ const sonarcloudFetch = async (path, sonarToken) => {
   return response.json()
 }
 
-const fetchQualityGate = (projectKey, sonarToken) =>
+const fetchQualityGate = (projectKey, sonarToken, branch) =>
   sonarcloudFetch(
-    `/api/qualitygates/project_status?projectKey=${encodeURIComponent(projectKey)}`,
+    `/api/qualitygates/project_status?projectKey=${encodeURIComponent(projectKey)}&branch=${encodeURIComponent(branch)}`,
     sonarToken
   )
 
-const fetchMeasures = (projectKey, sonarToken) =>
+const fetchMeasures = (projectKey, sonarToken, branch) =>
   sonarcloudFetch(
-    `/api/measures/component?component=${encodeURIComponent(projectKey)}&metricKeys=new_violations,accepted_issues,security_hotspots,new_coverage,new_duplicated_lines_density`,
+    `/api/measures/component?component=${encodeURIComponent(projectKey)}&branch=${encodeURIComponent(branch)}&metricKeys=new_violations,accepted_issues,security_hotspots,new_coverage,new_duplicated_lines_density`,
     sonarToken
   )
 
@@ -100,7 +104,7 @@ const formatPercent = (value) => (value === 'N/A' ? 'N/A' : `${parseFloat(value)
 // Pad a label+value pair to align values in the same column
 const row = (label, value) => ` ${`  ${label}`.padEnd(28)}${value}`
 
-const printSummary = (qualityGate, measuresResponse, projectKey) => {
+const printSummary = (qualityGate, measuresResponse, projectKey, branch) => {
   const measures = measuresResponse.component?.measures ?? []
   const status = qualityGate.projectStatus?.status
 
@@ -129,6 +133,7 @@ const printSummary = (qualityGate, measuresResponse, projectKey) => {
   console.log(row('Coverage on New Code:', coverageOnNew))
   console.log(row('Duplication on New Code:', duplicationOnNew))
   console.log(BORDER)
+  console.log(` 🔀 Branch: ${branch}`)
   console.log(` 🔗 ${dashboardUrl}`)
   console.log(`${BORDER}\n`)
 
@@ -145,7 +150,7 @@ const sonarScan = async () => {
 
   if (!sonarToken) {
     console.error(
-      'Error: SONAR_TOKEN is not set. Add it to your .env file or set it as an environment variable.'
+      'Error: SONAR_TOKEN is not set. Add it to your .env file.'
     )
     process.exit(1)
   }
@@ -160,16 +165,20 @@ const sonarScan = async () => {
     process.exit(1)
   }
 
+  // Detect current branch so the scan targets it on SonarCloud
+  const branch = getCurrentBranch()
+  console.log(`\n🔀 Branch: ${branch}\n`)
+
   // Run the scanner — resolves with exit code (0 = success, non-zero = quality
   // gate failed or scan error). We always attempt to fetch the summary.
-  const scanCode = await runScanner(sonarToken, cwd)
+  const scanCode = await runScanner(sonarToken, cwd, branch)
 
   // Fetch quality gate + metrics and print summary
   let qualityGate, measuresResponse
   try {
     ;[qualityGate, measuresResponse] = await Promise.all([
-      fetchQualityGate(projectKey, sonarToken),
-      fetchMeasures(projectKey, sonarToken)
+      fetchQualityGate(projectKey, sonarToken, branch),
+      fetchMeasures(projectKey, sonarToken, branch)
     ])
   } catch (apiErr) {
     // API fetch failed — the scan likely didn't upload (e.g. auth error, network)
@@ -180,7 +189,7 @@ const sonarScan = async () => {
     throw apiErr
   }
 
-  const passed = printSummary(qualityGate, measuresResponse, projectKey)
+  const passed = printSummary(qualityGate, measuresResponse, projectKey, branch)
 
   if (!passed) {
     process.exit(1)
