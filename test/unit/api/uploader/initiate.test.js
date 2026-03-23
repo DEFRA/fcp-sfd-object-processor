@@ -178,19 +178,19 @@ describe('uploader initiate handler', () => {
       timeoutError.name = 'TimeoutError'
       global.fetch = vi.fn().mockRejectedValue(timeoutError)
 
-      const result = await uploaderInitiateRoute.options.handler(mockRequest, mockH)
-
-      expect(result.isBoom).toBe(true)
-      expect(result.output.statusCode).toBe(httpConstants.HTTP_STATUS_GATEWAY_TIMEOUT)
+      await expect(uploaderInitiateRoute.options.handler(mockRequest, mockH)).rejects.toMatchObject({
+        isBoom: true,
+        output: { statusCode: httpConstants.HTTP_STATUS_GATEWAY_TIMEOUT }
+      })
     })
 
     test('returns 502 on network error', async () => {
       global.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'))
 
-      const result = await uploaderInitiateRoute.options.handler(mockRequest, mockH)
-
-      expect(result.isBoom).toBe(true)
-      expect(result.output.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_GATEWAY)
+      await expect(uploaderInitiateRoute.options.handler(mockRequest, mockH)).rejects.toMatchObject({
+        isBoom: true,
+        output: { statusCode: httpConstants.HTTP_STATUS_BAD_GATEWAY }
+      })
     })
 
     test('returns 502 on non-2xx response', async () => {
@@ -200,10 +200,10 @@ describe('uploader initiate handler', () => {
         text: async () => 'Internal Server Error'
       })
 
-      const result = await uploaderInitiateRoute.options.handler(mockRequest, mockH)
-
-      expect(result.isBoom).toBe(true)
-      expect(result.output.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_GATEWAY)
+      await expect(uploaderInitiateRoute.options.handler(mockRequest, mockH)).rejects.toMatchObject({
+        isBoom: true,
+        output: { statusCode: httpConstants.HTTP_STATUS_BAD_GATEWAY }
+      })
     })
 
     test('returns 502 on invalid JSON response', async () => {
@@ -212,10 +212,10 @@ describe('uploader initiate handler', () => {
         json: async () => { throw new SyntaxError('Unexpected token') }
       })
 
-      const result = await uploaderInitiateRoute.options.handler(mockRequest, mockH)
-
-      expect(result.isBoom).toBe(true)
-      expect(result.output.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_GATEWAY)
+      await expect(uploaderInitiateRoute.options.handler(mockRequest, mockH)).rejects.toMatchObject({
+        isBoom: true,
+        output: { statusCode: httpConstants.HTTP_STATUS_BAD_GATEWAY }
+      })
     })
 
     test('returns 502 when CDP response is missing uploadId', async () => {
@@ -224,10 +224,10 @@ describe('uploader initiate handler', () => {
         json: async () => ({ uploadUrl: 'http://cdp-uploader:7337/upload/some-id' })
       })
 
-      const result = await uploaderInitiateRoute.options.handler(mockRequest, mockH)
-
-      expect(result.isBoom).toBe(true)
-      expect(result.output.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_GATEWAY)
+      await expect(uploaderInitiateRoute.options.handler(mockRequest, mockH)).rejects.toMatchObject({
+        isBoom: true,
+        output: { statusCode: httpConstants.HTTP_STATUS_BAD_GATEWAY }
+      })
     })
 
     test('returns 502 when CDP response has null uploadId', async () => {
@@ -236,10 +236,10 @@ describe('uploader initiate handler', () => {
         json: async () => ({ ...mockCdpUploaderResponse, uploadId: null })
       })
 
-      const result = await uploaderInitiateRoute.options.handler(mockRequest, mockH)
-
-      expect(result.isBoom).toBe(true)
-      expect(result.output.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_GATEWAY)
+      await expect(uploaderInitiateRoute.options.handler(mockRequest, mockH)).rejects.toMatchObject({
+        isBoom: true,
+        output: { statusCode: httpConstants.HTTP_STATUS_BAD_GATEWAY }
+      })
     })
 
     test('returns 502 when CDP response is an empty object', async () => {
@@ -248,10 +248,10 @@ describe('uploader initiate handler', () => {
         json: async () => ({})
       })
 
-      const result = await uploaderInitiateRoute.options.handler(mockRequest, mockH)
-
-      expect(result.isBoom).toBe(true)
-      expect(result.output.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_GATEWAY)
+      await expect(uploaderInitiateRoute.options.handler(mockRequest, mockH)).rejects.toMatchObject({
+        isBoom: true,
+        output: { statusCode: httpConstants.HTTP_STATUS_BAD_GATEWAY }
+      })
     })
   })
 
