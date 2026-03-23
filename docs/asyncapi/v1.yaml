@@ -217,7 +217,7 @@ components:
 
     title:
       type: string
-      description: Title to be displayed for the CRM case in the following format; [Document Type] - [Client Name] - [Upload Date] 
+      description: Title to be displayed for the CRM case in the following format; [Document Type] - [Client Name] - [Processing Date] 
       example: Proof of purchase - Samuel F Armer - 12-12-2025
       minLength: 1
       maxLength: 200
