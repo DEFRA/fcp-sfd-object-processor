@@ -117,7 +117,7 @@ npm run docker:test                    # Full test suite in container
 npm run docker:test:watch              # Watch mode in container
 npm test                               # Local tests (requires MongoDB)
 npm run test:watch                     # Local watch mode
-npm run test:lint                      # ESLint only
+npm run lint                      # ESLint only
 ```
 
 ** Testing Workflow:**
