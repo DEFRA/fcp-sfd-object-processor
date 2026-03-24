@@ -91,7 +91,8 @@ const runScanner = (sonarToken, cwd, branch) =>
       'sonarsource/sonar-scanner-cli',
       '-Dsonar.issuesReport.console.enable=true',
       '-Dsonar.qualitygate.wait=true',
-      `-Dsonar.branch.name=${branch}`
+      `-Dsonar.branch.name=${branch}`,
+      '-Dsonar.verbose=true'
     ]
 
     const child = spawn('docker', args, { stdio: 'inherit' })
