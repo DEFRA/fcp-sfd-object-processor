@@ -44,13 +44,19 @@ const COMPARATOR_SYMBOLS = {
 
 const parseDotEnv = async (filePath) => {
   const vars = {}
+
   try {
     const content = await readFile(filePath, 'utf8')
+
     for (const line of content.split('\n')) {
       const trimmed = line.trim()
+
       if (!trimmed || trimmed.startsWith('#')) continue
+
       const eqIndex = trimmed.indexOf('=')
+
       if (eqIndex === -1) continue
+
       const key = trimmed.slice(0, eqIndex).trim()
       const value = trimmed.slice(eqIndex + 1).trim().replace(/^["']|["']$/g, '')
       vars[key] = value
@@ -58,19 +64,26 @@ const parseDotEnv = async (filePath) => {
   } catch {
     // .env file not found or unreadable — continue with process.env only
   }
+
   return vars
 }
 
 const parseSonarProperties = async (filePath) => {
   const props = {}
   const content = await readFile(filePath, 'utf8')
+
   for (const line of content.split('\n')) {
     const trimmed = line.trim()
+
     if (!trimmed || trimmed.startsWith('#')) continue
+
     const eqIndex = trimmed.indexOf('=')
+
     if (eqIndex === -1) continue
+
     props[trimmed.slice(0, eqIndex).trim()] = trimmed.slice(eqIndex + 1).trim()
   }
+
   return props
 }
 
@@ -106,14 +119,17 @@ const runScanner = (sonarToken, cwd, branch) =>
 
 const sonarcloudFetch = async (path, sonarToken) => {
   const url = `${SONARCLOUD_BASE_URL}${path}`
+
   const response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${sonarToken}`
     }
   })
+
   if (!response.ok) {
     throw new Error(`SonarCloud API error ${response.status}: ${response.statusText} (${url})`)
   }
+
   return response.json()
 }
 
@@ -144,13 +160,12 @@ const fetchSecurityHotspots = (projectKey, sonarToken, branch) =>
 const getMeasureValue = (measures, key) => {
   const measure = measures.find((m) => m.metric === key)
   if (!measure) return 'N/A'
-  // "new code" metrics are returned under periods[0].value rather than value
+
   return measure.value ?? measure.periods?.[0]?.value ?? 'N/A'
 }
 
 const formatPercent = (value) => (value === 'N/A' ? 'N/A' : `${parseFloat(value).toFixed(1)}%`)
 
-// Pad a label+value pair to align values in the same column
 const row = (label, value) => ` ${`  ${label}`.padEnd(28)}${value}`
 
 const extractFilePath = (component, projectKey) => {
@@ -161,19 +176,24 @@ const extractFilePath = (component, projectKey) => {
 const printFailedConditions = (qualityGate) => {
   const conditions = qualityGate.projectStatus?.conditions ?? []
   const failed = conditions.filter((c) => c.status === 'ERROR')
+
   if (failed.length === 0) return
 
   console.log(THIN_BORDER)
   console.log(' ⛔ Failed Conditions')
+
   for (const condition of failed) {
     const label = METRIC_LABELS[condition.metricKey] ?? condition.metricKey
     const comparator = COMPARATOR_SYMBOLS[condition.comparator] ?? condition.comparator
+
     const actual = condition.metricKey.includes('coverage') || condition.metricKey.includes('duplicat')
       ? formatPercent(condition.actualValue)
       : condition.actualValue
+
     const threshold = condition.metricKey.includes('coverage') || condition.metricKey.includes('duplicat')
       ? formatPercent(condition.errorThreshold)
       : condition.errorThreshold
+
     console.log(`    ${label}: ${actual} (threshold ${comparator} ${threshold})`)
   }
 }
@@ -181,6 +201,7 @@ const printFailedConditions = (qualityGate) => {
 const printIssues = (issuesResponse, projectKey) => {
   const issues = issuesResponse?.issues ?? []
   const total = issuesResponse?.total ?? issues.length
+
   if (issues.length === 0) return
 
   // Sort by severity
@@ -190,6 +211,7 @@ const printIssues = (issuesResponse, projectKey) => {
 
   // Group by file
   const byFile = new Map()
+
   for (const issue of issues) {
     const filePath = extractFilePath(issue.component, projectKey)
     if (!byFile.has(filePath)) byFile.set(filePath, [])
@@ -203,16 +225,24 @@ const printIssues = (issuesResponse, projectKey) => {
   console.log(BORDER)
 
   let displayed = 0
+
   for (const [filePath, fileIssues] of [...byFile.entries()].sort(([a], [b]) => a.localeCompare(b))) {
     if (displayed >= MAX_ISSUES_DISPLAYED) break
+
     console.log(`\n  📄 ${filePath}`)
+
     for (const issue of fileIssues) {
       if (displayed >= MAX_ISSUES_DISPLAYED) break
+
       const icon = SEVERITY_ICONS[issue.severity] ?? '⚪'
       const rule = issue.rule ? ` (${issue.rule})` : ''
+
       console.log(`    ${icon} L${issue.line ?? '?'} ${issue.message}${rule}`)
+
       const issueUrl = `${SONARCLOUD_BASE_URL}/project/issues?id=${encodeURIComponent(projectKey)}&open=${encodeURIComponent(issue.key)}`
+
       console.log(`       ${issueUrl}`)
+
       displayed++
     }
   }
@@ -228,6 +258,7 @@ const printIssues = (issuesResponse, projectKey) => {
 
 const printHotspots = (hotspotsResponse, projectKey) => {
   const hotspots = hotspotsResponse?.hotspots ?? []
+
   if (hotspots.length === 0) return
 
   const total = hotspotsResponse?.paging?.total ?? hotspots.length
@@ -237,15 +268,21 @@ const printHotspots = (hotspotsResponse, projectKey) => {
   console.log(BORDER)
 
   let displayed = 0
+
   for (const hotspot of hotspots) {
     if (displayed >= MAX_ISSUES_DISPLAYED) break
+
     const filePath = extractFilePath(hotspot.component, projectKey)
     const icon = HOTSPOT_ICONS[hotspot.vulnerabilityProbability] ?? '🟡'
     const probability = hotspot.vulnerabilityProbability ?? 'UNKNOWN'
+
     console.log(`\n  📄 ${filePath}`)
     console.log(`    ${icon} [${probability}] L${hotspot.line ?? '?'} ${hotspot.message}`)
+
     const hotspotUrl = `${SONARCLOUD_BASE_URL}/security_hotspots?id=${encodeURIComponent(projectKey)}&hotspots=${encodeURIComponent(hotspot.key)}`
+
     console.log(`       ${hotspotUrl}`)
+
     displayed++
   }
 
@@ -254,6 +291,7 @@ const printHotspots = (hotspotsResponse, projectKey) => {
   }
 
   const hotspotsUrl = `${SONARCLOUD_BASE_URL}/security_hotspots?id=${encodeURIComponent(projectKey)}&inNewCodePeriod=true`
+
   console.log(THIN_BORDER)
   console.log(` 🔗 ${hotspotsUrl}`)
   console.log(`${BORDER}\n`)
@@ -312,6 +350,7 @@ const sonarScan = async () => {
     console.error(
       'Error: SONAR_TOKEN is not set. Add it to your .env file.'
     )
+
     process.exit(1)
   }
 
@@ -335,6 +374,7 @@ const sonarScan = async () => {
 
   // Fetch quality gate + metrics and print summary
   let qualityGate, measuresResponse
+
   try {
     ;[qualityGate, measuresResponse] = await Promise.all([
       fetchQualityGate(projectKey, sonarToken, branch),
@@ -346,6 +386,7 @@ const sonarScan = async () => {
       console.error(`\nSonar scanner exited with code ${scanCode}. No results to display.`)
       process.exit(scanCode)
     }
+
     throw apiErr
   }
 
@@ -359,6 +400,7 @@ const sonarScan = async () => {
       const shouldFetchHotspots = hotspotCount !== 'N/A' && parseInt(hotspotCount, 10) > 0
 
       const fetches = [fetchIssues(projectKey, sonarToken, branch)]
+
       if (shouldFetchHotspots) {
         fetches.push(fetchSecurityHotspots(projectKey, sonarToken, branch))
       }
@@ -366,6 +408,7 @@ const sonarScan = async () => {
       const [issuesResponse, hotspotsResponse] = await Promise.all(fetches)
 
       printIssues(issuesResponse, projectKey)
+
       if (hotspotsResponse) {
         printHotspots(hotspotsResponse, projectKey)
       }
