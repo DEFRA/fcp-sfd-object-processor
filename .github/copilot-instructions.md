@@ -51,6 +51,8 @@ This service uses **Microsoft Entra ID (Azure AD) JWT authentication** via `@hap
 - Strategy configuration in [src/plugins/auth.js](../src/plugins/auth.js)
 - Config schema in [src/config/auth.js](../src/config/auth.js)
 - Custom format validator for security group UUIDs in [src/config/formats/security-groups.js](../src/config/formats/security-groups.js)
+ - Multi-tenant Entra config in [src/config/auth.js](../src/config/auth.js) using `AUTH_ENTRA_TENANTS` (JSON array)
+ - Custom format validator for Entra tenants in [src/config/formats/entra-tenants-array.js](../src/config/formats/entra-tenants-array.js)
 
 **Token validation:**
 1. Verifies token signature against Azure AD public keys
@@ -170,11 +172,11 @@ vi.mock('../../../src/config/index.js', () => ({
   config: { get: mockConfigGet }
 }))
 
+// For multi-tenant setups use the tenants array:
 mockConfigGet.mockImplementation((key) => {
   switch (key) {
     case 'auth.entra.enabled': return true
-    case 'auth.entra.tenant': return 'test-tenant-id'
-    case 'auth.entra.allowedGroupIds': return ['group-1', 'group-2']
+    case 'auth.entra.tenants': return [{ tenantId: 'test-tenant-id', allowedGroupIds: ['group-1', 'group-2'] }]
     default: return null
   }
 })

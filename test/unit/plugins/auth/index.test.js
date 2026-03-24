@@ -34,8 +34,7 @@ describe('auth plugin', () => {
     mockConfigGet.mockImplementation((key) => {
       switch (key) {
         case 'auth.entra.enabled': return true
-        case 'auth.entra.tenant': return 'test-tenant-id'
-        case 'auth.entra.allowedGroupIds': return ['group-1', 'group-2']
+        case 'auth.entra.tenants': return [{ tenantId: 'test-tenant-id', allowedGroupIds: ['group-1', 'group-2'] }]
         case 'auth.cognito.enabled': return false
         default: return null
       }
@@ -58,12 +57,12 @@ describe('auth plugin', () => {
   describe('entra strategy registration', () => {
     test('should register entra strategy when entra is enabled', async () => {
       await auth.plugin.register(mockServer)
-      expect(mockServer.auth.strategy).toHaveBeenCalledWith('entra', 'jwt', expect.any(Object))
+      expect(mockServer.auth.strategy).toHaveBeenCalledWith(expect.stringMatching(/^entra-\d+$/), 'jwt', expect.any(Object))
     })
 
     test('should set default to entra strategy when only entra is enabled', async () => {
       await auth.plugin.register(mockServer)
-      expect(mockServer.auth.default).toHaveBeenCalledWith('entra')
+      expect(mockServer.auth.default).toHaveBeenCalledWith(expect.stringMatching(/^entra-\d+$/))
     })
 
     test('should register onPreResponse extension when entra is enabled', async () => {
@@ -127,8 +126,7 @@ describe('auth plugin', () => {
       mockConfigGet.mockImplementation((key) => {
         switch (key) {
           case 'auth.entra.enabled': return true
-          case 'auth.entra.tenant': return 'test-tenant-id'
-          case 'auth.entra.allowedGroupIds': return ['group-1']
+          case 'auth.entra.tenants': return [{ tenantId: 'test-tenant-id', allowedGroupIds: ['group-1'] }]
           case 'auth.cognito.enabled': return true
           case 'auth.cognito.userPoolId': return 'eu-west-2_testPoolId'
           case 'auth.cognito.clientIds': return ['client-1']
@@ -141,9 +139,9 @@ describe('auth plugin', () => {
 
       await dualAuth.plugin.register(newMockServer)
 
-      expect(newMockServer.auth.strategy).toHaveBeenCalledWith('entra', 'jwt', expect.any(Object))
+      expect(newMockServer.auth.strategy).toHaveBeenCalledWith(expect.stringMatching(/^entra-\d+$/), 'jwt', expect.any(Object))
       expect(newMockServer.auth.strategy).toHaveBeenCalledWith('cognito', 'jwt', expect.any(Object))
-      expect(newMockServer.auth.default).toHaveBeenCalledWith({ strategies: ['entra', 'cognito'] })
+      expect(newMockServer.auth.default).toHaveBeenCalledWith({ strategies: [expect.stringMatching(/^entra-\d+$/), 'cognito'] })
     })
 
     test('should register strategies in order entra then cognito', async () => {
@@ -151,8 +149,7 @@ describe('auth plugin', () => {
       mockConfigGet.mockImplementation((key) => {
         switch (key) {
           case 'auth.entra.enabled': return true
-          case 'auth.entra.tenant': return 'test-tenant-id'
-          case 'auth.entra.allowedGroupIds': return ['group-1']
+          case 'auth.entra.tenants': return [{ tenantId: 'test-tenant-id', allowedGroupIds: ['group-1'] }]
           case 'auth.cognito.enabled': return true
           case 'auth.cognito.userPoolId': return 'eu-west-2_testPoolId'
           case 'auth.cognito.clientIds': return ['client-1']
@@ -172,7 +169,10 @@ describe('auth plugin', () => {
 
       await dualAuth.plugin.register(newMockServer)
 
-      expect(callOrder).toEqual(['strategy:entra', 'strategy:cognito', 'default'])
+      // strategy names should be per-tenant (e.g. entra-0) followed by cognito
+      expect(callOrder[0]).toMatch(/strategy:entra-\d+/)
+      expect(callOrder[1]).toBe('strategy:cognito')
+      expect(callOrder[2]).toBe('default')
     })
 
     test('should not register any strategies when both are disabled', async () => {

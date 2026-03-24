@@ -25,15 +25,6 @@ describe('getEntraAuthOptions', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     vi.resetModules()
-
-    mockConfigGet.mockImplementation((key) => {
-      switch (key) {
-        case 'auth.entra.tenant': return 'test-tenant-id'
-        case 'auth.entra.allowedGroupIds': return ['group-1', 'group-2']
-        default: return null
-      }
-    })
-
     const module = await import('../../../../src/plugins/auth/entra-options.js')
     getEntraAuthOptions = module.getEntraAuthOptions
   })
@@ -41,12 +32,12 @@ describe('getEntraAuthOptions', () => {
   // Options shape — JWKS endpoint, issuer config, verify settings
   describe('options shape', () => {
     test('should build JWKS keys URI using configured tenant ID', () => {
-      const options = getEntraAuthOptions()
+      const options = getEntraAuthOptions({ tenantId: 'test-tenant-id', allowedGroupIds: ['group-1', 'group-2'] })
       expect(options.keys.uri).toBe('https://login.microsoftonline.com/test-tenant-id/discovery/v2.0/keys')
     })
 
     test('should accept both v1.0 and v2.0 token issuers', () => {
-      const options = getEntraAuthOptions()
+      const options = getEntraAuthOptions({ tenantId: 'test-tenant-id', allowedGroupIds: ['group-1'] })
       expect(options.verify.iss).toEqual([
         'https://sts.windows.net/test-tenant-id/',
         'https://login.microsoftonline.com/test-tenant-id/v2.0'
@@ -54,27 +45,19 @@ describe('getEntraAuthOptions', () => {
     })
 
     test('should configure verify options with aud and sub disabled', () => {
-      const options = getEntraAuthOptions()
+      const options = getEntraAuthOptions({ tenantId: 'test-tenant-id', allowedGroupIds: ['group-1'] })
       expect(options.verify).toMatchObject({ aud: false, sub: false, nbf: true, exp: true })
     })
 
     test('should expose a validate function', () => {
-      const options = getEntraAuthOptions()
+      const options = getEntraAuthOptions({ tenantId: 'test-tenant-id', allowedGroupIds: ['group-1'] })
       expect(options.validate).toBeInstanceOf(Function)
     })
 
     test('should build correct JWKS URI for a different tenant ID', async () => {
       vi.resetModules()
-      mockConfigGet.mockImplementation((key) => {
-        switch (key) {
-          case 'auth.entra.tenant': return 'my-custom-tenant'
-          case 'auth.entra.allowedGroupIds': return ['group-1']
-          default: return null
-        }
-      })
-
       const { getEntraAuthOptions: freshOptions } = await import('../../../../src/plugins/auth/entra-options.js')
-      const options = freshOptions()
+      const options = freshOptions({ tenantId: 'my-custom-tenant', allowedGroupIds: ['group-1'] })
       expect(options.keys.uri).toBe('https://login.microsoftonline.com/my-custom-tenant/discovery/v2.0/keys')
     })
   })
@@ -85,7 +68,7 @@ describe('getEntraAuthOptions', () => {
     let mockRequest
 
     beforeEach(() => {
-      validateFunction = getEntraAuthOptions().validate
+      validateFunction = getEntraAuthOptions({ tenantId: 'test-tenant-id', allowedGroupIds: ['group-1', 'group-2'] }).validate
       mockRequest = {
         path: '/test',
         method: 'GET',
