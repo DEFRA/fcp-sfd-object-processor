@@ -11,6 +11,16 @@ export const buildDocumentUploadMessageBatch = (pendingMessages) => {
     const [day, month, year] = datePart.split('/')
     const uploadDate = `${day}/${month}/${year}`
 
+    console.log('DEBUG: Processing document upload message in buildDocumentUploadMessageBatch function')
+    console.log('DEBUG: Processing document upload message in buildDocumentUploadMessageBatch function')
+    console.log('DEBUG: Processing document upload message in buildDocumentUploadMessageBatch function')
+    console.log('DEBUG: Processing document upload message in buildDocumentUploadMessageBatch function')
+    console.log('DEBUG: Processing document upload message in buildDocumentUploadMessageBatch function')
+    console.log('DEBUG: Processing document upload message in buildDocumentUploadMessageBatch function')
+    console.log('DEBUG: Processing document upload message in buildDocumentUploadMessageBatch function')
+    console.log('DEBUG: Processing document upload message in buildDocumentUploadMessageBatch function')
+    console.log('DEBUG: Processing document upload message in buildDocumentUploadMessageBatch function')
+
     const title = `${metadata.reference} - CRN ${metadata.crn} - ${uploadDate}`
 
     return {
