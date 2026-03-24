@@ -5,6 +5,42 @@ import { resolve } from 'node:path'
 
 const SONARCLOUD_BASE_URL = 'https://sonarcloud.io'
 const BORDER = '═'.repeat(51)
+const THIN_BORDER = '─'.repeat(51)
+const MAX_ISSUES_DISPLAYED = 30
+
+const SEVERITY_ORDER = ['BLOCKER', 'CRITICAL', 'MAJOR', 'MINOR', 'INFO']
+const SEVERITY_ICONS = {
+  BLOCKER: '🔴',
+  CRITICAL: '🟠',
+  MAJOR: '🟡',
+  MINOR: '🔵',
+  INFO: '⚪'
+}
+
+const HOTSPOT_ICONS = {
+  HIGH: '🔴',
+  MEDIUM: '🟠',
+  LOW: '🟡'
+}
+
+const METRIC_LABELS = {
+  new_reliability_rating: 'Reliability Rating',
+  new_security_rating: 'Security Rating',
+  new_maintainability_rating: 'Maintainability Rating',
+  new_coverage: 'Coverage on New Code',
+  new_duplicated_lines_density: 'Duplication on New Code',
+  new_violations: 'New Issues',
+  new_security_hotspots_reviewed: 'Security Hotspots Reviewed',
+  new_blocker_violations: 'Blocker Issues',
+  new_critical_violations: 'Critical Issues'
+}
+
+const COMPARATOR_SYMBOLS = {
+  GT: '>',
+  LT: '<',
+  EQ: '=',
+  NE: '≠'
+}
 
 const parseDotEnv = async (filePath) => {
   const vars = {}
@@ -92,6 +128,18 @@ const fetchMeasures = (projectKey, sonarToken, branch) =>
     sonarToken
   )
 
+const fetchIssues = (projectKey, sonarToken, branch) =>
+  sonarcloudFetch(
+    `/api/issues/search?componentKeys=${encodeURIComponent(projectKey)}&branch=${encodeURIComponent(branch)}&resolved=false&inNewCodePeriod=true&ps=500&statuses=OPEN,CONFIRMED,REOPENED`,
+    sonarToken
+  )
+
+const fetchSecurityHotspots = (projectKey, sonarToken, branch) =>
+  sonarcloudFetch(
+    `/api/hotspots/search?projectKey=${encodeURIComponent(projectKey)}&branch=${encodeURIComponent(branch)}&inNewCodePeriod=true&ps=500&status=TO_REVIEW`,
+    sonarToken
+  )
+
 const getMeasureValue = (measures, key) => {
   const measure = measures.find((m) => m.metric === key)
   if (!measure) return 'N/A'
@@ -103,6 +151,112 @@ const formatPercent = (value) => (value === 'N/A' ? 'N/A' : `${parseFloat(value)
 
 // Pad a label+value pair to align values in the same column
 const row = (label, value) => ` ${`  ${label}`.padEnd(28)}${value}`
+
+const extractFilePath = (component, projectKey) => {
+  const prefix = `${projectKey}:`
+  return component.startsWith(prefix) ? component.slice(prefix.length) : component
+}
+
+const printFailedConditions = (qualityGate) => {
+  const conditions = qualityGate.projectStatus?.conditions ?? []
+  const failed = conditions.filter((c) => c.status === 'ERROR')
+  if (failed.length === 0) return
+
+  console.log(THIN_BORDER)
+  console.log(' ⛔ Failed Conditions')
+  for (const condition of failed) {
+    const label = METRIC_LABELS[condition.metricKey] ?? condition.metricKey
+    const comparator = COMPARATOR_SYMBOLS[condition.comparator] ?? condition.comparator
+    const actual = condition.metricKey.includes('coverage') || condition.metricKey.includes('duplicat')
+      ? formatPercent(condition.actualValue)
+      : condition.actualValue
+    const threshold = condition.metricKey.includes('coverage') || condition.metricKey.includes('duplicat')
+      ? formatPercent(condition.errorThreshold)
+      : condition.errorThreshold
+    console.log(`    ${label}: ${actual} (threshold ${comparator} ${threshold})`)
+  }
+}
+
+const printIssues = (issuesResponse, projectKey) => {
+  const issues = issuesResponse?.issues ?? []
+  const total = issuesResponse?.total ?? issues.length
+  if (issues.length === 0) return
+
+  // Sort by severity
+  issues.sort((a, b) =>
+    SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity)
+  )
+
+  // Group by file
+  const byFile = new Map()
+  for (const issue of issues) {
+    const filePath = extractFilePath(issue.component, projectKey)
+    if (!byFile.has(filePath)) byFile.set(filePath, [])
+    byFile.get(filePath).push(issue)
+  }
+
+  const issuesUrl = `${SONARCLOUD_BASE_URL}/project/issues?id=${encodeURIComponent(projectKey)}&resolved=false&inNewCodePeriod=true`
+
+  console.log(`\n${BORDER}`)
+  console.log(` 🐛 Issues (${total} total)`)
+  console.log(BORDER)
+
+  let displayed = 0
+  for (const [filePath, fileIssues] of [...byFile.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    if (displayed >= MAX_ISSUES_DISPLAYED) break
+    console.log(`\n  📄 ${filePath}`)
+    for (const issue of fileIssues) {
+      if (displayed >= MAX_ISSUES_DISPLAYED) break
+      const icon = SEVERITY_ICONS[issue.severity] ?? '⚪'
+      const rule = issue.rule ? ` (${issue.rule})` : ''
+      console.log(`    ${icon} L${issue.line ?? '?'} ${issue.message}${rule}`)
+      const issueUrl = `${SONARCLOUD_BASE_URL}/project/issues?id=${encodeURIComponent(projectKey)}&open=${encodeURIComponent(issue.key)}`
+      console.log(`       ${issueUrl}`)
+      displayed++
+    }
+  }
+
+  if (total > MAX_ISSUES_DISPLAYED) {
+    console.log(`\n  ... and ${total - MAX_ISSUES_DISPLAYED} more`)
+  }
+
+  console.log(THIN_BORDER)
+  console.log(` 🔗 ${issuesUrl}`)
+  console.log(`${BORDER}\n`)
+}
+
+const printHotspots = (hotspotsResponse, projectKey) => {
+  const hotspots = hotspotsResponse?.hotspots ?? []
+  if (hotspots.length === 0) return
+
+  const total = hotspotsResponse?.paging?.total ?? hotspots.length
+
+  console.log(`\n${BORDER}`)
+  console.log(` 🔥 Security Hotspots (${total} to review)`)
+  console.log(BORDER)
+
+  let displayed = 0
+  for (const hotspot of hotspots) {
+    if (displayed >= MAX_ISSUES_DISPLAYED) break
+    const filePath = extractFilePath(hotspot.component, projectKey)
+    const icon = HOTSPOT_ICONS[hotspot.vulnerabilityProbability] ?? '🟡'
+    const probability = hotspot.vulnerabilityProbability ?? 'UNKNOWN'
+    console.log(`\n  📄 ${filePath}`)
+    console.log(`    ${icon} [${probability}] L${hotspot.line ?? '?'} ${hotspot.message}`)
+    const hotspotUrl = `${SONARCLOUD_BASE_URL}/security_hotspots?id=${encodeURIComponent(projectKey)}&hotspots=${encodeURIComponent(hotspot.key)}`
+    console.log(`       ${hotspotUrl}`)
+    displayed++
+  }
+
+  if (total > MAX_ISSUES_DISPLAYED) {
+    console.log(`\n  ... and ${total - MAX_ISSUES_DISPLAYED} more`)
+  }
+
+  const hotspotsUrl = `${SONARCLOUD_BASE_URL}/security_hotspots?id=${encodeURIComponent(projectKey)}&inNewCodePeriod=true`
+  console.log(THIN_BORDER)
+  console.log(` 🔗 ${hotspotsUrl}`)
+  console.log(`${BORDER}\n`)
+}
 
 const printSummary = (qualityGate, measuresResponse, projectKey, branch) => {
   const measures = measuresResponse.component?.measures ?? []
@@ -132,6 +286,11 @@ const printSummary = (qualityGate, measuresResponse, projectKey, branch) => {
   console.log(row('Security Hotspots:', securityHotspots))
   console.log(row('Coverage on New Code:', coverageOnNew))
   console.log(row('Duplication on New Code:', duplicationOnNew))
+
+  if (!passed) {
+    printFailedConditions(qualityGate)
+  }
+
   console.log(BORDER)
   console.log(` 🔀 Branch: ${branch}`)
   console.log(` 🔗 ${dashboardUrl}`)
@@ -192,6 +351,27 @@ const sonarScan = async () => {
   const passed = printSummary(qualityGate, measuresResponse, projectKey, branch)
 
   if (!passed) {
+    // Fetch detailed issues and hotspots to help developers fix problems locally
+    try {
+      const measures = measuresResponse.component?.measures ?? []
+      const hotspotCount = getMeasureValue(measures, 'security_hotspots')
+      const shouldFetchHotspots = hotspotCount !== 'N/A' && parseInt(hotspotCount, 10) > 0
+
+      const fetches = [fetchIssues(projectKey, sonarToken, branch)]
+      if (shouldFetchHotspots) {
+        fetches.push(fetchSecurityHotspots(projectKey, sonarToken, branch))
+      }
+
+      const [issuesResponse, hotspotsResponse] = await Promise.all(fetches)
+
+      printIssues(issuesResponse, projectKey)
+      if (hotspotsResponse) {
+        printHotspots(hotspotsResponse, projectKey)
+      }
+    } catch (detailErr) {
+      console.error(`\nCould not fetch issue details: ${detailErr.message}`)
+    }
+
     process.exit(1)
   }
 }
