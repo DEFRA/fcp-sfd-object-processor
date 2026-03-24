@@ -10,10 +10,12 @@ import { authConfig } from './auth.js'
 import { securityGroupArray } from './formats/entra-security-groups.js'
 import { cognitoClientIdArray } from './formats/cognito-client-ids.js'
 import { endpointPath } from './formats/endpoint-path.js'
+import { mimeTypeArray } from './formats/mime-types.js'
 
 convict.addFormat(securityGroupArray)
 convict.addFormat(cognitoClientIdArray)
 convict.addFormat(endpointPath)
+convict.addFormat(mimeTypeArray)
 
 const config = convict({
   ...serverConfig,

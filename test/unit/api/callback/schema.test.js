@@ -110,7 +110,7 @@ describe('callbackPayloadSchema validation', () => {
     test('invalid sbi type (string) fails validation', () => {
       const { error } = callbackPayloadSchema.validate({
         ...validPayload,
-        metadata: { ...validPayload.metadata, sbi: 'abc123456' }
+        metadata: { ...validPayload.metadata, sbi: 'abc123456' } // pragma: allowlist secret
       })
       expect(error).toBeDefined()
       expect(error.details.some(d => d.path.includes('sbi') && d.type === 'number.base')).toBe(true)
@@ -156,7 +156,7 @@ describe('callbackPayloadSchema validation', () => {
     test('invalid crn type (string) fails validation', () => {
       const { error } = callbackPayloadSchema.validate({
         ...validPayload,
-        metadata: { ...validPayload.metadata, crn: 'abc1234567' }
+        metadata: { ...validPayload.metadata, crn: 'abc1234567' } // pragma: allowlist secret
       })
       expect(error).toBeDefined()
       expect(error.details.some(d => d.path.includes('crn') && d.type === 'number.base')).toBe(true)
@@ -202,7 +202,7 @@ describe('callbackPayloadSchema validation', () => {
     test('invalid frn type (string) fails validation', () => {
       const { error } = callbackPayloadSchema.validate({
         ...validPayload,
-        metadata: { ...validPayload.metadata, frn: 'abc1234567' }
+        metadata: { ...validPayload.metadata, frn: 'abc1234567' } // pragma: allowlist secret
       })
       expect(error).toBeDefined()
       expect(error.details.some(d => d.path.includes('frn') && d.type === 'number.base')).toBe(true)
@@ -246,82 +246,6 @@ describe('callbackPayloadSchema validation', () => {
     })
 
     test('missing uosr fails validation', () => {
-      const { uosr, ...metadata } = validPayload.metadata
-      const { error } = callbackPayloadSchema.validate({
-        ...validPayload,
-        metadata
-      })
-      expect(error).toBeDefined()
-      expect(error.details.some(d => d.path.includes('uosr'))).toBe(true)
-    })
-
-    test('missing submissionDateTime fails validation', () => {
-      const { submissionDateTime, ...metadata } = validPayload.metadata
-      const { error } = callbackPayloadSchema.validate({
-        ...validPayload,
-        metadata
-      })
-      expect(error).toBeDefined()
-      expect(error.details.some(d => d.path.includes('submissionDateTime'))).toBe(true)
-    })
-
-    test('missing files array fails validation', () => {
-      const { files, ...metadata } = validPayload.metadata
-      const { error } = callbackPayloadSchema.validate({
-        ...validPayload,
-        metadata
-      })
-      expect(error).toBeDefined()
-      expect(error.details.some(d => d.path.includes('files'))).toBe(true)
-    })
-
-    test('empty files array fails validation', () => {
-      const { error } = callbackPayloadSchema.validate({
-        ...validPayload,
-        metadata: { ...validPayload.metadata, files: [] }
-      })
-      expect(error).toBeDefined()
-      expect(error.details.some(d => d.path.includes('files') && d.type === 'array.min')).toBe(true)
-    })
-
-    test('files array with non-string items fails validation', () => {
-      const { error } = callbackPayloadSchema.validate({
-        ...validPayload,
-        metadata: { ...validPayload.metadata, files: [123, 'valid.pdf'] }
-      })
-      expect(error).toBeDefined()
-      expect(error.details.some(d => d.type === 'string.base')).toBe(true)
-    })
-
-    test('missing filesInSubmission fails validation', () => {
-      const { filesInSubmission, ...metadata } = validPayload.metadata
-      const { error } = callbackPayloadSchema.validate({
-        ...validPayload,
-        metadata
-      })
-      expect(error).toBeDefined()
-      expect(error.details.some(d => d.path.includes('filesInSubmission'))).toBe(true)
-    })
-
-    test('filesInSubmission less than 1 fails validation', () => {
-      const { error } = callbackPayloadSchema.validate({
-        ...validPayload,
-        metadata: { ...validPayload.metadata, filesInSubmission: 0 }
-      })
-      expect(error).toBeDefined()
-      expect(error.details.some(d => d.path.includes('filesInSubmission') && d.type === 'number.min')).toBe(true)
-    })
-
-    test('non-integer filesInSubmission fails validation', () => {
-      const { error } = callbackPayloadSchema.validate({
-        ...validPayload,
-        metadata: { ...validPayload.metadata, filesInSubmission: 2.5 }
-      })
-      expect(error).toBeDefined()
-      expect(error.details.some(d => d.path.includes('filesInSubmission') && d.type === 'number.integer')).toBe(true)
-    })
-
-    test('missing type fails validation', () => {
       const { type, ...metadata } = validPayload.metadata
       const { error } = callbackPayloadSchema.validate({
         ...validPayload,
@@ -595,10 +519,10 @@ describe('callbackPayloadSchema validation', () => {
   })
 
   describe('Form validation', () => {
-    test('numberOfRejectedFiles can equal filesInSubmission when all files are rejected', () => {
+    test('numberOfRejectedFiles can equal total files when all files are rejected', () => {
       const { error } = callbackPayloadSchema.validate({
         ...validPayload,
-        numberOfRejectedFiles: validPayload.metadata.filesInSubmission
+        numberOfRejectedFiles: 2
       })
       expect(error).toBeUndefined()
     })

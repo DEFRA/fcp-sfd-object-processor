@@ -263,17 +263,6 @@
           }
         }
       },
-      "files": {
-        "type": "array",
-        "description": "Array of filenames",
-        "example": [
-          "document.pdf",
-          "receipt.jpg"
-        ],
-        "items": {
-          "type": "string"
-        }
-      },
       "MetadataFields": {
         "type": "object",
         "description": "Metadata about the item",
@@ -309,23 +298,6 @@
             "description": "Made up of sbi_submissionId",
             "example": "105000000_1733826312"
           },
-          "submissionDateTime": {
-            "type": "string",
-            "description": "Date the uploads were made in DD/MM/YYYY HH:mm:ss format",
-            "example": "10/12/2024 10:25:12",
-            "pattern": "^\\d{2}\\/\\d{2}\\/\\d{4} \\d{2}:\\d{2}:\\d{2}$"
-          },
-          "files": {
-            "$ref": "#/components/schemas/files"
-          },
-          "filesInSubmission": {
-            "type": "integer",
-            "description": "Size of the file in bytes",
-            "example": 2,
-            "x-constraint": {
-              "sign": "positive"
-            }
-          },
           "type": {
             "type": "string",
             "description": "Name of the CRM queue the uploads should be tagged with",
@@ -341,11 +313,7 @@
             "description": "Name of the service that provided the uploads",
             "example": "fcp-sfd-frontend"
           }
-        },
-        "required": [
-          "files",
-          "filesInSubmission"
-        ]
+        }
       },
       "FileFields": {
         "type": "object",
@@ -427,26 +395,6 @@
           "pending"
         ]
       },
-      "Model2": {
-        "type": "array",
-        "description": "Array of file names submitted",
-        "example": [
-          "document.pdf",
-          "receipt.jpg"
-        ],
-        "minItems": 1,
-        "items": {
-          "type": "string"
-        }
-      },
-      "type": {
-        "type": "string",
-        "description": "Type of submission - determines CRM queue",
-        "example": "CS_Agreement_Evidence",
-        "enum": [
-          "CS_Agreement_Evidence"
-        ]
-      },
       "service": {
         "type": "string",
         "description": "Source system that initiated the upload",
@@ -454,6 +402,14 @@
         "enum": [
           "fcp-sfd-frontend",
           "rps-portal"
+        ]
+      },
+      "type": {
+        "type": "string",
+        "description": "Type of submission - determines CRM queue",
+        "example": "CS_Agreement_Evidence",
+        "enum": [
+          "CS_Agreement_Evidence"
         ]
       },
       "UploadMetadata": {
@@ -486,29 +442,6 @@
             "description": "Unique identifier for the submission",
             "example": "1733826312"
           },
-          "uosr": {
-            "type": "string",
-            "description": "Unique Object Storage Reference combining SBI and submission ID",
-            "example": "105000000_1733826312"
-          },
-          "submissionDateTime": {
-            "type": "string",
-            "description": "Date and time of submission in DD/MM/YYYY HH:MM:SS format",
-            "example": "10/12/2024 10:25:12",
-            "pattern": "^\\d{2}\\/\\d{2}\\/\\d{4} \\d{2}:\\d{2}:\\d{2}$"
-          },
-          "files": {
-            "$ref": "#/components/schemas/Model2"
-          },
-          "filesInSubmission": {
-            "type": "integer",
-            "description": "Total number of files in the submission",
-            "example": 2,
-            "minimum": 1
-          },
-          "type": {
-            "$ref": "#/components/schemas/type"
-          },
           "reference": {
             "type": "string",
             "description": "User-entered reference for the submission",
@@ -516,6 +449,14 @@
           },
           "service": {
             "$ref": "#/components/schemas/service"
+          },
+          "uosr": {
+            "type": "string",
+            "description": "Unique Object Storage Reference combining SBI and submission ID",
+            "example": "105000000_1733826312"
+          },
+          "type": {
+            "$ref": "#/components/schemas/type"
           }
         },
         "required": [
@@ -523,13 +464,10 @@
           "crn",
           "frn",
           "submissionId",
-          "uosr",
-          "submissionDateTime",
-          "files",
-          "filesInSubmission",
-          "type",
           "reference",
-          "service"
+          "service",
+          "uosr",
+          "type"
         ]
       },
       "CallbackForm": {
@@ -618,6 +556,162 @@
           "message": {
             "type": "string",
             "example": "\"property0\" is not allowed. \"property1\" is not allowed"
+          }
+        }
+      },
+      "InitiateMetadata": {
+        "type": "object",
+        "description": "Metadata about the upload submission",
+        "properties": {
+          "sbi": {
+            "type": "integer",
+            "description": "Single Business Identifier - must be exactly 9 digits",
+            "example": 105000000,
+            "minimum": 100000000,
+            "maximum": 999999999
+          },
+          "crn": {
+            "type": "integer",
+            "description": "Customer Reference Number - must be exactly 10 digits",
+            "example": 1050000000,
+            "minimum": 1000000000,
+            "maximum": 9999999999
+          },
+          "frn": {
+            "type": "integer",
+            "description": "Firm Reference Number - must be exactly 10 digits",
+            "example": 1102658375,
+            "minimum": 1000000000,
+            "maximum": 9999999999
+          },
+          "submissionId": {
+            "type": "string",
+            "description": "Unique identifier for the submission",
+            "example": "1733826312"
+          },
+          "type": {
+            "type": "string",
+            "description": "Type of submission - determines CRM queue",
+            "example": "CS_Agreement_Evidence"
+          },
+          "reference": {
+            "type": "string",
+            "description": "User-entered reference for the submission",
+            "example": "user entered reference"
+          },
+          "service": {
+            "$ref": "#/components/schemas/service"
+          },
+          "uosr": {
+            "type": "string",
+            "description": "Unique Object Storage Reference combining SBI and submission ID",
+            "example": "105000000_1733826312"
+          }
+        },
+        "required": [
+          "sbi",
+          "crn",
+          "frn",
+          "submissionId",
+          "type",
+          "reference",
+          "service",
+          "uosr"
+        ]
+      },
+      "InitiatePayload": {
+        "type": "object",
+        "description": "Payload for initiating a browser upload via CDP Uploader",
+        "properties": {
+          "redirect": {
+            "type": "string",
+            "description": "Relative URL to redirect the user to after upload completes",
+            "example": "/upload-complete",
+            "pattern": "^\\/(?!\\/)[^\\s]*$"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/InitiateMetadata"
+          }
+        },
+        "required": [
+          "redirect",
+          "metadata"
+        ]
+      },
+      "InitiateSuccessData": {
+        "type": "object",
+        "properties": {
+          "uploadId": {
+            "type": "string",
+            "description": "Unique identifier for the upload session",
+            "example": "9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
+            "x-format": {
+              "guid": {
+                "version": [
+                  "uuidv4"
+                ]
+              }
+            }
+          },
+          "uploadUrl": {
+            "type": "string",
+            "description": "URL to upload files to",
+            "example": "https://cdp-uploader.{env}.cdp-int.defra.cloud/api/v1/uploader/upload-and-scan/9fcaabe5-77ec-44db-8356-3a6e8dc51b13"
+          },
+          "statusUrl": {
+            "type": "string",
+            "description": "URL to check upload status",
+            "example": "/api/v1/uploader/status/9fcaabe5-77ec-44db-8356-3a6e8dc51b13"
+          }
+        },
+        "required": [
+          "uploadId",
+          "uploadUrl",
+          "statusUrl"
+        ]
+      },
+      "InitiateSuccessResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/InitiateSuccessData"
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "BadGateway": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 502
+          },
+          "error": {
+            "type": "string",
+            "example": "Bad Gateway"
+          },
+          "message": {
+            "type": "string",
+            "example": "CDP Uploader request failed"
+          }
+        }
+      },
+      "GatewayTimeout": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 504
+          },
+          "error": {
+            "type": "string",
+            "example": "Gateway Timeout"
+          },
+          "message": {
+            "type": "string",
+            "example": "CDP Uploader request timed out"
           }
         }
       },
@@ -1019,6 +1113,97 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ServerError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/uploader/initiate": {
+      "post": {
+        "summary": "Initiate a browser upload via CDP Uploader",
+        "operationId": "postApiV1UploaderInitiate",
+        "description": "Proxies initiation requests to CDP Uploader, enriching with server-side config and rewriting response URLs.",
+        "tags": [
+          "uploader"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InitiatePayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InitiateSuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequest"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Unauthorized"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFound"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadGateway"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Gateway Time-out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayTimeout"
                 }
               }
             }

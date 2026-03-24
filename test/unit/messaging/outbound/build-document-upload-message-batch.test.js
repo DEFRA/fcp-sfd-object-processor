@@ -19,6 +19,7 @@ describe('buildDocumentUploadMessageBatch', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.useFakeTimers({ now: new Date('2026-03-16T12:00:00.000Z') })
     metadata = mockPendingMessages[0].payload.metadata
     file = mockPendingMessages[0].payload.file
     result = buildDocumentUploadMessageBatch([mockPendingMessages[0]])
@@ -84,9 +85,11 @@ describe('buildDocumentUploadMessageBatch', () => {
     })
 
     test('should set data.crm.title with formatted reference, CRN and date', () => {
-      const { reference, crn, submissionDateTime } = metadata
-      const [datePart] = submissionDateTime.split(' ')
-      const [day, month, year] = datePart.split('/')
+      const { reference, crn } = metadata
+      const now = new Date()
+      const day = String(now.getDate()).padStart(2, '0')
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      const year = now.getFullYear()
       const expectedTitle = `${reference} - CRN ${crn} - ${day}/${month}/${year}`
 
       expect(result[0].data.crm.title).toBe(expectedTitle)

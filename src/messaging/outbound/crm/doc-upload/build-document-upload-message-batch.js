@@ -6,9 +6,10 @@ export const buildDocumentUploadMessageBatch = (pendingMessages) => {
   return pendingMessages.map(message => {
     const { metadata, file, messaging } = message.payload
 
-    // Parse DD/MM/YYYY HH:mm:ss format
-    const [datePart] = metadata.submissionDateTime.split(' ')
-    const [day, month, year] = datePart.split('/')
+    const now = new Date()
+    const day = String(now.getDate()).padStart(2, '0')
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const year = now.getFullYear()
     const uploadDate = `${day}/${month}/${year}`
 
     console.log('DEBUG: Processing document upload message in buildDocumentUploadMessageBatch function')

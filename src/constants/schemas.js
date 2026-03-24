@@ -15,9 +15,6 @@ export const schemaConsts = {
 
   SUBMISSION_ID_EXAMPLE: '1733826312',
   UOSR_EXAMPLE: '105000000_1733826312',
-  SUBMISSION_DATE_TIME_EXAMPLE: '10/12/2024 10:25:12',
-  FILES_EXAMPLE: ['document.pdf', 'receipt.jpg'],
-  FILES_IN_SUBMISSION_EXAMPLE: 2,
   TYPE_EXAMPLE: 'CS_Agreement_Evidence',
   REFERENCE_EXAMPLE: 'user entered reference',
   SERVICE_EXAMPLES: ['fcp-sfd-frontend', 'rps-portal'],

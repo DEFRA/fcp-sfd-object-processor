@@ -121,9 +121,6 @@ curl -X POST "http://localhost:3004/api/v1/callback" \
     "frn": 1102658375,
     "submissionId": "0987654321",
     "uosr": "123456789_0987654321",
-    "submissionDateTime": "10/12/2024 10:25:12",
-    "files": ["test-file.pdf"],
-    "filesInSubmission": 1,
     "type": "CS_Agreement_Evidence",
     "reference": "user entered reference",
     "service": "fcp-sfd-frontend"

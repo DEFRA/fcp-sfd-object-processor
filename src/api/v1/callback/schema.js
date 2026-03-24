@@ -1,97 +1,12 @@
 import Joi from 'joi'
 import { schemaConsts } from '../../../constants/schemas.js'
 import { fileUploadSchema } from '../schemas/file-upload-schema.js'
+import { baseMetadataSchema } from '../schemas/uploader-common.js'
 import { generateResponseSchemas } from '../schemas/responses.js'
 import { constants as httpConstants } from 'node:http2'
 
-// Metadata schema - all 11 required fields from CDP Uploader
-const metadataSchema = Joi.object({
-
-  sbi: Joi.number()
-    .integer()
-    .min(schemaConsts.SBI_MIN)
-    .max(schemaConsts.SBI_MAX)
-    .required()
-    .description('Single Business Identifier - must be exactly 9 digits')
-    .messages({
-      'number.base': 'sbi must be a number',
-      'number.integer': 'sbi must be an integer',
-      'number.min': 'sbi must be exactly 9 digits',
-      'number.max': 'sbi must be exactly 9 digits',
-      'any.required': 'sbi is required'
-    })
-    .example(schemaConsts.SBI_EXAMPLE),
-  crn: Joi.number()
-    .integer()
-    .min(schemaConsts.CRN_MIN)
-    .max(schemaConsts.CRN_MAX)
-    .required()
-    .description('Customer Reference Number - must be exactly 10 digits')
-    .messages({
-      'number.base': 'crn must be a number',
-      'number.integer': 'crn must be an integer',
-      'number.min': 'crn must be exactly 10 digits',
-      'number.max': 'crn must be exactly 10 digits',
-      'any.required': 'crn is required'
-    })
-    .example(schemaConsts.CRN_EXAMPLE),
-  frn: Joi.number()
-    .integer()
-    .min(schemaConsts.FRN_MIN)
-    .max(schemaConsts.FRN_MAX)
-    .required()
-    .description('Firm Reference Number - must be exactly 10 digits')
-    .messages({
-      'number.base': 'frn must be a number',
-      'number.integer': 'frn must be an integer',
-      'number.min': 'frn must be exactly 10 digits',
-      'number.max': 'frn must be exactly 10 digits',
-      'any.required': 'frn is required'
-    })
-    .example(schemaConsts.FRN_EXAMPLE),
-  submissionId: Joi.string()
-    .required()
-    .description('Unique identifier for the submission')
-    .messages({
-      'any.required': 'submissionId is required'
-    })
-    .example(schemaConsts.SUBMISSION_ID_EXAMPLE),
-  uosr: Joi.string()
-    .required()
-    .description('Unique Object Storage Reference combining SBI and submission ID')
-    .messages({
-      'any.required': 'uosr is required'
-    })
-    .example(schemaConsts.UOSR_EXAMPLE),
-  submissionDateTime: Joi.string()
-    .pattern(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/)
-    .required()
-    .description('Date and time of submission in DD/MM/YYYY HH:MM:SS format')
-    .messages({
-      'string.pattern.base': 'submissionDateTime must be in DD/MM/YYYY HH:MM:SS format',
-      'any.required': 'submissionDateTime is required'
-    })
-    .example(schemaConsts.SUBMISSION_DATE_TIME_EXAMPLE),
-  files: Joi.array()
-    .items(Joi.string())
-    .min(1)
-    .required()
-    .description('Array of file names submitted')
-    .messages({
-      'array.min': 'files array must contain at least one file'
-    })
-    .example(schemaConsts.FILES_EXAMPLE),
-  filesInSubmission: Joi.number()
-    .integer()
-    .min(1)
-    .required()
-    .description('Total number of files in the submission')
-    .messages({
-      'number.min': 'filesInSubmission must be at least 1',
-      'number.integer': 'filesInSubmission must be an integer',
-      'any.required': 'filesInSubmission is required'
-    })
-    .example(schemaConsts.FILES_IN_SUBMISSION_EXAMPLE),
+// Extended metadata schema for callback endpoint (restricted type)
+const callbackMetadataSchema = baseMetadataSchema.keys({
   type: Joi.string()
     .valid(schemaConsts.TYPE_EXAMPLE)
     .required()
@@ -100,25 +15,13 @@ const metadataSchema = Joi.object({
       'any.only': 'type must be CS_Agreement_Evidence',
       'any.required': 'type is required'
     })
-    .example(schemaConsts.TYPE_EXAMPLE),
-  reference: Joi.string()
-    .required()
-    .description('User-entered reference for the submission')
-    .messages({
-      'any.required': 'reference is required'
-    })
-    .example(schemaConsts.REFERENCE_EXAMPLE),
-  service: Joi.string()
-    .valid(...schemaConsts.SERVICE_EXAMPLES)
-    .required()
-    .description('Source system that initiated the upload')
-    .messages({
-      'any.only': 'service must be either fcp-sfd-frontend or rps-portal',
-      'any.required': 'service is required'
-    })
-    .example(schemaConsts.SERVICE_EXAMPLE)
+    .example(schemaConsts.TYPE_EXAMPLE)
 }).strict()
-  .description('Metadata about the upload submission').label('UploadMetadata')
+  .description('Metadata about the upload submission')
+  .label('UploadMetadata')
+
+// File upload schema for individual file objects in the form
+// Reusing the shared fileUploadSchema from common schemas
 
 // Form schema - allows string values or file upload objects
 // Must contain at least one file upload object
@@ -159,7 +62,7 @@ export const callbackPayloadSchema = Joi.object({
     })
     .example('ready'),
 
-  metadata: metadataSchema.required(),
+  metadata: callbackMetadataSchema.required(),
 
   form: formSchema.required(),
 
