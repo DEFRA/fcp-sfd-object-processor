@@ -1,4 +1,4 @@
-const mimeTypePattern = /^[a-zA-Z0-9][a-zA-Z0-9!#$&^_+-]*\/[a-zA-Z0-9][a-zA-Z0-9!#$&^_+.-]*$/
+import { mimeTypePattern } from '../../constants/mime-types.js'
 
 function validate (val) {
   if (val === null || val === '') {
