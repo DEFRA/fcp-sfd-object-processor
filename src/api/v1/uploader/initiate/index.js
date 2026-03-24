@@ -71,10 +71,10 @@ export const uploaderInitiateRoute = {
       } catch (err) {
         if (err.name === 'TimeoutError') {
           logger.error({ url }, 'CDP Uploader request timed out')
-          return Boom.gatewayTimeout('CDP Uploader request timed out')
+          throw Boom.gatewayTimeout('CDP Uploader request timed out')
         }
         logger.error({ error: { message: err.message }, url }, 'CDP Uploader request failed')
-        return Boom.badGateway('CDP Uploader request failed')
+        throw Boom.badGateway('CDP Uploader request failed')
       }
 
       if (!response.ok) {
@@ -83,7 +83,7 @@ export const uploaderInitiateRoute = {
           { statusCode: response.status, body, url },
           'CDP Uploader returned non-2xx response'
         )
-        return Boom.badGateway(`CDP Uploader returned ${response.status}`)
+        throw Boom.badGateway(`CDP Uploader returned ${response.status}`)
       }
 
       let cdpResponse
@@ -91,12 +91,12 @@ export const uploaderInitiateRoute = {
         cdpResponse = await response.json()
       } catch (err) {
         logger.error({ error: { message: err.message }, url }, 'Failed to parse CDP Uploader response')
-        return Boom.badGateway('Invalid response from CDP Uploader')
+        throw Boom.badGateway('Invalid response from CDP Uploader')
       }
 
       if (!cdpResponse?.uploadId) {
         logger.error({ cdpResponse, url }, 'CDP Uploader response missing uploadId')
-        return Boom.badGateway('Invalid response from CDP Uploader')
+        throw Boom.badGateway('Invalid response from CDP Uploader')
       }
 
       const data = rewriteResponseUrls(cdpResponse)

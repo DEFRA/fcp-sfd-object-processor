@@ -1,9 +1,10 @@
 import Joi from 'joi'
 import { schemaConsts } from '../../../constants/schemas.js'
+import { mimeTypePattern } from '../../../constants/mime-types.js'
 
 // Common validation patterns used across schemas
 export const patterns = {
-  mimeType: /^[a-zA-Z0-9][a-zA-Z0-9!#$&^_+-]*\/[a-zA-Z0-9][a-zA-Z0-9!#$&^_+.-]*$/,
+  mimeType: mimeTypePattern,
   base64: /^[A-Za-z0-9+/]+=*$/,
   dateTime: /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/,
   relativePath: /^\/(?!\/)[^\s]*$/
