@@ -9,7 +9,7 @@ const parseTenantArray = (val) => {
     try {
       return JSON.parse(val)
     } catch (e) {
-      throw new Error('AUTH_ENTRA_TENANTS must be valid JSON')
+      throw new SyntaxError('AUTH_ENTRA_TENANTS must be valid JSON', { cause: e })
     }
   }
   return val
@@ -17,13 +17,13 @@ const parseTenantArray = (val) => {
 
 const validateTenantEntry = (entry) => {
   if (!entry || typeof entry !== 'object') {
-    throw new Error('Each tenant must be an object with tenantId and allowedGroupIds')
+    throw new TypeError('Each tenant must be an object with tenantId and allowedGroupIds')
   }
   const { tenantId, allowedGroupIds } = entry
 
   const validateTenantId = (id) => {
     if (!id || typeof id !== 'string' || id.trim() === '') {
-      throw new Error('tenantId must be a non-empty string')
+      throw new TypeError('tenantId must be a non-empty string')
     }
   }
 
@@ -33,11 +33,11 @@ const validateTenantEntry = (entry) => {
 
   const validateAllowedGroupIds = (arr) => {
     if (!Array.isArray(arr) || arr.length === 0) {
-      throw new Error('allowedGroupIds must be a non-empty array of UUIDs')
+      throw new TypeError('allowedGroupIds must be a non-empty array of UUIDs')
     }
     for (const uuid of arr) {
       if (!isUuidString(uuid)) {
-        throw new Error('allowedGroupIds must contain only valid UUID strings')
+        throw new TypeError('allowedGroupIds must contain only valid UUID strings')
       }
     }
   }
@@ -56,7 +56,7 @@ export const entraTenantsArray = {
     const arr = parseTenantArray(val)
 
     if (!Array.isArray(arr)) {
-      throw new Error('Must be an array of tenant configs')
+      throw new TypeError('Must be an array of tenant configs')
     }
 
     for (const entry of arr) {
