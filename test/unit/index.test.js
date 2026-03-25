@@ -20,6 +20,8 @@ describe('entrypoint index.js', () => {
     mockError.mockClear()
     mockStartServer.mockResolvedValue(undefined)
     mockStartOutbox.mockResolvedValue(undefined)
+    // Ensure we don't accumulate unhandledRejection listeners across tests
+    process.removeAllListeners('unhandledRejection')
   })
 
   test('calls startServer and startOutbox and logs enabled message', async () => {
@@ -28,5 +30,17 @@ describe('entrypoint index.js', () => {
     expect(mockStartServer).toHaveBeenCalled()
     expect(mockStartOutbox).toHaveBeenCalled()
     expect(mockInfo).toHaveBeenCalledWith('Outbox processor enabled.')
+  })
+
+  test('handles unhandledRejection by logging and setting exit code', async () => {
+    // Import the entrypoint which registers the handler
+    await import('../../src/index.js')
+
+    const err = new Error('boom')
+    process.emit('unhandledRejection', err)
+
+    expect(mockInfo).toHaveBeenCalledWith('Unhandled rejection')
+    expect(mockError).toHaveBeenCalledWith(err)
+    expect(process.exitCode).toBe(1)
   })
 })
