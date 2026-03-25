@@ -1,5 +1,11 @@
-const uuidPattern = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
-const uuidRegex = new RegExp(`^${uuidPattern}$`)
+import Joi from 'joi'
+
+const tenantSchema = Joi.array().items(
+  Joi.object({
+    tenantId: Joi.string().trim().min(1).required(),
+    allowedGroupIds: Joi.array().items(Joi.string().guid()).min(1).required()
+  })
+)
 
 const parseTenantArray = (val) => {
   if (Array.isArray(val)) {
@@ -15,37 +21,6 @@ const parseTenantArray = (val) => {
   return val
 }
 
-const validateTenantEntry = (entry) => {
-  if (!entry || typeof entry !== 'object') {
-    throw new TypeError('Each tenant must be an object with tenantId and allowedGroupIds')
-  }
-  const { tenantId, allowedGroupIds } = entry
-
-  const validateTenantId = (id) => {
-    if (!id || typeof id !== 'string' || id.trim() === '') {
-      throw new TypeError('tenantId must be a non-empty string')
-    }
-  }
-
-  const isUuidString = (s) => {
-    return typeof s === 'string' && uuidRegex.test(s)
-  }
-
-  const validateAllowedGroupIds = (arr) => {
-    if (!Array.isArray(arr) || arr.length === 0) {
-      throw new TypeError('allowedGroupIds must be a non-empty array of UUIDs')
-    }
-    for (const uuid of arr) {
-      if (!isUuidString(uuid)) {
-        throw new TypeError('allowedGroupIds must contain only valid UUID strings')
-      }
-    }
-  }
-
-  validateTenantId(tenantId)
-  validateAllowedGroupIds(allowedGroupIds)
-}
-
 export const entraTenantsArray = {
   name: 'entra-tenants-array',
   validate: (val) => {
@@ -55,12 +30,34 @@ export const entraTenantsArray = {
 
     const arr = parseTenantArray(val)
 
-    if (!Array.isArray(arr)) {
-      throw new TypeError('Must be an array of tenant configs')
-    }
-
-    for (const entry of arr) {
-      validateTenantEntry(entry)
+    const { error } = tenantSchema.validate(arr)
+    if (error) {
+      const d = error.details && error.details[0]
+      if (d) {
+        const p = d.path || []
+        const msg = d.message || ''
+        if (p.length === 0 && (d.type === 'array.base' || /must be an array/.test(msg))) {
+          throw new TypeError('Must be an array of tenant configs')
+        }
+        if (p.length === 1 && p[0] === 0 && /must be of type object|must be an object/.test(msg)) {
+          throw new TypeError('Each tenant must be an object with tenantId and allowedGroupIds')
+        }
+        if (String(p).endsWith('tenantId')) {
+          throw new TypeError('tenantId must be a non-empty string')
+        }
+        if (String(p).endsWith('allowedGroupIds')) {
+          if (/must be an array/.test(msg) || d.type === 'array.base') {
+            throw new TypeError('allowedGroupIds must be a non-empty array of UUIDs')
+          }
+          if (d.type === 'array.min' || /contain at least/.test(msg) || /at least 1 items/.test(msg)) {
+            throw new TypeError('allowedGroupIds must be a non-empty array of UUIDs')
+          }
+        }
+        if (/valid GUID|valid guid|must be a valid GUID/.test(msg) || /must be a valid guid/.test(msg)) {
+          throw new TypeError('allowedGroupIds must contain only valid UUID strings')
+        }
+      }
+      throw new TypeError(error.message)
     }
   },
   coerce: (val) => {
