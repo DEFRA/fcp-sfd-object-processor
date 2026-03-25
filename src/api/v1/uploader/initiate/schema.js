@@ -1,7 +1,7 @@
 import Joi from 'joi'
 import { constants as httpConstants } from 'node:http2'
 
-import { generateResponseSchemas } from '../../schemas/responses.js'
+import { generateResponseSchemas, badGatewayResponseSchema, gatewayTimeoutResponseSchema } from '../../schemas/responses.js'
 import { baseMetadataSchema, patterns } from '../../schemas/uploader-common.js'
 
 export const initiatePayloadSchema = Joi.object({
@@ -40,18 +40,6 @@ const initiateSuccessSchema = Joi.object({
       .example('/api/v1/uploader/status/9fcaabe5-77ec-44db-8356-3a6e8dc51b13')
   }).required().label('InitiateSuccessData')
 }).label('InitiateSuccessResponse')
-
-const badGatewayResponseSchema = Joi.object({
-  statusCode: Joi.number().example(httpConstants.HTTP_STATUS_BAD_GATEWAY),
-  error: Joi.string().example('Bad Gateway'),
-  message: Joi.string().example('CDP Uploader request failed')
-}).label('BadGateway')
-
-const gatewayTimeoutResponseSchema = Joi.object({
-  statusCode: Joi.number().example(httpConstants.HTTP_STATUS_GATEWAY_TIMEOUT),
-  error: Joi.string().example('Gateway Timeout'),
-  message: Joi.string().example('CDP Uploader request timed out')
-}).label('GatewayTimeout')
 
 export const initiateResponseSchema = generateResponseSchemas(
   initiateSuccessSchema,

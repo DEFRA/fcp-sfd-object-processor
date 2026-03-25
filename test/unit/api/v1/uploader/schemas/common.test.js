@@ -4,7 +4,8 @@ import {
   businessIdentifierFields,
   submissionFields,
   baseMetadataSchema,
-  fileUploadSchema
+  fileUploadSchema,
+  uploaderResponseFields
 } from '../../../../../../src/api/v1/schemas/uploader-common.js'
 
 describe('Shared Schema Components', () => {
@@ -488,6 +489,77 @@ describe('Shared Schema Components', () => {
       const result = baseMetadataSchema.validate(metadataWithLargeNumbers)
       expect(result.error).toBeDefined()
       expect(result.error.message).toContain('must be exactly')
+    })
+  })
+})
+
+describe('uploaderResponseFields', () => {
+  describe('uploadStatus field', () => {
+    test('valid status "initiated" passes', () => {
+      const { error } = uploaderResponseFields.uploadStatus.validate('initiated')
+      expect(error).toBeUndefined()
+    })
+
+    test('valid status "pending" passes', () => {
+      const { error } = uploaderResponseFields.uploadStatus.validate('pending')
+      expect(error).toBeUndefined()
+    })
+
+    test('valid status "ready" passes', () => {
+      const { error } = uploaderResponseFields.uploadStatus.validate('ready')
+      expect(error).toBeUndefined()
+    })
+
+    test('invalid status value fails with any.only error', () => {
+      const { error } = uploaderResponseFields.uploadStatus.validate('processing')
+      expect(error).toBeDefined()
+      expect(error.message).toContain('"uploadStatus" must be one of [initiated, pending, ready]')
+    })
+
+    test('missing value fails with any.required error', () => {
+      const { error } = uploaderResponseFields.uploadStatus.validate(undefined)
+      expect(error).toBeDefined()
+      expect(error.message).toContain('"uploadStatus" is required')
+    })
+
+    test('null value fails', () => {
+      const { error } = uploaderResponseFields.uploadStatus.validate(null)
+      expect(error).toBeDefined()
+    })
+  })
+
+  describe('numberOfRejectedFiles field', () => {
+    test('zero passes', () => {
+      const { error } = uploaderResponseFields.numberOfRejectedFiles.validate(0)
+      expect(error).toBeUndefined()
+    })
+
+    test('positive integer passes', () => {
+      const { error } = uploaderResponseFields.numberOfRejectedFiles.validate(3)
+      expect(error).toBeUndefined()
+    })
+
+    test('negative integer fails with number.min error', () => {
+      const { error } = uploaderResponseFields.numberOfRejectedFiles.validate(-1)
+      expect(error).toBeDefined()
+      expect(error.message).toContain('"numberOfRejectedFiles" must be a non-negative integer')
+    })
+
+    test('decimal fails with number.integer error', () => {
+      const { error } = uploaderResponseFields.numberOfRejectedFiles.validate(1.5)
+      expect(error).toBeDefined()
+      expect(error.message).toContain('"numberOfRejectedFiles" must be an integer')
+    })
+
+    test('missing value fails with any.required error', () => {
+      const { error } = uploaderResponseFields.numberOfRejectedFiles.validate(undefined)
+      expect(error).toBeDefined()
+      expect(error.message).toContain('"numberOfRejectedFiles" is required')
+    })
+
+    test('string value fails', () => {
+      const { error } = uploaderResponseFields.numberOfRejectedFiles.validate('zero')
+      expect(error).toBeDefined()
     })
   })
 })
