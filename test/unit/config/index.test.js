@@ -55,4 +55,17 @@ describe('config/index.js', () => {
     expect(set).not.toHaveBeenCalledWith('auth.entra.tenants', expect.anything())
     expect(validate).toHaveBeenCalledWith({ allowed: 'strict' })
   })
+
+  test('sets tenants with empty allowedGroupIds when allowed env missing', async () => {
+    // legacy single-tenant env var present but no allowed groups env
+    process.env.AUTH_ENTRA_TENANT_ID = 'tenant-2'
+
+    await import('../../../src/config/index.js')
+
+    expect(addFormat).toHaveBeenCalled()
+    expect(set).toHaveBeenCalledWith('auth.entra.tenants', [
+      { tenantId: 'tenant-2', allowedGroupIds: [] }
+    ])
+    expect(validate).toHaveBeenCalledWith({ allowed: 'strict' })
+  })
 })
