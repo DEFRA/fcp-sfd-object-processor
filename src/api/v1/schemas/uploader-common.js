@@ -109,5 +109,30 @@ export const baseMetadataSchema = Joi.object({
   ...submissionFields
 }).strict()
 
+// Shared field schemas for uploader response payloads (callback and status endpoints)
+export const uploaderResponseFields = {
+  uploadStatus: Joi.string()
+    .valid('initiated', 'pending', 'ready')
+    .required()
+    .description('Status of the upload session')
+    .messages({
+      'any.only': '"uploadStatus" must be one of [initiated, pending, ready]',
+      'any.required': '"uploadStatus" is required'
+    })
+    .example('ready'),
+
+  numberOfRejectedFiles: Joi.number()
+    .integer()
+    .min(0)
+    .required()
+    .description('Number of files rejected during upload')
+    .messages({
+      'number.min': '"numberOfRejectedFiles" must be a non-negative integer',
+      'number.integer': '"numberOfRejectedFiles" must be an integer',
+      'any.required': '"numberOfRejectedFiles" is required'
+    })
+    .example(schemaConsts.NUMBER_OF_REJECTED_FILES_EXAMPLE)
+}
+
 // Re-export canonical file upload schema to avoid duplication and drift.
 export { fileUploadSchema } from './file-upload-schema.js'

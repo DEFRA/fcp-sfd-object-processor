@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest'
 import { constants as httpConstants } from 'node:http2'
-import { generateResponseSchemas } from '../../../../src/api/v1/schemas/responses.js'
+import { generateResponseSchemas, badGatewayResponseSchema, gatewayTimeoutResponseSchema } from '../../../../src/api/v1/schemas/responses.js'
 import Joi from 'joi'
 
 const schemas = generateResponseSchemas(Joi.object({ id: Joi.string() }))
@@ -84,5 +84,43 @@ describe('generateResponseSchemas', () => {
     expect(schemas[httpConstants.HTTP_STATUS_BAD_REQUEST]).toBeDefined()
     expect(schemas[httpConstants.HTTP_STATUS_NOT_FOUND]).toBeDefined()
     expect(schemas[httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR]).toBeDefined()
+  })
+})
+
+describe('badGatewayResponseSchema', () => {
+  test('validates a valid 502 response', () => {
+    const { error } = badGatewayResponseSchema.validate({
+      statusCode: httpConstants.HTTP_STATUS_BAD_GATEWAY,
+      error: 'Bad Gateway',
+      message: 'CDP Uploader request failed'
+    })
+    expect(error).toBeUndefined()
+  })
+
+  test('has label BadGateway', () => {
+    expect(badGatewayResponseSchema.describe().flags.label).toBe('BadGateway')
+  })
+
+  test('is a Joi object schema', () => {
+    expect(badGatewayResponseSchema.type).toBe('object')
+  })
+})
+
+describe('gatewayTimeoutResponseSchema', () => {
+  test('validates a valid 504 response', () => {
+    const { error } = gatewayTimeoutResponseSchema.validate({
+      statusCode: httpConstants.HTTP_STATUS_GATEWAY_TIMEOUT,
+      error: 'Gateway Timeout',
+      message: 'CDP Uploader request timed out'
+    })
+    expect(error).toBeUndefined()
+  })
+
+  test('has label GatewayTimeout', () => {
+    expect(gatewayTimeoutResponseSchema.describe().flags.label).toBe('GatewayTimeout')
+  })
+
+  test('is a Joi object schema', () => {
+    expect(gatewayTimeoutResponseSchema.type).toBe('object')
   })
 })
