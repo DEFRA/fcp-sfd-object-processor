@@ -108,13 +108,30 @@ const runScanner = (sonarToken, cwd, branch) =>
       '-Dsonar.verbose=true'
     ]
 
-    const child = spawn('docker', args, { stdio: 'inherit' })
+    const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+    const message = 'Code scan in progress using sonar-scanner-cli (to view logs in real-time a Docker client can be used e.g. Docker Desktop)'
+    let i = 0
 
-    child.on('error', reject)
+    const spinner = setInterval(() => {
+      process.stdout.write(`\r ${frames[i++ % frames.length]} ${message}`)
+    }, 80)
+
+    const child = spawn('docker', args, { stdio: 'ignore' })
+
+    child.on('error', (err) => {
+      clearInterval(spinner)
+      process.stdout.write('\r')
+      reject(err)
+    })
     // Always resolve with the exit code — a non-zero exit may simply mean the
     // quality gate failed (analysis was still uploaded). We check the gate
     // status via the API after the scan and exit accordingly.
-    child.on('close', resolve)
+    child.on('close', (code) => {
+      clearInterval(spinner)
+      process.stdout.write(`\r ${message}\n`)
+      console.log('\n ✔ Code scan complete. See below for the results.\n')
+      resolve(code)
+    })
   })
 
 const sonarcloudFetch = async (path, sonarToken) => {
