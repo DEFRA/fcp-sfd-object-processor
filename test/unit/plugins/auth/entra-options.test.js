@@ -120,5 +120,20 @@ describe('getEntraAuthOptions', () => {
       expect(result.isValid).toBe(false)
       expect(result.errorMessage).toBe('Token does not belong to an authorized Security Group')
     })
+
+    test('should reject token with invalid token type', async () => {
+      const payload = { typ: 'ID', sub: 'user-123', groups: ['group-1'] }
+      const result = await validateFunction({ decoded: { payload } }, mockRequest, {})
+      expect(result.isValid).toBe(false)
+      expect(result.errorMessage).toBe('Provided token is not an access token')
+    })
+
+    test('should reject when allowedGroupIds is empty (empty list message)', async () => {
+      const emptyValidate = getEntraAuthOptions({ tenantId: 'test-tenant-id', allowedGroupIds: [] }).validate
+      const payload = { typ: 'JWT', sub: 'user-123', groups: ['group-1'] }
+      const result = await emptyValidate({ decoded: { payload } }, mockRequest, {})
+      expect(result.isValid).toBe(false)
+      expect(result.errorMessage).toBe('No authorized security groups configured')
+    })
   })
 })
