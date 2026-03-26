@@ -1,7 +1,7 @@
-import { readFile } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 import { execFileSync, spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
+import dotenv from 'dotenv'
 
 const SONARCLOUD_BASE_URL = 'https://sonarcloud.io'
 const BORDER = '═'.repeat(51)
@@ -40,51 +40,6 @@ const COMPARATOR_SYMBOLS = {
   LT: '<',
   EQ: '=',
   NE: '≠'
-}
-
-const parseDotEnv = async (filePath) => {
-  const vars = {}
-
-  try {
-    const content = await readFile(filePath, 'utf8')
-
-    for (const line of content.split('\n')) {
-      const trimmed = line.trim()
-
-      if (!trimmed || trimmed.startsWith('#')) continue
-
-      const eqIndex = trimmed.indexOf('=')
-
-      if (eqIndex === -1) continue
-
-      const key = trimmed.slice(0, eqIndex).trim()
-      const value = trimmed.slice(eqIndex + 1).trim().replace(/^["']|["']$/g, '')
-      vars[key] = value
-    }
-  } catch {
-    // .env file not found or unreadable — continue with process.env only
-  }
-
-  return vars
-}
-
-const parseSonarProperties = async (filePath) => {
-  const props = {}
-  const content = await readFile(filePath, 'utf8')
-
-  for (const line of content.split('\n')) {
-    const trimmed = line.trim()
-
-    if (!trimmed || trimmed.startsWith('#')) continue
-
-    const eqIndex = trimmed.indexOf('=')
-
-    if (eqIndex === -1) continue
-
-    props[trimmed.slice(0, eqIndex).trim()] = trimmed.slice(eqIndex + 1).trim()
-  }
-
-  return props
 }
 
 const getCurrentBranch = () =>
@@ -359,9 +314,8 @@ const sonarScan = async () => {
   const cwd = resolve('.')
 
   // Load .env if present (mirrors `source .env` from the old npm script)
-  const envPath = resolve(cwd, '.env')
-  const envVars = existsSync(envPath) ? await parseDotEnv(envPath) : {}
-  const sonarToken = envVars.SONAR_TOKEN ?? process.env.SONAR_TOKEN
+  dotenv.config()
+  const sonarToken = process.env.SONAR_TOKEN
 
   if (!sonarToken) {
     console.error(
@@ -373,7 +327,7 @@ const sonarScan = async () => {
 
   // Read project config from sonar-project.properties
   const propsPath = resolve(cwd, 'sonar-project.properties')
-  const props = await parseSonarProperties(propsPath)
+  const props = dotenv.parse(readFileSync(propsPath))
   const projectKey = props['sonar.projectKey']
 
   if (!projectKey) {
