@@ -57,7 +57,9 @@ const isAllowedGroupIdsGuidError = (d) => {
 
 const mapJoiError = (error) => {
   const d = error.details?.[0]
-  if (!d) throw new TypeError(error.message)
+  if (!d) {
+    throw new TypeError(error.message)
+  }
 
   if (isTopLevelArrayError(d)) throw new TypeError('Must be an array of tenant configs')
   if (isTenantObjectError(d)) throw new TypeError('Each tenant must be an object with tenantId and allowedGroupIds')
