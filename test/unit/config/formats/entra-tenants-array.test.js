@@ -14,6 +14,20 @@ describe('entraTenantsArray format', () => {
     expect(() => entraTenantsArray.validate('not-json')).toThrow('AUTH_ENTRA_TENANTS must be valid JSON')
   })
 
+  test('validate throws when non-array non-string value is supplied', () => {
+    expect(() => entraTenantsArray.validate(123)).toThrow('Must be an array of tenant configs')
+  })
+
+  test('invalid JSON parse includes original error as cause', () => {
+    try {
+      entraTenantsArray.validate('not-json')
+    } catch (e) {
+      expect(e).toBeInstanceOf(SyntaxError)
+      expect(e.message).toContain('AUTH_ENTRA_TENANTS must be valid JSON')
+      expect(e.cause).toBeDefined()
+    }
+  })
+
   test('validate throws when parsed value is not an array', () => {
     expect(() => entraTenantsArray.validate('{}')).toThrow('Must be an array of tenant configs')
   })
