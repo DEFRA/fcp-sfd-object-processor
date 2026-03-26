@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi, afterEach } from 'vitest'
 
-let mockConfigGet
+let mockConfigGet = vi.fn()
 const mockLogger = { warn: vi.fn(), info: vi.fn(), error: vi.fn() }
 
 vi.mock('../../../../src/config/index.js', () => ({
@@ -51,7 +51,7 @@ describe('auth plugin register', () => {
       switch (key) {
         case 'auth.entra.enabled': return true
         case 'auth.cognito.enabled': return false
-        case 'auth.entra.tenants': return [ { tenantId: 't1', allowedGroupIds: [] }, { tenantId: 't2', allowedGroupIds: [] } ]
+        case 'auth.entra.tenants': return [{ tenantId: 't1', allowedGroupIds: [] }, { tenantId: 't2', allowedGroupIds: [] }]
         default: return undefined
       }
     })
@@ -116,21 +116,8 @@ describe('auth plugin register', () => {
   })
 })
 
-import { expect, test, describe, beforeEach, vi, afterEach } from 'vitest'
-
-const mockConfigGet = vi.fn()
-vi.mock('../../../../src/config/index.js', () => ({
-  config: { get: mockConfigGet }
-}))
-
-const mockWarn = vi.fn()
-vi.mock('../../../../src/logging/logger.js', () => ({
-  createLogger: vi.fn().mockReturnValue({
-    info: vi.fn(),
-    warn: mockWarn,
-    error: vi.fn()
-  })
-}))
+// Reuse the top-level `mockConfigGet` and `mockLogger` declared above.
+const mockWarn = mockLogger.warn
 
 describe('auth plugin', () => {
   let mockServer
