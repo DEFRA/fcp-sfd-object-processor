@@ -14,7 +14,7 @@ export const uploaderStatusParamsSchema = Joi.object({
       'string.guid': 'uploadId must be a valid UUID v4',
       'any.required': 'uploadId is required'
     })
-    .example(schemaConsts.FILE_ID_EXAMPLE)
+    .example(schemaConsts.UPLOAD_ID_EXAMPLE)
 }).label('UploaderStatusParams')
 
 // Form values in the CDP Uploader response are either text field strings or file upload objects.
