@@ -61,11 +61,21 @@ const mapJoiError = (error) => {
     throw new TypeError(error.message)
   }
 
-  if (isTopLevelArrayError(d)) throw new TypeError('Must be an array of tenant configs')
-  if (isTenantObjectError(d)) throw new TypeError('Each tenant must be an object with tenantId and allowedGroupIds')
-  if (isTenantIdError(d)) throw new TypeError('tenantId must be a non-empty string')
-  if (isAllowedGroupIdsArrayError(d) || isAllowedGroupIdsMinError(d)) throw new TypeError('allowedGroupIds must be a non-empty array of UUIDs')
-  if (isAllowedGroupIdsGuidError(d)) throw new TypeError('allowedGroupIds must contain only valid UUID strings')
+  if (isTopLevelArrayError(d)) {
+    throw new TypeError('Must be an array of tenant configs')
+  }
+  if (isTenantObjectError(d)) {
+    throw new TypeError('Each tenant must be an object with tenantId and allowedGroupIds')
+  }
+  if (isTenantIdError(d)) {
+    throw new TypeError('tenantId must be a non-empty string')
+  }
+  if (isAllowedGroupIdsArrayError(d) || isAllowedGroupIdsMinError(d)) {
+    throw new TypeError('allowedGroupIds must be a non-empty array of UUIDs')
+  }
+  if (isAllowedGroupIdsGuidError(d)) {
+    throw new TypeError('allowedGroupIds must contain only valid UUID strings')
+  }
 
   throw new TypeError(error.message)
 }
