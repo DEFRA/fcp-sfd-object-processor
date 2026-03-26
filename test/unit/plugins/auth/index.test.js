@@ -1,3 +1,121 @@
+import { beforeEach, describe, expect, test, vi } from 'vitest'
+
+let mockConfigGet
+const mockLogger = { warn: vi.fn(), info: vi.fn(), error: vi.fn() }
+
+vi.mock('../../../../src/config/index.js', () => ({
+  config: { get: (key) => mockConfigGet(key) }
+}))
+
+vi.mock('../../../../src/logging/logger.js', () => ({
+  createLogger: vi.fn().mockReturnValue(mockLogger)
+}))
+
+vi.mock('../../../../src/plugins/auth/entra-options.js', () => ({
+  getEntraAuthOptions: vi.fn().mockReturnValue({})
+}))
+
+vi.mock('../../../../src/plugins/auth/cognito-options.js', () => ({
+  getCognitoAuthOptions: vi.fn().mockReturnValue({})
+}))
+
+describe('auth plugin register', () => {
+  let server
+
+  beforeEach(async () => {
+    vi.resetModules()
+    mockConfigGet = vi.fn((key) => {
+      switch (key) {
+        case 'auth.entra.enabled': return false
+        case 'auth.cognito.enabled': return false
+        case 'auth.entra.tenants': return []
+        default: return undefined
+      }
+    })
+
+    server = {
+      auth: { strategy: vi.fn(), default: vi.fn() },
+      ext: vi.fn((event, handler) => { server._extHandler = handler })
+    }
+  })
+
+  test('does nothing when both entra and cognito disabled', async () => {
+    const { auth } = await import('../../../../src/plugins/auth/index.js')
+    await auth.plugin.register(server)
+    expect(server.auth.strategy).not.toHaveBeenCalled()
+    expect(server.auth.default).not.toHaveBeenCalled()
+  })
+
+  test('registers entra strategies per tenant', async () => {
+    mockConfigGet = vi.fn((key) => {
+      switch (key) {
+        case 'auth.entra.enabled': return true
+        case 'auth.cognito.enabled': return false
+        case 'auth.entra.tenants': return [ { tenantId: 't1', allowedGroupIds: [] }, { tenantId: 't2', allowedGroupIds: [] } ]
+        default: return undefined
+      }
+    })
+
+    const { auth } = await import('../../../../src/plugins/auth/index.js')
+    await auth.plugin.register(server)
+
+    expect(server.auth.strategy).toHaveBeenCalledTimes(2)
+    expect(server.auth.strategy).toHaveBeenCalledWith('entra-0', 'jwt', expect.any(Object))
+    expect(server.auth.strategy).toHaveBeenCalledWith('entra-1', 'jwt', expect.any(Object))
+    expect(server.auth.default).toHaveBeenCalledWith({ strategies: ['entra-0', 'entra-1'] })
+  })
+
+  test('registers cognito strategy when enabled', async () => {
+    mockConfigGet = vi.fn((key) => {
+      switch (key) {
+        case 'auth.entra.enabled': return false
+        case 'auth.cognito.enabled': return true
+        default: return undefined
+      }
+    })
+
+    const { auth } = await import('../../../../src/plugins/auth/index.js')
+    await auth.plugin.register(server)
+
+    expect(server.auth.strategy).toHaveBeenCalledWith('cognito', 'jwt', expect.any(Object))
+    expect(server.auth.default).toHaveBeenCalledWith('cognito')
+  })
+
+  test('onPreResponse logs when unauthorized', async () => {
+    mockConfigGet = vi.fn((key) => {
+      switch (key) {
+        case 'auth.entra.enabled': return false
+        case 'auth.cognito.enabled': return true
+        default: return undefined
+      }
+    })
+
+    const { auth } = await import('../../../../src/plugins/auth/index.js')
+    await auth.plugin.register(server)
+
+    // ensure ext handler was registered
+    expect(typeof server._extHandler).toBe('function')
+
+    const request = {
+      path: '/x',
+      method: 'GET',
+      info: { remoteAddress: '1.2.3.4' },
+      headers: { 'user-agent': 'ua' },
+      auth: { artifacts: { decoded: { payload: { groups: ['g1'], client_id: 'cid' } } } },
+      response: { isBoom: true, output: { statusCode: 401, payload: { message: 'unauth' } }, message: 'unauth' }
+    }
+
+    const h = { continue: Symbol('continue') }
+    const res = server._extHandler(request, h)
+    expect(res).toBe(h.continue)
+    expect(mockLogger.warn).toHaveBeenCalled()
+    const warnArg = mockLogger.warn.mock.calls[0][0]
+    expect(warnArg).toMatchObject({ msg: 'Authentication failed', path: '/x', method: 'GET', sourceIp: '1.2.3.4' })
+    expect(warnArg.tokenGroups).toEqual(['g1'])
+    expect(warnArg.tokenClientId).toBe('cid')
+  })
+})
+
 import { expect, test, describe, beforeEach, vi, afterEach } from 'vitest'
 
 const mockConfigGet = vi.fn()
