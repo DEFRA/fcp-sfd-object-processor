@@ -6,19 +6,26 @@ import { createAuthStrategy } from './create-auth-strategy.js'
  * Validates tokens against the tenant's JWKS endpoint and checks security group membership.
  */
 export function getEntraAuthOptions (tenantConfig) {
-  const { tenantId, allowedGroupIds } = tenantConfig || {}
+  const tenantId = tenantConfig?.tenantId
+  const allowedGroupIds = tenantConfig?.allowedGroupIds || []
+
+  const jwksUri = tenantId ? `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys` : ''
+  const issuers = tenantId
+    ? [`https://sts.windows.net/${tenantId}/`, `https://login.microsoftonline.com/${tenantId}/v2.0`]
+    : []
+  const strategyName = tenantId ? `${AUTH_STRATEGY_NAMES.ENTRA}-${tenantId}` : AUTH_STRATEGY_NAMES.ENTRA
 
   return createAuthStrategy({
-    strategyName: `${AUTH_STRATEGY_NAMES.ENTRA}-${tenantId}`,
-    jwksUri: `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`,
+    strategyName,
+    jwksUri,
     verify: {
       aud: false,
       sub: false,
-      iss: [`https://sts.windows.net/${tenantId}/`, `https://login.microsoftonline.com/${tenantId}/v2.0`], // Accept both v1.0 and v2.0 tokens
+      iss: issuers,
       nbf: true,
       exp: true
     },
-    getAllowedList: () => allowedGroupIds || [],
+    getAllowedList: () => allowedGroupIds,
     checkAllowed: (payload, allowedGroupIdsLocal) => {
       const tokenGroups = Array.isArray(payload.groups) ? payload.groups : []
       const allowedSet = new Set(allowedGroupIdsLocal)
