@@ -1,7 +1,6 @@
 import Joi from 'joi'
 import { schemaConsts } from '../../../constants/schemas.js'
-import { fileUploadSchema } from '../schemas/file-upload-schema.js'
-import { baseMetadataSchema } from '../schemas/uploader-common.js'
+import { fileUploadSchema, baseMetadataSchema, uploaderResponseFields } from '../schemas/uploader-common.js'
 import { generateResponseSchemas } from '../schemas/responses.js'
 import { constants as httpConstants } from 'node:http2'
 
@@ -52,31 +51,13 @@ const formSchema = Joi.object()
 
 // Main callback payload schema
 export const callbackPayloadSchema = Joi.object({
-  uploadStatus: Joi.string()
-    .valid('ready', 'initiated', 'pending')
-    .required()
-    .description('Status of the upload process')
-    .messages({
-      'any.only': '"uploadStatus" must be one of [ready, initiated, pending]',
-      'any.required': '"uploadStatus" is required'
-    })
-    .example('ready'),
+  uploadStatus: uploaderResponseFields.uploadStatus,
 
   metadata: callbackMetadataSchema.required(),
 
   form: formSchema.required(),
 
-  numberOfRejectedFiles: Joi.number()
-    .integer()
-    .min(0)
-    .required()
-    .description('Number of files rejected during upload')
-    .messages({
-      'number.min': '"numberOfRejectedFiles" must be a non-negative integer',
-      'number.integer': '"numberOfRejectedFiles" must be an integer',
-      'any.required': '"numberOfRejectedFiles" is required'
-    })
-    .example(schemaConsts.NUMBER_OF_REJECTED_FILES_EXAMPLE)
+  numberOfRejectedFiles: uploaderResponseFields.numberOfRejectedFiles
 }).strict()
   .description('Callback payload from CDP Uploader after file upload processing').label('CallbackPayload')
 
