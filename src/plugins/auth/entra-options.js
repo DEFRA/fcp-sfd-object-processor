@@ -21,7 +21,8 @@ export function getEntraAuthOptions (tenantConfig) {
     getAllowedList: () => allowedGroupIds || [],
     checkAllowed: (payload, allowedGroupIdsLocal) => {
       const tokenGroups = Array.isArray(payload.groups) ? payload.groups : []
-      const allowed = tokenGroups.some(group => allowedGroupIdsLocal.includes(group))
+      const allowedSet = new Set(allowedGroupIdsLocal)
+      const allowed = tokenGroups.some(group => allowedSet.has(group))
       return { allowed, failureContext: { tokenGroups, requiredGroups: allowedGroupIdsLocal } }
     },
     emptyListMessage: 'No authorized security groups configured',
