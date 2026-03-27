@@ -65,15 +65,13 @@ const validPendingResponse = {
       detectedContentType: 'application/pdf',
       fileStatus: 'pending'
     }
-  },
-  numberOfRejectedFiles: 0
+  }
 }
 
 const validInitiatedResponse = {
   uploadStatus: 'initiated',
   metadata: {},
-  form: {},
-  numberOfRejectedFiles: 0
+  form: {}
 }
 
 // ─── Helper: build a mock request object ───────────────────────────────────

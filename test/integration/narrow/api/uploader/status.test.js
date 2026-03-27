@@ -64,15 +64,13 @@ const mockReadyResponse = {
 const mockPendingResponse = {
   uploadStatus: 'pending',
   metadata: {},
-  form: { 'file-field': pendingFile },
-  numberOfRejectedFiles: 0
+  form: { 'file-field': pendingFile }
 }
 
 const mockInitiatedResponse = {
   uploadStatus: 'initiated',
   metadata: {},
-  form: {},
-  numberOfRejectedFiles: 0
+  form: {}
 }
 
 // ─── Setup ──────────────────────────────────────────────────────────────────

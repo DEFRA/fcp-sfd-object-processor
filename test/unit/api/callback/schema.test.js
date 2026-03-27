@@ -29,16 +29,18 @@ describe('callbackPayloadSchema validation', () => {
     })
 
     test('uploadStatus "initiated" passes validation', () => {
+      const { numberOfRejectedFiles, ...payloadWithoutRejectedFiles } = validPayload
       const { error } = callbackPayloadSchema.validate({
-        ...validPayload,
+        ...payloadWithoutRejectedFiles,
         uploadStatus: 'initiated'
       })
       expect(error).toBeUndefined()
     })
 
     test('uploadStatus "pending" passes validation', () => {
+      const { numberOfRejectedFiles, ...payloadWithoutRejectedFiles } = validPayload
       const { error } = callbackPayloadSchema.validate({
-        ...validPayload,
+        ...payloadWithoutRejectedFiles,
         uploadStatus: 'pending'
       })
       expect(error).toBeUndefined()
@@ -84,6 +86,47 @@ describe('callbackPayloadSchema validation', () => {
       })
       expect(error).toBeDefined()
       expect(error.details[0].path).toEqual(['numberOfRejectedFiles'])
+    })
+
+    test('numberOfRejectedFiles is required when uploadStatus is ready', () => {
+      const { numberOfRejectedFiles, ...payload } = validPayload
+      const { error } = callbackPayloadSchema.validate({ ...payload, uploadStatus: 'ready' })
+      expect(error).toBeDefined()
+      expect(error.details[0].path).toEqual(['numberOfRejectedFiles'])
+      expect(error.details[0].type).toBe('any.required')
+    })
+
+    test('numberOfRejectedFiles is forbidden when uploadStatus is pending', () => {
+      const { numberOfRejectedFiles, ...payloadWithoutRejectedFiles } = validPayload
+      const { error } = callbackPayloadSchema.validate({
+        ...payloadWithoutRejectedFiles,
+        uploadStatus: 'pending',
+        numberOfRejectedFiles: 0
+      })
+      expect(error).toBeDefined()
+      expect(error.details[0].path).toEqual(['numberOfRejectedFiles'])
+      expect(error.details[0].type).toBe('any.unknown')
+    })
+
+    test('numberOfRejectedFiles is forbidden when uploadStatus is initiated', () => {
+      const { numberOfRejectedFiles, ...payloadWithoutRejectedFiles } = validPayload
+      const { error } = callbackPayloadSchema.validate({
+        ...payloadWithoutRejectedFiles,
+        uploadStatus: 'initiated',
+        numberOfRejectedFiles: 0
+      })
+      expect(error).toBeDefined()
+      expect(error.details[0].path).toEqual(['numberOfRejectedFiles'])
+      expect(error.details[0].type).toBe('any.unknown')
+    })
+
+    test('missing numberOfRejectedFiles passes when uploadStatus is initiated', () => {
+      const { numberOfRejectedFiles, ...payloadWithoutRejectedFiles } = validPayload
+      const { error } = callbackPayloadSchema.validate({
+        ...payloadWithoutRejectedFiles,
+        uploadStatus: 'initiated'
+      })
+      expect(error).toBeUndefined()
     })
 
     test('unknown top-level field fails strict validation', () => {
