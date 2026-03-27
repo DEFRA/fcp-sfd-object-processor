@@ -8,7 +8,9 @@ const tenantSchema = Joi.array().items(
 )
 
 const parseTenantArray = (val) => {
-  if (Array.isArray(val)) return val
+  if (Array.isArray(val)) {
+    return val
+  }
   if (typeof val === 'string') {
     try {
       return JSON.parse(val)
@@ -80,7 +82,9 @@ const mapJoiError = (error) => {
 export const entraTenantsArray = {
   name: 'entra-tenants-array',
   validate: (val) => {
-    if (val === null || val === '') return
+    if (val === null || val === '') {
+      return
+    }
 
     const arr = parseTenantArray(val)
     const { error } = tenantSchema.validate(arr)
@@ -89,9 +93,15 @@ export const entraTenantsArray = {
     }
   },
   coerce: (val) => {
-    if (Array.isArray(val)) return val
-    if (val === null || val === '') return []
-    if (typeof val === 'string') return JSON.parse(val)
+    if (Array.isArray(val)) {
+      return val
+    }
+    if (val === null || val === '') {
+      return []
+    }
+    if (typeof val === 'string') {
+      return JSON.parse(val)
+    }
     return val
   }
 }
