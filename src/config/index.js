@@ -28,14 +28,13 @@ const config = convict({
   ...authConfig
 })
 
-// Backwards compatibility: if AUTH_ENTRA_TENANTS is not set but legacy single-tenant
-// env vars are present, construct a single-entry tenants array so existing deployments keep working.
-if (!process.env.AUTH_ENTRA_TENANTS && process.env.AUTH_ENTRA_TENANT_ID) {
-  const tenantId = process.env.AUTH_ENTRA_TENANT_ID
-  const allowedRaw = process.env.AUTH_ENTRA_ALLOWED_GROUP_IDS || ''
-  const allowed = allowedRaw === '' ? [] : allowedRaw.split(',')
-  config.set('auth.entra.tenants', [{ tenantId, allowedGroupIds: allowed }])
-}
+// Backwards compatibility: if `auth.entra.tenants` is empty but legacy single-tenant
+// configuration is set (exposed via the schema), construct a single-entry tenants
+// array so existing deployments keep working. Using `config.get()` means validation
+// errors will reference the original env vars (e.g. `AUTH_ENTRA_ALLOWED_GROUP_IDS`).
+// Backwards compatibility for legacy single-tenant environment variables
+// has been removed. `auth.entra.tenants` should be set via the
+// `AUTH_ENTRA_TENANTS` environment variable (JSON array) or programmatically.
 
 config.validate({ allowed: 'strict' })
 

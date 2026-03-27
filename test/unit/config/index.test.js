@@ -29,16 +29,13 @@ describe('config/index.js', () => {
     // Provide legacy single-tenant env vars
     process.env.AUTH_ENTRA_TENANT_ID = 'tenant-1'
     process.env.AUTH_ENTRA_ALLOWED_GROUP_IDS = 'g1,g2'
-
     await import('../../../src/config/index.js')
 
     // addFormat should be called for each custom format registered
     expect(addFormat).toHaveBeenCalled()
 
-    // config.set should be called to set auth.entra.tenants from legacy envs
-    expect(set).toHaveBeenCalledWith('auth.entra.tenants', [
-      { tenantId: 'tenant-1', allowedGroupIds: ['g1', 'g2'] }
-    ])
+    // Backwards compatibility removed: legacy env vars are ignored for tenants
+    expect(set).not.toHaveBeenCalledWith('auth.entra.tenants', expect.anything())
 
     // validate should be invoked with strict mode
     expect(validate).toHaveBeenCalledWith({ allowed: 'strict' })
@@ -59,13 +56,11 @@ describe('config/index.js', () => {
   test('sets tenants with empty allowedGroupIds when allowed env missing', async () => {
     // legacy single-tenant env var present but no allowed groups env
     process.env.AUTH_ENTRA_TENANT_ID = 'tenant-2'
-
     await import('../../../src/config/index.js')
 
     expect(addFormat).toHaveBeenCalled()
-    expect(set).toHaveBeenCalledWith('auth.entra.tenants', [
-      { tenantId: 'tenant-2', allowedGroupIds: [] }
-    ])
+    // Backwards compatibility removed: legacy env vars are ignored for tenants
+    expect(set).not.toHaveBeenCalledWith('auth.entra.tenants', expect.anything())
     expect(validate).toHaveBeenCalledWith({ allowed: 'strict' })
   })
 })
