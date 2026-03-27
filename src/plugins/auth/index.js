@@ -22,10 +22,13 @@ export const auth = {
 
       if (entraEnabled) {
         const tenants = config.get('auth.entra.tenants') || []
-        // Register one strategy per tenant
+        // Register one strategy per tenant; use the same strategyName used in
+        // the auth options (which includes the tenant id) so logs and Hapi
+        // strategy names align for easier debugging.
         tenants.forEach((tenantConfig, idx) => {
-          const strategyName = `entra-${idx}`
-          server.auth.strategy(strategyName, 'jwt', getEntraAuthOptions(tenantConfig))
+          const options = getEntraAuthOptions(tenantConfig)
+          const strategyName = options.strategyName || `entra-${idx}`
+          server.auth.strategy(strategyName, 'jwt', options)
           strategies.push(strategyName)
         })
       }

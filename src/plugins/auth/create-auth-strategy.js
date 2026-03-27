@@ -28,6 +28,7 @@ export function createAuthStrategy ({
   unauthorisedMessage
 }) {
   return {
+    strategyName,
     keys: {
       uri: jwksUri
     },
