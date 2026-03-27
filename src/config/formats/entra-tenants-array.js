@@ -100,7 +100,7 @@ export const entraTenantsArray = {
       return []
     }
     if (typeof val === 'string') {
-      return JSON.parse(val)
+      return parseTenantArray(val)
     }
     return val
   }
