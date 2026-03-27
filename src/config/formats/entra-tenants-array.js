@@ -18,7 +18,7 @@ const parseTenantArray = (val) => {
       throw new SyntaxError('AUTH_ENTRA_TENANTS must be valid JSON', { cause: e })
     }
   }
-  return val
+  throw new TypeError('Must be an array of tenant configs')
 }
 const isTopLevelArrayError = (d) => {
   const p = d.path || []
