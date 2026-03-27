@@ -2,7 +2,7 @@ export const authConfig = {
   auth: {
     entra: {
       enabled: {
-        doc: 'API authentication enabled',
+        doc: 'Entra ID authentication enabled',
         format: Boolean,
         default: true,
         env: 'AUTH_ENTRA_ENABLED'
