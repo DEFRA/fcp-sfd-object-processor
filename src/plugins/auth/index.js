@@ -21,7 +21,7 @@ export const auth = {
       const strategies = []
 
       if (entraEnabled) {
-        const tenants = config.get('auth.entra.tenants') || []
+        const tenants = config.get('auth.entra.tenants')
         // Register one strategy per tenant; use the same strategyName used in
         // the auth options (which includes the tenant id) so logs and Hapi
         // strategy names align for easier debugging.
