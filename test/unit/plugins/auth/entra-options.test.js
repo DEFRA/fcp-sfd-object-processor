@@ -135,5 +135,13 @@ describe('getEntraAuthOptions', () => {
       expect(result.isValid).toBe(false)
       expect(result.errorMessage).toBe('No authorized security groups configured')
     })
+
+    test('should handle missing tenantConfig and return empty allowed list', async () => {
+      const validateFn = getEntraAuthOptions().validate
+      const payload = { typ: 'JWT', sub: 'user-missing', groups: ['group-1'] }
+      const result = await validateFn({ decoded: { payload } }, mockRequest, {})
+      expect(result.isValid).toBe(false)
+      expect(result.errorMessage).toBe('No authorized security groups configured')
+    })
   })
 })
