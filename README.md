@@ -186,8 +186,30 @@ curl -X GET "http://localhost:3004/api/v1/status/{correlationId}" # where {corre
 
 The information returned will be the same as what is stored in the database.
 
-## Tests
+## Logging
 
+This service uses [Pino](https://getpino.io/) with [Elastic Common Schema (ECS)](https://www.elastic.co/guide/en/ecs/current/index.html) formatting. All structured log fields must use the approved `event.*` field structure — flat top-level fields are not visible on the platform.
+
+### Approved `event.*` fields
+
+| Field | Type | Purpose |
+|---|---|---|
+| `event.type` | text | Specific event name (e.g. `status_check`) |
+| `event.action` | text | Action taken — use for HTTP method or operation |
+| `event.category` | text | Broad category — use for request path |
+| `event.reference` | text | Reference ID tied to the event — use for `uploadId` or similar |
+| `event.reason` | text | Reason/explanation — use for `clientId`, `uploadStatus`, or error cause |
+| `event.outcome` | text | Outcome: `success`, `failure`, or `unknown` |
+| `event.kind` | text | High-level type — use for HTTP status code |
+| `event.duration` | long | Round-trip time in **nanoseconds** (`ms × 1,000,000`) |
+| `event.severity` | long | Custom severity level (0–10) |
+| `event.created` | date | Time the event was created |
+
+### Log builder utilities
+
+Reusable structured log builders live in `src/utils/` and follow the pattern established in [`build-uploader-status-log.js`](src/utils/build-uploader-status-log.js). Each builder returns a plain object with a nested `event` key using only approved fields.
+
+## Tests
 
 ### Test structure
 

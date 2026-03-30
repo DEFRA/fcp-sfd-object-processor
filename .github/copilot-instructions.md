@@ -279,6 +279,44 @@ Messages published to SNS follow **CloudEvents v1.0** specification. Contract de
 - Logger available via `createLogger()` from [src/logging/logger.js](../src/logging/logger.js)
 - Logs use ECS format (Elastic Common Schema)
 
+## Logging
+
+All structured log fields **must** use the approved ECS `event.*` field structure. Flat top-level fields are not visible on the platform.
+
+**Approved `event.*` fields:**
+
+| Field | Type | Purpose |
+|---|---|---|
+| `event.type` | text | Specific event name (e.g. `status_check`) |
+| `event.action` | text | Action taken — use for HTTP method or operation |
+| `event.category` | text | Broad category — use for request path |
+| `event.reference` | text | Reference ID tied to the event — use for `uploadId` or similar |
+| `event.reason` | text | Reason/explanation — use for `clientId`, `uploadStatus`, or error cause |
+| `event.outcome` | text | Outcome: `success`, `failure`, or `unknown` |
+| `event.kind` | text | High-level type — use for HTTP status code |
+| `event.duration` | long | Round-trip time in **nanoseconds** (convert ms × 1,000,000) |
+| `event.severity` | long | Custom severity level (0–10) |
+| `event.created` | date | Time the event was created |
+
+**Rules when writing log utilities:**
+- Always nest structured fields under `event: { ... }` — never use flat top-level keys
+- Follow the pattern in [src/utils/build-uploader-status-log.js](../src/utils/build-uploader-status-log.js)
+- Duration values must be converted to nanoseconds: `duration * 1_000_000`
+- Add unit tests for every log builder function (see [test/unit/utils/](../test/unit/utils/))
+
+**Example:**
+```javascript
+export const buildMyOperationLog = (request, id) => ({
+  event: {
+    type: 'my_operation',
+    action: request.method,
+    category: request.path,
+    reference: id,
+    reason: request.auth?.artifacts?.decoded?.payload?.client_id
+  }
+})
+```
+
 ## AWS Integration (LocalStack)
 - S3 bucket for file storage: configured via `S3_BUCKET` env var
 - SNS topic for events: `DOCUMENT_UPLOAD_EVENTS_TOPIC_ARN`
