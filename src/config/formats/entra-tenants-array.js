@@ -18,57 +18,57 @@ const parseTenantArray = (val) => {
   throw new TypeError('Must be an array of tenant configs')
 }
 
-const isTopLevelArrayError = (d) => {
-  const p = d.path || []
-  const msg = d.message || ''
-  return p.length === 0 && (d.type === 'array.base' || /must be an array/.test(msg))
+const isTopLevelArrayError = (detail) => {
+  const path = detail.path || []
+  const messageText = detail.message || ''
+  return path.length === 0 && (detail.type === 'array.base' || /must be an array/.test(messageText))
 }
 
-const isTenantObjectError = (d) => {
-  const p = d.path || []
-  const msg = d.message || ''
-  return p.length === 1 && p[0] === 0 && /must be of type object|must be an object/.test(msg)
+const isTenantObjectError = (detail) => {
+  const path = detail.path || []
+  const messageText = detail.message || ''
+  return path.length === 1 && path[0] === 0 && /must be of type object|must be an object/.test(messageText)
 }
 
-const isTenantIdError = (d) => {
-  const p = d.path || []
-  return String(p).endsWith('tenantId')
+const isTenantIdError = (detail) => {
+  const path = detail.path || []
+  return String(path).endsWith('tenantId')
 }
 
-const isAllowedGroupIdsArrayError = (d) => {
-  const p = d.path || []
-  const msg = d.message || ''
-  return String(p).endsWith('allowedGroupIds') && (d.type === 'array.base' || /must be an array/.test(msg))
+const isAllowedGroupIdsArrayError = (detail) => {
+  const path = detail.path || []
+  const messageText = detail.message || ''
+  return String(path).endsWith('allowedGroupIds') && (detail.type === 'array.base' || /must be an array/.test(messageText))
 }
 
-const isAllowedGroupIdsMinError = (d) => {
-  const p = d.path || []
-  const msg = d.message || ''
-  return String(p).endsWith('allowedGroupIds') && (d.type === 'array.min' || /contain at least/.test(msg) || /at least 1 items/.test(msg))
+const isAllowedGroupIdsMinError = (detail) => {
+  const path = detail.path || []
+  const messageText = detail.message || ''
+  return String(path).endsWith('allowedGroupIds') && (detail.type === 'array.min' || /contain at least/.test(messageText) || /at least 1 items/.test(messageText))
 }
 
-const isAllowedGroupIdsGuidError = (d) => {
-  const msg = d.message || ''
-  return /valid GUID|valid guid|must be a valid GUID|must be a valid guid/.test(msg)
+const isAllowedGroupIdsGuidError = (detail) => {
+  const messageText = detail.message || ''
+  return /valid GUID|valid guid|must be a valid GUID|must be a valid guid/.test(messageText)
 }
 
 const mapJoiError = (error) => {
-  const d = error.details?.[0]
-  if (!d) throw new TypeError(error.message)
+  const detail = error.details?.[0]
+  if (!detail) throw new TypeError(error.message)
 
-  if (isTopLevelArrayError(d)) {
+  if (isTopLevelArrayError(detail)) {
     throw new TypeError('Must be an array of tenant configs')
   }
-  if (isTenantObjectError(d)) {
+  if (isTenantObjectError(detail)) {
     throw new TypeError('Each tenant must be an object with tenantId and allowedGroupIds')
   }
-  if (isTenantIdError(d)) {
+  if (isTenantIdError(detail)) {
     throw new TypeError('tenantId must be a non-empty string')
   }
-  if (isAllowedGroupIdsArrayError(d) || isAllowedGroupIdsMinError(d)) {
+  if (isAllowedGroupIdsArrayError(detail) || isAllowedGroupIdsMinError(detail)) {
     throw new TypeError('allowedGroupIds must be a non-empty array of UUIDs')
   }
-  if (isAllowedGroupIdsGuidError(d)) {
+  if (isAllowedGroupIdsGuidError(detail)) {
     throw new TypeError('allowedGroupIds must contain only valid UUID strings')
   }
 
