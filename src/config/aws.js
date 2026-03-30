@@ -26,15 +26,15 @@ export const awsConfig = {
       nullable: true,
       env: 'AWS_SECRET_ACCESS_KEY'
     },
-    localstack: {
+    local: {
       s3Endpoint: {
-        doc: 'Endpoint to use to reach the s3 storage when using localstack.',
+        doc: 'Endpoint to use to reach the S3 storage when using a local AWS emulator (Floci).',
         format: String,
         default: '',
         env: 'S3_ENDPOINT'
       },
       forcePathStyle: {
-        doc: 'Sets the presigned url path for S3 to use a defined endpoint instead of the default aws endpoint, needed for localstack.',
+        doc: 'Sets the presigned URL path for S3 to use a defined endpoint instead of the default AWS endpoint, needed for local AWS emulation.',
         format: Boolean,
         default: false,
         env: 'AWS_S3_FORCE_PATH_STYLE'

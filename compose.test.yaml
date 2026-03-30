@@ -11,7 +11,6 @@ services:
     environment:
       PORT: 3004
       NODE_ENV: development
-      LOCALSTACK_ENDPOINT: http://localstack:4566
       MONGO_URI: mongodb://mongodb:27017/
       AUTH_ENTRA_ENABLED: false
       AUTH_ENTRA_TENANT_ID: ${AUTH_ENTRA_TENANT_ID}
@@ -27,12 +26,6 @@ services:
       - ./package.json:/home/node/package.json 
       - ./coverage:/home/node/coverage
     depends_on:
-    - mongodb
-    - cdp-uploader
-    - redis
-
-
-  localstack:
-    env_file:
-      - path: .env
-        required: false
+      - mongodb
+      - cdp-uploader
+      - redis

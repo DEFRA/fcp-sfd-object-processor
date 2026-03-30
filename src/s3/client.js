@@ -9,8 +9,8 @@ const s3Config = {
 }
 
 if (config.get('env') !== environments.PRODUCTION) {
-  s3Config.endpoint = config.get('aws.localstack.s3Endpoint')
-  s3Config.forcePathStyle = config.get('aws.localstack.forcePathStyle')
+  s3Config.endpoint = config.get('aws.local.s3Endpoint')
+  s3Config.forcePathStyle = config.get('aws.local.forcePathStyle')
   s3Config.credentials = {
     accessKeyId: config.get('aws.accessKeyId'),
     secretAccessKey: config.get('aws.secretAccessKey')

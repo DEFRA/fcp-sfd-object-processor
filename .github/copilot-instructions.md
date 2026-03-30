@@ -101,7 +101,7 @@ npm run docker:dev                     # Same as above
 npm run docker:debug                   # With debug ports exposed
 ```
 
-**Important:** LocalStack provides AWS services (S3, SNS) at `http://localstack:4566` in containers.
+**Important:** Floci provides AWS services (S3, SNS) at `http://floci:4566` in containers.
 
 ### Testing
 
@@ -279,16 +279,16 @@ Messages published to SNS follow **CloudEvents v1.0** specification. Contract de
 - Logger available via `createLogger()` from [src/logging/logger.js](../src/logging/logger.js)
 - Logs use ECS format (Elastic Common Schema)
 
-## AWS Integration (LocalStack)
+## AWS Integration (Floci)
 - S3 bucket for file storage: configured via `S3_BUCKET` env var
 - SNS topic for events: `DOCUMENT_UPLOAD_EVENTS_TOPIC_ARN`
-- Use `AWS_S3_FORCE_PATH_STYLE=true` for LocalStack
+- Use `AWS_S3_FORCE_PATH_STYLE=true` for Floci
 - Endpoints configured in [src/config/aws.js](../src/config/aws.js)
 
 ## Configuration & Environment Variables
 All environment variables are documented in [compose.yaml](../compose.yaml) and related compose files. Reference these files for:
 - MongoDB connection strings (requires replica set)
-- AWS service endpoints (LocalStack vs production)
+- AWS service endpoints (Floci vs production)
 - Service URLs (CDP Uploader)
 - Message processing intervals and batch sizes
 

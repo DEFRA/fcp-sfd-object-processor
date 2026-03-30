@@ -9,13 +9,17 @@ services:
       - ./src:/home/node/src
       - ./package.json:/home/node/package.json
 
-  localstack:
+  floci:
     ports:
-      - '4566:4566' # LocalStack Gateway
-      - '4510-4559:4510-4559' # external services port range
+      - '4566:4566'
     volumes:
-      - '${TMPDIR:-/tmp}/localstack:/var/lib/localstack'
-      - ./compose/start-localstack.sh:/etc/localstack/init/ready.d/start-localstack.sh
+      - floci-data:/app/data
+    networks:
+      - fcp-sfd
+
+  floci-init:
+    networks:
+      - fcp-sfd
   mongodb:
     ports:
       - '27017:27017'
