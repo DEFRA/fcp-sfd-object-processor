@@ -25,13 +25,15 @@ services:
       PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL:-http://localhost:3004}
       # Database
       MONGO_URI: mongodb://mongodb:27017/?replicaSet=rs0
-      MONGO_READ_PREFERENCE: primary 
+      MONGO_READ_PREFERENCE: primary
       MONGO_OUTBOX_QUERY_LIMIT: ${MONGO_OUTBOX_QUERY_LIMIT:-100}
       # aws
       AWS_ENDPOINT_URL: http://floci:4566
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
       AWS_S3_FORCE_PATH_STYLE: true
+      S3_ENDPOINT: http://floci:4566
+      SNS_ENDPOINT: http://floci:4566
       AWS_REGION: eu-west-2
       # Messaging
       DOCUMENT_UPLOAD_EVENTS_TOPIC_ARN: arn:aws:sns:eu-west-2:000000000000:fcp_sfd_object_processor_events
@@ -61,7 +63,7 @@ services:
       floci-init:
         condition: service_completed_successfully
     env_file:
-      - 'compose/aws.env'
+      - "compose/aws.env"
     environment:
       VIRTUAL_HOST: ~^uploader\..*\.sslip\.io
       VIRTUAL_PATH: /
@@ -73,10 +75,12 @@ services:
       MOCK_VIRUS_SCAN_ENABLED: true
       MOCK_VIRUS_RESULT_DELAY: 3
       AWS_ENDPOINT_URL: http://floci:4566
+      S3_ENDPOINT: http://floci:4566
+      SQS_ENDPOINT: http://floci:4566
       CONSUMER_BUCKETS: fcp-sfd-object-processor-bucket
     networks:
       - fcp-sfd
-  
+
   floci:
     image: hectorvent/floci:latest
     environment:
