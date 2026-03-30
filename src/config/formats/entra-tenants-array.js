@@ -24,7 +24,9 @@ const isTopLevelArrayError = (d) => {
   const p = d.path || []
   const msg = d.message || ''
   return p.length === 0 && (d.type === 'array.base' || /must be an array/.test(msg))
-}
+const isTopLevelArrayError = (details) => {
+  const path = details.path || []
+  const msg = details.message || ''
 
 const isTenantObjectError = (d) => {
   const p = d.path || []
