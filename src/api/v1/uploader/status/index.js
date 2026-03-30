@@ -9,9 +9,15 @@ import {
   uploaderStatusResponseSchema
 } from './schema.js'
 import { metricsCounter } from '../../../../api/common/helpers/metrics.js'
+import {
+  buildStatusRequestLog,
+  buildStatusResponseLog
+} from '../../../../utils/build-uploader-status-log.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
+const uploaderUrl = config.get('uploaderUrl')
+const uploaderStatusEndpoint = config.get('uploaderStatusEndpoint')
 
 export const uploaderStatusRoute = {
   method: 'GET',
@@ -34,23 +40,15 @@ export const uploaderStatusRoute = {
     },
     handler: async (request, h) => {
       const { uploadId } = request.params
-      const uploaderUrl = config.get('uploaderUrl')
-      const uploaderStatusEndpoint = config.get('uploaderStatusEndpoint')
+
+      // Construct the upstream CDP Uploader status URL
       const url = `${uploaderUrl}${uploaderStatusEndpoint}/${uploadId}`
 
       const startTime = Date.now()
 
-      logger.info(
-        {
-          event: 'status_check',
-          uploadId,
-          path: request.path,
-          method: request.method,
-          clientId: request.auth?.artifacts?.decoded?.payload?.client_id
-        },
-        'Forwarding status request to CDP Uploader'
-      )
+      logger.info(buildStatusRequestLog(request, uploadId), 'Forwarding status request to CDP Uploader')
 
+      // Fetch status from CDP Uploader with a configurable timeout
       let response
 
       try {
@@ -67,6 +65,7 @@ export const uploaderStatusRoute = {
         throw Boom.badGateway('CDP Uploader request failed')
       }
 
+      // Handle upstream error responses before reading the body
       if (response.status === httpConstants.HTTP_STATUS_NOT_FOUND) {
         logger.info({ uploadId, url }, 'CDP Uploader returned 404 — upload not found')
         throw Boom.notFound('Upload not found')
@@ -81,6 +80,7 @@ export const uploaderStatusRoute = {
         throw Boom.badGateway(`CDP Uploader returned ${response.status}`)
       }
 
+      // Parse the JSON response body
       let cdpResponse
 
       try {
@@ -90,6 +90,7 @@ export const uploaderStatusRoute = {
         throw Boom.badGateway('Invalid response from CDP Uploader')
       }
 
+      // Validate the response matches the expected CDP Uploader contract
       const { error: validationError } = cdpUploaderStatusResponseSchema.validate(cdpResponse)
 
       if (validationError) {
@@ -102,16 +103,7 @@ export const uploaderStatusRoute = {
 
       const duration = Date.now() - startTime
 
-      logger.info(
-        {
-          event: 'status_check_response',
-          uploadId,
-          uploadStatus: cdpResponse.uploadStatus,
-          statusCode: httpConstants.HTTP_STATUS_OK,
-          duration
-        },
-        'CDP Uploader status response received'
-      )
+      logger.info(buildStatusResponseLog(uploadId, cdpResponse, duration), 'CDP Uploader status response received')
 
       return h.response({ data: cdpResponse }).code(httpConstants.HTTP_STATUS_OK)
     }

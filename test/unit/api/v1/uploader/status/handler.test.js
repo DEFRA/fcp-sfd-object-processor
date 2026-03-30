@@ -5,8 +5,12 @@ import { constants as httpConstants } from 'node:http2'
 // The default covers module-level config.get calls (e.g. baseUrl).
 const { mockConfigGet } = vi.hoisted(() => ({
   mockConfigGet: vi.fn().mockImplementation((key) => {
-    if (key === 'baseUrl.v1') return '/api/v1'
-    return null
+    switch (key) {
+      case 'baseUrl.v1': return '/api/v1'
+      case 'uploaderUrl': return 'http://cdp-uploader:7337'
+      case 'uploaderStatusEndpoint': return '/status'
+      default: return null
+    }
   })
 }))
 
@@ -183,17 +187,21 @@ describe('uploaderStatusRoute handler', () => {
 
       expect(mockLogger.info).toHaveBeenCalledWith(
         expect.objectContaining({
-          event: 'status_check',
-          uploadId: validUploadId
+          event: expect.objectContaining({
+            type: 'status_check',
+            reference: validUploadId
+          })
         }),
         expect.any(String)
       )
       expect(mockLogger.info).toHaveBeenCalledWith(
         expect.objectContaining({
-          event: 'status_check_response',
-          uploadId: validUploadId,
-          uploadStatus: 'ready',
-          statusCode: httpConstants.HTTP_STATUS_OK
+          event: expect.objectContaining({
+            type: 'status_check',
+            outcome: 'success',
+            reference: validUploadId,
+            reason: 'ready'
+          })
         }),
         expect.any(String)
       )
