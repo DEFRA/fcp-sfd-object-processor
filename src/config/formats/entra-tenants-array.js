@@ -56,7 +56,9 @@ const isAllowedGroupIdsGuidError = (detail) => {
 
 const mapJoiError = (error) => {
   const detail = error.details?.[0]
-  if (!detail) throw new TypeError(error.message)
+  if (!detail) {
+    throw new TypeError(error.message)
+  }
 
   if (isTopLevelArrayError(detail)) {
     throw new TypeError('Must be an array of tenant configs')
@@ -86,7 +88,9 @@ export const entraTenantsArray = {
 
     const arr = parseTenantArray(val)
     const { error } = tenantSchema.validate(arr)
-    if (error) mapJoiError(error)
+    if (error) {
+      mapJoiError(error)
+    }
   },
   coerce: (val) => {
     if (Array.isArray(val)) {
