@@ -21,12 +21,14 @@
     {
       "type": "npm",
       "label": "🛑 Stop Docker container",
-      "script": "docker:stop"
+      "script": "docker:stop",
+      "problemMatcher": []
     },
     {
       "type": "npm",
       "label": "😵 Stop Docker container + delete volumes",
-      "script": "docker:stop:v"
+      "script": "docker:stop:v",
+      "problemMatcher": []
     },
     {
       "type": "npm",
@@ -57,12 +59,14 @@
     {
       "type": "npm",
       "label": "📋 Run linter",
-      "script": "lint"
+      "script": "lint",
+      "problemMatcher": []
     },
     {
       "type": "npm",
       "label": "🧹 Run linter + auto fix known issues",
-      "script": "lint:fix"
+      "script": "lint:fix",
+      "problemMatcher": []
     },
     {
       "type": "npm",
