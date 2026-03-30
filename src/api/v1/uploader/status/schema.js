@@ -29,6 +29,19 @@ const cdpStatusFormSchema = Joi.object()
   )
   .required()
   .description('Form data containing text fields and file upload objects')
+  .example({
+    'file-upload-1': {
+      fileId: schemaConsts.FILE_ID_EXAMPLE,
+      filename: schemaConsts.FILENAME_EXAMPLE,
+      contentType: schemaConsts.CONTENT_TYPE_EXAMPLE,
+      detectedContentType: schemaConsts.DETECTED_CONTENT_TYPE_EXAMPLE,
+      fileStatus: schemaConsts.FILE_STATUS_EXAMPLE,
+      contentLength: schemaConsts.CONTENT_LENGTH_EXAMPLE,
+      checksumSha256: schemaConsts.CHECKSUM_SHA256_EXAMPLE,
+      s3Key: schemaConsts.S3_KEY_EXAMPLE,
+      s3Bucket: schemaConsts.S3_BUCKET_EXAMPLE
+    }
+  })
   .label('CdpStatusForm')
 
 export const cdpUploaderStatusResponseSchema = Joi.object({
@@ -37,6 +50,16 @@ export const cdpUploaderStatusResponseSchema = Joi.object({
   metadata: Joi.object()
     .required()
     .description('Metadata associated with the upload session')
+    .example({
+      sbi: schemaConsts.SBI_EXAMPLE,
+      crn: schemaConsts.CRN_EXAMPLE,
+      frn: schemaConsts.FRN_EXAMPLE,
+      submissionId: schemaConsts.SUBMISSION_ID_EXAMPLE,
+      uosr: schemaConsts.UOSR_EXAMPLE,
+      type: schemaConsts.TYPE_EXAMPLE,
+      reference: schemaConsts.REFERENCE_EXAMPLE,
+      service: schemaConsts.SERVICE_EXAMPLE
+    })
     .label('CdpStatusMetadata'),
 
   form: cdpStatusFormSchema,

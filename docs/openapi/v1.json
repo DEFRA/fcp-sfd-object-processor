@@ -387,13 +387,131 @@
       },
       "uploadStatus": {
         "type": "string",
-        "description": "Status of the upload process",
+        "description": "Status of the upload session",
         "example": "ready",
         "enum": [
-          "ready",
           "initiated",
-          "pending"
+          "pending",
+          "ready"
         ]
+      },
+      "CdpStatusMetadata": {
+        "type": "object",
+        "description": "Metadata associated with the upload session",
+        "example": {
+          "sbi": 105000000,
+          "crn": 1050000000,
+          "frn": 1102658375,
+          "submissionId": "1733826312",
+          "uosr": "105000000_1733826312",
+          "type": "CS_Agreement_Evidence",
+          "reference": "user entered reference",
+          "service": "fcp-sfd-frontend"
+        }
+      },
+      "CdpStatusForm": {
+        "type": "object",
+        "description": "Form data containing text fields and file upload objects",
+        "example": {
+          "file-upload-1": {
+            "fileId": "9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
+            "filename": "document.pdf",
+            "contentType": "application/pdf",
+            "detectedContentType": "application/pdf",
+            "fileStatus": "complete",
+            "contentLength": 11264,
+            "checksumSha256": "bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=",
+            "s3Key": "scanned/folder/9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
+            "s3Bucket": "fcp-sfd-object-processor-bucket"
+          }
+        }
+      },
+      "CdpUploaderStatusResponse": {
+        "type": "object",
+        "properties": {
+          "uploadStatus": {
+            "$ref": "#/components/schemas/uploadStatus"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/CdpStatusMetadata"
+          },
+          "form": {
+            "$ref": "#/components/schemas/CdpStatusForm"
+          },
+          "numberOfRejectedFiles": {
+            "type": "integer",
+            "description": "Number of files rejected during upload",
+            "example": 0,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "uploadStatus",
+          "metadata",
+          "form"
+        ]
+      },
+      "UploaderStatusSuccessResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/CdpUploaderStatusResponse"
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "StatusNotFound": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 404
+          },
+          "error": {
+            "type": "string",
+            "example": "Not Found"
+          },
+          "message": {
+            "type": "string",
+            "example": "Upload not found"
+          }
+        }
+      },
+      "BadGateway": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 502
+          },
+          "error": {
+            "type": "string",
+            "example": "Bad Gateway"
+          },
+          "message": {
+            "type": "string",
+            "example": "CDP Uploader request failed"
+          }
+        }
+      },
+      "GatewayTimeout": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 504
+          },
+          "error": {
+            "type": "string",
+            "example": "Gateway Timeout"
+          },
+          "message": {
+            "type": "string",
+            "example": "CDP Uploader request timed out"
+          }
+        }
       },
       "service": {
         "type": "string",
@@ -512,8 +630,7 @@
         "required": [
           "uploadStatus",
           "metadata",
-          "form",
-          "numberOfRejectedFiles"
+          "form"
         ]
       },
       "ids": {
@@ -681,228 +798,7 @@
           "data"
         ]
       },
-      "BadGateway": {
-        "type": "object",
-        "properties": {
-          "statusCode": {
-            "type": "number",
-            "example": 502
-          },
-          "error": {
-            "type": "string",
-            "example": "Bad Gateway"
-          },
-          "message": {
-            "type": "string",
-            "example": "CDP Uploader request failed"
-          }
-        }
-      },
-      "GatewayTimeout": {
-        "type": "object",
-        "properties": {
-          "statusCode": {
-            "type": "number",
-            "example": 504
-          },
-          "error": {
-            "type": "string",
-            "example": "Gateway Timeout"
-          },
-          "message": {
-            "type": "string",
-            "example": "CDP Uploader request timed out"
-          }
-        }
-      },
       "FileUpload": {
-        "type": "object",
-        "description": "File upload metadata from CDP Uploader",
-        "properties": {
-          "fileId": {
-            "type": "string",
-            "description": "Unique identifier for the uploaded file",
-            "example": "9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
-            "format": "uuid"
-          },
-          "filename": {
-            "type": "string",
-            "description": "Original name of the uploaded file",
-            "example": "document.pdf",
-            "minLength": 1
-          },
-          "contentType": {
-            "type": "string",
-            "description": "MIME type of the uploaded file",
-            "example": "application/pdf",
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9!#$&^_+-]*/[a-zA-Z0-9][a-zA-Z0-9!#$&^_+.-]*$"
-          },
-          "fileStatus": {
-            "type": "string",
-            "description": "Status of the file upload",
-            "example": "complete",
-            "enum": [
-              "complete"
-            ]
-          },
-          "contentLength": {
-            "type": "integer",
-            "description": "Size of the file in bytes",
-            "example": 11264,
-            "minimum": 0
-          },
-          "checksumSha256": {
-            "type": "string",
-            "description": "SHA-256 checksum of the file encoded in base64",
-            "example": "bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=",
-            "pattern": "^[A-Za-z0-9+/]+=*$"
-          },
-          "detectedContentType": {
-            "type": "string",
-            "description": "MIME type detected by virus scanning",
-            "example": "application/pdf",
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9!#$&^_+-]*/[a-zA-Z0-9][a-zA-Z0-9!#$&^_+.-]*$"
-          },
-          "s3Key": {
-            "type": "string",
-            "description": "S3 object key where the file is stored",
-            "example": "scanned/folder/9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
-            "minLength": 1
-          },
-          "s3Bucket": {
-            "type": "string",
-            "description": "S3 bucket name where the file is stored",
-            "example": "fcp-sfd-object-processor-bucket",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "fileId",
-          "filename",
-          "contentType",
-          "fileStatus",
-          "contentLength",
-          "checksumSha256",
-          "detectedContentType",
-          "s3Key",
-          "s3Bucket"
-        ]
-      },
-      "CdpStatusMetadata": {
-        "type": "object",
-        "description": "Metadata associated with the upload session",
-        "additionalProperties": true
-      },
-      "CdpStatusForm": {
-        "type": "object",
-        "description": "Form data containing text fields and file upload objects",
-        "additionalProperties": {
-          "oneOf": [
-            {
-              "$ref": "#/components/schemas/FileUploadMetadata"
-            },
-            {
-              "type": "string",
-              "description": "Text form field value"
-            }
-          ]
-        }
-      },
-      "CdpUploaderStatusResponse": {
-        "type": "object",
-        "description": "Raw status response from CDP Uploader",
-        "required": [
-          "uploadStatus",
-          "metadata",
-          "form",
-          "numberOfRejectedFiles"
-        ],
-        "properties": {
-          "uploadStatus": {
-            "type": "string",
-            "enum": [
-              "initiated",
-              "pending",
-              "ready"
-            ],
-            "example": "ready",
-            "description": "Current status of the upload session"
-          },
-          "metadata": {
-            "$ref": "#/components/schemas/CdpStatusMetadata"
-          },
-          "form": {
-            "$ref": "#/components/schemas/CdpStatusForm"
-          },
-          "numberOfRejectedFiles": {
-            "type": "integer",
-            "minimum": 0,
-            "example": 0,
-            "description": "Number of files rejected during scanning"
-          }
-        },
-        "additionalProperties": true
-      },
-      "UploaderStatusSuccessResponse": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "$ref": "#/components/schemas/CdpUploaderStatusResponse"
-          }
-        }
-      },
-      "StatusNotFound": {
-        "type": "object",
-        "properties": {
-          "statusCode": {
-            "type": "integer",
-            "example": 404
-          },
-          "error": {
-            "type": "string",
-            "example": "Not Found"
-          },
-          "message": {
-            "type": "string",
-            "example": "Upload not found"
-          }
-        }
-      },
-      "StatusBadGateway": {
-        "type": "object",
-        "properties": {
-          "statusCode": {
-            "type": "integer",
-            "example": 502
-          },
-          "error": {
-            "type": "string",
-            "example": "Bad Gateway"
-          },
-          "message": {
-            "type": "string",
-            "example": "CDP Uploader request failed"
-          }
-        }
-      },
-      "StatusGatewayTimeout": {
-        "type": "object",
-        "properties": {
-          "statusCode": {
-            "type": "integer",
-            "example": 504
-          },
-          "error": {
-            "type": "string",
-            "example": "Gateway Timeout"
-          },
-          "message": {
-            "type": "string",
-            "example": "CDP Uploader request timed out"
-          }
-        }
-      },
-      "FileUploadMetadata": {
         "type": "object",
         "description": "File upload metadata from CDP Uploader",
         "properties": {
@@ -1226,6 +1122,108 @@
         }
       }
     },
+    "/api/v1/uploader/status/{uploadId}": {
+      "get": {
+        "summary": "Proxy CDP Uploader scan status for an upload session",
+        "operationId": "getApiV1UploaderStatusUploadid",
+        "description": "Polls CDP Uploader for the current scan status and file details for a given uploadId.",
+        "parameters": [
+          {
+            "name": "uploadId",
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "description": "Unique identifier for the upload session",
+              "example": "9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
+              "x-format": {
+                "guid": {
+                  "version": [
+                    "uuidv4"
+                  ]
+                }
+              }
+            },
+            "description": "Unique identifier for the upload session",
+            "required": true
+          }
+        ],
+        "tags": [
+          "uploader"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploaderStatusSuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequest"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Unauthorized"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusNotFound"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadGateway"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Gateway Time-out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayTimeout"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/callback": {
       "post": {
         "summary": "Callback used by the CDP Uploader",
@@ -1391,106 +1389,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/GatewayTimeout"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/uploader/status/{uploadId}": {
-      "get": {
-        "summary": "Proxy CDP Uploader scan status for an upload session",
-        "operationId": "getApiV1UploaderStatusUploadId",
-        "description": "Polls CDP Uploader for the current scan status and file details for a given uploadId.",
-        "tags": [
-          "uploader"
-        ],
-        "parameters": [
-          {
-            "name": "uploadId",
-            "in": "path",
-            "required": true,
-            "description": "Unique identifier for the upload session",
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "example": "9fcaabe5-77ec-44db-8356-3a6e8dc51b13"
-            }
-          }
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UploaderStatusSuccessResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BadRequest"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Unauthorized"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusNotFound"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ServerError"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "Bad Gateway",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusBadGateway"
-                }
-              }
-            }
-          },
-          "504": {
-            "description": "Gateway Time-out",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusGatewayTimeout"
                 }
               }
             }
