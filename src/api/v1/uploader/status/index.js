@@ -18,6 +18,7 @@ const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
 const uploaderUrl = config.get('uploaderUrl')
 const uploaderStatusEndpoint = config.get('uploaderStatusEndpoint')
+const cdpUploaderStatusTimeout = config.get('cdpUploaderTimeoutMs')
 
 export const uploaderStatusRoute = {
   method: 'GET',
@@ -54,7 +55,7 @@ export const uploaderStatusRoute = {
       try {
         response = await fetch(url, {
           method: 'GET',
-          signal: AbortSignal.timeout(config.get('cdpUploaderTimeoutMs'))
+          signal: AbortSignal.timeout(cdpUploaderStatusTimeout)
         })
       } catch (err) {
         if (err.name === 'TimeoutError') {
