@@ -1,5 +1,4 @@
 import Joi from 'joi'
-
 const tenantSchema = Joi.array().items(
   Joi.object({
     tenantId: Joi.string().trim().min(1).required(),
@@ -8,9 +7,7 @@ const tenantSchema = Joi.array().items(
 )
 
 const parseTenantArray = (val) => {
-  if (Array.isArray(val)) {
-    return val
-  }
+  if (Array.isArray(val)) return val
   if (typeof val === 'string') {
     try {
       return JSON.parse(val)
@@ -20,13 +17,12 @@ const parseTenantArray = (val) => {
   }
   throw new TypeError('Must be an array of tenant configs')
 }
+
 const isTopLevelArrayError = (d) => {
   const p = d.path || []
   const msg = d.message || ''
   return p.length === 0 && (d.type === 'array.base' || /must be an array/.test(msg))
-const isTopLevelArrayError = (details) => {
-  const path = details.path || []
-  const msg = details.message || ''
+}
 
 const isTenantObjectError = (d) => {
   const p = d.path || []
@@ -58,9 +54,7 @@ const isAllowedGroupIdsGuidError = (d) => {
 
 const mapJoiError = (error) => {
   const d = error.details?.[0]
-  if (!d) {
-    throw new TypeError(error.message)
-  }
+  if (!d) throw new TypeError(error.message)
 
   if (isTopLevelArrayError(d)) {
     throw new TypeError('Must be an array of tenant configs')
@@ -84,26 +78,16 @@ const mapJoiError = (error) => {
 export const entraTenantsArray = {
   name: 'entra-tenants-array',
   validate: (val) => {
-    if (val === null || val === '') {
-      return
-    }
+    if (val === null || val === '') return
 
     const arr = parseTenantArray(val)
     const { error } = tenantSchema.validate(arr)
-    if (error) {
-      mapJoiError(error)
-    }
+    if (error) mapJoiError(error)
   },
   coerce: (val) => {
-    if (Array.isArray(val)) {
-      return val
-    }
-    if (val === null || val === '') {
-      return []
-    }
-    if (typeof val === 'string') {
-      return parseTenantArray(val)
-    }
+    if (Array.isArray(val)) return val
+    if (val === null || val === '') return []
+    if (typeof val === 'string') return parseTenantArray(val)
     return val
   }
 }

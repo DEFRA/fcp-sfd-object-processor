@@ -31,7 +31,7 @@ const config = convict({
 // Backwards compatibility: if `auth.entra.tenants` is empty but legacy single-tenant
 // configuration is set (exposed via the schema), construct a single-entry tenants
 // array so existing deployments keep working. Using `config.get()` means validation
-// errors will reference the original env vars (e.g. `AUTH_ENTRA_ALLOWED_GROUP_IDS`).
+// errors will reference the original environment variables.
 // Backwards compatibility for legacy single-tenant environment variables
 // has been removed. `auth.entra.tenants` should be set via the
 // `AUTH_ENTRA_TENANTS` environment variable (JSON array) or programmatically.

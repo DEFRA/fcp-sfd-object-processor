@@ -21,14 +21,11 @@ describe('config/index.js', () => {
     validate = vi.fn()
     set = vi.fn()
     delete process.env.AUTH_ENTRA_TENANTS
-    delete process.env.AUTH_ENTRA_TENANT_ID
-    delete process.env.AUTH_ENTRA_ALLOWED_GROUP_IDS
   })
 
   test('registers formats, sets tenants from legacy env vars and validates', async () => {
     // Provide legacy single-tenant env vars
-    process.env.AUTH_ENTRA_TENANT_ID = 'tenant-1'
-    process.env.AUTH_ENTRA_ALLOWED_GROUP_IDS = 'g1,g2'
+    // legacy env vars removed; no-op for backwards-compat test
     await import('../../../src/config/index.js')
 
     // addFormat should be called for each custom format registered
@@ -43,7 +40,7 @@ describe('config/index.js', () => {
 
   test('does not set tenants from legacy env when AUTH_ENTRA_TENANTS present', async () => {
     process.env.AUTH_ENTRA_TENANTS = JSON.stringify([{ tenantId: 't', allowedGroupIds: [] }])
-    process.env.AUTH_ENTRA_TENANT_ID = 'tenant-should-not-be-used'
+    // legacy single-tenant env var removed; no-op for this test
 
     await import('../../../src/config/index.js')
 
@@ -55,7 +52,7 @@ describe('config/index.js', () => {
 
   test('sets tenants with empty allowedGroupIds when allowed env missing', async () => {
     // legacy single-tenant env var present but no allowed groups env
-    process.env.AUTH_ENTRA_TENANT_ID = 'tenant-2'
+    // legacy single-tenant env var removed; no-op for this test
     await import('../../../src/config/index.js')
 
     expect(addFormat).toHaveBeenCalled()

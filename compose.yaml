@@ -38,8 +38,6 @@ services:
       DOCUMENT_UPLOAD_EVENTS_TOPIC_ARN: arn:aws:sns:eu-west-2:000000000000:fcp_sfd_object_processor_events
       # Auth
       AUTH_ENTRA_ENABLED: ${AUTH_ENTRA_ENABLED:-false}
-      AUTH_ENTRA_TENANT_ID: ${AUTH_ENTRA_TENANT_ID}
-      AUTH_ENTRA_ALLOWED_GROUP_IDS: ${AUTH_ENTRA_ALLOWED_GROUP_IDS}
       # Multi-tenant Entra configuration (JSON array). Example:
       # AUTH_ENTRA_TENANTS='[{"tenantId":"defra-dev-tenant-id","allowedGroupIds":["group-a"]},{"tenantId":"defra-tenant-id","allowedGroupIds":["group-b"]}]'
       AUTH_ENTRA_TENANTS: ${AUTH_ENTRA_TENANTS}

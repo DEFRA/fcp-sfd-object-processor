@@ -14,8 +14,6 @@ services:
       LOCALSTACK_ENDPOINT: http://localstack:4566
       MONGO_URI: mongodb://mongodb:27017/
       AUTH_ENTRA_ENABLED: false
-      AUTH_ENTRA_TENANT_ID: ${AUTH_ENTRA_TENANT_ID}
-      AUTH_ENTRA_ALLOWED_GROUP_IDS: ${AUTH_ENTRA_ALLOWED_GROUP_IDS}
       # Optional: JSON array of Entra tenants
       AUTH_ENTRA_TENANTS: ${AUTH_ENTRA_TENANTS}
       AUTH_COGNITO_ENABLED: false

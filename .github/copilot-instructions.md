@@ -41,8 +41,6 @@ This service uses **Microsoft Entra ID (Azure AD) JWT authentication** via `@hap
 
 **Key features:**
 - Configurable via `AUTH_ENTRA_ENABLED` environment variable (default: `false`)
-- Validates tokens from Azure AD tenant specified in `AUTH_ENTRA_TENANT_ID`
-- Requires security group membership - tokens must contain at least one group ID from `AUTH_ENTRA_ALLOWED_GROUP_IDS` (comma-separated UUIDs)
 - Default authentication on all routes unless explicitly disabled with `auth: false`
 - Accepts both v1.0 and v2.0 Azure AD access tokens
 
