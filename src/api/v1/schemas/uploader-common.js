@@ -124,14 +124,21 @@ export const uploaderResponseFields = {
   numberOfRejectedFiles: Joi.number()
     .integer()
     .min(0)
-    .required()
     .description('Number of files rejected during upload')
+    .example(schemaConsts.NUMBER_OF_REJECTED_FILES_EXAMPLE)
     .messages({
       'number.min': '"numberOfRejectedFiles" must be a non-negative integer',
       'number.integer': '"numberOfRejectedFiles" must be an integer',
-      'any.required': '"numberOfRejectedFiles" is required'
+      'any.required': '"numberOfRejectedFiles" is required when uploadStatus is ready'
     })
-    .example(schemaConsts.NUMBER_OF_REJECTED_FILES_EXAMPLE)
+    .when('uploadStatus', {
+      switch: [
+        { is: 'ready', then: Joi.required() },
+        { is: 'pending', then: Joi.forbidden() },
+        { is: 'initiated', then: Joi.forbidden() }
+      ],
+      otherwise: Joi.optional()
+    })
 }
 
 // Re-export canonical file upload schema to avoid duplication and drift.

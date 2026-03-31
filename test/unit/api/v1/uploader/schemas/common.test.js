@@ -1,4 +1,5 @@
 import { describe, test, expect } from 'vitest'
+import Joi from 'joi'
 import {
   patterns,
   businessIdentifierFields,
@@ -529,36 +530,65 @@ describe('uploaderResponseFields', () => {
   })
 
   describe('numberOfRejectedFiles field', () => {
-    test('zero passes', () => {
-      const { error } = uploaderResponseFields.numberOfRejectedFiles.validate(0)
+    // numberOfRejectedFiles uses Joi.when('uploadStatus', ...) and requires sibling context.
+    // We test conditional behaviour via a wrapper schema that mirrors how it is used in production.
+    const wrapperSchema = Joi.object({
+      uploadStatus: uploaderResponseFields.uploadStatus,
+      numberOfRejectedFiles: uploaderResponseFields.numberOfRejectedFiles
+    })
+
+    test('zero passes when uploadStatus is ready', () => {
+      const { error } = wrapperSchema.validate({ uploadStatus: 'ready', numberOfRejectedFiles: 0 })
       expect(error).toBeUndefined()
     })
 
-    test('positive integer passes', () => {
-      const { error } = uploaderResponseFields.numberOfRejectedFiles.validate(3)
+    test('positive integer passes when uploadStatus is ready', () => {
+      const { error } = wrapperSchema.validate({ uploadStatus: 'ready', numberOfRejectedFiles: 3 })
       expect(error).toBeUndefined()
     })
 
-    test('negative integer fails with number.min error', () => {
-      const { error } = uploaderResponseFields.numberOfRejectedFiles.validate(-1)
+    test('missing numberOfRejectedFiles fails when uploadStatus is ready', () => {
+      const { error } = wrapperSchema.validate({ uploadStatus: 'ready' })
+      expect(error).toBeDefined()
+      expect(error.message).toContain('"numberOfRejectedFiles" is required when uploadStatus is ready')
+    })
+
+    test('negative integer fails when uploadStatus is ready', () => {
+      const { error } = wrapperSchema.validate({ uploadStatus: 'ready', numberOfRejectedFiles: -1 })
       expect(error).toBeDefined()
       expect(error.message).toContain('"numberOfRejectedFiles" must be a non-negative integer')
     })
 
-    test('decimal fails with number.integer error', () => {
-      const { error } = uploaderResponseFields.numberOfRejectedFiles.validate(1.5)
+    test('decimal fails when uploadStatus is ready', () => {
+      const { error } = wrapperSchema.validate({ uploadStatus: 'ready', numberOfRejectedFiles: 1.5 })
       expect(error).toBeDefined()
       expect(error.message).toContain('"numberOfRejectedFiles" must be an integer')
     })
 
-    test('missing value fails with any.required error', () => {
-      const { error } = uploaderResponseFields.numberOfRejectedFiles.validate(undefined)
+    test('numberOfRejectedFiles is forbidden when uploadStatus is pending', () => {
+      const { error } = wrapperSchema.validate({ uploadStatus: 'pending', numberOfRejectedFiles: 0 })
       expect(error).toBeDefined()
-      expect(error.message).toContain('"numberOfRejectedFiles" is required')
+      expect(error.details[0].type).toBe('any.unknown')
     })
 
-    test('string value fails', () => {
-      const { error } = uploaderResponseFields.numberOfRejectedFiles.validate('zero')
+    test('missing numberOfRejectedFiles passes when uploadStatus is pending', () => {
+      const { error } = wrapperSchema.validate({ uploadStatus: 'pending' })
+      expect(error).toBeUndefined()
+    })
+
+    test('numberOfRejectedFiles is forbidden when uploadStatus is initiated', () => {
+      const { error } = wrapperSchema.validate({ uploadStatus: 'initiated', numberOfRejectedFiles: 0 })
+      expect(error).toBeDefined()
+      expect(error.details[0].type).toBe('any.unknown')
+    })
+
+    test('missing numberOfRejectedFiles passes when uploadStatus is initiated', () => {
+      const { error } = wrapperSchema.validate({ uploadStatus: 'initiated' })
+      expect(error).toBeUndefined()
+    })
+
+    test('string value fails when uploadStatus is ready', () => {
+      const { error } = wrapperSchema.validate({ uploadStatus: 'ready', numberOfRejectedFiles: 'zero' })
       expect(error).toBeDefined()
     })
   })

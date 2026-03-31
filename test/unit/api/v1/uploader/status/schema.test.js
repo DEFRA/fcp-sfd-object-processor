@@ -112,8 +112,7 @@ describe('cdpUploaderStatusResponseSchema', () => {
       const payload = {
         uploadStatus: 'pending',
         metadata: validMetadata,
-        form: { 'file-field': pendingFile },
-        numberOfRejectedFiles: 0
+        form: { 'file-field': pendingFile }
       }
       const { error } = cdpUploaderStatusResponseSchema.validate(payload)
       expect(error).toBeUndefined()
@@ -123,8 +122,7 @@ describe('cdpUploaderStatusResponseSchema', () => {
       const payload = {
         uploadStatus: 'initiated',
         metadata: {},
-        form: {},
-        numberOfRejectedFiles: 0
+        form: {}
       }
       const { error } = cdpUploaderStatusResponseSchema.validate(payload)
       expect(error).toBeUndefined()
@@ -301,11 +299,11 @@ describe('cdpUploaderStatusResponseSchema', () => {
   })
 
   describe('numberOfRejectedFiles validation', () => {
-    test('missing numberOfRejectedFiles fails', () => {
+    test('missing numberOfRejectedFiles fails when uploadStatus is ready', () => {
       const { numberOfRejectedFiles, ...payload } = validReadyResponse
       const { error } = cdpUploaderStatusResponseSchema.validate(payload)
       expect(error).toBeDefined()
-      expect(error.message).toContain('"numberOfRejectedFiles" is required')
+      expect(error.message).toContain('"numberOfRejectedFiles" is required when uploadStatus is ready')
     })
 
     test('negative numberOfRejectedFiles fails', () => {
@@ -328,8 +326,52 @@ describe('cdpUploaderStatusResponseSchema', () => {
       expect(error).toBeDefined()
     })
 
-    test('zero numberOfRejectedFiles passes', () => {
+    test('zero numberOfRejectedFiles passes when uploadStatus is ready', () => {
       const payload = { ...validReadyResponse, numberOfRejectedFiles: 0 }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeUndefined()
+    })
+
+    test('numberOfRejectedFiles is forbidden when uploadStatus is pending', () => {
+      const payload = {
+        uploadStatus: 'pending',
+        metadata: validMetadata,
+        form: { 'file-field': pendingFile },
+        numberOfRejectedFiles: 0
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeDefined()
+      expect(error.details[0].type).toBe('any.unknown')
+    })
+
+    test('numberOfRejectedFiles is forbidden when uploadStatus is initiated', () => {
+      const payload = {
+        uploadStatus: 'initiated',
+        metadata: {},
+        form: {},
+        numberOfRejectedFiles: 0
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeDefined()
+      expect(error.details[0].type).toBe('any.unknown')
+    })
+
+    test('missing numberOfRejectedFiles passes when uploadStatus is pending', () => {
+      const payload = {
+        uploadStatus: 'pending',
+        metadata: validMetadata,
+        form: { 'file-field': pendingFile }
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeUndefined()
+    })
+
+    test('missing numberOfRejectedFiles passes when uploadStatus is initiated', () => {
+      const payload = {
+        uploadStatus: 'initiated',
+        metadata: {},
+        form: {}
+      }
       const { error } = cdpUploaderStatusResponseSchema.validate(payload)
       expect(error).toBeUndefined()
     })
