@@ -21,8 +21,16 @@ export const auth = {
       const strategies = []
 
       if (entraEnabled) {
-        server.auth.strategy(AUTH_STRATEGY_NAMES.ENTRA, 'jwt', getEntraAuthOptions())
-        strategies.push(AUTH_STRATEGY_NAMES.ENTRA)
+        const tenants = config.get('auth.entra.tenants')
+        // Register one strategy per tenant; use the same strategyName used in
+        // the auth options (which includes the tenant id) so logs and Hapi
+        // strategy names align for easier debugging.
+        tenants.forEach((tenantConfig, idx) => {
+          const options = getEntraAuthOptions(tenantConfig)
+          const strategyName = options.strategyName || `entra-${idx}`
+          server.auth.strategy(strategyName, 'jwt', options)
+          strategies.push(strategyName)
+        })
       }
 
       if (cognitoEnabled) {

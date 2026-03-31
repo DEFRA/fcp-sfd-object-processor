@@ -1,3 +1,6 @@
 services:
   fcp-sfd-object-processor:
     command: npm run start:debug
+    environment:
+      # Optional multi-tenant Entra JSON env var for debugging
+      AUTH_ENTRA_TENANTS: ${AUTH_ENTRA_TENANTS}
