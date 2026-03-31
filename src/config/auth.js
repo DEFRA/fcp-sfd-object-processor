@@ -2,24 +2,20 @@ export const authConfig = {
   auth: {
     entra: {
       enabled: {
-        doc: 'API authentication enabled',
+        doc: 'Entra ID authentication enabled',
         format: Boolean,
         default: true,
         env: 'AUTH_ENTRA_ENABLED'
       },
-      tenant: {
-        doc: 'Azure tenant ID to authenticate clients',
-        format: String,
-        default: 'replace-with-tenant-id',
-        nullable: false,
-        env: 'AUTH_ENTRA_TENANT_ID'
-      },
-      allowedGroupIds: {
-        doc: 'Security Group object IDs allowed to access the API, comma separated',
-        format: 'security-group-array',
+      // Multi-tenant configuration: an array of tenant objects
+      // Example JSON environment variable:
+      // AUTH_ENTRA_TENANTS='[{"tenantId":"defra-dev-tenant-id","allowedGroupIds":["group-a"]},{"tenantId":"defra-tenant-id","allowedGroupIds":["group-b"]}]'
+      tenants: {
+        doc: 'Array of Entra tenant configs (tenantId + allowedGroupIds)',
+        format: 'entra-tenants-array',
         default: [],
         nullable: false,
-        env: 'AUTH_ENTRA_ALLOWED_GROUP_IDS'
+        env: 'AUTH_ENTRA_TENANTS'
       }
     },
     cognito: {
