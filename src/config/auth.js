@@ -16,7 +16,7 @@ export const authConfig = {
         default: [],
         nullable: false,
         env: 'AUTH_ENTRA_TENANTS'
-      },
+      }
     },
     cognito: {
       enabled: {
