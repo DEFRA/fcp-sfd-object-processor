@@ -12,7 +12,7 @@ export const statusRoute = {
   method: 'GET',
   path: `${baseUrl}/status/{correlationId}`,
   options: {
-    tags: ['api', 'status'],
+    tags: ['status'],
     validate: {
       params: statusParamSchema,
       failAction: (_request, _h, err) => {

@@ -191,78 +191,6 @@
           }
         }
       },
-      "StatusRecord": {
-        "type": "object",
-        "description": "Status record for a single file upload",
-        "properties": {
-          "correlationId": {
-            "type": "string",
-            "description": "Correlation ID grouping files from the same submission",
-            "x-format": {
-              "guid": {
-                "version": [
-                  "uuidv4"
-                ]
-              }
-            }
-          },
-          "sbi": {
-            "type": "integer",
-            "description": "Single Business Identifier",
-            "nullable": true,
-            "minimum": 100000000,
-            "maximum": 999999999
-          },
-          "fileId": {
-            "type": "string",
-            "description": "Unique file identifier",
-            "x-format": {
-              "guid": {
-                "version": [
-                  "uuidv4"
-                ]
-              }
-            }
-          },
-          "timestamp": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Timestamp when the status record was created"
-          },
-          "validated": {
-            "type": "boolean",
-            "description": "Whether the upload payload passed validation"
-          },
-          "errors": {
-            "description": "Validation errors, or null if validated successfully",
-            "anyOf": [
-              {
-                "$ref": "#/x-alt-definitions/errors"
-              },
-              {
-                "type": "string",
-                "nullable": true
-              }
-            ]
-          }
-        }
-      },
-      "data": {
-        "type": "array",
-        "description": "Array of status records for the given correlationId",
-        "items": {
-          "$ref": "#/components/schemas/StatusRecord"
-        }
-      },
-      "StatusResponse": {
-        "type": "object",
-        "description": "Success response from status endpoint",
-        "properties": {
-          "data": {
-            "$ref": "#/components/schemas/data"
-          }
-        }
-      },
       "MetadataFields": {
         "type": "object",
         "description": "Metadata about the item",
@@ -371,7 +299,7 @@
           "file"
         ]
       },
-      "Model1": {
+      "data": {
         "type": "array",
         "items": {
           "$ref": "#/components/schemas/MetadataDocument"
@@ -381,7 +309,7 @@
         "type": "object",
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/Model1"
+            "$ref": "#/components/schemas/data"
           }
         }
       },
@@ -971,83 +899,6 @@
         }
       }
     },
-    "/api/v1/status/{correlationId}": {
-      "get": {
-        "operationId": "getApiV1StatusCorrelationid",
-        "parameters": [
-          {
-            "name": "correlationId",
-            "in": "path",
-            "schema": {
-              "type": "string",
-              "x-format": {
-                "guid": {
-                  "version": [
-                    "uuidv4"
-                  ]
-                }
-              }
-            },
-            "required": true
-          }
-        ],
-        "tags": [
-          "status"
-        ],
-        "responses": {
-          "200": {
-            "description": "Success response from status endpoint",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BadRequest"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Unauthorized"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotFound"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ServerError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/metadata/sbi/{sbi}": {
       "get": {
         "operationId": "getApiV1MetadataSbiSbi",
@@ -1394,28 +1245,6 @@
             }
           }
         }
-      }
-    }
-  },
-  "x-alt-definitions": {
-    "Model1": {
-      "type": "object",
-      "properties": {
-        "field": {
-          "type": "string"
-        },
-        "errorType": {
-          "type": "string"
-        },
-        "receivedValue": {
-          "type": "string"
-        }
-      }
-    },
-    "errors": {
-      "type": "array",
-      "items": {
-        "$ref": "#/x-alt-definitions/Model1"
       }
     }
   }
