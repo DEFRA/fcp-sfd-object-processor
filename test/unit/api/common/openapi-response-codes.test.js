@@ -12,7 +12,7 @@ const openApiSpec = JSON.parse(readFileSync(openApiPath, 'utf8'))
 
 describe('OpenAPI Response Codes', () => {
   describe('API routes should have standard response codes', () => {
-    const apiPaths = Object.entries(openApiSpec.paths).filter(([path]) => path.startsWith('/api/'))
+    const apiPaths = Object.entries(openApiSpec.paths).filter(([path]) => path.startsWith('/api/') && !path.includes('/api/v1/status'))
 
     apiPaths.forEach(([path, methods]) => {
       Object.entries(methods).forEach(([method, operation]) => {
@@ -76,12 +76,17 @@ describe('OpenAPI Response Codes', () => {
         '/api/v1/blob/{fileId}',
         '/api/v1/callback',
         '/api/v1/metadata/sbi/{sbi}',
-        '/api/v1/status/{correlationId}'
+        '/api/v1/uploader/initiate',
+        '/api/v1/uploader/status/{uploadId}'
       ]
 
       expectedRoutes.forEach(route => {
         expect(openApiSpec.paths[route]).toBeDefined()
       })
+    })
+
+    test('should exclude /api/v1/status endpoint from OpenAPI', () => {
+      expect(openApiSpec.paths['/api/v1/status/{correlationId}']).toBeUndefined()
     })
   })
 })

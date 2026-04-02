@@ -4,22 +4,17 @@ import { schemaConsts } from '../../../../constants/schemas.js'
 
 const statusRecordSchema = Joi.object({
   correlationId: Joi.string()
-    .guid({ version: ['uuidv4'] })
-    .description('Correlation ID grouping files from the same submission'),
+    .guid({ version: ['uuidv4'] }),
   sbi: Joi.number()
     .integer()
     .min(schemaConsts.SBI_MIN)
     .max(schemaConsts.SBI_MAX)
-    .allow(null)
-    .description('Single Business Identifier'),
+    .allow(null),
   fileId: Joi.string()
-    .guid({ version: ['uuidv4'] })
-    .description('Unique file identifier'),
+    .guid({ version: ['uuidv4'] }),
   timestamp: Joi.date()
-    .iso()
-    .description('Timestamp when the status record was created'),
-  validated: Joi.boolean()
-    .description('Whether the upload payload passed validation'),
+    .iso(),
+  validated: Joi.boolean(),
   errors: Joi.alternatives()
     .try(
       Joi.array().items(
@@ -31,18 +26,12 @@ const statusRecordSchema = Joi.object({
       ),
       Joi.valid(null)
     )
-    .description('Validation errors, or null if validated successfully')
 })
-  .label('StatusRecord')
-  .description('Status record for a single file upload')
 
 const statusSuccessSchema = Joi.object({
   data: Joi.array()
     .items(statusRecordSchema)
-    .description('Array of status records for the given correlationId')
 })
   .required()
-  .label('StatusResponse')
-  .description('Success response from status endpoint')
 
 export const statusResponseSchema = generateResponseSchemas(statusSuccessSchema)
