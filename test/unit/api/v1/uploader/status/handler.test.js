@@ -59,6 +59,13 @@ const validReadyResponse = {
   numberOfRejectedFiles: 0
 }
 
+const validReadyResponseWithRejections = {
+  uploadStatus: 'ready',
+  metadata: { sbi: 105000000, crn: 1050000000 },
+  form: { 'file-field': completeFile },
+  numberOfRejectedFiles: 2
+}
+
 const validPendingResponse = {
   uploadStatus: 'pending',
   metadata: { sbi: 105000000, crn: 1050000000 },
@@ -129,8 +136,40 @@ describe('uploaderStatusRoute handler', () => {
       const { h, mockResponse, mockCode } = buildMockH()
       await handler(buildMockRequest(), h)
 
-      expect(mockResponse).toHaveBeenCalledWith({ data: validReadyResponse })
+      expect(mockResponse).toHaveBeenCalledWith({
+        data: expect.objectContaining({ uploadStatus: 'success' })
+      })
       expect(mockCode).toHaveBeenCalledWith(httpConstants.HTTP_STATUS_OK)
+    })
+
+    test('ready status with zero rejections maps to success and omits numberOfRejectedFiles', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.uploadStatus).toBe('success')
+      expect(data.numberOfRejectedFiles).toBeUndefined()
+    })
+
+    test('ready status with rejections maps to failure and omits numberOfRejectedFiles', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponseWithRejections
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.uploadStatus).toBe('failure')
+      expect(data.numberOfRejectedFiles).toBeUndefined()
     })
 
     test('returns 200 with data envelope for pending status', async () => {
@@ -143,7 +182,9 @@ describe('uploaderStatusRoute handler', () => {
       const { h, mockResponse, mockCode } = buildMockH()
       await handler(buildMockRequest(), h)
 
-      expect(mockResponse).toHaveBeenCalledWith({ data: validPendingResponse })
+      expect(mockResponse).toHaveBeenCalledWith({
+        data: expect.objectContaining({ uploadStatus: 'pending' })
+      })
       expect(mockCode).toHaveBeenCalledWith(httpConstants.HTTP_STATUS_OK)
     })
 
@@ -157,7 +198,9 @@ describe('uploaderStatusRoute handler', () => {
       const { h, mockResponse, mockCode } = buildMockH()
       await handler(buildMockRequest(), h)
 
-      expect(mockResponse).toHaveBeenCalledWith({ data: validInitiatedResponse })
+      expect(mockResponse).toHaveBeenCalledWith({
+        data: expect.objectContaining({ uploadStatus: 'pending' })
+      })
       expect(mockCode).toHaveBeenCalledWith(httpConstants.HTTP_STATUS_OK)
     })
 

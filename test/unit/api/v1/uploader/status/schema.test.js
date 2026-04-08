@@ -59,6 +59,13 @@ const validReadyResponse = {
   numberOfRejectedFiles: 0
 }
 
+// Mapped response — as returned by the API after status mapping
+const validMappedSuccessResponse = {
+  uploadStatus: 'success',
+  metadata: validMetadata,
+  form: { 'file-field': completeFile }
+}
+
 // ─── uploaderStatusParamsSchema ─────────────────────────────────────────────
 
 describe('uploaderStatusParamsSchema', () => {
@@ -411,13 +418,19 @@ describe('uploaderStatusResponseSchema', () => {
 
   test('200 schema wraps CDP response in data envelope', () => {
     const successSchema = uploaderStatusResponseSchema[httpConstants.HTTP_STATUS_OK]
-    const { error } = successSchema.validate({ data: validReadyResponse })
+    const { error } = successSchema.validate({ data: validMappedSuccessResponse })
     expect(error).toBeUndefined()
+  })
+
+  test('200 schema rejects raw CDP ready status', () => {
+    const successSchema = uploaderStatusResponseSchema[httpConstants.HTTP_STATUS_OK]
+    const { error } = successSchema.validate({ data: validReadyResponse })
+    expect(error).toBeDefined()
   })
 
   test('200 schema rejects missing data envelope', () => {
     const successSchema = uploaderStatusResponseSchema[httpConstants.HTTP_STATUS_OK]
-    const { error } = successSchema.validate(validReadyResponse)
+    const { error } = successSchema.validate(validMappedSuccessResponse)
     expect(error).toBeDefined()
   })
 })

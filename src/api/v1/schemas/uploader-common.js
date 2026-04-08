@@ -110,6 +110,7 @@ export const baseMetadataSchema = Joi.object({
 }).strict()
 
 // Shared field schemas for uploader response payloads (callback and status endpoints)
+// These use raw CDP states and are shared with the callback contract.
 export const uploaderResponseFields = {
   uploadStatus: Joi.string()
     .valid('initiated', 'pending', 'ready')
@@ -139,6 +140,20 @@ export const uploaderResponseFields = {
       ],
       otherwise: Joi.optional()
     })
+}
+
+// Consumer-facing status fields for the status endpoint response.
+// Raw CDP states are mapped to these values before returning to callers.
+export const mappedResponseFields = {
+  uploadStatus: Joi.string()
+    .valid('pending', 'success', 'failure')
+    .required()
+    .description('Consumer-facing status of the upload session')
+    .messages({
+      'any.only': '"uploadStatus" must be one of [pending, success, failure]',
+      'any.required': '"uploadStatus" is required'
+    })
+    .example('success')
 }
 
 // Re-export canonical file upload schema to avoid duplication and drift.
