@@ -315,27 +315,17 @@
       },
       "uploadStatus": {
         "type": "string",
-        "description": "Status of the upload session",
-        "example": "ready",
+        "description": "Consumer-facing status of the upload session",
+        "example": "success",
         "enum": [
-          "initiated",
           "pending",
-          "ready"
+          "success",
+          "failure"
         ]
       },
-      "CdpStatusMetadata": {
+      "MappedStatusMetadata": {
         "type": "object",
-        "description": "Metadata associated with the upload session",
-        "example": {
-          "sbi": 105000000,
-          "crn": 1050000000,
-          "frn": 1102658375,
-          "submissionId": "1733826312",
-          "uosr": "105000000_1733826312",
-          "type": "CS_Agreement_Evidence",
-          "reference": "user entered reference",
-          "service": "fcp-sfd-frontend"
-        }
+        "description": "Metadata associated with the upload session"
       },
       "CdpStatusForm": {
         "type": "object",
@@ -354,23 +344,17 @@
           }
         }
       },
-      "CdpUploaderStatusResponse": {
+      "MappedUploaderStatusData": {
         "type": "object",
         "properties": {
           "uploadStatus": {
             "$ref": "#/components/schemas/uploadStatus"
           },
           "metadata": {
-            "$ref": "#/components/schemas/CdpStatusMetadata"
+            "$ref": "#/components/schemas/MappedStatusMetadata"
           },
           "form": {
             "$ref": "#/components/schemas/CdpStatusForm"
-          },
-          "numberOfRejectedFiles": {
-            "type": "integer",
-            "description": "Number of files rejected during upload",
-            "example": 0,
-            "minimum": 0
           }
         },
         "required": [
@@ -383,7 +367,7 @@
         "type": "object",
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/CdpUploaderStatusResponse"
+            "$ref": "#/components/schemas/MappedUploaderStatusData"
           }
         },
         "required": [
@@ -440,6 +424,16 @@
             "example": "CDP Uploader request timed out"
           }
         }
+      },
+      "Model1": {
+        "type": "string",
+        "description": "Status of the upload session",
+        "example": "ready",
+        "enum": [
+          "initiated",
+          "pending",
+          "ready"
+        ]
       },
       "service": {
         "type": "string",
@@ -540,7 +534,7 @@
         "description": "Callback payload from CDP Uploader after file upload processing",
         "properties": {
           "uploadStatus": {
-            "$ref": "#/components/schemas/uploadStatus"
+            "$ref": "#/components/schemas/Model1"
           },
           "metadata": {
             "$ref": "#/components/schemas/UploadMetadata"
@@ -977,7 +971,7 @@
       "get": {
         "summary": "Proxy CDP Uploader scan status for an upload session",
         "operationId": "getApiV1UploaderStatusUploadid",
-        "description": "Polls CDP Uploader for the current scan status and file details for a given uploadId.",
+        "description": "Polls CDP Uploader for the current scan status and file details for a given uploadId. Note that this endpoint has multiple response examples based on uploadStatus. If not rendering on the /documentation endpoint, please use the official Swagger Editor (online or the VS Code extension).",
         "parameters": [
           {
             "name": "uploadId",
@@ -1008,6 +1002,95 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UploaderStatusSuccessResponse"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "All files uploaded successfully",
+                    "value": {
+                      "data": {
+                        "uploadStatus": "success",
+                        "metadata": {
+                          "sbi": 105000000,
+                          "crn": 1050000000,
+                          "frn": 1102658375,
+                          "submissionId": "1733826312",
+                          "uosr": "105000000_1733826312",
+                          "type": "CS_Agreement_Evidence",
+                          "reference": "user entered reference",
+                          "service": "fcp-sfd-frontend"
+                        },
+                        "form": {
+                          "file-upload-1": {
+                            "fileId": "9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
+                            "filename": "document.pdf",
+                            "contentType": "application/pdf",
+                            "detectedContentType": "application/pdf",
+                            "fileStatus": "complete",
+                            "contentLength": 11264,
+                            "checksumSha256": "bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=",
+                            "s3Key": "scanned/folder/9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
+                            "s3Bucket": "fcp-sfd-object-processor-bucket"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "failure": {
+                    "summary": "One or more files rejected",
+                    "value": {
+                      "data": {
+                        "uploadStatus": "failure",
+                        "metadata": {
+                          "sbi": 105000000,
+                          "crn": 1050000000,
+                          "frn": 1102658375,
+                          "submissionId": "1733826312",
+                          "uosr": "105000000_1733826312",
+                          "type": "CS_Agreement_Evidence",
+                          "reference": "user entered reference",
+                          "service": "fcp-sfd-frontend"
+                        },
+                        "form": {
+                          "file-upload-1": {
+                            "fileId": "9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
+                            "filename": "document.pdf",
+                            "contentType": "application/pdf",
+                            "detectedContentType": "application/pdf",
+                            "fileStatus": "rejected",
+                            "hasError": true,
+                            "errorMessage": "File rejected: virus detected"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "pending": {
+                    "summary": "Upload still processing",
+                    "value": {
+                      "data": {
+                        "uploadStatus": "pending",
+                        "metadata": {
+                          "sbi": 105000000,
+                          "crn": 1050000000,
+                          "frn": 1102658375,
+                          "submissionId": "1733826312",
+                          "uosr": "105000000_1733826312",
+                          "type": "CS_Agreement_Evidence",
+                          "reference": "user entered reference",
+                          "service": "fcp-sfd-frontend"
+                        },
+                        "form": {
+                          "file-upload-1": {
+                            "fileId": "9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
+                            "filename": "document.pdf",
+                            "contentType": "application/pdf",
+                            "detectedContentType": "application/pdf",
+                            "fileStatus": "pending"
+                          }
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }

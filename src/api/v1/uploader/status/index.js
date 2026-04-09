@@ -25,7 +25,7 @@ export const uploaderStatusRoute = {
   path: `${baseUrl}/uploader/status/{uploadId}`,
   options: {
     description: 'Proxy CDP Uploader scan status for an upload session',
-    notes: 'Polls CDP Uploader for the current scan status and file details for a given uploadId.',
+    notes: 'Polls CDP Uploader for the current scan status and file details for a given uploadId. Note that this endpoint has multiple response examples based on uploadStatus. If not rendering on the /documentation endpoint, please use the official Swagger Editor (online or the VS Code extension).',
     tags: ['api', 'uploader'],
     validate: {
       params: uploaderStatusParamsSchema,
