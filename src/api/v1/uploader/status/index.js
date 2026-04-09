@@ -112,7 +112,7 @@ export const uploaderStatusRoute = {
 }
 
 const mapCdpStatus = (cdpResponse) => {
-  const { uploadStatus, numberOfRejectedFiles, ...rest } = cdpResponse
+  const { uploadStatus, numberOfRejectedFiles, form, metadata } = cdpResponse
 
   let mappedStatus
   if (uploadStatus === 'ready') {
@@ -121,5 +121,5 @@ const mapCdpStatus = (cdpResponse) => {
     mappedStatus = 'pending'
   }
 
-  return { ...rest, uploadStatus: mappedStatus }
+  return { uploadStatus: mappedStatus, form, metadata }
 }
