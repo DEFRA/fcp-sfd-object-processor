@@ -75,7 +75,7 @@ const uploaderStatusSuccessSchema = Joi.object({
       .description('Metadata associated with the upload session')
       .label('MappedStatusMetadata'),
     form: cdpStatusFormSchema
-  }).unknown(true).required().label('MappedUploaderStatusData')
+  }).required().label('MappedUploaderStatusData')
 }).label('UploaderStatusSuccessResponse')
 
 const statusNotFoundResponseSchema = Joi.object({
