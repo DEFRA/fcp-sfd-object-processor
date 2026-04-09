@@ -65,7 +65,7 @@ export const cdpUploaderStatusResponseSchema = Joi.object({
   form: cdpStatusFormSchema,
 
   numberOfRejectedFiles: uploaderResponseFields.numberOfRejectedFiles
-}).unknown(true).label('CdpUploaderStatusResponse')
+}).label('CdpUploaderStatusResponse')
 
 const uploaderStatusSuccessSchema = Joi.object({
   data: Joi.object({

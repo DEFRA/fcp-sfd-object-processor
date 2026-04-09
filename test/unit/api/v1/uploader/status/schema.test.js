@@ -434,4 +434,17 @@ describe('uploaderStatusResponseSchema', () => {
     const { error } = successSchema.validate(validMappedSuccessResponse)
     expect(error).toBeDefined()
   })
+
+  test('200 schema rejects unknown data-level fields', () => {
+    const successSchema = uploaderStatusResponseSchema[httpConstants.HTTP_STATUS_OK]
+
+    const { error } = successSchema.validate({
+      data: {
+        ...validReadyResponse,
+        unknownField: 'unknown field'
+      }
+    })
+
+    expect(error).toBeDefined()
+  })
 })
