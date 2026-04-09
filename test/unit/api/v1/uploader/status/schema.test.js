@@ -52,6 +52,7 @@ const validMetadata = {
   uosr: '105000000_1733826312'
 }
 
+// TODO: format needs to be updated to match the new response schema
 const validReadyResponse = {
   uploadStatus: 'ready',
   metadata: validMetadata,
@@ -178,13 +179,13 @@ describe('cdpUploaderStatusResponseSchema', () => {
       expect(error).toBeUndefined()
     })
 
-    test('allows unknown top-level fields (non-strict mode)', () => {
+    test('does not allow unknown top-level fields (strict mode)', () => {
       const payload = {
         ...validReadyResponse,
         extraField: 'unexpected but allowed'
       }
       const { error } = cdpUploaderStatusResponseSchema.validate(payload)
-      expect(error).toBeUndefined()
+      expect(error).toBeDefined()
     })
 
     test('numberOfRejectedFiles can be greater than zero', () => {
@@ -431,6 +432,19 @@ describe('uploaderStatusResponseSchema', () => {
   test('200 schema rejects missing data envelope', () => {
     const successSchema = uploaderStatusResponseSchema[httpConstants.HTTP_STATUS_OK]
     const { error } = successSchema.validate(validMappedSuccessResponse)
+    expect(error).toBeDefined()
+  })
+
+  test('200 schema rejects unknown data-level fields', () => {
+    const successSchema = uploaderStatusResponseSchema[httpConstants.HTTP_STATUS_OK]
+
+    const { error } = successSchema.validate({
+      data: {
+        ...validReadyResponse,
+        unknownField: 'unknown field'
+      }
+    })
+
     expect(error).toBeDefined()
   })
 })
