@@ -106,7 +106,20 @@ export const uploaderStatusRoute = {
 
       logger.info(buildStatusResponseLog(uploadId, cdpResponse, duration), 'CDP Uploader status response received')
 
-      return h.response({ data: cdpResponse }).code(httpConstants.HTTP_STATUS_OK)
+      return h.response({ data: mapCdpStatus(cdpResponse) }).code(httpConstants.HTTP_STATUS_OK)
     }
   }
+}
+
+const mapCdpStatus = (cdpResponse) => {
+  const { uploadStatus, numberOfRejectedFiles, form, metadata } = cdpResponse
+
+  let mappedStatus
+  if (uploadStatus === 'ready') {
+    mappedStatus = numberOfRejectedFiles === 0 ? 'success' : 'failure'
+  } else {
+    mappedStatus = 'pending'
+  }
+
+  return { uploadStatus: mappedStatus, form, metadata }
 }

@@ -94,7 +94,7 @@ afterEach(() => {
 // ─── Successful responses ────────────────────────────────────────────────────
 
 describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () => {
-  test('returns 200 with data envelope for a ready upload', async () => {
+  test('returns 200 with data envelope for a ready upload with no rejections (success)', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -108,8 +108,8 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
 
     expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
     expect(response.result.data).toBeDefined()
-    expect(response.result.data.uploadStatus).toBe('ready')
-    expect(response.result.data.numberOfRejectedFiles).toBe(0)
+    expect(response.result.data.uploadStatus).toBe('success')
+    expect(response.result.data.numberOfRejectedFiles).toBeUndefined()
     expect(response.result.data.form['file-field'].fileId).toBe(completeFile.fileId)
   })
 
@@ -165,10 +165,10 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
     })
 
     expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
-    expect(response.result.data.uploadStatus).toBe('initiated')
+    expect(response.result.data.uploadStatus).toBe('pending')
   })
 
-  test('returns 200 with rejected file details including GDS error message', async () => {
+  test('returns 200 with failure status and no numberOfRejectedFiles when files are rejected', async () => {
     const responseWithRejection = {
       ...mockReadyResponse,
       form: { 'file-field': rejectedFile },
@@ -186,7 +186,8 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
     })
 
     expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
-    expect(response.result.data.numberOfRejectedFiles).toBe(1)
+    expect(response.result.data.uploadStatus).toBe('failure')
+    expect(response.result.data.numberOfRejectedFiles).toBeUndefined()
     const file = response.result.data.form['file-field']
     expect(file.fileStatus).toBe('rejected')
     expect(file.hasError).toBe(true)
@@ -214,8 +215,9 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
 // ─── Polling scenario ────────────────────────────────────────────────────────
 
 describe('GET /api/v1/uploader/status/{uploadId} — polling scenario', () => {
-  test('multiple sequential checks for the same uploadId each return 200', async () => {
-    // Simulate a polling flow: initiated → pending → ready
+  test('multiple sequential checks for the same uploadId each return 200 with mapped statuses', async () => {
+    // Simulate a polling flow: initiated → pending → ready (0 rejections)
+    // Expected mapped output:    pending  → pending → success
     global.fetch = vi.fn()
       .mockResolvedValueOnce({
         ok: true,
@@ -240,11 +242,11 @@ describe('GET /api/v1/uploader/status/{uploadId} — polling scenario', () => {
     ])
 
     expect(responses[0].statusCode).toBe(httpConstants.HTTP_STATUS_OK)
-    expect(responses[0].result.data.uploadStatus).toBe('initiated')
+    expect(responses[0].result.data.uploadStatus).toBe('pending')
     expect(responses[1].statusCode).toBe(httpConstants.HTTP_STATUS_OK)
     expect(responses[1].result.data.uploadStatus).toBe('pending')
     expect(responses[2].statusCode).toBe(httpConstants.HTTP_STATUS_OK)
-    expect(responses[2].result.data.uploadStatus).toBe('ready')
+    expect(responses[2].result.data.uploadStatus).toBe('success')
     expect(global.fetch).toHaveBeenCalledTimes(3)
   })
 })

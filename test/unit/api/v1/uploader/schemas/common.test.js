@@ -6,7 +6,8 @@ import {
   submissionFields,
   baseMetadataSchema,
   fileUploadSchema,
-  uploaderResponseFields
+  uploaderResponseFields,
+  mappedResponseFields
 } from '../../../../../../src/api/v1/schemas/uploader-common.js'
 
 describe('Shared Schema Components', () => {
@@ -589,6 +590,53 @@ describe('uploaderResponseFields', () => {
 
     test('string value fails when uploadStatus is ready', () => {
       const { error } = wrapperSchema.validate({ uploadStatus: 'ready', numberOfRejectedFiles: 'zero' })
+      expect(error).toBeDefined()
+    })
+  })
+})
+
+describe('mappedResponseFields', () => {
+  describe('uploadStatus field', () => {
+    test('valid status "pending" passes', () => {
+      const { error } = mappedResponseFields.uploadStatus.validate('pending')
+      expect(error).toBeUndefined()
+    })
+
+    test('valid status "success" passes', () => {
+      const { error } = mappedResponseFields.uploadStatus.validate('success')
+      expect(error).toBeUndefined()
+    })
+
+    test('valid status "failure" passes', () => {
+      const { error } = mappedResponseFields.uploadStatus.validate('failure')
+      expect(error).toBeUndefined()
+    })
+
+    test('raw CDP status "ready" fails', () => {
+      const { error } = mappedResponseFields.uploadStatus.validate('ready')
+      expect(error).toBeDefined()
+      expect(error.message).toContain('"uploadStatus" must be one of [pending, success, failure]')
+    })
+
+    test('raw CDP status "initiated" fails', () => {
+      const { error } = mappedResponseFields.uploadStatus.validate('initiated')
+      expect(error).toBeDefined()
+      expect(error.message).toContain('"uploadStatus" must be one of [pending, success, failure]')
+    })
+
+    test('arbitrary string fails', () => {
+      const { error } = mappedResponseFields.uploadStatus.validate('processing')
+      expect(error).toBeDefined()
+    })
+
+    test('missing value fails with any.required error', () => {
+      const { error } = mappedResponseFields.uploadStatus.validate(undefined)
+      expect(error).toBeDefined()
+      expect(error.message).toContain('"uploadStatus" is required')
+    })
+
+    test('null value fails', () => {
+      const { error } = mappedResponseFields.uploadStatus.validate(null)
       expect(error).toBeDefined()
     })
   })

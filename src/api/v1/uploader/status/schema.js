@@ -2,7 +2,7 @@ import Joi from 'joi'
 import { constants as httpConstants } from 'node:http2'
 
 import { generateResponseSchemas, badGatewayResponseSchema, gatewayTimeoutResponseSchema } from '../../schemas/responses.js'
-import { fileUploadSchema, uploaderResponseFields } from '../../schemas/uploader-common.js'
+import { fileUploadSchema, uploaderResponseFields, mappedResponseFields } from '../../schemas/uploader-common.js'
 import { schemaConsts } from '../../../../constants/schemas.js'
 
 export const uploaderStatusParamsSchema = Joi.object({
@@ -65,10 +65,17 @@ export const cdpUploaderStatusResponseSchema = Joi.object({
   form: cdpStatusFormSchema,
 
   numberOfRejectedFiles: uploaderResponseFields.numberOfRejectedFiles
-}).unknown(true).label('CdpUploaderStatusResponse')
+}).label('CdpUploaderStatusResponse')
 
 const uploaderStatusSuccessSchema = Joi.object({
-  data: cdpUploaderStatusResponseSchema.required()
+  data: Joi.object({
+    uploadStatus: mappedResponseFields.uploadStatus,
+    metadata: Joi.object()
+      .required()
+      .description('Metadata associated with the upload session')
+      .label('MappedStatusMetadata'),
+    form: cdpStatusFormSchema
+  }).required().label('MappedUploaderStatusData')
 }).label('UploaderStatusSuccessResponse')
 
 const statusNotFoundResponseSchema = Joi.object({
