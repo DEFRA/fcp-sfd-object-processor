@@ -425,7 +425,7 @@
           }
         }
       },
-      "Model1": {
+      "UploadSessionStatus": {
         "type": "string",
         "description": "Status of the upload session",
         "example": "ready",
@@ -534,7 +534,7 @@
         "description": "Callback payload from CDP Uploader after file upload processing",
         "properties": {
           "uploadStatus": {
-            "$ref": "#/components/schemas/Model1"
+            "$ref": "#/components/schemas/UploadSessionStatus"
           },
           "metadata": {
             "$ref": "#/components/schemas/UploadMetadata"
@@ -1055,8 +1055,8 @@
                             "fileId": "9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
                             "filename": "document.pdf",
                             "contentType": "application/pdf",
-                            "detectedContentType": "application/pdf",
                             "fileStatus": "rejected",
+                            "contentLength": 11264,
                             "hasError": true,
                             "errorMessage": "File rejected: virus detected"
                           }
