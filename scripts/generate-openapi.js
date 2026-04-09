@@ -174,8 +174,7 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
       const baseFileFields = {
         fileId: schemaConsts.FILE_ID_EXAMPLE,
         filename: schemaConsts.FILENAME_EXAMPLE,
-        contentType: schemaConsts.CONTENT_TYPE_EXAMPLE,
-        detectedContentType: schemaConsts.DETECTED_CONTENT_TYPE_EXAMPLE
+        contentType: schemaConsts.CONTENT_TYPE_EXAMPLE
       }
 
       statusMediaType.examples = {
@@ -188,6 +187,7 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
               form: {
                 'file-upload-1': {
                   ...baseFileFields,
+                  detectedContentType: schemaConsts.DETECTED_CONTENT_TYPE_EXAMPLE,
                   fileStatus: 'complete',
                   contentLength: schemaConsts.CONTENT_LENGTH_EXAMPLE,
                   checksumSha256: schemaConsts.CHECKSUM_SHA256_EXAMPLE,
@@ -208,6 +208,7 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
                 'file-upload-1': {
                   ...baseFileFields,
                   fileStatus: 'rejected',
+                  contentLength: schemaConsts.CONTENT_LENGTH_EXAMPLE,
                   hasError: true,
                   errorMessage: schemaConsts.ERROR_MESSAGE_EXAMPLE
                 }
@@ -224,6 +225,7 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
               form: {
                 'file-upload-1': {
                   ...baseFileFields,
+                  detectedContentType: schemaConsts.DETECTED_CONTENT_TYPE_EXAMPLE,
                   fileStatus: 'pending'
                 }
               }
