@@ -15,7 +15,7 @@ const EMPTY_FIELD_MESSAGE = '"{#label}" cannot be empty'
  *
  * fileStatus: 'complete' | 'rejected' | 'pending'
  * - complete: must have s3Key, s3Bucket, checksumSha256, contentLength > 0; must NOT have hasError/errorMessage
- * - rejected: must have hasError=true and non-empty errorMessage; must NOT have s3Key/s3Bucket/checksum
+ * - rejected: must have hasError=true and non-empty errorMessage; must NOT have s3Key/s3Bucket/checksum/detectedContentType
  * - pending: minimal constraints (fileId, filename, contentType, detectedContentType allowed)
  *
  * Exported as `fileUploadSchema` for reuse by callback, status, and initiate endpoints.
@@ -108,10 +108,11 @@ export const fileUploadSchema = Joi.object({
       errorMessage: Joi.forbidden()
     })
   })
-  .when(Joi.object({ fileStatus: 'rejected' }).unknown(), {
+  .when(Joi.object({ fileStatus: Joi.valid('rejected').required() }).unknown(), {
     then: Joi.object({
       hasError: Joi.valid(true).required(),
       errorMessage: Joi.string().min(1).required(),
+      detectedContentType: Joi.forbidden(),
       s3Key: Joi.forbidden(),
       s3Bucket: Joi.forbidden(),
       checksumSha256: Joi.forbidden()
