@@ -426,8 +426,9 @@ describe('Shared Schema Components', () => {
     })
 
     test('should require hasError=true and errorMessage for rejected files', () => {
+      const { detectedContentType, ...baseFileUploadWithoutDetected } = baseFileUpload
       const rejectedFile = {
-        ...baseFileUpload,
+        ...baseFileUploadWithoutDetected,
         fileStatus: 'rejected',
         hasError: true,
         errorMessage: 'Virus detected'
@@ -436,7 +437,7 @@ describe('Shared Schema Components', () => {
       expect(validResult.error).toBeUndefined()
 
       const invalidRejectedFile = {
-        ...baseFileUpload,
+        ...baseFileUploadWithoutDetected,
         fileStatus: 'rejected',
         hasError: false,
         errorMessage: 'Virus detected'

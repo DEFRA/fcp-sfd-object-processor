@@ -13,6 +13,7 @@ describe('callback contract validation (fileStatus variants)', () => {
     delete file.s3Key
     delete file.s3Bucket
     delete file.checksumSha256
+    delete file.detectedContentType
     payload.form = { 'rejected-file': file }
 
     const { error } = callbackPayloadSchema.validate(payload)
@@ -22,6 +23,11 @@ describe('callback contract validation (fileStatus variants)', () => {
   test('REJECTED file without errorMessage fails validation', () => {
     const payload = { ...base }
     const file = { ...payload.form['a-file-upload-field'], fileStatus: 'rejected', hasError: true }
+    // remove fields that are forbidden for rejected files
+    delete file.s3Key
+    delete file.s3Bucket
+    delete file.checksumSha256
+    delete file.detectedContentType
     // remove errorMessage explicitly if present
     delete file.errorMessage
     payload.form = { 'rejected-file': file }
@@ -107,7 +113,6 @@ describe('fileUploadSchema Joi edge cases', () => {
       fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
       filename: 'test.pdf',
       contentType: 'application/pdf',
-      detectedContentType: 'application/pdf',
       fileStatus: 'rejected',
       hasError: true,
       errorMessage: ''
@@ -121,7 +126,6 @@ describe('fileUploadSchema Joi edge cases', () => {
       fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
       filename: 'test.pdf',
       contentType: 'application/pdf',
-      detectedContentType: 'application/pdf',
       fileStatus: 'rejected',
       hasError: false,
       errorMessage: 'error'
