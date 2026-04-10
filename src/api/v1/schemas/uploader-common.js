@@ -120,7 +120,8 @@ export const uploaderResponseFields = {
       'any.only': '"uploadStatus" must be one of [initiated, pending, ready]',
       'any.required': '"uploadStatus" is required'
     })
-    .example('ready'),
+    .example('ready')
+    .label('UploadSessionStatus'),
 
   numberOfRejectedFiles: Joi.number()
     .integer()

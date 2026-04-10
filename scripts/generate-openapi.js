@@ -1,4 +1,5 @@
 import { writeFile } from 'node:fs/promises'
+import { schemaConsts } from '../src/constants/schemas.js'
 
 /**
  * Generates OpenAPI specification by fetching from the running server
@@ -151,6 +152,89 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
       }
     }
 
+    // Post-process: Inject named examples for uploader status 200 response.
+    // hapi-swagger only renders a single schema-level `example`; OAS 3.0
+    // supports named `examples` at the media-type level which Swagger UI
+    // presents as a dropdown.
+    const statusMediaType =
+      spec.paths?.['/api/v1/uploader/status/{uploadId}']?.get?.responses?.['200']?.content?.['application/json']
+
+    if (statusMediaType) {
+      const metadata = {
+        sbi: schemaConsts.SBI_EXAMPLE,
+        crn: schemaConsts.CRN_EXAMPLE,
+        frn: schemaConsts.FRN_EXAMPLE,
+        submissionId: schemaConsts.SUBMISSION_ID_EXAMPLE,
+        uosr: schemaConsts.UOSR_EXAMPLE,
+        type: schemaConsts.TYPE_EXAMPLE,
+        reference: schemaConsts.REFERENCE_EXAMPLE,
+        service: schemaConsts.SERVICE_EXAMPLE
+      }
+
+      const baseFileFields = {
+        fileId: schemaConsts.FILE_ID_EXAMPLE,
+        filename: schemaConsts.FILENAME_EXAMPLE,
+        contentType: schemaConsts.CONTENT_TYPE_EXAMPLE
+      }
+
+      statusMediaType.examples = {
+        success: {
+          summary: 'All files uploaded successfully',
+          value: {
+            data: {
+              uploadStatus: 'success',
+              metadata,
+              form: {
+                'file-upload-1': {
+                  ...baseFileFields,
+                  detectedContentType: schemaConsts.DETECTED_CONTENT_TYPE_EXAMPLE,
+                  fileStatus: 'complete',
+                  contentLength: schemaConsts.CONTENT_LENGTH_EXAMPLE,
+                  checksumSha256: schemaConsts.CHECKSUM_SHA256_EXAMPLE,
+                  s3Key: schemaConsts.S3_KEY_EXAMPLE,
+                  s3Bucket: schemaConsts.S3_BUCKET_EXAMPLE
+                }
+              }
+            }
+          }
+        },
+        failure: {
+          summary: 'One or more files rejected',
+          value: {
+            data: {
+              uploadStatus: 'failure',
+              metadata,
+              form: {
+                'file-upload-1': {
+                  ...baseFileFields,
+                  fileStatus: 'rejected',
+                  contentLength: schemaConsts.CONTENT_LENGTH_EXAMPLE,
+                  hasError: true,
+                  errorMessage: schemaConsts.ERROR_MESSAGE_EXAMPLE
+                }
+              }
+            }
+          }
+        },
+        pending: {
+          summary: 'Upload still processing',
+          value: {
+            data: {
+              uploadStatus: 'pending',
+              metadata,
+              form: {
+                'file-upload-1': {
+                  ...baseFileFields,
+                  detectedContentType: schemaConsts.DETECTED_CONTENT_TYPE_EXAMPLE,
+                  fileStatus: 'pending'
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
     // Write to file
     await writeFile(outputPath, JSON.stringify(spec, null, 2))
 
@@ -159,6 +243,7 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
     console.log(`   📄 Output: ${outputPath}`)
     console.log('   🔒 Security: bearerAuth scheme configured')
     console.log('   📦 Components: FileUpload schema injected')
+    console.log('   📝 Examples: uploader status response examples injected')
     console.log(`   📊 Total schemas: ${Object.keys(spec.components?.schemas || {}).length}`)
     console.log(`   🛣️  Paths: ${Object.keys(spec.paths || {}).length} endpoints`)
   } catch (error) {
