@@ -98,7 +98,7 @@ export const fileUploadSchema = Joi.object({
     .messages({ 'string.empty': EMPTY_FIELD_MESSAGE })
     .example(schemaConsts.S3_BUCKET_EXAMPLE).label('s3Bucket')
 })
-  .when(Joi.object({ fileStatus: 'complete' }).unknown(), {
+  .when(Joi.object({ fileStatus: Joi.valid('complete').required() }).unknown(), {
     then: Joi.object({
       s3Key: Joi.required(),
       s3Bucket: Joi.required(),
