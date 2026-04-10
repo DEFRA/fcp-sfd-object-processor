@@ -35,7 +35,6 @@ const rejectedFile = {
   fileId: 'a0b1c2d3-e4f5-4789-abcd-ef0123456789',
   filename: 'document.pdf',
   contentType: 'application/pdf',
-  detectedContentType: 'application/pdf',
   fileStatus: 'rejected',
   hasError: true,
   errorMessage: 'File rejected: virus detected'
@@ -145,6 +144,28 @@ describe('cdpUploaderStatusResponseSchema', () => {
       }
       const { error } = cdpUploaderStatusResponseSchema.validate(payload)
       expect(error).toBeUndefined()
+    })
+
+    test('rejected file without detectedContentType passes (CDP Uploader never includes it)', () => {
+      const payload = {
+        uploadStatus: 'ready',
+        metadata: validMetadata,
+        form: { 'file-field': rejectedFile },
+        numberOfRejectedFiles: 1
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeUndefined()
+    })
+
+    test('rejected file with detectedContentType fails (it is forbidden for rejected files)', () => {
+      const payload = {
+        uploadStatus: 'ready',
+        metadata: validMetadata,
+        form: { 'file-field': { ...rejectedFile, detectedContentType: 'application/pdf' } },
+        numberOfRejectedFiles: 1
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeDefined()
     })
 
     test('form allows mix of file objects and string fields', () => {
@@ -446,5 +467,29 @@ describe('uploaderStatusResponseSchema', () => {
     })
 
     expect(error).toBeDefined()
+  })
+
+  test('200 schema accepts failure response with rejected file (no detectedContentType)', () => {
+    const successSchema = uploaderStatusResponseSchema[httpConstants.HTTP_STATUS_OK]
+    const { error } = successSchema.validate({
+      data: {
+        uploadStatus: 'failure',
+        metadata: validMetadata,
+        form: { 'file-upload-1': rejectedFile }
+      }
+    })
+    expect(error).toBeUndefined()
+  })
+
+  test('200 schema accepts pending response with full metadata and empty form', () => {
+    const successSchema = uploaderStatusResponseSchema[httpConstants.HTTP_STATUS_OK]
+    const { error } = successSchema.validate({
+      data: {
+        uploadStatus: 'pending',
+        metadata: validMetadata,
+        form: {}
+      }
+    })
+    expect(error).toBeUndefined()
   })
 })

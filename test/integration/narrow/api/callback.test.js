@@ -117,7 +117,6 @@ describe('POST to the /api/v1/callback route', async () => {
         fileId: '550e8400-e29b-41d4-a716-446655440001',
         filename: 'infected.pdf',
         contentType: 'application/pdf',
-        detectedContentType: 'application/pdf',
         fileStatus: 'rejected',
         hasError: true,
         errorMessage: 'File contains virus: Trojan.Generic'
@@ -157,7 +156,6 @@ describe('POST to the /api/v1/callback route', async () => {
         fileId: '550e8400-e29b-41d4-a716-446655440002',
         filename: 'rejected-no-msg.pdf',
         contentType: 'application/pdf',
-        detectedContentType: 'application/pdf',
         fileStatus: 'rejected',
         hasError: true
       }
@@ -239,7 +237,6 @@ describe('POST to the /api/v1/callback route', async () => {
         fileId: '550e8400-e29b-41d4-a716-446655440021',
         filename: 'infected.pdf',
         contentType: 'application/pdf',
-        detectedContentType: 'application/pdf',
         fileStatus: 'rejected',
         hasError: true,
         errorMessage: 'Virus detected'

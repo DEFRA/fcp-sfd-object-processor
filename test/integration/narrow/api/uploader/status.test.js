@@ -34,7 +34,6 @@ const rejectedFile = {
   fileId: 'c2d3e4f5-a6b7-4789-abcd-ef0123456789',
   filename: 'virus.exe',
   contentType: 'application/octet-stream',
-  detectedContentType: 'application/octet-stream',
   fileStatus: 'rejected',
   hasError: true,
   errorMessage: 'File rejected: virus detected'
@@ -192,6 +191,29 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
     expect(file.fileStatus).toBe('rejected')
     expect(file.hasError).toBe(true)
     expect(file.errorMessage).toBeDefined()
+    expect(file.detectedContentType).toBeUndefined()
+  })
+
+  test('returns 200 with pending status for pending response with full metadata and empty form', async () => {
+    const pendingResponseWithFullMetadata = {
+      uploadStatus: 'pending',
+      metadata: validMetadata,
+      form: {}
+    }
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => pendingResponseWithFullMetadata
+    })
+
+    const response = await server.inject({
+      method: 'GET',
+      url: `/api/v1/uploader/status/${validUploadId}`
+    })
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+    expect(response.result.data.uploadStatus).toBe('pending')
+    expect(response.result.data.form).toEqual({})
   })
 
   test('forwards the correct URL to CDP Uploader', async () => {
