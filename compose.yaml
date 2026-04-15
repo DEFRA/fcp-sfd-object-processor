@@ -26,7 +26,7 @@ services:
       PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL:-http://localhost:3004}
       # Database
       MONGO_URI: mongodb://mongodb:27017/?replicaSet=rs0
-      MONGO_READ_PREFERENCE: primary 
+      MONGO_READ_PREFERENCE: primary
       MONGO_OUTBOX_QUERY_LIMIT: ${MONGO_OUTBOX_QUERY_LIMIT:-100}
       # aws
       LOCALSTACK_ENDPOINT: http://localstack:4566
@@ -54,7 +54,6 @@ services:
 
   redis:
     image: redis:7.2.3-alpine3.18
-    restart: always
     networks:
       - fcp-sfd
 
@@ -80,7 +79,7 @@ services:
       CONSUMER_BUCKETS: fcp-sfd-object-processor-bucket
     networks:
       - fcp-sfd
-  
+
   localstack:
     image: localstack/localstack:3.0.2
     env_file:
@@ -113,7 +112,6 @@ services:
       - fcp-sfd
     volumes:
       - mongodb-data:/data
-    restart: always
 
 volumes:
   mongodb-data:
