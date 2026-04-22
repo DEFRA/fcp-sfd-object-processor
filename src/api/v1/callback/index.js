@@ -7,6 +7,7 @@ import { config } from '../../../config/index.js'
 import { persistMetadataWithOutbox, persistValidationFailureStatus } from '../../../services/metadata-service.js'
 import { metricsCounter } from '../../common/helpers/metrics.js'
 import { validateCallbackPayload } from './validation/validate-callback-payload.js'
+import { buildCallbackValidationFailureLog, buildCallbackPersistFailureLog } from '../../../utils/build-callback-validation-failure-log.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -33,13 +34,13 @@ export const uploadCallback = {
       payload: callbackPayloadSchema,
       options: { abortEarly: false },
       failAction: async (request, h, err) => {
-        logger.error({ error: { message: err.message } }, 'Validation failed')
+        logger.error(buildCallbackValidationFailureLog(request, err), 'Validation failed')
         await metricsCounter('callback_validation_failures')
 
         try {
           await persistValidationFailureStatus(request.payload, err)
         } catch (persistError) {
-          logger.error(persistError, 'Failed to persist status for callback validation failure')
+          logger.error(buildCallbackPersistFailureLog(request, persistError), 'Failed to persist status for callback validation failure')
         }
 
         return h.response({ message: 'Validation failure persisted' }).code(httpConstants.HTTP_STATUS_CREATED).takeover()
