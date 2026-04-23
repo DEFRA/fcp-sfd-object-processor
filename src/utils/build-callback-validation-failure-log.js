@@ -14,7 +14,7 @@ export const buildCallbackValidationFailureLog = (request, err) => {
       reference: request.payload?.metadata?.uosr
     },
     error: {
-      code: err.statusCode ?? err.code,
+      code: err.statusCode ?? err.code ?? null,
       message: err.message,
       stack_trace: err.stack,
       type: err.constructor.name
@@ -36,7 +36,7 @@ export const buildCallbackPersistFailureLog = (request, persistError) => ({
     reference: request.payload?.metadata?.uosr
   },
   error: {
-    code: persistError.statusCode ?? persistError.code,
+    code: persistError.statusCode ?? persistError.code ?? null,
     message: persistError.message,
     stack_trace: persistError.stack,
     type: persistError.constructor.name

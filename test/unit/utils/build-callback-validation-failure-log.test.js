@@ -28,7 +28,7 @@ describe('buildCallbackValidationFailureLog', () => {
         reference: 'sub-123'
       },
       error: {
-        code: undefined,
+        code: null,
         message: 'Validation failed',
         stack_trace: err.stack,
         type: 'Error'
@@ -93,7 +93,7 @@ describe('buildCallbackPersistFailureLog', () => {
         reference: 'sub-123'
       },
       error: {
-        code: undefined,
+        code: null,
         message: 'DB write failed',
         stack_trace: persistError.stack,
         type: 'Error'
