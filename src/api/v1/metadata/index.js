@@ -26,7 +26,7 @@ export const metadataRoute = {
   handler: async (request, h) => {
     try {
       // Convert sbi from URL param string to integer for database query
-      const sbi = parseInt(request.params.sbi, 10)
+      const sbi = Number.parseInt(request.params.sbi, 10)
       const documents = await getMetadataBySbi(sbi)
 
       return h.response({ data: documents }).code(httpConstants.HTTP_STATUS_OK)

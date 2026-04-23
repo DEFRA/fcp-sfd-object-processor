@@ -20,7 +20,7 @@ export async function validateCallbackPayload (payload, h) {
   // Stage 1: Contract validation — uploadStatus must be 'ready'
   if (requestPayload.uploadStatus !== 'ready') {
     await metricsCounter('callback_unexpected_status')
-    return await handleValidationFailure(requestPayload, new Error(`uploadStatus must be 'ready' but was '${requestPayload.uploadStatus}'`), undefined, h)
+    return handleValidationFailure(requestPayload, new Error(`uploadStatus must be 'ready' but was '${requestPayload.uploadStatus}'`), undefined, h)
   }
 
   // Stage 2: Contract validation — every file in the form must have fileStatus 'complete'
@@ -28,14 +28,14 @@ export async function validateCallbackPayload (payload, h) {
   for (const [, val] of Object.entries(form)) {
     if (val && typeof val === 'object' && 'fileId' in val && val.fileStatus !== 'complete') {
       await metricsCounter('callback_unexpected_status')
-      return await handleValidationFailure(requestPayload, new Error(`fileStatus must be 'complete' but was '${val.fileStatus}'`), val, h)
+      return handleValidationFailure(requestPayload, new Error(`fileStatus must be 'complete' but was '${val.fileStatus}'`), val, h)
     }
   }
 
   // Stage 3: Post-Joi semantic validation for each file upload
   const validation = validateFormFiles(form)
   if (!validation.isValid) {
-    return await handleValidationFailure(requestPayload, new Error(validation.error), validation.file, h)
+    return handleValidationFailure(requestPayload, new Error(validation.error), validation.file, h)
   }
 
   return null
