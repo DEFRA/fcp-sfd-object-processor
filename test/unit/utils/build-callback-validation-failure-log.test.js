@@ -71,6 +71,21 @@ describe('buildCallbackValidationFailureLog', () => {
     expect(log.error.type).toBe('ValidationError')
   })
 
+  test('falls back to err.name when constructor name is absent', () => {
+    const plainErr = Object.create(null)
+    plainErr.message = 'plain object error'
+    plainErr.name = 'CustomError'
+    const log = buildCallbackValidationFailureLog(mockRequest, plainErr)
+    expect(log.error.type).toBe('CustomError')
+  })
+
+  test('falls back to Error when both constructor name and err.name are absent', () => {
+    const plainErr = Object.create(null)
+    plainErr.message = 'plain object error'
+    const log = buildCallbackValidationFailureLog(mockRequest, plainErr)
+    expect(log.error.type).toBe('Error')
+  })
+
   test('does not include event.reason (auth is disabled on this route)', () => {
     const log = buildCallbackValidationFailureLog(mockRequest, err)
     expect(log.event.reason).toBeUndefined()
@@ -134,6 +149,21 @@ describe('buildCallbackPersistFailureLog', () => {
     class MongoWriteError extends Error {}
     const log = buildCallbackPersistFailureLog(mockRequest, new MongoWriteError('write failed'))
     expect(log.error.type).toBe('MongoWriteError')
+  })
+
+  test('falls back to persistError.name when constructor name is absent', () => {
+    const plainErr = Object.create(null)
+    plainErr.message = 'plain object error'
+    plainErr.name = 'MongoError'
+    const log = buildCallbackPersistFailureLog(mockRequest, plainErr)
+    expect(log.error.type).toBe('MongoError')
+  })
+
+  test('falls back to Error when both constructor name and persistError.name are absent', () => {
+    const plainErr = Object.create(null)
+    plainErr.message = 'plain object error'
+    const log = buildCallbackPersistFailureLog(mockRequest, plainErr)
+    expect(log.error.type).toBe('Error')
   })
 
   test('does not include event.reason (auth is disabled on this route)', () => {
