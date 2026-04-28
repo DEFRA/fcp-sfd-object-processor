@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, vi } from 'vitest'
 import Joi from 'joi'
 import {
   patterns,
@@ -9,6 +9,16 @@ import {
   uploaderResponseFields,
   mappedResponseFields
 } from '../../../../../../src/api/v1/schemas/uploader-common.js'
+
+const { mockMimeTypes } = vi.hoisted(() => ({
+  mockMimeTypes: ['application/pdf', 'image/jpeg', 'image/png']
+}))
+
+vi.mock('../../../../../../src/config/index.js', () => ({
+  config: {
+    get: (key) => key === 'cdpUploaderMimeTypes' ? mockMimeTypes : null
+  }
+}))
 
 describe('Shared Schema Components', () => {
   describe('patterns', () => {
@@ -398,13 +408,25 @@ describe('Shared Schema Components', () => {
       })
     })
 
-    test('should validate MIME types', () => {
-      const invalidMimeTypes = [
+    test('should accept all allowed MIME types for contentType', () => {
+      mockMimeTypes.forEach(contentType => {
+        const fileUpload = { ...baseFileUpload, fileStatus: 'pending', contentType, detectedContentType: contentType }
+        const result = fileUploadSchema.validate(fileUpload)
+        expect(result.error).toBeUndefined()
+      })
+    })
+
+    test('should reject MIME types not in the allowlist', () => {
+      const disallowedMimeTypes = [
         'invalid',
-        'text/'
+        'text/',
+        'text/plain',
+        'video/mp4',
+        'audio/mpeg',
+        'application/zip'
       ]
 
-      invalidMimeTypes.forEach(contentType => {
+      disallowedMimeTypes.forEach(contentType => {
         const fileUploadWithInvalidMime = { ...baseFileUpload, fileStatus: 'pending', contentType }
         const result = fileUploadSchema.validate(fileUploadWithInvalidMime)
         expect(result.error).toBeDefined()

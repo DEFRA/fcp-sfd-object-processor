@@ -1,8 +1,8 @@
 import Joi from 'joi'
 import { schemaConsts } from '../../../constants/schemas.js'
+import { config } from '../../../config/index.js'
 
-// Basic MIME type pattern
-const mimeTypePattern = /^[a-zA-Z0-9][a-zA-Z0-9!#$&^_+-]*\/[a-zA-Z0-9][a-zA-Z0-9!#$&^_+.-]*$/
+const allowedMimeTypes = config.get('cdpUploaderMimeTypes')
 // Base64 pattern (accept standard and URL-safe variants)
 const base64Pattern = /^(?:[A-Za-z0-9+/]+=*|[A-Za-z0-9-_]+=*)$/
 
@@ -40,20 +40,20 @@ export const fileUploadSchema = Joi.object({
     .example(schemaConsts.FILENAME_EXAMPLE).label('filename'),
 
   contentType: Joi.string()
-    .pattern(mimeTypePattern)
+    .valid(...allowedMimeTypes)
     .required()
     .description('MIME type of the uploaded file')
     .messages({
-      'string.pattern.base': '"{#label}" must be a valid MIME type'
+      'any.only': '"contentType" must be one of the allowed MIME types'
     })
     .example(schemaConsts.CONTENT_TYPE_EXAMPLE).label('contentType'),
 
   detectedContentType: Joi.string()
-    .pattern(mimeTypePattern)
+    .valid(...allowedMimeTypes)
     .required()
     .description('MIME type detected by virus scanning')
     .messages({
-      'string.pattern.base': '"{#label}" must be a valid MIME type'
+      'any.only': '"detectedContentType" must be one of the allowed MIME types'
     })
     .example(schemaConsts.DETECTED_CONTENT_TYPE_EXAMPLE).label('detectedContentType'),
 

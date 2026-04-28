@@ -409,7 +409,7 @@ describe('callbackPayloadSchema validation', () => {
         }
       })
       expect(error).toBeDefined()
-      expect(error.details.some(d => d.path.includes('contentType') && d.type === 'string.pattern.base')).toBe(true)
+      expect(error.details.some(d => d.path.includes('contentType') && d.type === 'any.only')).toBe(true)
     })
 
     test('missing fileStatus fails validation', () => {
@@ -504,7 +504,7 @@ describe('callbackPayloadSchema validation', () => {
         }
       })
       expect(error).toBeDefined()
-      expect(error.details.some(d => d.path.includes('detectedContentType') && d.type === 'string.pattern.base')).toBe(true)
+      expect(error.details.some(d => d.path.includes('detectedContentType') && d.type === 'any.only')).toBe(true)
     })
 
     test('missing s3Key fails validation', () => {

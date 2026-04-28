@@ -20,7 +20,7 @@ services:
       CDP_UPLOADER_S3_BUCKET: ${CDP_UPLOADER_S3_BUCKET:-fcp-sfd-object-processor-bucket}
       CDP_UPLOADER_S3_PATH: ${CDP_UPLOADER_S3_PATH:-scanned}
       CDP_UPLOADER_CALLBACK_URL: ${CDP_UPLOADER_CALLBACK_URL:-http://fcp-sfd-object-processor:3004/api/v1/callback}
-      CDP_UPLOADER_MIME_TYPES: ${CDP_UPLOADER_MIME_TYPES:-application/pdf,image/jpeg,image/png}
+      CDP_UPLOADER_MIME_TYPES: ${CDP_UPLOADER_MIME_TYPES:-image/png,image/jpeg,image/gif,image/tiff,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.ms-excel.sheet.macroEnabled.12,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-word.document.macroEnabled.12}
       CDP_UPLOADER_MAX_FILE_SIZE: ${CDP_UPLOADER_MAX_FILE_SIZE:-10485760}
       CDP_UPLOADER_TIMEOUT_MS: ${CDP_UPLOADER_TIMEOUT_MS:-30000}
       PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL:-http://localhost:3004}
