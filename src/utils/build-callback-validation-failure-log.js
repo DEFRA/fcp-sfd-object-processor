@@ -17,7 +17,7 @@ export const buildCallbackValidationFailureLog = (request, err) => {
       code: err.statusCode ?? err.code ?? null,
       message: err.message,
       stack_trace: err.stack,
-      type: err.constructor.name
+      type: err?.constructor?.name || err?.name || 'Error'
     }
   }
 }
@@ -39,6 +39,6 @@ export const buildCallbackPersistFailureLog = (request, persistError) => ({
     code: persistError.statusCode ?? persistError.code ?? null,
     message: persistError.message,
     stack_trace: persistError.stack,
-    type: persistError.constructor.name
+    type: persistError?.constructor?.name || persistError?.name || 'Error'
   }
 })

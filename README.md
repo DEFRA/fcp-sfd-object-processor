@@ -188,7 +188,7 @@ The information returned will be the same as what is stored in the database.
 
 ## Logging
 
-This service uses [Pino](https://getpino.io/) with [Elastic Common Schema (ECS)](https://www.elastic.co/guide/en/ecs/current/index.html) formatting. All structured log fields must use the approved `event.*` field structure — flat top-level fields are not visible on the platform.
+This service uses [Pino](https://getpino.io/) with [Elastic Common Schema (ECS)](https://www.elastic.co/guide/en/ecs/current/index.html) formatting. **All structured log fields must be nested under `event.*` or `error.*`** — flat top-level fields are not visible on the platform.
 
 ### Approved `event.*` fields
 
@@ -205,9 +205,26 @@ This service uses [Pino](https://getpino.io/) with [Elastic Common Schema (ECS)]
 | `event.severity` | long | Custom severity level (0–10) |
 | `event.created` | date | Time the event was created |
 
+### Approved `error.*` fields
+
+When logging error context, nest fields under `error` alongside the `event` object:
+
+| Field | Type | Purpose |
+|---|---|---|
+| `error.code` | keyword | HTTP status or system error code (e.g. `422`, `ECONNREFUSED`) |
+| `error.message` | text | Human-readable error message |
+| `error.stack_trace` | keyword | Full stack trace |
+| `error.type` | keyword | Error class name (e.g. `ValidationError`, `TypeError`, `Error`) |
+
 ### Log builder utilities
 
-Reusable structured log builders live in `src/utils/` and follow the pattern established in [`build-uploader-status-log.js`](src/utils/build-uploader-status-log.js). Each builder returns a plain object with a nested `event` key using only approved fields.
+Reusable structured log builders live in [`src/utils/`](src/utils/) and must use only approved ECS fields nested under `event` or `error`. Examples of the pattern:
+
+- [`build-uploader-status-log.js`](src/utils/build-uploader-status-log.js) — `event.*` fields for outbound CDP Uploader requests
+- [`build-callback-validation-failure-log.js`](src/utils/build-callback-validation-failure-log.js) — combined `event.*` + `error.*` for callback validation failures
+- [`build-auth-failure-log.js`](src/utils/build-auth-failure-log.js) — authentication failure context
+
+> **Rule:** Any new log builder must follow this pattern. Do not use flat top-level fields — they are not visible on the platform.
 
 ## Tests
 
