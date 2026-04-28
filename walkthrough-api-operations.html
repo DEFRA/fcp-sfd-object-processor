@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en" style="color-scheme: dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fcp-sfd-object-processor — API Operations</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: {
+        wt: {
+          bg: '#000000', surface: '#0a0a0a', raised: '#141414',
+          border: '#2a2a2a', fg: '#ffffff', muted: '#a0a0a0',
+          accent: '#a855f7', file: '#c084fc', red: '#ef4444',
+        },
+        node: {
+          component: '#a855f7', composable: '#7c3aed', utility: '#6d28d9',
+          external: '#525252', event: '#d8b4fe', data: '#9333ea',
+        },
+      }}},
+    };
+  </script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; overflow: hidden; }
+    .mermaid-wrap svg { max-width: none !important; height: auto !important; }
+    .mermaid-wrap .node { cursor: pointer; }
+    .mermaid-wrap .node:hover rect,
+    .mermaid-wrap .node:hover polygon,
+    .mermaid-wrap .node:hover circle,
+    .mermaid-wrap .node:hover .label-container { filter: brightness(1.3); transition: filter .15s; }
+    .dt-body p { color:#a0a0a0; font-size:.88rem; line-height:1.65; margin-bottom:10px; }
+    .dt-body p code {
+      background:rgba(168,85,247,.12); padding:1px 6px; border-radius:4px;
+      font-family:'SF Mono','Fira Code',monospace; font-size:.82rem; color:#c084fc;
+    }
+    .dt-body .shiki, .dt-body pre.code-fallback {
+      background: #000000; border: 1px solid #2a2a2a; border-radius: 8px;
+      padding: 14px 16px; overflow-x: auto; margin: 8px 0 14px;
+    }
+    .dt-body .shiki { background: #000000 !important; }
+    .dt-body .shiki code, .dt-body pre.code-fallback code {
+      font-family: 'SF Mono','Fira Code',monospace; font-size: .78rem; line-height: 1.55;
+      background: none; padding: 0; border-radius: 0;
+    }
+    .dt-body .shiki code { color: inherit; }
+    .dt-body pre.code-fallback code { color: #e0e0e0; }
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      font-size: 0.7rem; font-weight: 600; font-family: 'SF Mono','Fira Code',monospace;
+      margin-right: 6px; margin-bottom: 4px; vertical-align: middle;
+    }
+    .badge-get { background: rgba(34,197,94,.15); color: #4ade80; border: 1px solid rgba(34,197,94,.3); }
+    .badge-post { background: rgba(168,85,247,.15); color: #c084fc; border: 1px solid rgba(168,85,247,.3); }
+    .badge-noauth { background: rgba(251,191,36,.1); color: #fbbf24; border: 1px solid rgba(251,191,36,.25); font-family: sans-serif; font-weight: 500; font-size: 0.65rem; }
+    .badge-code { background: rgba(99,102,241,.15); color: #a5b4fc; border: 1px solid rgba(99,102,241,.3); }
+  </style>
+</head>
+<body class="bg-wt-bg">
+  <div id="root"></div>
+  <script type="module">
+    import { createHighlighter } from 'https://cdn.jsdelivr.net/npm/shiki@3.22.0/+esm';
+
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    const SUMMARY = "This service exposes 7 HTTP endpoints across 4 concerns: a webhook receiver for CDP Uploader callbacks (with 3-stage validation), query endpoints for metadata/status/blobs, proxy endpoints that relay upload sessions to CDP Uploader, and a health check. All validation failures return 201 and are persisted as audit records — never exposed as client errors.";
+
+    const DIAGRAM = `graph LR
+    subgraph api["API Routes"]
+        healthCheck["GET /health"]:::component
+        callbackRoute["POST /v1/callback"]:::component
+        getMetadata["GET /metadata/sbi/:sbi"]:::component
+        getStatus["GET /status/:correlationId"]:::component
+        getBlob["GET /blob/:fileId"]:::component
+        uploaderInitiate["POST /uploader/initiate"]:::component
+        uploaderStatus["GET /uploader/status/:uploadId"]:::component
+    end
+
+    subgraph processing["Request Processing"]
+        callbackValidation["3-Stage Validation Pipeline"]:::utility
+        metadataService["Transactional Outbox Service"]:::composable
+    end
+
+    subgraph backends["Data and External Services"]
+        mongoDb["MongoDB Database"]:::data
+        s3Storage["AWS S3 Storage"]:::external
+        cdpUploaderExt["CDP Uploader Service"]:::external
+    end
+
+    callbackRoute -->|"validates through"| callbackValidation
+    callbackValidation -.->|"persists failure"| metadataService
+    callbackRoute -->|"persists success"| metadataService
+    metadataService -->|"writes to"| mongoDb
+    getMetadata -->|"queries"| mongoDb
+    getStatus -->|"queries"| mongoDb
+    getBlob -->|"looks up S3 ref"| mongoDb
+    getBlob -->|"generates URL"| s3Storage
+    uploaderInitiate -->|"proxies to"| cdpUploaderExt
+    uploaderStatus -->|"polls"| cdpUploaderExt
+
+    classDef component fill:#a855f7,stroke:#c084fc,color:#fff
+    classDef composable fill:#7c3aed,stroke:#a78bfa,color:#fff
+    classDef utility fill:#6d28d9,stroke:#8b5cf6,color:#fff
+    classDef external fill:#525252,stroke:#737373,color:#fff
+    classDef data fill:#9333ea,stroke:#a855f7,color:#fff
+
+    click healthCheck nodeClickHandler "View details"
+    click callbackRoute nodeClickHandler "View details"
+    click callbackValidation nodeClickHandler "View details"
+    click metadataService nodeClickHandler "View details"
+    click getMetadata nodeClickHandler "View details"
+    click getStatus nodeClickHandler "View details"
+    click getBlob nodeClickHandler "View details"
+    click uploaderInitiate nodeClickHandler "View details"
+    click uploaderStatus nodeClickHandler "View details"
+    click mongoDb nodeClickHandler "View details"
+    click s3Storage nodeClickHandler "View details"
+    click cdpUploaderExt nodeClickHandler "View details"`;
+
+    const NODES = {
+      healthCheck: {
+        title: "Health Check",
+        method: "GET", path: "/health", auth: false, codes: ["200"],
+        description: "Returns { message: 'success' } with HTTP 200. Auth is disabled so container orchestrators and monitoring tools can probe liveness freely. No external dependencies are checked.",
+        files: ["src/api/health/index.js", "src/api/health/handler.js"],
+        code: `// GET /health — auth: false
+{
+  handler: (_request, h) =>
+    h.response({ message: 'success' }).code(200)
+}`,
+        lang: "javascript",
+      },
+      callbackRoute: {
+        title: "CDP Uploader Callback",
+        method: "POST", path: "/api/v1/callback", auth: false, codes: ["201"],
+        description: "Receives file upload notifications from CDP Uploader after virus scan + S3 storage. Auth is disabled because CDP Uploader cannot supply JWT tokens. Runs 3-stage validation then persists metadata. Returns 201 in all cases — including validation failures which are stored as audit records.",
+        files: ["src/api/v1/callback/index.js", "src/api/v1/callback/schema.js"],
+        code: `const validationError = await validateCallbackPayload(request.payload, h)
+if (validationError) return validationError
+
+const result = await persistMetadataWithOutbox(request.payload)
+return h
+  .response({ message: 'Metadata created', count: result.insertedCount })
+  .code(201)`,
+        lang: "javascript",
+      },
+      callbackValidation: {
+        title: "3-Stage Validation Pipeline",
+        method: null, path: null, auth: null, codes: ["201 (failure path)"],
+        description: "Orchestrates three sequential checks: (1) Joi schema validation of payload structure, (2) contract rules — uploadStatus must be 'ready' and all files must have fileStatus 'complete', (3) per-file semantic consistency — S3 fields, base64 checksums, and error field presence rules. Failures are persisted as audit records and always return 201.",
+        files: [
+          "src/api/v1/callback/validation/validate-callback-payload.js",
+          "src/api/v1/callback/validation/validate-file-upload-consistency.js",
+          "src/api/v1/callback/validation/validate-form-files.js",
+          "src/api/v1/callback/validation/handle-validation-failure.js",
+        ],
+        code: `if (requestPayload.uploadStatus !== 'ready') {
+  return await handleValidationFailure(requestPayload, new Error('...'), undefined, h)
+}
+const { isValid, error, file } = await validateFormFiles(requestPayload.form)
+if (!isValid) {
+  return await handleValidationFailure(requestPayload, new Error(error), file, h)
+}`,
+        lang: "javascript",
+      },
+      metadataService: {
+        title: "Transactional Outbox Service",
+        method: null, path: null, auth: null, codes: [],
+        description: "Atomically writes file metadata, status records, and outbox entries in a single MongoDB transaction. Called by the callback success path (persistMetadataWithOutbox) and by every validation failure path (persistValidationFailureStatus) to ensure all events are durably recorded.",
+        files: ["src/services/metadata-service.js"],
+        code: `return await session.withTransaction(async () => {
+  await insertStatus(statusDocuments, session)
+  await persistMetadata(documents, session)
+  await createOutboxEntries(insertedIds, documents, session)
+})`,
+        lang: "javascript",
+      },
+      getMetadata: {
+        title: "Get Metadata by SBI",
+        method: "GET", path: "/api/v1/metadata/sbi/:sbi", auth: false, codes: ["200", "404", "500"],
+        description: "Retrieves all upload metadata documents for a 9-digit Single Business Identifier. Returns structured documents with file info (fileId, filename, contentType) and submission metadata (crn, frn, submissionId). Returns 404 if no records exist for that SBI.",
+        files: ["src/api/v1/metadata/index.js", "src/api/v1/metadata/schemas/params.js"],
+        code: `// params: sbi (9-digit number, required)
+const sbi = parseInt(request.params.sbi, 10)
+const documents = await getMetadataBySbi(sbi)
+return h.response({ data: documents }).code(200)
+// throws NotFoundError → Boom.notFound(err)`,
+        lang: "javascript",
+      },
+      getStatus: {
+        title: "Get Upload Status",
+        method: "GET", path: "/api/v1/status/:correlationId", auth: false, codes: ["200", "500"],
+        description: "Returns processing status records for all files in a batch, linked by a UUID v4 correlation ID. Each record shows whether the file passed validation and lists any field-level errors (field name, error type, received value).",
+        files: ["src/api/v1/status/index.js", "src/api/v1/status/schemas/params.js"],
+        code: `// params: correlationId (UUID v4, required)
+const { correlationId } = request.params
+const statusRecords = await getStatusByCorrelationId(correlationId)
+return h.response({ data: statusRecords }).code(200)
+// data: [{ correlationId, sbi, fileId, validated, errors }]`,
+        lang: "javascript",
+      },
+      getBlob: {
+        title: "Get Presigned File URL",
+        method: "GET", path: "/api/v1/blob/:fileId", auth: false, codes: ["200", "404", "500"],
+        description: "Looks up the S3 reference for a file UUID, then generates a time-limited presigned URL so clients can download directly from S3. The API server never streams file bytes — it stays stateless and keeps load off the service.",
+        files: ["src/api/v1/blobs/index.js", "src/api/v1/blobs/schemas/params.js"],
+        code: `// params: fileId (UUID v4, required)
+const { s3: s3Reference } = await getS3ReferenceByFileId(fileId)
+const { url } = await generatePresignedUrl(s3Reference)
+return h.response({ data: { url } }).code(200)
+// url is a time-limited S3 presigned URL`,
+        lang: "javascript",
+      },
+      uploaderInitiate: {
+        title: "Initiate Upload Session",
+        method: "POST", path: "/api/v1/uploader/initiate", auth: false, codes: ["200", "400", "502", "504"],
+        description: "Proxies upload initiation to CDP Uploader, enriching the request with server-side config (S3 bucket, allowed MIME types, max file size, callback URL). Rewrites CDP's response URLs to point back to this service so clients never talk directly to CDP Uploader.",
+        files: ["src/api/v1/uploader/initiate/index.js", "src/api/v1/uploader/initiate/schema.js"],
+        code: `// body: { redirect, metadata: { sbi, crn, frn, submissionId, ... } }
+const payload = buildCdpUploaderPayload(request.payload)
+const response = await fetch(uploaderUrl, {
+  method: 'POST', body: JSON.stringify(payload),
+  signal: AbortSignal.timeout(config.get('cdpUploaderTimeoutMs'))
+})`,
+        lang: "javascript",
+      },
+      uploaderStatus: {
+        title: "Check Upload Scan Status",
+        method: "GET", path: "/api/v1/uploader/status/:uploadId", auth: false, codes: ["200", "404", "502", "504"],
+        description: "Polls CDP Uploader for the current scan state and maps internal CDP states (initiated/pending/ready) to consumer-facing states: pending, success, or failure. Success/failure is determined by uploadStatus='ready' combined with the numberOfRejectedFiles count.",
+        files: ["src/api/v1/uploader/status/index.js", "src/api/v1/uploader/status/schema.js"],
+        code: `// params: uploadId (UUID v4, required)
+const { uploadStatus, numberOfRejectedFiles } = cdpResponse
+let mappedStatus
+if (uploadStatus === 'ready') {
+  mappedStatus = numberOfRejectedFiles === 0 ? 'success' : 'failure'
+} else { mappedStatus = 'pending' }`,
+        lang: "javascript",
+      },
+      mongoDb: {
+        title: "MongoDB Database",
+        method: null, path: null, auth: null, codes: [],
+        description: "Stores upload metadata, outbox entries, and status records across three collections. Queried directly by the metadata, status, and blob routes, and written to atomically by the transactional outbox service.",
+        files: ["src/data/db.js", "src/repos/metadata.js", "src/repos/status.js"],
+        code: `// Three key collections:
+// uploadMetadata  — file info, S3 refs, messaging state
+// uploadStatus    — per-file validation results
+// outbox          — pending SNS publish queue`,
+        lang: "javascript",
+      },
+      s3Storage: {
+        title: "AWS S3 Storage",
+        method: null, path: null, auth: null, codes: [],
+        description: "Object storage holding the uploaded files. The blob route never proxies file bytes through this service — it generates a presigned URL so clients download directly from S3, keeping the API server stateless and eliminating unnecessary bandwidth.",
+        files: ["src/repos/s3.js"],
+        code: `const command = new GetObjectCommand({
+  Bucket: s3Reference.bucket,
+  Key: s3Reference.key
+})
+const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 })`,
+        lang: "javascript",
+      },
+      cdpUploaderExt: {
+        title: "CDP Uploader Service",
+        method: null, path: null, auth: null, codes: [],
+        description: "External DEFRA platform service that handles virus scanning and S3 storage of user uploads. This service proxies upload initiation and status polling to it, acting as a facade that hides CDP Uploader's internals from API consumers.",
+        files: ["compose.yaml"],
+        code: `CDP_UPLOADER_URL: http://fcp-sfd-frontend:3000
+# Endpoints proxied:
+# POST {uploaderInitiateEndpoint}  → creates upload session
+# GET  {uploaderStatusEndpoint}    → returns scan progress`,
+        lang: "yaml",
+      },
+    };
+
+    const LEGEND = [
+      { label: 'API Route', color: 'bg-node-component' },
+      { label: 'Service', color: 'bg-node-composable' },
+      { label: 'Validator', color: 'bg-node-utility' },
+      { label: 'Data Store', color: 'bg-node-data' },
+      { label: 'External', color: 'bg-node-external' },
+    ];
+
+    // Shiki highlighting
+    const langs = [...new Set(Object.values(NODES).map(n => n.lang).filter(Boolean))];
+    if (langs.length === 0) langs.push('javascript');
+    let highlighter = null;
+    try { highlighter = await createHighlighter({ themes: ['vitesse-dark'], langs }); }
+    catch (e) { console.warn('Shiki failed:', e); }
+    const HIGHLIGHTED = {};
+    for (const [id, node] of Object.entries(NODES)) {
+      if (node.code && highlighter) {
+        try {
+          HIGHLIGHTED[id] = highlighter.codeToHtml(node.code, { lang: node.lang || 'javascript', theme: 'vitesse-dark' });
+        } catch (e) { console.warn('Highlight failed for ' + id + ':', e); }
+      }
+    }
+
+    // ─── usePanZoom ───────────────────────────────────────────────────────────
+    function usePanZoom() {
+      const viewportRef = useRef(null), canvasRef = useRef(null), zoomDisplayRef = useRef(null);
+      const st = useRef({ zoom: 1, panX: 0, panY: 0 });
+      const drag = useRef({ on: false, lx: 0, ly: 0 });
+
+      const apply = useCallback(() => {
+        const { zoom, panX, panY } = st.current;
+        if (canvasRef.current)
+          canvasRef.current.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + zoom + ')';
+        if (zoomDisplayRef.current)
+          zoomDisplayRef.current.textContent = Math.round(zoom * 100) + '%';
+      }, []);
+
+      const fitToScreen = useCallback(() => {
+        const svg = canvasRef.current?.querySelector('svg');
+        const vp = viewportRef.current;
+        if (!svg || !vp) return;
+        const s = st.current;
+        const vw = vp.clientWidth, vh = vp.clientHeight;
+        const sw = svg.getBoundingClientRect().width / s.zoom;
+        const sh = svg.getBoundingClientRect().height / s.zoom;
+        const fit = Math.max(0.15, Math.min(2, Math.min((vw - 80) / sw, (vh - 80) / sh)));
+        s.zoom = fit; s.panX = (vw - sw * fit) / 2; s.panY = (vh - sh * fit) / 2;
+        apply();
+      }, [apply]);
+
+      useEffect(() => {
+        const vp = viewportRef.current;
+        if (!vp) return;
+        const onWheel = (e) => {
+          e.preventDefault();
+          const r = vp.getBoundingClientRect();
+          const mx = e.clientX - r.left, my = e.clientY - r.top, s = st.current;
+          const f = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+          const nz = Math.min(4, Math.max(0.15, s.zoom * f)), sc = nz / s.zoom;
+          s.panX = mx - sc * (mx - s.panX); s.panY = my - sc * (my - s.panY); s.zoom = nz;
+          apply();
+        };
+        const onDown = (e) => {
+          if (e.target.closest('.node')) return;
+          drag.current = { on: true, lx: e.clientX, ly: e.clientY };
+          vp.setPointerCapture(e.pointerId);
+        };
+        const onMove = (e) => {
+          const d = drag.current; if (!d.on) return;
+          st.current.panX += e.clientX - d.lx; st.current.panY += e.clientY - d.ly;
+          d.lx = e.clientX; d.ly = e.clientY; apply();
+        };
+        const onUp = () => { drag.current.on = false; };
+        vp.addEventListener('wheel', onWheel, { passive: false });
+        vp.addEventListener('pointerdown', onDown);
+        vp.addEventListener('pointermove', onMove);
+        vp.addEventListener('pointerup', onUp);
+        vp.addEventListener('pointercancel', onUp);
+        window.addEventListener('resize', fitToScreen);
+        return () => {
+          vp.removeEventListener('wheel', onWheel);
+          vp.removeEventListener('pointerdown', onDown);
+          vp.removeEventListener('pointermove', onMove);
+          vp.removeEventListener('pointerup', onUp);
+          vp.removeEventListener('pointercancel', onUp);
+          window.removeEventListener('resize', fitToScreen);
+        };
+      }, [apply, fitToScreen]);
+
+      const zoomIn = useCallback(() => { st.current.zoom = Math.min(4, st.current.zoom * 1.25); apply(); }, [apply]);
+      const zoomOut = useCallback(() => { st.current.zoom = Math.max(0.15, st.current.zoom / 1.25); apply(); }, [apply]);
+      return { viewportRef, canvasRef, zoomDisplayRef, zoomIn, zoomOut, fitToScreen };
+    }
+
+    // ─── MermaidDiagram ───────────────────────────────────────────────────────
+    function MermaidDiagram({ onNodeClick }) {
+      const ref = useRef(null);
+      useEffect(() => {
+        window.nodeClickHandler = onNodeClick;
+        mermaid.initialize({
+          startOnLoad: false, theme: 'dark', securityLevel: 'loose',
+          themeVariables: {
+            primaryColor: '#0a0a0a', primaryTextColor: '#ffffff', primaryBorderColor: '#2a2a2a',
+            lineColor: '#a0a0a0', background: '#000000',
+            secondaryColor: '#000000', tertiaryColor: '#000000',
+            mainBkg: '#0a0a0a', nodeBorder: '#2a2a2a',
+            clusterBkg: 'rgba(10,10,10,0.8)', clusterBorder: '#7c3aed',
+            titleColor: '#ffffff', edgeLabelBackground: 'transparent',
+          },
+          flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis' },
+        });
+        mermaid.render('api-ops-diagram', DIAGRAM).then(({ svg, bindFunctions }) => {
+          if (ref.current) { ref.current.innerHTML = svg; bindFunctions?.(ref.current); }
+        });
+        return () => { delete window.nodeClickHandler; };
+      }, [onNodeClick]);
+      return React.createElement('div', { ref, className: 'mermaid-wrap' });
+    }
+
+    // ─── Summary ──────────────────────────────────────────────────────────────
+    function Summary({ collapsed, onToggle }) {
+      if (collapsed) {
+        return React.createElement('div', {
+          onClick: onToggle,
+          className: 'fixed top-16 left-6 z-10 px-3 py-1.5 bg-wt-surface/60 backdrop-blur border border-wt-border rounded-full shadow-lg cursor-pointer hover:bg-wt-surface/80 transition-all duration-300'
+        }, React.createElement('span', { className: 'text-xs text-wt-muted font-medium' }, 'ℹ︎ Summary'));
+      }
+      return React.createElement('div', {
+        onClick: onToggle,
+        className: 'fixed top-16 left-6 z-10 max-w-lg px-4 py-3 bg-wt-surface/80 backdrop-blur border border-wt-border rounded-lg shadow-lg cursor-pointer transition-all duration-300'
+      },
+        React.createElement('p', { className: 'text-sm text-wt-muted leading-relaxed' }, SUMMARY),
+        React.createElement('p', { className: 'text-[0.65rem] text-wt-muted/50 mt-1.5' }, 'Click to dismiss')
+      );
+    }
+
+    // ─── MethodBadge ──────────────────────────────────────────────────────────
+    function MethodBadge({ method }) {
+      if (!method) return null;
+      const cls = method === 'GET' ? 'badge badge-get' : 'badge badge-post';
+      return React.createElement('span', { className: cls }, method);
+    }
+
+    // ─── DetailPanel ──────────────────────────────────────────────────────────
+    function DetailPanel({ nodeId, node, onClose }) {
+      useEffect(() => {
+        const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+      }, [onClose]);
+      const codeHtml = HIGHLIGHTED[nodeId];
+
+      const metaRow = (node.method || node.path || (node.codes && node.codes.length > 0))
+        ? React.createElement('div', { className: 'mb-3 flex flex-wrap items-center gap-1' },
+            node.method && React.createElement(MethodBadge, { method: node.method }),
+            node.path && React.createElement('code', {
+              className: 'text-xs text-wt-file font-mono bg-wt-raised px-2 py-0.5 rounded'
+            }, node.path),
+            React.createElement('span', { className: 'badge badge-noauth' }, '⚿ No Auth'),
+            node.codes && node.codes.length > 0 && node.codes.map(c =>
+              React.createElement('span', { key: c, className: 'badge badge-code' }, c)
+            )
+          )
+        : null;
+
+      return React.createElement('div', {
+        className: 'fixed top-4 right-4 bottom-4 w-[580px] z-30 bg-wt-surface border border-wt-border rounded-xl shadow-2xl flex flex-col overflow-hidden'
+      },
+        React.createElement('button', {
+          onClick: onClose,
+          className: 'absolute top-3 right-3 z-10 w-7 h-7 rounded-md border border-wt-border bg-wt-raised text-wt-muted flex items-center justify-center text-lg hover:bg-wt-red hover:border-wt-red hover:text-white transition-colors'
+        }, '×'),
+        React.createElement('div', { className: 'flex-1 overflow-y-auto p-5' },
+          React.createElement('h2', { className: 'text-lg font-bold text-wt-fg mb-2 pr-9' }, node.title),
+          metaRow,
+          React.createElement('div', { className: 'dt-body' },
+            React.createElement('p', null, node.description)
+          ),
+          node.code && React.createElement('div', { className: 'dt-body' },
+            codeHtml
+              ? React.createElement('div', { dangerouslySetInnerHTML: { __html: codeHtml } })
+              : React.createElement('pre', { className: 'code-fallback' },
+                  React.createElement('code', null, node.code)
+                )
+          ),
+          node.files?.length > 0 && React.createElement('div', { className: 'mt-4 pt-3 border-t border-wt-border' },
+            React.createElement('div', { className: 'text-[0.7rem] uppercase tracking-wider text-wt-muted font-semibold mb-1.5' }, 'Files'),
+            React.createElement('code', { className: 'text-sm text-wt-file font-mono leading-relaxed' },
+              node.files.map((f, i) => React.createElement('span', { key: i }, f, React.createElement('br')))
+            )
+          )
+        )
+      );
+    }
+
+    // ─── ZoomControls ─────────────────────────────────────────────────────────
+    function ZoomControls({ zoomDisplayRef, onZoomIn, onZoomOut, onFit }) {
+      return React.createElement('div', {
+        className: 'fixed bottom-14 left-5 z-20 flex flex-col gap-1 bg-wt-surface border border-wt-border rounded-lg shadow-xl overflow-hidden'
+      },
+        React.createElement('button', {
+          onClick: onZoomIn,
+          className: 'px-3 py-1.5 text-sm text-wt-muted hover:bg-wt-raised hover:text-wt-fg transition-colors'
+        }, '+'),
+        React.createElement('div', {
+          ref: zoomDisplayRef,
+          className: 'px-3 py-1 text-xs text-wt-muted text-center border-y border-wt-border'
+        }, '100%'),
+        React.createElement('button', {
+          onClick: onZoomOut,
+          className: 'px-3 py-1.5 text-sm text-wt-muted hover:bg-wt-raised hover:text-wt-fg transition-colors'
+        }, '−'),
+        React.createElement('button', {
+          onClick: onFit,
+          className: 'px-3 py-1.5 text-xs text-wt-muted hover:bg-wt-raised hover:text-wt-fg transition-colors'
+        }, 'fit')
+      );
+    }
+
+    // ─── App ──────────────────────────────────────────────────────────────────
+    function App() {
+      const [activeId, _setActiveId] = useState(null);
+      const [summaryCollapsed, setSummaryCollapsed] = useState(true);
+      const pz = usePanZoom();
+
+      const setActiveNode = useCallback((nodeId) => {
+        _setActiveId(nodeId);
+        document.querySelectorAll('.mermaid-wrap .node').forEach(n => { n.style.opacity = nodeId ? '0.4' : '1'; });
+        if (nodeId) {
+          const el = document.querySelector('.mermaid-wrap .node[id*="' + nodeId + '"]');
+          if (el) el.style.opacity = '1';
+        }
+      }, []);
+
+      const closeDetail = useCallback(() => {
+        _setActiveId(null);
+        document.querySelectorAll('.mermaid-wrap .node').forEach(n => { n.style.opacity = '1'; });
+      }, []);
+
+      useEffect(() => { setTimeout(pz.fitToScreen, 600); }, [pz.fitToScreen]);
+
+      return React.createElement(React.Fragment, null,
+        React.createElement('header', {
+          className: 'fixed top-0 inset-x-0 z-10 px-6 py-3.5 bg-gradient-to-b from-wt-bg to-transparent pointer-events-none'
+        },
+          React.createElement('h1', { className: 'text-base font-semibold text-wt-fg' }, 'fcp-sfd-object-processor'),
+          React.createElement('p', { className: 'text-sm text-wt-muted mt-0.5' }, 'API Operations Map · 7 Endpoints across 4 Concerns')
+        ),
+        React.createElement(Summary, { collapsed: summaryCollapsed, onToggle: () => setSummaryCollapsed(c => !c) }),
+        React.createElement('div', {
+          ref: pz.viewportRef,
+          className: 'w-full h-screen overflow-hidden cursor-grab active:cursor-grabbing'
+        },
+          React.createElement('div', {
+            ref: pz.canvasRef,
+            className: 'origin-top-left will-change-transform inline-block',
+            style: { padding: '80px 60px 60px' }
+          },
+            React.createElement(MermaidDiagram, { onNodeClick: setActiveNode })
+          )
+        ),
+        React.createElement(ZoomControls, {
+          zoomDisplayRef: pz.zoomDisplayRef,
+          onZoomIn: pz.zoomIn,
+          onZoomOut: pz.zoomOut,
+          onFit: pz.fitToScreen
+        }),
+        React.createElement('div', {
+          className: 'fixed bottom-5 left-1/2 -translate-x-1/2 z-20 flex gap-4 px-4 py-2 bg-wt-surface border border-wt-border rounded-lg shadow-xl'
+        },
+          LEGEND.map(l => React.createElement('span', {
+            key: l.label,
+            className: 'flex items-center gap-1.5 text-xs text-wt-muted'
+          },
+            React.createElement('span', { className: 'w-2 h-2 rounded-full ' + l.color }),
+            l.label
+          ))
+        ),
+        activeId && NODES[activeId] && React.createElement(DetailPanel, {
+          nodeId: activeId,
+          node: NODES[activeId],
+          onClose: closeDetail
+        }),
+        React.createElement('div', {
+          className: 'fixed bottom-5 right-5 z-20 text-xs text-wt-muted opacity-50'
+        },
+          React.createElement('kbd', null, 'Scroll'), ' zoom · ',
+          React.createElement('kbd', null, 'Drag'), ' pan · Click nodes'
+        )
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+  </script>
+</body>
+</html>

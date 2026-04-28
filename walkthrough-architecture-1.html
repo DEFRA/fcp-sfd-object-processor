@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en" style="color-scheme: dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fcp-sfd-object-processor — High-Level Architecture</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: {
+        wt: {
+          bg: '#000000', surface: '#0a0a0a', raised: '#141414',
+          border: '#2a2a2a', fg: '#ffffff', muted: '#a0a0a0',
+          accent: '#a855f7', file: '#c084fc', red: '#ef4444',
+        },
+        node: {
+          component: '#a855f7', composable: '#7c3aed', utility: '#6d28d9',
+          external: '#525252', event: '#d8b4fe', data: '#9333ea',
+        },
+      }}},
+    };
+  </script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #000000; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; overflow: hidden; }
+    .mermaid-wrap svg { max-width: none !important; height: auto !important; }
+    .mermaid-wrap .node { cursor: pointer; }
+    .mermaid-wrap .node:hover rect,
+    .mermaid-wrap .node:hover polygon,
+    .mermaid-wrap .node:hover circle,
+    .mermaid-wrap .node:hover .label-container { filter: brightness(1.3); transition: filter .15s; }
+    .dt-body p { color:#a0a0a0; font-size:.88rem; line-height:1.65; margin-bottom:10px; }
+    .dt-body p code {
+      background:rgba(168,85,247,.12); padding:1px 6px; border-radius:4px;
+      font-family:'SF Mono','Fira Code',monospace; font-size:.82rem; color:#c084fc;
+    }
+    .dt-body .shiki, .dt-body pre.code-fallback {
+      background: #000000; border: 1px solid #2a2a2a; border-radius: 8px;
+      padding: 14px 16px; overflow-x: auto; margin: 8px 0 14px;
+    }
+    .dt-body .shiki { background: #000000 !important; }
+    .dt-body .shiki code, .dt-body pre.code-fallback code {
+      font-family: 'SF Mono','Fira Code',monospace; font-size: .78rem; line-height: 1.55;
+      background: none; padding: 0; border-radius: 0;
+    }
+    .dt-body .shiki code { color: inherit; }
+    .dt-body pre.code-fallback code { color: #e0e0e0; }
+  </style>
+</head>
+<body class="bg-wt-bg">
+  <div id="root"></div>
+  <script type="module">
+    import { createHighlighter } from 'https://cdn.jsdelivr.net/npm/shiki@3.22.0/+esm';
+
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    const SUMMARY = "fcp-sfd-object-processor is a messaging gateway that receives file upload notifications from the CDP Uploader, persists metadata to MongoDB using the Transactional Outbox pattern, and reliably publishes CloudEvents v1.0 messages to AWS SNS for downstream CRM processing. The outbox pattern guarantees at-least-once delivery even if the process crashes mid-flight.";
+
+    const DIAGRAM = `graph TD
+    subgraph inbound["Incoming Requests"]
+        cdpUploader["CDP Uploader"]:::external
+        hapiServer["Hapi API Server"]:::component
+        authPlugin["JWT Auth Plugin"]:::composable
+        callbackHandler["Callback Route Handler"]:::component
+    end
+
+    subgraph storage["Storage and Outbox"]
+        metadataService["Transactional Outbox Service"]:::composable
+        metadataRepo["Metadata Repository"]:::utility
+        outboxRepo["Outbox Repository"]:::data
+        mongoDb["MongoDB Database"]:::data
+    end
+
+    subgraph publishing["Event Publishing"]
+        outboxProcessor["Outbox Polling Processor"]:::composable
+        messageBuilder["CloudEvents Message Builder"]:::utility
+        snsPublisher["SNS Batch Publisher"]:::utility
+        snsTopic["AWS SNS Topic"]:::external
+    end
+
+    cdpUploader -->|"POST /v1/callback"| callbackHandler
+    hapiServer -->|"registers"| authPlugin
+    hapiServer -->|"routes to"| callbackHandler
+    callbackHandler -->|"triggers"| metadataService
+    metadataService -->|"persists via"| metadataRepo
+    metadataService -->|"queues in"| outboxRepo
+    metadataRepo -->|"writes to"| mongoDb
+    outboxRepo -->|"reads/writes"| mongoDb
+    outboxProcessor -->|"polls"| outboxRepo
+    outboxProcessor -->|"transforms with"| messageBuilder
+    messageBuilder -->|"feeds into"| snsPublisher
+    snsPublisher -->|"publishes to"| snsTopic
+    outboxProcessor -.->|"updates status"| outboxRepo
+
+    classDef component fill:#a855f7,stroke:#c084fc,color:#fff
+    classDef composable fill:#7c3aed,stroke:#a78bfa,color:#fff
+    classDef utility fill:#6d28d9,stroke:#8b5cf6,color:#fff
+    classDef external fill:#525252,stroke:#737373,color:#fff
+    classDef data fill:#9333ea,stroke:#a855f7,color:#fff
+
+    click cdpUploader nodeClickHandler "View details"
+    click hapiServer nodeClickHandler "View details"
+    click authPlugin nodeClickHandler "View details"
+    click callbackHandler nodeClickHandler "View details"
+    click metadataService nodeClickHandler "View details"
+    click metadataRepo nodeClickHandler "View details"
+    click outboxRepo nodeClickHandler "View details"
+    click mongoDb nodeClickHandler "View details"
+    click outboxProcessor nodeClickHandler "View details"
+    click messageBuilder nodeClickHandler "View details"
+    click snsPublisher nodeClickHandler "View details"
+    click snsTopic nodeClickHandler "View details"`;
+
+    const NODES = {
+      cdpUploader: {
+        title: "CDP Uploader",
+        description: "External DEFRA platform service that virus-scans uploaded files, stores them in S3, then fires a callback to this service. It is the sole trigger for all downstream processing.",
+        files: ["compose.yaml"],
+        code: `# After scanning + uploading files to S3, CDP Uploader calls:
+POST /api/v1/callback
+Content-Type: application/json`,
+        lang: "bash",
+      },
+      hapiServer: {
+        title: "Hapi API Server",
+        description: "Core Hapi.js server that applies security headers (HSTS, XSS), registers all plugins (JWT auth, logging, tracing, Swagger), and starts the application. It is the single entry point for all HTTP traffic.",
+        files: ["src/api/index.js", "src/index.js"],
+        code: `const server = hapi.server({
+  port: config.get('port'),
+  routes: { security: { hsts: { maxAge: 31536000 }, xss: 'enabled' } }
+})
+await server.register([Jwt, auth, requestLogger, router, hapiSwagger])`,
+        lang: "javascript",
+      },
+      authPlugin: {
+        title: "JWT Auth Plugin",
+        description: "Registers Microsoft Entra ID (Azure AD) JWT strategies with Hapi, validates tokens against Azure AD public keys, and enforces security group membership. Authentication is the default for all routes but can be disabled per-route.",
+        files: ["src/plugins/auth/index.js", "src/config/auth.js"],
+        code: `server.auth.strategy('entra', 'jwt', getEntraAuthOptions(tenantConfig))
+server.auth.default({ strategies: ['entra'] })
+// Routes opt out with: options: { auth: false }`,
+        lang: "javascript",
+      },
+      callbackHandler: {
+        title: "Callback Route Handler",
+        description: "Handles POST /api/v1/callback from CDP Uploader: validates the payload with a Joi schema, then delegates to the metadata service. Auth is explicitly disabled here because CDP Uploader cannot supply JWT tokens.",
+        files: ["src/api/v1/callback/index.js", "src/api/v1/callback/schema.js"],
+        code: `{
+  method: 'POST', path: '/api/v1/callback',
+  options: { auth: false, validate: { payload: callbackPayloadSchema } },
+  handler: async (request, h) => {
+    const result = await persistMetadataWithOutbox(request.payload)
+    return h.response({ message: 'Metadata created', count: result.insertedCount }).code(201)
+  }
+}`,
+        lang: "javascript",
+      },
+      metadataService: {
+        title: "Transactional Outbox Service",
+        description: "Implements the transactional outbox pattern — atomically writes file metadata, status records, and outbox entries within a single MongoDB transaction. This guarantees no messages are lost even if the process crashes mid-flight.",
+        files: ["src/services/metadata-service.js"],
+        code: `const session = client.startSession()
+return await session.withTransaction(async () => {
+  await insertStatus(statusDocuments, session)
+  await persistMetadata(documents, session)
+  await createOutboxEntries(insertedIds, documents, session)
+})`,
+        lang: "javascript",
+      },
+      metadataRepo: {
+        title: "Metadata Repository",
+        description: "Transforms raw CDP Uploader payloads into normalised MongoDB documents, filtering out non-file form fields and assigning a shared correlationId. The formatInboundMetadata function is the core data-shaping step.",
+        files: ["src/repos/metadata.js"],
+        code: `return filteredFormData.map((formUpload) => ({
+  raw: { uploadStatus, ...formUpload },
+  file: { fileId, filename, contentType, fileStatus },
+  s3: { key: s3Key, bucket: s3Bucket },
+  messaging: { publishedAt: null, correlationId }
+}))`,
+        lang: "javascript",
+      },
+      outboxRepo: {
+        title: "Outbox Repository",
+        description: "Manages the outbox MongoDB collection — creating entries atomically during the transaction, querying PENDING/FAILED records for the polling processor, and updating status to SENT after a successful SNS publish.",
+        files: ["src/repos/outbox.js"],
+        code: `const getProcessableOutboxEntries = async () =>
+  db.collection(collection)
+    .find({ status: { $in: [PENDING, FAILED] } })
+    .limit(queryLimit)
+    .toArray()`,
+        lang: "javascript",
+      },
+      mongoDb: {
+        title: "MongoDB Database",
+        description: "Stores all service state: upload metadata, outbox entries, and status records. A replica set is required for multi-document transactions. Indexes are created at startup to optimise outbox polling queries.",
+        files: ["src/data/db.js"],
+        code: `const client = await MongoClient.connect(config.get('mongo.uri'), {
+  retryWrites: false,
+  readPreference: config.get('mongo.readPreference'),
+  secureContext: createSecureContext(logger)
+})`,
+        lang: "javascript",
+      },
+      outboxProcessor: {
+        title: "Outbox Polling Processor",
+        description: "Runs on a configurable interval, fetches processable outbox entries, and drives the full publish-then-update cycle. The recursive setTimeout loop ensures messages are continuously retried until delivery succeeds.",
+        files: ["src/messaging/outbound/index.js"],
+        code: `const startOutbox = async () => {
+  try {
+    await publishPendingMessages()
+  } finally {
+    setTimeout(startOutbox, config.get('messaging.outboxIntervalMs'))
+  }
+}`,
+        lang: "javascript",
+      },
+      messageBuilder: {
+        title: "CloudEvents Message Builder",
+        description: "Converts outbox document payloads into CloudEvents v1.0 format, stamping each message with a unique fileId, source, spec version, and structured data block for CRM. The contract is defined in the service AsyncAPI spec.",
+        files: ["src/messaging/outbound/crm/doc-upload/build-document-upload-message-batch.js"],
+        code: `{
+  id: file.fileId,
+  source: 'fcp-sfd-object-processor',
+  specversion: '1.0',
+  type: 'uk.gov.fcp.sfd.document.uploaded',
+  data: { crn, file, correlationId, submissionId }
+}`,
+        lang: "javascript",
+      },
+      snsPublisher: {
+        title: "SNS Batch Publisher",
+        description: "Sends batches of up to 10 CloudEvents messages to an AWS SNS topic using PublishBatchCommand. It maps fileId to SNS message ID for deduplication, then returns results so the outbox processor can update delivery status.",
+        files: ["src/messaging/sns/publish-batch.js"],
+        code: `await snsClient.send(new PublishBatchCommand({
+  TopicArn: topicArn,
+  PublishBatchRequestEntries: batch.map(message => ({
+    Id: message.id,
+    Message: JSON.stringify(message)
+  }))
+}))`,
+        lang: "javascript",
+      },
+      snsTopic: {
+        title: "AWS SNS Topic",
+        description: "External AWS SNS topic that receives CloudEvents messages from this service. Downstream CRM services subscribe to create case attachments from document upload notifications.",
+        files: ["compose.yaml"],
+        code: `DOCUMENT_UPLOAD_EVENTS_TOPIC_ARN: >
+  arn:aws:sns:us-east-1:000000000000:document-upload-events`,
+        lang: "yaml",
+      },
+    };
+
+    const LEGEND = [
+      { label: 'API Component', color: 'bg-node-component' },
+      { label: 'Service / Hook', color: 'bg-node-composable' },
+      { label: 'Utility / Repo', color: 'bg-node-utility' },
+      { label: 'Data Store', color: 'bg-node-data' },
+      { label: 'External', color: 'bg-node-external' },
+    ];
+
+    // Shiki highlighting
+    const langs = [...new Set(Object.values(NODES).map(n => n.lang).filter(Boolean))];
+    if (langs.length === 0) langs.push('javascript');
+    let highlighter = null;
+    try { highlighter = await createHighlighter({ themes: ['vitesse-dark'], langs }); }
+    catch (e) { console.warn('Shiki failed:', e); }
+    const HIGHLIGHTED = {};
+    for (const [id, node] of Object.entries(NODES)) {
+      if (node.code && highlighter) {
+        try {
+          HIGHLIGHTED[id] = highlighter.codeToHtml(node.code, { lang: node.lang || 'javascript', theme: 'vitesse-dark' });
+        } catch (e) { console.warn('Highlight failed for ' + id + ':', e); }
+      }
+    }
+
+    // ─── usePanZoom ───────────────────────────────────────────────────────────
+    function usePanZoom() {
+      const viewportRef = useRef(null), canvasRef = useRef(null), zoomDisplayRef = useRef(null);
+      const st = useRef({ zoom: 1, panX: 0, panY: 0 });
+      const drag = useRef({ on: false, lx: 0, ly: 0 });
+
+      const apply = useCallback(() => {
+        const { zoom, panX, panY } = st.current;
+        if (canvasRef.current)
+          canvasRef.current.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + zoom + ')';
+        if (zoomDisplayRef.current)
+          zoomDisplayRef.current.textContent = Math.round(zoom * 100) + '%';
+      }, []);
+
+      const fitToScreen = useCallback(() => {
+        const svg = canvasRef.current?.querySelector('svg');
+        const vp = viewportRef.current;
+        if (!svg || !vp) return;
+        const s = st.current;
+        const vw = vp.clientWidth, vh = vp.clientHeight;
+        const sw = svg.getBoundingClientRect().width / s.zoom;
+        const sh = svg.getBoundingClientRect().height / s.zoom;
+        const fit = Math.max(0.15, Math.min(2, Math.min((vw - 80) / sw, (vh - 80) / sh)));
+        s.zoom = fit; s.panX = (vw - sw * fit) / 2; s.panY = (vh - sh * fit) / 2;
+        apply();
+      }, [apply]);
+
+      useEffect(() => {
+        const vp = viewportRef.current;
+        if (!vp) return;
+        const onWheel = (e) => {
+          e.preventDefault();
+          const r = vp.getBoundingClientRect();
+          const mx = e.clientX - r.left, my = e.clientY - r.top, s = st.current;
+          const f = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+          const nz = Math.min(4, Math.max(0.15, s.zoom * f)), sc = nz / s.zoom;
+          s.panX = mx - sc * (mx - s.panX); s.panY = my - sc * (my - s.panY); s.zoom = nz;
+          apply();
+        };
+        const onDown = (e) => {
+          if (e.target.closest('.node')) return;
+          drag.current = { on: true, lx: e.clientX, ly: e.clientY };
+          vp.setPointerCapture(e.pointerId);
+        };
+        const onMove = (e) => {
+          const d = drag.current; if (!d.on) return;
+          st.current.panX += e.clientX - d.lx; st.current.panY += e.clientY - d.ly;
+          d.lx = e.clientX; d.ly = e.clientY; apply();
+        };
+        const onUp = () => { drag.current.on = false; };
+        vp.addEventListener('wheel', onWheel, { passive: false });
+        vp.addEventListener('pointerdown', onDown);
+        vp.addEventListener('pointermove', onMove);
+        vp.addEventListener('pointerup', onUp);
+        vp.addEventListener('pointercancel', onUp);
+        window.addEventListener('resize', fitToScreen);
+        return () => {
+          vp.removeEventListener('wheel', onWheel);
+          vp.removeEventListener('pointerdown', onDown);
+          vp.removeEventListener('pointermove', onMove);
+          vp.removeEventListener('pointerup', onUp);
+          vp.removeEventListener('pointercancel', onUp);
+          window.removeEventListener('resize', fitToScreen);
+        };
+      }, [apply, fitToScreen]);
+
+      const zoomIn = useCallback(() => { st.current.zoom = Math.min(4, st.current.zoom * 1.25); apply(); }, [apply]);
+      const zoomOut = useCallback(() => { st.current.zoom = Math.max(0.15, st.current.zoom / 1.25); apply(); }, [apply]);
+      return { viewportRef, canvasRef, zoomDisplayRef, zoomIn, zoomOut, fitToScreen };
+    }
+
+    // ─── MermaidDiagram ───────────────────────────────────────────────────────
+    function MermaidDiagram({ onNodeClick }) {
+      const ref = useRef(null);
+      useEffect(() => {
+        window.nodeClickHandler = onNodeClick;
+        mermaid.initialize({
+          startOnLoad: false, theme: 'dark', securityLevel: 'loose',
+          themeVariables: {
+            primaryColor: '#0a0a0a', primaryTextColor: '#ffffff', primaryBorderColor: '#2a2a2a',
+            lineColor: '#a0a0a0', background: '#000000',
+            secondaryColor: '#000000', tertiaryColor: '#000000',
+            mainBkg: '#0a0a0a', nodeBorder: '#2a2a2a',
+            clusterBkg: 'rgba(10,10,10,0.8)', clusterBorder: '#7c3aed',
+            titleColor: '#ffffff', edgeLabelBackground: 'transparent',
+          },
+          flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis' },
+        });
+        mermaid.render('walkthrough-diagram', DIAGRAM).then(({ svg, bindFunctions }) => {
+          if (ref.current) { ref.current.innerHTML = svg; bindFunctions?.(ref.current); }
+        });
+        return () => { delete window.nodeClickHandler; };
+      }, [onNodeClick]);
+      return React.createElement('div', { ref, className: 'mermaid-wrap' });
+    }
+
+    // ─── Summary ──────────────────────────────────────────────────────────────
+    function Summary({ collapsed, onToggle }) {
+      if (collapsed) {
+        return React.createElement('div', {
+          onClick: onToggle,
+          className: 'fixed top-16 left-6 z-10 px-3 py-1.5 bg-wt-surface/60 backdrop-blur border border-wt-border rounded-full shadow-lg cursor-pointer hover:bg-wt-surface/80 transition-all duration-300'
+        }, React.createElement('span', { className: 'text-xs text-wt-muted font-medium' }, 'ℹ︎ Summary'));
+      }
+      return React.createElement('div', {
+        onClick: onToggle,
+        className: 'fixed top-16 left-6 z-10 max-w-lg px-4 py-3 bg-wt-surface/80 backdrop-blur border border-wt-border rounded-lg shadow-lg cursor-pointer transition-all duration-300'
+      },
+        React.createElement('p', { className: 'text-sm text-wt-muted leading-relaxed' }, SUMMARY),
+        React.createElement('p', { className: 'text-[0.65rem] text-wt-muted/50 mt-1.5' }, 'Click to dismiss')
+      );
+    }
+
+    // ─── DetailPanel ──────────────────────────────────────────────────────────
+    function DetailPanel({ nodeId, node, onClose }) {
+      useEffect(() => {
+        const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+      }, [onClose]);
+      const codeHtml = HIGHLIGHTED[nodeId];
+      return React.createElement('div', {
+        className: 'fixed top-4 right-4 bottom-4 w-[560px] z-30 bg-wt-surface border border-wt-border rounded-xl shadow-2xl flex flex-col overflow-hidden'
+      },
+        React.createElement('button', {
+          onClick: onClose,
+          className: 'absolute top-3 right-3 z-10 w-7 h-7 rounded-md border border-wt-border bg-wt-raised text-wt-muted flex items-center justify-center text-lg hover:bg-wt-red hover:border-wt-red hover:text-white transition-colors'
+        }, '×'),
+        React.createElement('div', { className: 'flex-1 overflow-y-auto p-5' },
+          React.createElement('h2', { className: 'text-lg font-bold text-wt-fg mb-3 pr-9' }, node.title),
+          React.createElement('div', { className: 'dt-body' },
+            React.createElement('p', null, node.description)
+          ),
+          node.code && React.createElement('div', { className: 'dt-body' },
+            codeHtml
+              ? React.createElement('div', { dangerouslySetInnerHTML: { __html: codeHtml } })
+              : React.createElement('pre', { className: 'code-fallback' },
+                  React.createElement('code', null, node.code)
+                )
+          ),
+          node.files?.length > 0 && React.createElement('div', { className: 'mt-4 pt-3 border-t border-wt-border' },
+            React.createElement('div', { className: 'text-[0.7rem] uppercase tracking-wider text-wt-muted font-semibold mb-1.5' }, 'Files'),
+            React.createElement('code', { className: 'text-sm text-wt-file font-mono leading-relaxed' },
+              node.files.map((f, i) => React.createElement('span', { key: i }, f, React.createElement('br')))
+            )
+          )
+        )
+      );
+    }
+
+    // ─── ZoomControls ─────────────────────────────────────────────────────────
+    function ZoomControls({ zoomDisplayRef, onZoomIn, onZoomOut, onFit }) {
+      return React.createElement('div', {
+        className: 'fixed bottom-14 left-5 z-20 flex flex-col gap-1 bg-wt-surface border border-wt-border rounded-lg shadow-xl overflow-hidden'
+      },
+        React.createElement('button', {
+          onClick: onZoomIn,
+          className: 'px-3 py-1.5 text-sm text-wt-muted hover:bg-wt-raised hover:text-wt-fg transition-colors'
+        }, '+'),
+        React.createElement('div', {
+          ref: zoomDisplayRef,
+          className: 'px-3 py-1 text-xs text-wt-muted text-center border-y border-wt-border'
+        }, '100%'),
+        React.createElement('button', {
+          onClick: onZoomOut,
+          className: 'px-3 py-1.5 text-sm text-wt-muted hover:bg-wt-raised hover:text-wt-fg transition-colors'
+        }, '−'),
+        React.createElement('button', {
+          onClick: onFit,
+          className: 'px-3 py-1.5 text-xs text-wt-muted hover:bg-wt-raised hover:text-wt-fg transition-colors'
+        }, 'fit')
+      );
+    }
+
+    // ─── App ──────────────────────────────────────────────────────────────────
+    function App() {
+      const [activeId, _setActiveId] = useState(null);
+      const [summaryCollapsed, setSummaryCollapsed] = useState(true);
+      const pz = usePanZoom();
+
+      const setActiveNode = useCallback((nodeId) => {
+        _setActiveId(nodeId);
+        document.querySelectorAll('.mermaid-wrap .node').forEach(n => { n.style.opacity = nodeId ? '0.4' : '1'; });
+        if (nodeId) {
+          const el = document.querySelector('.mermaid-wrap .node[id*="' + nodeId + '"]');
+          if (el) el.style.opacity = '1';
+        }
+      }, []);
+
+      const closeDetail = useCallback(() => {
+        _setActiveId(null);
+        document.querySelectorAll('.mermaid-wrap .node').forEach(n => { n.style.opacity = '1'; });
+      }, []);
+
+      useEffect(() => { setTimeout(pz.fitToScreen, 600); }, [pz.fitToScreen]);
+
+      return React.createElement(React.Fragment, null,
+        React.createElement('header', {
+          className: 'fixed top-0 inset-x-0 z-10 px-6 py-3.5 bg-gradient-to-b from-wt-bg to-transparent pointer-events-none'
+        },
+          React.createElement('h1', { className: 'text-base font-semibold text-wt-fg' }, 'fcp-sfd-object-processor'),
+          React.createElement('p', { className: 'text-sm text-wt-muted mt-0.5' }, 'High-Level Architecture · File Upload Messaging Gateway')
+        ),
+        React.createElement(Summary, { collapsed: summaryCollapsed, onToggle: () => setSummaryCollapsed(c => !c) }),
+        React.createElement('div', {
+          ref: pz.viewportRef,
+          className: 'w-full h-screen overflow-hidden cursor-grab active:cursor-grabbing'
+        },
+          React.createElement('div', {
+            ref: pz.canvasRef,
+            className: 'origin-top-left will-change-transform inline-block',
+            style: { padding: '80px 60px 60px' }
+          },
+            React.createElement(MermaidDiagram, { onNodeClick: setActiveNode })
+          )
+        ),
+        React.createElement(ZoomControls, {
+          zoomDisplayRef: pz.zoomDisplayRef,
+          onZoomIn: pz.zoomIn,
+          onZoomOut: pz.zoomOut,
+          onFit: pz.fitToScreen
+        }),
+        React.createElement('div', {
+          className: 'fixed bottom-5 left-1/2 -translate-x-1/2 z-20 flex gap-4 px-4 py-2 bg-wt-surface border border-wt-border rounded-lg shadow-xl'
+        },
+          LEGEND.map(l => React.createElement('span', {
+            key: l.label,
+            className: 'flex items-center gap-1.5 text-xs text-wt-muted'
+          },
+            React.createElement('span', { className: 'w-2 h-2 rounded-full ' + l.color }),
+            l.label
+          ))
+        ),
+        activeId && NODES[activeId] && React.createElement(DetailPanel, {
+          nodeId: activeId,
+          node: NODES[activeId],
+          onClose: closeDetail
+        }),
+        React.createElement('div', {
+          className: 'fixed bottom-5 right-5 z-20 text-xs text-wt-muted opacity-50'
+        },
+          React.createElement('kbd', null, 'Scroll'), ' zoom · ',
+          React.createElement('kbd', null, 'Drag'), ' pan · Click nodes'
+        )
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+  </script>
+</body>
+</html>
