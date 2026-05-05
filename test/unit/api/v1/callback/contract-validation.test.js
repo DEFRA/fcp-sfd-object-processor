@@ -151,3 +151,92 @@ describe('fileUploadSchema Joi edge cases', () => {
     expect(result.error).toBeDefined()
   })
 })
+
+describe('All 12 allowed MIME types should pass validation', () => {
+  const baseFile = {
+    fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+    filename: 'test.file',
+    fileStatus: 'complete',
+    s3Key: 'key',
+    s3Bucket: 'bucket',
+    checksumSha256: 'abc=',
+    contentLength: 1024
+  }
+
+  test('image/png passes validation', () => {
+    const file = { ...baseFile, contentType: 'image/png', detectedContentType: 'image/png' }
+    const result = fileUploadSchema.validate(file)
+    expect(result.error).toBeUndefined()
+  })
+
+  test('image/jpeg passes validation', () => {
+    const file = { ...baseFile, contentType: 'image/jpeg', detectedContentType: 'image/jpeg' }
+    const result = fileUploadSchema.validate(file)
+    expect(result.error).toBeUndefined()
+  })
+
+  test('image/gif passes validation', () => {
+    const file = { ...baseFile, contentType: 'image/gif', detectedContentType: 'image/gif' }
+    const result = fileUploadSchema.validate(file)
+    expect(result.error).toBeUndefined()
+  })
+
+  test('image/tiff passes validation', () => {
+    const file = { ...baseFile, contentType: 'image/tiff', detectedContentType: 'image/tiff' }
+    const result = fileUploadSchema.validate(file)
+    expect(result.error).toBeUndefined()
+  })
+
+  test('application/pdf passes validation', () => {
+    const file = { ...baseFile, contentType: 'application/pdf', detectedContentType: 'application/pdf' }
+    const result = fileUploadSchema.validate(file)
+    expect(result.error).toBeUndefined()
+  })
+
+  test('application/msword passes validation', () => {
+    const file = { ...baseFile, contentType: 'application/msword', detectedContentType: 'application/msword' }
+    const result = fileUploadSchema.validate(file)
+    expect(result.error).toBeUndefined()
+  })
+
+  test('application/vnd.openxmlformats-officedocument.wordprocessingml.document passes validation', () => {
+    const mime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    const file = { ...baseFile, contentType: mime, detectedContentType: mime }
+    const result = fileUploadSchema.validate(file)
+    expect(result.error).toBeUndefined()
+  })
+
+  test('application/vnd.ms-word.document.macroEnabled.12 passes validation', () => {
+    const mime = 'application/vnd.ms-word.document.macroEnabled.12'
+    const file = { ...baseFile, contentType: mime, detectedContentType: mime }
+    const result = fileUploadSchema.validate(file)
+    expect(result.error).toBeUndefined()
+  })
+
+  test('application/vnd.ms-excel passes validation', () => {
+    const file = { ...baseFile, contentType: 'application/vnd.ms-excel', detectedContentType: 'application/vnd.ms-excel' }
+    const result = fileUploadSchema.validate(file)
+    expect(result.error).toBeUndefined()
+  })
+
+  test('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet passes validation', () => {
+    const mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    const file = { ...baseFile, contentType: mime, detectedContentType: mime }
+    const result = fileUploadSchema.validate(file)
+    expect(result.error).toBeUndefined()
+  })
+
+  test('application/vnd.ms-excel.sheet.macroEnabled.12 passes validation', () => {
+    const mime = 'application/vnd.ms-excel.sheet.macroEnabled.12'
+    const file = { ...baseFile, contentType: mime, detectedContentType: mime }
+    const result = fileUploadSchema.validate(file)
+    expect(result.error).toBeUndefined()
+  })
+
+  test('application/vnd.openxmlformats-officedocument.presentationml.presentation passes validation', () => {
+    const mime = 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    const file = { ...baseFile, contentType: mime, detectedContentType: mime }
+    const result = fileUploadSchema.validate(file)
+    expect(result.error).toBeUndefined()
+  })
+})

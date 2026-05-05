@@ -6,6 +6,7 @@ import { buildCdpUploaderPayload, rewriteResponseUrls } from '../../../../../../
 const { mockConfigGet } = vi.hoisted(() => ({
   mockConfigGet: vi.fn().mockImplementation((key) => {
     if (key === 'baseUrl.v1') return '/api/v1'
+    if (key === 'cdpUploaderMimeTypes') return ['application/pdf', 'image/jpeg', 'image/png']
     return null
   })
 }))
