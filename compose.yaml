@@ -81,7 +81,7 @@ services:
       - fcp-sfd
 
   localstack:
-    image: localstack/localstack:3.0.2
+    image: localstack/localstack:4.14.0
     env_file:
       - 'compose/aws.env'
     environment:
