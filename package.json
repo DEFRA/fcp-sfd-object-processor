@@ -45,7 +45,7 @@
     "@hapi/inert": "7.1.0",
     "@hapi/jwt": "3.2.1",
     "@hapi/vision": "7.0.3",
-    "applicationinsights": "3.7.0",
+    "applicationinsights": "3.14.0",
     "aws-embedded-metrics": "4.2.0",
     "aws4": "1.13.2",
     "convict": "6.2.5",
