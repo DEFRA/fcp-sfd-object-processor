@@ -38,13 +38,13 @@ const unauthorizedResponseSchema = Joi.object({
 export const badGatewayResponseSchema = Joi.object({
   statusCode: Joi.number().example(httpConstants.HTTP_STATUS_BAD_GATEWAY),
   error: Joi.string().example('Bad Gateway'),
-  message: Joi.string().example('CDP Uploader request failed')
+  message: Joi.string().example('Upstream service request failed')
 }).label('BadGateway')
 
 export const gatewayTimeoutResponseSchema = Joi.object({
   statusCode: Joi.number().example(httpConstants.HTTP_STATUS_GATEWAY_TIMEOUT),
   error: Joi.string().example('Gateway Timeout'),
-  message: Joi.string().example('CDP Uploader request timed out')
+  message: Joi.string().example('Upstream service request timed out')
 }).label('GatewayTimeout')
 
 export const generateResponseSchemas = (successSchema, successCode = 200, customSchemas = {}) => ({
