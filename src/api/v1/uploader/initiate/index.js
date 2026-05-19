@@ -35,8 +35,8 @@ export const uploaderInitiateRoute = {
   method: 'POST',
   path: `${baseUrl}/uploader/initiate`,
   options: {
-    description: 'Initiate a browser upload via CDP Uploader',
-    notes: 'Proxies initiation requests to CDP Uploader, enriching with server-side config and rewriting response URLs.',
+    description: 'Initiate a browser upload via upstream service',
+    notes: 'Proxies initiation requests to upstream service, enriching with server-side config and rewriting response URLs.',
     tags: ['api', 'uploader'],
     validate: {
       payload: initiatePayloadSchema,
@@ -57,7 +57,7 @@ export const uploaderInitiateRoute = {
 
       const payload = buildCdpUploaderPayload(request.payload)
 
-      logger.info({ url }, 'Forwarding initiate request to CDP Uploader')
+      logger.info({ url }, 'Forwarding initiate request to Upstream service')
 
       let response
 
@@ -70,33 +70,33 @@ export const uploaderInitiateRoute = {
         })
       } catch (err) {
         if (err.name === 'TimeoutError') {
-          logger.error({ url }, 'CDP Uploader request timed out')
-          throw Boom.gatewayTimeout('CDP Uploader request timed out')
+          logger.error({ url }, 'Upstream service request timed out')
+          throw Boom.gatewayTimeout('Upstream service request timed out')
         }
-        logger.error({ error: { message: err.message }, url }, 'CDP Uploader request failed')
-        throw Boom.badGateway('CDP Uploader request failed')
+        logger.error({ error: { message: err.message }, url }, 'Upstream service request failed')
+        throw Boom.badGateway('Upstream service request failed')
       }
 
       if (!response.ok) {
         const body = await response.text().catch(() => 'Unable to read response body')
         logger.error(
           { statusCode: response.status, body, url },
-          'CDP Uploader returned non-2xx response'
+          'Upstream service returned non-2xx response'
         )
-        throw Boom.badGateway(`CDP Uploader returned ${response.status}`)
+        throw Boom.badGateway(`Upstream service returned ${response.status}`)
       }
 
       let cdpResponse
       try {
         cdpResponse = await response.json()
       } catch (err) {
-        logger.error({ error: { message: err.message }, url }, 'Failed to parse CDP Uploader response')
-        throw Boom.badGateway('Invalid response from CDP Uploader')
+        logger.error({ error: { message: err.message }, url }, 'Failed to parse Upstream service response')
+        throw Boom.badGateway('Invalid response from Upstream service')
       }
 
       if (!cdpResponse?.uploadId) {
-        logger.error({ cdpResponse, url }, 'CDP Uploader response missing uploadId')
-        throw Boom.badGateway('Invalid response from CDP Uploader')
+        logger.error({ cdpResponse, url }, 'Upstream service response missing uploadId')
+        throw Boom.badGateway('Invalid response from Upstream service')
       }
 
       const data = rewriteResponseUrls(cdpResponse)

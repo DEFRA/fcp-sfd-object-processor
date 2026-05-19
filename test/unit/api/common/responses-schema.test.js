@@ -92,7 +92,7 @@ describe('badGatewayResponseSchema', () => {
     const { error } = badGatewayResponseSchema.validate({
       statusCode: httpConstants.HTTP_STATUS_BAD_GATEWAY,
       error: 'Bad Gateway',
-      message: 'CDP Uploader request failed'
+      message: 'Upstream service request failed'
     })
     expect(error).toBeUndefined()
   })
@@ -111,7 +111,7 @@ describe('gatewayTimeoutResponseSchema', () => {
     const { error } = gatewayTimeoutResponseSchema.validate({
       statusCode: httpConstants.HTTP_STATUS_GATEWAY_TIMEOUT,
       error: 'Gateway Timeout',
-      message: 'CDP Uploader request timed out'
+      message: 'Upstream service request timed out'
     })
     expect(error).toBeUndefined()
   })

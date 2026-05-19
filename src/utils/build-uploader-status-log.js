@@ -1,7 +1,7 @@
 import { constants as httpConstants } from 'node:http2'
 
 /**
- * Builds the structured log context for an outbound status request to CDP Uploader.
+ * Builds the structured log context for an outbound status request to the upstream service.
  * Uses approved ECS event.* fields only.
  * @param {object} request - Hapi request object
  * @param {string} uploadId - The upload session identifier
@@ -17,19 +17,19 @@ export const buildStatusRequestLog = (request, uploadId) => ({
 })
 
 /**
- * Builds the structured log context for a successful CDP Uploader status response.
+ * Builds the structured log context for a successful upstream service status response.
  * Uses approved ECS event.* fields only.
  * @param {string} uploadId - The upload session identifier
- * @param {object} cdpResponse - Validated response body from CDP Uploader
+ * @param {object} upstreamResponse - Validated response body from the upstream service
  * @param {number} duration - Round-trip duration in milliseconds (converted to nanoseconds internally)
  */
-export const buildStatusResponseLog = (uploadId, cdpResponse, duration) => ({
+export const buildStatusResponseLog = (uploadId, upstreamResponse, duration) => ({
   event: {
     type: 'status_check',
     outcome: 'success',
     duration: duration * 1_000_000,
     reference: uploadId,
-    reason: cdpResponse.uploadStatus,
+    reason: upstreamResponse.uploadStatus,
     kind: httpConstants.HTTP_STATUS_OK
   }
 })

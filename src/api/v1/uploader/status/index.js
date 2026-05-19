@@ -42,12 +42,12 @@ export const uploaderStatusRoute = {
     handler: async (request, h) => {
       const { uploadId } = request.params
 
-      // Construct the upstream CDP Uploader status URL
+      // Construct the upstream service status URL
       const url = `${uploaderUrl}${uploaderStatusEndpoint}/${uploadId}`
 
       const startTime = Date.now()
 
-      logger.info(buildStatusRequestLog(request, uploadId), 'Forwarding status request to CDP Uploader')
+      logger.info(buildStatusRequestLog(request, uploadId), 'Forwarding status request to Upstream service')
 
       // Fetch status from CDP Uploader with a configurable timeout
       let response
@@ -59,16 +59,16 @@ export const uploaderStatusRoute = {
         })
       } catch (err) {
         if (err.name === 'TimeoutError') {
-          logger.error({ url, uploadId }, 'CDP Uploader status request timed out')
-          throw Boom.gatewayTimeout('CDP Uploader request timed out')
+          logger.error({ url, uploadId }, 'Upstream service status request timed out')
+          throw Boom.gatewayTimeout('Upstream service request timed out')
         }
-        logger.error({ error: { message: err.message }, url, uploadId }, 'CDP Uploader status request failed')
-        throw Boom.badGateway('CDP Uploader request failed')
+        logger.error({ error: { message: err.message }, url, uploadId }, 'Upstream service status request failed')
+        throw Boom.badGateway('Upstream service request failed')
       }
 
       // Handle upstream error responses before reading the body
       if (response.status === httpConstants.HTTP_STATUS_NOT_FOUND) {
-        logger.info({ uploadId, url }, 'CDP Uploader returned 404 — upload not found')
+        logger.info({ uploadId, url }, 'Upstream service returned 404 — upload not found')
         throw Boom.notFound('Upload not found')
       }
 
@@ -76,9 +76,9 @@ export const uploaderStatusRoute = {
         const body = await response.text().catch(() => 'Unable to read response body')
         logger.error(
           { statusCode: response.status, body, url, uploadId },
-          'CDP Uploader returned non-2xx response'
+          'Upstream service returned non-2xx response'
         )
-        throw Boom.badGateway(`CDP Uploader returned ${response.status}`)
+        throw Boom.badGateway(`Upstream service returned ${response.status}`)
       }
 
       // Parse the JSON response body
@@ -87,8 +87,8 @@ export const uploaderStatusRoute = {
       try {
         cdpResponse = await response.json()
       } catch (err) {
-        logger.error({ error: { message: err.message }, url, uploadId }, 'Failed to parse CDP Uploader status response')
-        throw Boom.badGateway('Invalid response from CDP Uploader')
+        logger.error({ error: { message: err.message }, url, uploadId }, 'Failed to parse Upstream service status response')
+        throw Boom.badGateway('Invalid response from Upstream service')
       }
 
       // Validate the response matches the expected CDP Uploader contract
@@ -97,14 +97,14 @@ export const uploaderStatusRoute = {
       if (validationError) {
         logger.error(
           { error: { message: validationError.message }, uploadId, url },
-          'CDP Uploader status response failed contract validation'
+          'Upstream service status response failed contract validation'
         )
-        throw Boom.badGateway('CDP Uploader response failed validation')
+        throw Boom.badGateway('Upstream service response failed validation')
       }
 
       const duration = Date.now() - startTime
 
-      logger.info(buildStatusResponseLog(uploadId, cdpResponse, duration), 'CDP Uploader status response received')
+      logger.info(buildStatusResponseLog(uploadId, cdpResponse, duration), 'Upstream service status response received')
 
       return h.response({ data: mapCdpStatus(cdpResponse) }).code(httpConstants.HTTP_STATUS_OK)
     }
