@@ -8,15 +8,85 @@ updates:
     commit-message:
       prefix: "chore"
     open-pull-requests-limit: 5
+    groups:
+      docker-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+      docker-non-security:
+        applies-to: version-updates
+        patterns:
+          - "*"
+
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "daily"
     commit-message:
       prefix: "chore"
+    groups:
+      npm-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+      aws:
+        applies-to: version-updates
+        patterns:
+          - "@aws-sdk/*"
+          - "aws-*"
+          - "aws4"
+      hapi:
+        applies-to: version-updates
+        patterns:
+          - "@hapi/*"
+          - "hapi-*"
+          - "@defra/hapi-tracing"
+      logging:
+        applies-to: version-updates
+        patterns:
+          - "pino"
+          - "pino-*"
+          - "hapi-pino"
+          - "@elastic/ecs-pino-format"
+      lint:
+        applies-to: version-updates
+        patterns:
+          - "eslint"
+          - "neostandard"
+      tools:
+        applies-to: version-updates
+        patterns:
+          - "vitest"
+          - "@vitest/*"
+          - "nodemon"
+          - "npm-run-all"
+      types:
+        applies-to: version-updates
+        patterns:
+          - "@types/*"
+      npm-production:
+        applies-to: version-updates
+        dependency-type: "production"
+        patterns:
+          - "*"
+      npm-development:
+        applies-to: version-updates
+        dependency-type: "development"
+        patterns:
+          - "*"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
     commit-message:
       prefix: "chore"
+    groups:
+      github-actions-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+      github-actions-non-security:
+        applies-to: version-updates
+        patterns:
+          - "*"
