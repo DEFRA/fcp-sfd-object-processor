@@ -29,45 +29,37 @@ updates:
         applies-to: security-updates
         patterns:
           - "*"
-      build:
+      aws:
         applies-to: version-updates
         patterns:
-          - "@babel/*"
-          - "autoprefixer"
-          - "babel-plugin-module-resolver"
-          - "babel-loader"
-          - "babel-plugin-transform-import-meta"
-          - "tsx"
-          - "webpack"
-          - "webpack-*"
-          - "terser-webpack-plugin"
+          - "@aws-sdk/*"
+          - "aws-*"
+          - "aws4"
+      hapi:
+        applies-to: version-updates
+        patterns:
+          - "@hapi/*"
+          - "hapi-*"
+          - "@defra/hapi-tracing"
+      logging:
+        applies-to: version-updates
+        patterns:
+          - "pino"
+          - "pino-*"
+          - "hapi-pino"
+          - "@elastic/ecs-pino-format"
       lint:
         applies-to: version-updates
         patterns:
           - "eslint"
-          - "eslint-*"
-          - "prettier"
-          - "stylelint"
-          - "stylelint-*"
-      logging:
-        applies-to: version-updates
-        patterns:
-          - "*-pino"
-          - "*-pino-format"
-          - "pino"
-          - "pino-*"
+          - "neostandard"
       tools:
         applies-to: version-updates
         patterns:
-          - "husky"
           - "vitest"
-          - "vitest-*"
+          - "@vitest/*"
           - "nodemon"
           - "npm-run-all"
-          - "lodash"
-          - "source-map-loader"
-          - "sass-*"
-          - "postcss-*"
       types:
         applies-to: version-updates
         patterns:
