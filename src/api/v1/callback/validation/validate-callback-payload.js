@@ -5,6 +5,9 @@ import { handleValidationFailure } from './handle-validation-failure.js'
 
 const logger = createLogger()
 
+const isFileEntry = (val) =>
+  val !== null && typeof val === 'object' && 'fileId' in val
+
 /**
  * Validates the callback payload and form files.
  *
@@ -29,7 +32,7 @@ export async function validateCallbackPayload (payload, h) {
   // Observability: numberOfRejectedFiles mismatch check (lenient — warn only)
   const form = requestPayload.form || {}
   const actualRejectedCount = Object.values(form).filter(
-    val => val && typeof val === 'object' && 'fileId' in val && val.fileStatus === 'rejected'
+    val => isFileEntry(val) && val.fileStatus === 'rejected'
   ).length
   const declaredRejectedCount = requestPayload.numberOfRejectedFiles
 
@@ -53,7 +56,7 @@ export async function validateCallbackPayload (payload, h) {
 
   // Stage 2: Contract validation — every file in the form must have fileStatus 'complete'
   for (const [, val] of Object.entries(form)) {
-    if (val && typeof val === 'object' && 'fileId' in val && val.fileStatus !== 'complete') {
+    if (isFileEntry(val) && val.fileStatus !== 'complete') {
       await metricsCounter('callback_unexpected_status')
       return handleValidationFailure(requestPayload, new Error(`fileStatus must be 'complete' but was '${val.fileStatus}'`), val, h)
     }
