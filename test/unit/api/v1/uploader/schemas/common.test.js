@@ -448,9 +448,8 @@ describe('Shared Schema Components', () => {
     })
 
     test('should require hasError=true and errorMessage for rejected files', () => {
-      const { detectedContentType, ...baseFileUploadWithoutDetected } = baseFileUpload
       const rejectedFile = {
-        ...baseFileUploadWithoutDetected,
+        ...baseFileUpload,
         fileStatus: 'rejected',
         hasError: true,
         errorMessage: 'Virus detected'
@@ -459,7 +458,7 @@ describe('Shared Schema Components', () => {
       expect(validResult.error).toBeUndefined()
 
       const invalidRejectedFile = {
-        ...baseFileUploadWithoutDetected,
+        ...baseFileUpload,
         fileStatus: 'rejected',
         hasError: false,
         errorMessage: 'Virus detected'
@@ -467,6 +466,32 @@ describe('Shared Schema Components', () => {
       const invalidResult = fileUploadSchema.validate(invalidRejectedFile)
       expect(invalidResult.error).toBeDefined()
       expect(invalidResult.error.message).toContain('hasError')
+    })
+
+    test('should allow detectedContentType and checksumSha256 for rejected files (CDP Uploader includes them)', () => {
+      const rejectedFileWithFields = {
+        ...baseFileUpload,
+        fileStatus: 'rejected',
+        hasError: true,
+        errorMessage: 'The selected file contains a virus',
+        checksumSha256: 'bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=',
+        contentLength: 10503
+      }
+      const result = fileUploadSchema.validate(rejectedFileWithFields)
+      expect(result.error).toBeUndefined()
+    })
+
+    test('should still forbid s3Key and s3Bucket for rejected files', () => {
+      const rejectedFileWithS3 = {
+        ...baseFileUpload,
+        fileStatus: 'rejected',
+        hasError: true,
+        errorMessage: 'Virus detected',
+        s3Key: 'some/key',
+        s3Bucket: 'some-bucket'
+      }
+      const result = fileUploadSchema.validate(rejectedFileWithS3)
+      expect(result.error).toBeDefined()
     })
 
     test('should reject extra fields (strict mode)', () => {
