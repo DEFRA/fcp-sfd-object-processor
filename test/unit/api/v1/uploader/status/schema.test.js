@@ -35,6 +35,9 @@ const rejectedFile = {
   fileId: 'a0b1c2d3-e4f5-4789-abcd-ef0123456789',
   filename: 'document.pdf',
   contentType: 'application/pdf',
+  detectedContentType: 'application/pdf',
+  checksumSha256: 'bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=',
+  contentLength: 10503,
   fileStatus: 'rejected',
   hasError: true,
   errorMessage: 'File rejected: virus detected'
@@ -125,6 +128,36 @@ describe('cdpUploaderStatusResponseSchema', () => {
       expect(error).toBeUndefined()
     })
 
+    test('valid pending response with unprocessed file (no fileStatus) passes', () => {
+      const unprocessedFile = {
+        fileId: 'a0b1c2d3-e4f5-4789-abcd-ef0123456789',
+        filename: 'document.pdf',
+        contentType: 'application/pdf'
+      }
+      const payload = {
+        uploadStatus: 'pending',
+        metadata: validMetadata,
+        form: { 'file-field': unprocessedFile }
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeUndefined()
+    })
+
+    test('valid initiated response with unprocessed file (no fileStatus, no detectedContentType) passes', () => {
+      const unprocessedFile = {
+        fileId: 'a0b1c2d3-e4f5-4789-abcd-ef0123456789',
+        filename: 'document.pdf',
+        contentType: 'application/pdf'
+      }
+      const payload = {
+        uploadStatus: 'initiated',
+        metadata: {},
+        form: { 'file-field': unprocessedFile }
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeUndefined()
+    })
+
     test('valid initiated response with empty form passes', () => {
       const payload = {
         uploadStatus: 'initiated',
@@ -146,7 +179,26 @@ describe('cdpUploaderStatusResponseSchema', () => {
       expect(error).toBeUndefined()
     })
 
-    test('rejected file without detectedContentType passes (CDP Uploader never includes it)', () => {
+    test('rejected file without detectedContentType passes (minimal rejected file)', () => {
+      const minimalRejectedFile = {
+        fileId: 'a0b1c2d3-e4f5-4789-abcd-ef0123456789',
+        filename: 'document.pdf',
+        contentType: 'application/pdf',
+        fileStatus: 'rejected',
+        hasError: true,
+        errorMessage: 'File rejected: virus detected'
+      }
+      const payload = {
+        uploadStatus: 'ready',
+        metadata: validMetadata,
+        form: { 'file-field': minimalRejectedFile },
+        numberOfRejectedFiles: 1
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeUndefined()
+    })
+
+    test('rejected file with detectedContentType and checksumSha256 passes (CDP Uploader includes them)', () => {
       const payload = {
         uploadStatus: 'ready',
         metadata: validMetadata,
@@ -155,17 +207,6 @@ describe('cdpUploaderStatusResponseSchema', () => {
       }
       const { error } = cdpUploaderStatusResponseSchema.validate(payload)
       expect(error).toBeUndefined()
-    })
-
-    test('rejected file with detectedContentType fails (it is forbidden for rejected files)', () => {
-      const payload = {
-        uploadStatus: 'ready',
-        metadata: validMetadata,
-        form: { 'file-field': { ...rejectedFile, detectedContentType: 'application/pdf' } },
-        numberOfRejectedFiles: 1
-      }
-      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
-      expect(error).toBeDefined()
     })
 
     test('form allows mix of file objects and string fields', () => {
@@ -193,6 +234,23 @@ describe('cdpUploaderStatusResponseSchema', () => {
         form: {
           'file-one': completeFile,
           'file-two': secondFile
+        },
+        numberOfRejectedFiles: 0
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeUndefined()
+    })
+
+    test('form allows array of file objects under a single key', () => {
+      const secondFile = {
+        ...completeFile,
+        fileId: 'b1c2d3e4-f5a6-4789-abcd-ef0123456789'
+      }
+      const payload = {
+        uploadStatus: 'ready',
+        metadata: validMetadata,
+        form: {
+          'multi-file-field': [completeFile, secondFile]
         },
         numberOfRejectedFiles: 0
       }
@@ -469,7 +527,7 @@ describe('uploaderStatusResponseSchema', () => {
     expect(error).toBeDefined()
   })
 
-  test('200 schema accepts failure response with rejected file (no detectedContentType)', () => {
+  test('200 schema accepts failure response with rejected file', () => {
     const successSchema = uploaderStatusResponseSchema[httpConstants.HTTP_STATUS_OK]
     const { error } = successSchema.validate({
       data: {

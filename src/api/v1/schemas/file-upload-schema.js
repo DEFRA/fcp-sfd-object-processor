@@ -2,25 +2,52 @@ import Joi from 'joi'
 import { schemaConsts } from '../../../constants/schemas.js'
 import { config } from '../../../config/index.js'
 
-const allowedMimeTypes = config.get('cdpUploaderMimeTypes')
+export const allowedMimeTypes = config.get('cdpUploaderMimeTypes')
 // Base64 pattern (accept standard and URL-safe variants)
-const base64Pattern = /^(?:[A-Za-z0-9+/]+=*|[A-Za-z0-9-_]+=*)$/
+export const base64Pattern = /^(?:[A-Za-z0-9+/]+=*|[A-Za-z0-9-_]+=*)$/
 
 // Schema validation constants
-const ERROR_MESSAGE_MAX_LENGTH = 2000
+export const ERROR_MESSAGE_MAX_LENGTH = 2000
 const EMPTY_FIELD_MESSAGE = '"{#label}" cannot be empty'
+
+/**
+ * Shared conditional rules for file status validation.
+ * Applied to both the callback schema and the status endpoint schema.
+ */
+export function applyFileStatusConditionals (schema) {
+  return schema
+    .when(Joi.object({ fileStatus: Joi.valid('complete').required() }).unknown(), {
+      then: Joi.object({
+        s3Key: Joi.required(),
+        s3Bucket: Joi.required(),
+        checksumSha256: Joi.required(),
+        contentLength: Joi.number().integer().min(1).required(),
+        hasError: Joi.forbidden(),
+        errorMessage: Joi.forbidden()
+      })
+    })
+    .when(Joi.object({ fileStatus: Joi.valid('rejected').required() }).unknown(), {
+      then: Joi.object({
+        hasError: Joi.valid(true).required(),
+        errorMessage: Joi.string().min(1).required(),
+        s3Key: Joi.forbidden(),
+        s3Bucket: Joi.forbidden()
+      })
+    })
+}
 
 /**
  * Canonical CDP Uploader file-upload contract.
  *
  * fileStatus: 'complete' | 'rejected' | 'pending'
  * - complete: must have s3Key, s3Bucket, checksumSha256, contentLength > 0; must NOT have hasError/errorMessage
- * - rejected: must have hasError=true and non-empty errorMessage; must NOT have s3Key/s3Bucket/checksum/detectedContentType
+ * - rejected: must have hasError=true and non-empty errorMessage; must NOT have s3Key/s3Bucket;
+ *             detectedContentType and checksumSha256 are allowed (CDP Uploader includes them)
  * - pending: minimal constraints (fileId, filename, contentType, detectedContentType allowed)
  *
  * Exported as `fileUploadSchema` for reuse by callback, status, and initiate endpoints.
  */
-export const fileUploadSchema = Joi.object({
+const fileUploadBaseSchema = Joi.object({
   fileId: Joi.string()
     .guid({ version: ['uuidv4'] })
     .required()
@@ -98,26 +125,8 @@ export const fileUploadSchema = Joi.object({
     .messages({ 'string.empty': EMPTY_FIELD_MESSAGE })
     .example(schemaConsts.S3_BUCKET_EXAMPLE).label('s3Bucket')
 })
-  .when(Joi.object({ fileStatus: Joi.valid('complete').required() }).unknown(), {
-    then: Joi.object({
-      s3Key: Joi.required(),
-      s3Bucket: Joi.required(),
-      checksumSha256: Joi.required(),
-      contentLength: Joi.number().integer().min(1).required(),
-      hasError: Joi.forbidden(),
-      errorMessage: Joi.forbidden()
-    })
-  })
-  .when(Joi.object({ fileStatus: Joi.valid('rejected').required() }).unknown(), {
-    then: Joi.object({
-      hasError: Joi.valid(true).required(),
-      errorMessage: Joi.string().min(1).required(),
-      detectedContentType: Joi.forbidden(),
-      s3Key: Joi.forbidden(),
-      s3Bucket: Joi.forbidden(),
-      checksumSha256: Joi.forbidden()
-    })
-  })
+
+export const fileUploadSchema = applyFileStatusConditionals(fileUploadBaseSchema)
   .strict()
   .description('File upload metadata from CDP Uploader')
   .label('FileUploadMetadata')

@@ -12,8 +12,25 @@ describe('callback contract validation (fileStatus variants)', () => {
     // remove fields that are forbidden for rejected files
     delete file.s3Key
     delete file.s3Bucket
-    delete file.checksumSha256
-    delete file.detectedContentType
+    payload.form = { 'rejected-file': file }
+
+    const { error } = callbackPayloadSchema.validate(payload)
+    expect(error).toBeUndefined()
+  })
+
+  test('REJECTED file with detectedContentType and checksumSha256 passes validation (CDP Uploader includes them)', () => {
+    const payload = { ...base }
+    const file = {
+      fileId: '550e8400-e29b-41d4-a716-446655440000',
+      filename: 'virus.pdf',
+      contentType: 'application/pdf',
+      detectedContentType: 'application/pdf',
+      checksumSha256: 'bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=',
+      contentLength: 10503,
+      fileStatus: 'rejected',
+      hasError: true,
+      errorMessage: 'The selected file contains a virus'
+    }
     payload.form = { 'rejected-file': file }
 
     const { error } = callbackPayloadSchema.validate(payload)
@@ -26,16 +43,18 @@ describe('callback contract validation (fileStatus variants)', () => {
     // remove fields that are forbidden for rejected files
     delete file.s3Key
     delete file.s3Bucket
-    delete file.checksumSha256
-    delete file.detectedContentType
     // remove errorMessage explicitly if present
     delete file.errorMessage
     payload.form = { 'rejected-file': file }
 
     const { error } = callbackPayloadSchema.validate(payload)
     expect(error).toBeDefined()
-    // Expect a validation failure related to errorMessage
-    expect(error.details.some(d => d.path.join('.').includes('errorMessage'))).toBe(true)
+    // Expect a validation failure mentioning errorMessage (may be in path or message)
+    const hasErrorMessageRef = error.details.some(d =>
+      d.path.join('.').includes('errorMessage') ||
+      d.message.includes('errorMessage')
+    )
+    expect(hasErrorMessageRef).toBe(true)
   })
 
   test('PENDING file with minimal fields passes validation', () => {

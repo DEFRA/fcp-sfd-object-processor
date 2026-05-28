@@ -329,7 +329,7 @@
       },
       "CdpStatusForm": {
         "type": "object",
-        "description": "Form data containing text fields and file upload objects",
+        "description": "Form data containing text fields, file upload objects, or arrays of file upload objects",
         "example": {
           "file-upload-1": {
             "fileId": "9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
@@ -342,6 +342,22 @@
             "s3Key": "scanned/folder/9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
             "s3Bucket": "fcp-sfd-object-processor-bucket"
           }
+        },
+        "additionalProperties": {
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/FileUpload"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/FileUpload"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ]
         }
       },
       "MappedUploaderStatusData": {
@@ -514,19 +530,20 @@
         "type": "object",
         "description": "Form data containing both text fields and file uploads",
         "additionalProperties": {
-          "$ref": "#/components/schemas/FileUpload"
-        },
-        "x-meta": {
-          "additionalProperties": {
-            "oneOf": [
-              {
-                "type": "string"
-              },
-              {
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/FileUpload"
+            },
+            {
+              "type": "array",
+              "items": {
                 "$ref": "#/components/schemas/FileUpload"
               }
-            ]
-          }
+            },
+            {
+              "type": "string"
+            }
+          ]
         }
       },
       "CallbackPayload": {
@@ -722,7 +739,7 @@
       },
       "FileUpload": {
         "type": "object",
-        "description": "File upload metadata from CDP Uploader",
+        "description": "File upload metadata from CDP Uploader. Fields present depend on file processing state.",
         "properties": {
           "fileId": {
             "type": "string",
@@ -744,10 +761,12 @@
           },
           "fileStatus": {
             "type": "string",
-            "description": "Status of the file upload",
+            "description": "Status of the file upload. Absent for unprocessed files in initiated/pending upload states.",
             "example": "complete",
             "enum": [
-              "complete"
+              "complete",
+              "rejected",
+              "pending"
             ]
           },
           "contentLength": {
@@ -758,39 +777,45 @@
           },
           "checksumSha256": {
             "type": "string",
-            "description": "SHA-256 checksum of the file encoded in base64",
+            "description": "SHA-256 checksum of the file encoded in base64. Present for complete and rejected files.",
             "example": "bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=",
             "pattern": "^[A-Za-z0-9+/]+=*$"
           },
           "detectedContentType": {
             "type": "string",
-            "description": "MIME type detected by virus scanning",
+            "description": "MIME type detected by virus scanning. Present for complete and rejected files.",
             "example": "application/pdf",
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9!#$&^_+-]*/[a-zA-Z0-9][a-zA-Z0-9!#$&^_+.-]*$"
           },
           "s3Key": {
             "type": "string",
-            "description": "S3 object key where the file is stored",
+            "description": "S3 object key where the file is stored. Only present for complete files.",
             "example": "scanned/folder/9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
             "minLength": 1
           },
           "s3Bucket": {
             "type": "string",
-            "description": "S3 bucket name where the file is stored",
+            "description": "S3 bucket name where the file is stored. Only present for complete files.",
             "example": "fcp-sfd-object-processor-bucket",
             "minLength": 1
+          },
+          "hasError": {
+            "type": "boolean",
+            "description": "Whether the file was rejected due to an error. Only present for rejected files.",
+            "example": true
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Error message explaining why the file was rejected. Only present for rejected files.",
+            "example": "The selected file contains a virus",
+            "minLength": 1,
+            "maxLength": 2000
           }
         },
         "required": [
           "fileId",
           "filename",
-          "contentType",
-          "fileStatus",
-          "contentLength",
-          "checksumSha256",
-          "detectedContentType",
-          "s3Key",
-          "s3Bucket"
+          "contentType"
         ]
       }
     }
@@ -1055,8 +1080,10 @@
                             "fileId": "9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
                             "filename": "document.pdf",
                             "contentType": "application/pdf",
-                            "fileStatus": "rejected",
+                            "detectedContentType": "application/pdf",
+                            "checksumSha256": "bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=",
                             "contentLength": 11264,
+                            "fileStatus": "rejected",
                             "hasError": true,
                             "errorMessage": "File rejected: virus detected"
                           }
@@ -1083,9 +1110,7 @@
                           "file-upload-1": {
                             "fileId": "9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
                             "filename": "document.pdf",
-                            "contentType": "application/pdf",
-                            "detectedContentType": "application/pdf",
-                            "fileStatus": "pending"
+                            "contentType": "application/pdf"
                           }
                         }
                       }
