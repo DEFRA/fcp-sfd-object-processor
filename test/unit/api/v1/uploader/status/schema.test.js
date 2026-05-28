@@ -209,6 +209,28 @@ describe('cdpUploaderStatusResponseSchema', () => {
       expect(error).toBeUndefined()
     })
 
+    test('rejected file with contentLength: 0 passes via status endpoint', () => {
+      const rejectedFileZeroLength = {
+        fileId: 'a0b1c2d3-e4f5-4789-abcd-ef0123456789',
+        filename: 'empty.pdf',
+        contentType: 'application/pdf',
+        detectedContentType: 'application/pdf',
+        checksumSha256: 'bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=',
+        contentLength: 0,
+        fileStatus: 'rejected',
+        hasError: true,
+        errorMessage: 'File rejected: empty file'
+      }
+      const payload = {
+        uploadStatus: 'ready',
+        metadata: validMetadata,
+        form: { 'file-field': rejectedFileZeroLength },
+        numberOfRejectedFiles: 1
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeUndefined()
+    })
+
     test('form allows mix of file objects and string fields', () => {
       const payload = {
         uploadStatus: 'ready',
