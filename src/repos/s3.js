@@ -2,6 +2,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { s3Client } from '../s3/client.js'
 import { createLogger } from '../logging/logger.js'
+import { config } from '../config/index.js'
 
 const logger = createLogger()
 
@@ -12,7 +13,7 @@ const generatePresignedUrl = async (s3Reference) => {
       Key: s3Reference.key
     })
 
-    const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 })
+    const url = await getSignedUrl(s3Client, command, { expiresIn: config.get('aws.s3.presignedUrlExpirySeconds') })
 
     return { url }
   } catch (err) {

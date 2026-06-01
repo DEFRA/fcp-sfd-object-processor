@@ -2,24 +2,31 @@ name: fcp-sfd
 services:
   fcp-sfd-object-processor:
     ports:
-      - '3004:3004'
-      - '9242:9229'
+      - "3004:3004"
+      - "9242:9229"
     networks:
       - fcp-sfd
     volumes:
       - ./src:/home/node/src
       - ./package.json:/home/node/package.json
 
-  localstack:
+  floci:
     ports:
-      - '4566:4566' # LocalStack Gateway
-      - '4510-4559:4510-4559' # external services port range
+      - "4566:4566"
     volumes:
-      - '${TMPDIR:-/tmp}/localstack:/var/lib/localstack'
-      - ./compose/start-localstack.sh:/etc/localstack/init/ready.d/start-localstack.sh
+      - floci-data:/app/data
+    networks:
+      - fcp-sfd
+
+  floci-init:
+    volumes:
+      - ./floci/init.sh:/setup/init.sh
+    networks:
+      - fcp-sfd
+
   mongodb:
     ports:
-      - '27017:27017'
+      - "27017:27017"
     networks:
       - fcp-sfd
     volumes:
@@ -27,12 +34,17 @@ services:
 
   cdp-uploader:
     ports:
-      - '7337:7337'
+      - "7337:7337"
     networks:
       - fcp-sfd
+
   redis:
     networks:
       - fcp-sfd
+
+volumes:
+  mongodb-data:
+  floci-data:
 
 networks:
   fcp-sfd:
