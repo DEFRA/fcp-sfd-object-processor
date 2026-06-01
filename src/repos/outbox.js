@@ -33,9 +33,10 @@ const createOutboxEntries = async (ids, documents, session) => {
 const getProcessableOutboxEntries = async () => {
   const collection = config.get(outboxCollection)
   const queryLimit = config.get('mongo.outboxQueryLimit')
+  const maxAttempts = config.get('messaging.outboxMaxAttempts')
 
   const processableEntries = await db.collection(collection)
-    .find({ status: { $in: [PENDING, FAILED] } })
+    .find({ status: { $in: [PENDING, FAILED] }, attempts: { $lt: maxAttempts } })
     .limit(queryLimit)
     .toArray()
 

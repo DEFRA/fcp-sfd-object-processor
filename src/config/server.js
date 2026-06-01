@@ -124,6 +124,13 @@ export const serverConfig = {
       format: 'int',
       default: 30000
     }
+    ,
+    outboxMaxAttempts: {
+      doc: 'Maximum number of delivery attempts for an outbox entry',
+      format: 'int',
+      default: 5,
+      env: 'OUTBOX_MAX_ATTEMPTS'
+    }
   },
   publicApiBaseUrl: {
     doc: 'Public API base URL used by downstream services e.g. CRM to retrieve an uploaded file by it fileId',
