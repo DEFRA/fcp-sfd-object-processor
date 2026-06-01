@@ -17,6 +17,7 @@ vi.mock('../../../../src/config/index.js', () => ({
     get: vi.fn((key) => {
       if (key === 'mongo.collections.outbox') return 'outbox'
       if (key === 'mongo.outboxQueryLimit') return 100
+      if (key === 'messaging.outboxMaxAttempts') return 5
       return null
     })
   }
@@ -233,7 +234,7 @@ describe('Outbox Repository', () => {
       const result = await getProcessableOutboxEntries()
 
       expect(db.collection).toHaveBeenCalledWith('outbox')
-      expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] } })
+      expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] }, attempts: { $lt: 5 } })
       expect(mockCursor.toArray).toHaveBeenCalled()
       expect(result).toEqual(mockPendingEntries)
     })
@@ -250,7 +251,7 @@ describe('Outbox Repository', () => {
       const result = await getProcessableOutboxEntries()
 
       expect(db.collection).toHaveBeenCalledWith('outbox')
-      expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] } })
+      expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] }, attempts: { $lt: 5 } })
       expect(mockCursor.toArray).toHaveBeenCalled()
       expect(result).toEqual([])
     })
@@ -269,7 +270,7 @@ describe('Outbox Repository', () => {
 
       const result = await getProcessableOutboxEntries()
 
-      expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] } })
+      expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] }, attempts: { $lt: 5 } })
       expect(mockCursor.limit).toHaveBeenCalledWith(expect.any(Number))
       expect(mockCursor.toArray).toHaveBeenCalled()
       expect(result).toEqual(mockPendingEntries)
