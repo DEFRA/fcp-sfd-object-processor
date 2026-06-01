@@ -221,7 +221,7 @@ The following services are started by `docker compose up`:
 |---------|---------|
 | `fcp-sfd-object-processor` | This service (port 3004) |
 | `mongodb` | Primary datastore with replica set (`rs0`) — required for transactions |
-| `localstack` | Mocks AWS S3 and SNS locally at `http://localstack:4566` |
+| `floci` | Mocks AWS S3, SQS and SNS locally at `http://floci:4566` (host: `http://localhost:4566`) |
 | `redis` | Used by CDP Uploader for session/state management |
 | `cdp-uploader` | Upstream file scanning and upload service |
 

@@ -26,18 +26,24 @@ export const awsConfig = {
       nullable: true,
       env: 'AWS_SECRET_ACCESS_KEY'
     },
-    localstack: {
-      s3Endpoint: {
-        doc: 'Endpoint to use to reach the s3 storage when using localstack.',
+    s3: {
+      endpoint: {
+        doc: 'Endpoint for S3 storage (used in non-production environments for Floci).',
         format: String,
         default: '',
         env: 'S3_ENDPOINT'
       },
       forcePathStyle: {
-        doc: 'Sets the presigned url path for S3 to use a defined endpoint instead of the default aws endpoint, needed for localstack.',
+        doc: 'Force path-style (for presigned URLs) for S3 (required for Floci).',
         format: Boolean,
         default: false,
         env: 'AWS_S3_FORCE_PATH_STYLE'
+      },
+      presignedUrlExpirySeconds: {
+        doc: 'Expiry duration in seconds for S3 presigned URLs. Defaults to 300s (5 minutes) to minimise exposure window if a URL is leaked.',
+        format: 'int',
+        default: 300,
+        env: 'S3_PRESIGNED_URL_EXPIRY_SECONDS'
       }
     },
     messaging: {
