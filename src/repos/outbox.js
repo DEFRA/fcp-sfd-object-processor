@@ -85,7 +85,9 @@ const bulkUpdateDeliveryStatus = async (session, fileIds, status, error = null) 
       {
         $set: {
           status: {
-            $cond: [{ $gte: [{ $add: ['$attempts', 1] }, maxAttempts] }, FAILED, PENDING]
+            // `attempts` has already been incremented in the previous stage,
+            // compare the updated value against `maxAttempts` to avoid double-increment.
+            $cond: [{ $gte: ['$attempts', maxAttempts] }, FAILED, PENDING]
           }
         }
       }

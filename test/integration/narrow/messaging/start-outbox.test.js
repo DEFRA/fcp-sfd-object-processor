@@ -539,4 +539,89 @@ describe('Outbox message processing', () => {
     // Cleanup: restore original query limit
     config.set('mongo.outboxQueryLimit', originalQueryLimit)
   })
+
+  test('should mark outbox entry as FAILED after exhausting max attempts across retries', async () => {
+    // Arrange: single metadata + outbox entry
+    const metadataId = ObjectId.createFromHexString('507f1f77bcf86cd79943901e')
+
+    const metadataEntry = {
+      _id: metadataId,
+      metadata: mockPendingMessages[0].payload.metadata,
+      file: { fileId: 'file-retry', filename: 'retry.pdf', fileStatus: 'complete' },
+      s3: { key: 's3-key-retry', bucket: 'test-bucket' },
+      messaging: { publishedAt: null, correlationId: 'retry-correlation-id' }
+    }
+
+    await db.collection(metadataCollection).insertOne(metadataEntry)
+
+    const testMessage = {
+      messageId: metadataId,
+      payload: {
+        metadata: mockPendingMessages[0].payload.metadata,
+        file: { fileId: 'file-retry', filename: 'retry.pdf' },
+        messaging: { publishedAt: null, correlationId: 'retry-correlation-id' }
+      },
+      status: PENDING,
+      attempts: 0,
+      createdAt: new Date()
+    }
+
+    const insertResult = await db.collection(outboxCollection).insertOne(testMessage)
+    const insertedId = insertResult.insertedId
+
+    // Set max attempts to 2 so two failed publishes exhaust retries
+    const originalMaxAttempts = config.get('messaging.outboxMaxAttempts')
+    config.set('messaging.outboxMaxAttempts', 2)
+
+    // First run: SNS fails
+    publishBatch.mockResolvedValueOnce({
+      Successful: [],
+      Failed: [
+        {
+          Id: testMessage.payload.file.fileId,
+          Code: 'InternalError',
+          Message: 'SNS publish failed',
+          SenderFault: false
+        }
+      ]
+    })
+
+    await publishPendingMessages()
+
+    // After first attempt, entry should still be PENDING with attempts=1
+    let updated = await db.collection(outboxCollection).findOne({ _id: insertedId })
+    expect(updated).toBeTruthy()
+    expect(updated.status).toBe(PENDING)
+    expect(updated.attempts).toBe(1)
+
+    // Second run: SNS fails again and should mark FAILED
+    publishBatch.mockResolvedValueOnce({
+      Successful: [],
+      Failed: [
+        {
+          Id: testMessage.payload.file.fileId,
+          Code: 'InternalError',
+          Message: 'SNS publish failed',
+          SenderFault: false
+        }
+      ]
+    })
+
+    await publishPendingMessages()
+
+    // restore original max attempts
+    config.set('messaging.outboxMaxAttempts', originalMaxAttempts)
+
+    // Assert: entry should now be FAILED with attempts=2
+    updated = await db.collection(outboxCollection).findOne({ _id: insertedId })
+    expect(updated).toBeTruthy()
+    expect(updated.status).toBe(FAILED)
+    expect(updated.attempts).toBe(2)
+    expect(updated.lastAttemptedAt).toBeInstanceOf(Date)
+    expect(updated.error).toBeTruthy()
+
+    // Assert: metadata still has publishedAt null
+    const meta = await db.collection(metadataCollection).findOne({ _id: metadataId })
+    expect(meta.messaging.publishedAt).toBeNull()
+  })
 })
