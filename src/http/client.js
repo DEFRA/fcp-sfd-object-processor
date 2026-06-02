@@ -57,6 +57,12 @@ const calcDelay = (attempt, baseDelayMs, backoffMultiplier, jitterPct, capMs) =>
   return Math.min(base + jitter, capMs)
 }
 
+const errorMessage = (err) => {
+  if (err instanceof Error) { return err.message }
+  if (typeof err === 'string') { return err }
+  return JSON.stringify(err)
+}
+
 export const httpClient = createClient({
   timeout: config.get('cdpUploaderTimeoutMs'),
   // Upper bound – shouldRetry enforces the per-class budget
@@ -78,7 +84,7 @@ export const httpClient = createClient({
         event: {
           type: 'http_unknown_error',
           outcome: 'unknown',
-          reason: ctx.error instanceof Error ? ctx.error.message : String(ctx.error)
+          reason: errorMessage(ctx.error)
         }
       }, 'HTTP request encountered unknown error — applying conservative retry')
     }
@@ -88,7 +94,7 @@ export const httpClient = createClient({
         event: {
           type: 'http_unknown_error_exhausted',
           outcome: 'failure',
-          reason: ctx.error instanceof Error ? ctx.error.message : String(ctx.error)
+          reason: errorMessage(ctx.error)
         }
       }, 'HTTP request unknown error retries exhausted')
     }
