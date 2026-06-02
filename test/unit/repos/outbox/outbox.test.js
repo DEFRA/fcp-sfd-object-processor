@@ -324,12 +324,16 @@ describe('Outbox Repository', () => {
       const updatedEntry = mockCollection.updateMany.mock.calls[0]
 
       expect(updatedEntry[0]).toEqual({ 'payload.file.fileId': { $in: [mockFileId] } })
-      expect(updatedEntry[1].$set).toMatchObject({
-        status: FAILED,
-        lastAttemptedAt: expect.any(Date),
-        error: 'Test error message'
-      })
-      expect(updatedEntry[1].$inc).toEqual({ attempts: 1 })
+      // For failures we use an update pipeline: first stage sets lastAttemptedAt and error
+      const pipeline = updatedEntry[1]
+      expect(Array.isArray(pipeline)).toBe(true)
+      expect(pipeline[0]).toHaveProperty('$set')
+      expect(pipeline[0].$set).toMatchObject({ error: 'Test error message' })
+      expect(pipeline[1]).toHaveProperty('$set')
+      expect(pipeline[2]).toHaveProperty('$set')
+      // The final stage conditionally sets status to FAILED or PENDING
+      expect(JSON.stringify(pipeline[2])).toContain(FAILED)
+      expect(JSON.stringify(pipeline[2])).toContain(PENDING)
 
       expect(result).toEqual(mockUpdateManyResult)
     })

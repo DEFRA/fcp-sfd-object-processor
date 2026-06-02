@@ -1,5 +1,5 @@
 import { config } from '../config/index.js'
-import { PENDING, FAILED } from '../constants/outbox.js'
+import { PENDING, FAILED, SENT } from '../constants/outbox.js'
 import { db } from '../data/db.js'
 
 const outboxCollection = 'mongo.collections.outbox'
@@ -45,20 +45,51 @@ const getProcessableOutboxEntries = async () => {
 
 const bulkUpdateDeliveryStatus = async (session, fileIds, status, error = null) => {
   const collection = config.get(outboxCollection)
+  const maxAttempts = config.get('messaging.outboxMaxAttempts')
 
   const filter = { 'payload.file.fileId': { $in: fileIds } }
 
-  const updateDoc = {
-    $set: {
-      status,
-      lastAttemptedAt: new Date(),
-      ...(error && { error })
-    },
-    $inc: {
-      attempts: 1
+  let updateResult
+
+  if (status === SENT) {
+    // On successful delivery: set status, lastAttemptedAt and increment attempts
+    const updateDoc = {
+      $set: {
+        status,
+        lastAttemptedAt: new Date()
+      },
+      $inc: {
+        attempts: 1
+      }
     }
+    updateResult = await db.collection(collection).updateMany(filter, updateDoc, { session })
+  } else {
+    // On failure: increment attempts, set lastAttemptedAt and error; only mark FINAL FAILED
+    // when attempts after increment reach or exceed maxAttempts. Use update pipeline so we can
+    // compute the new attempts value and set status conditionally.
+    const pipeline = [
+      {
+        $set: {
+          lastAttemptedAt: new Date(),
+          ...(error && { error })
+        }
+      },
+      {
+        $set: {
+          attempts: { $add: ['$attempts', 1] }
+        }
+      },
+      {
+        $set: {
+          status: {
+            $cond: [{ $gte: [{ $add: ['$attempts', 1] }, maxAttempts] }, FAILED, PENDING]
+          }
+        }
+      }
+    ]
+
+    updateResult = await db.collection(collection).updateMany(filter, pipeline, { session })
   }
-  const updateResult = await db.collection(collection).updateMany(filter, updateDoc, { session })
 
   if (!updateResult.acknowledged) {
     throw new Error('Failed to update outbox entries')

@@ -112,7 +112,14 @@ describe('Outbox message processing', () => {
     })
 
     // Act: Run the publishPendingMessages function
+    // Set max attempts to 1 for this test so a single failure marks FAILED
+    const originalMaxAttempts = config.get('messaging.outboxMaxAttempts')
+    config.set('messaging.outboxMaxAttempts', 1)
+
     await publishPendingMessages()
+
+    // restore original max attempts
+    config.set('messaging.outboxMaxAttempts', originalMaxAttempts)
 
     // Assert: Verify outbox entries are updated to SENT
     const updatedMessages = await db.collection(outboxCollection)
@@ -210,7 +217,14 @@ describe('Outbox message processing', () => {
     })
 
     // Act: Run the publishPendingMessages function
+    // Set max attempts to 1 for this test so a single failure marks FAILED
+    const originalMaxAttempts = config.get('messaging.outboxMaxAttempts')
+    config.set('messaging.outboxMaxAttempts', 1)
+
     await publishPendingMessages()
+
+    // restore original max attempts
+    config.set('messaging.outboxMaxAttempts', originalMaxAttempts)
 
     // Assert: Verify outbox entries are updated to FAILED
     const updatedMessages = await db.collection(outboxCollection)
