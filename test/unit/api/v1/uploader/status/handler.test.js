@@ -1,19 +1,18 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { constants as httpConstants } from 'node:http2'
 
-// Use vi.hoisted so mockConfigGet is available when vi.mock factory is hoisted.
-// The default covers module-level config.get calls (e.g. baseUrl).
-const { mockConfigGet } = vi.hoisted(() => ({
+// Use vi.hoisted so mocks are available when vi.mock factory is hoisted.
+const { mockConfigGet, mockHttpClient } = vi.hoisted(() => ({
   mockConfigGet: vi.fn().mockImplementation((key) => {
     switch (key) {
       case 'baseUrl.v1': return '/api/v1'
       case 'uploaderUrl': return 'http://cdp-uploader:7337'
       case 'uploaderStatusEndpoint': return '/status'
-      case 'cdpUploaderTimeoutMs': return 30000
       case 'cdpUploaderMimeTypes': return ['application/pdf', 'image/jpeg', 'image/png']
       default: return null
     }
-  })
+  }),
+  mockHttpClient: vi.fn()
 }))
 
 const mockLogger = {
@@ -34,8 +33,18 @@ vi.mock('../../../../../../src/api/common/helpers/metrics.js', () => ({
   metricsCounter: vi.fn()
 }))
 
+vi.mock('../../../../../../src/http/client.js', () => ({
+  httpClient: mockHttpClient,
+  TimeoutError: class TimeoutError extends Error {
+    constructor (msg) { super(msg); this.name = 'TimeoutError' }
+  },
+  NetworkError: class NetworkError extends Error {},
+  AbortError: class AbortError extends Error {}
+}))
+
 // Import after mocks are established
 const { uploaderStatusRoute } = await import('../../../../../../src/api/v1/uploader/status/index.js')
+const { TimeoutError } = await import('../../../../../../src/http/client.js')
 
 // ─── Test fixtures ──────────────────────────────────────────────────────────
 
@@ -118,7 +127,7 @@ beforeEach(() => {
       default: return null
     }
   })
-  global.fetch = vi.fn()
+  mockHttpClient.mockReset()
 })
 
 // ─── Handler function tests ─────────────────────────────────────────────────
@@ -128,7 +137,7 @@ describe('uploaderStatusRoute handler', () => {
 
   describe('successful proxying', () => {
     test('returns 200 with data envelope for ready status', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: true,
         status: 200,
         json: async () => validReadyResponse
@@ -144,7 +153,7 @@ describe('uploaderStatusRoute handler', () => {
     })
 
     test('ready status with zero rejections maps to success and omits numberOfRejectedFiles', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: true,
         status: 200,
         json: async () => validReadyResponse
@@ -159,7 +168,7 @@ describe('uploaderStatusRoute handler', () => {
     })
 
     test('ready status with rejections maps to failure and omits numberOfRejectedFiles', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: true,
         status: 200,
         json: async () => validReadyResponseWithRejections
@@ -174,7 +183,7 @@ describe('uploaderStatusRoute handler', () => {
     })
 
     test('returns 200 with data envelope for pending status', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: true,
         status: 200,
         json: async () => validPendingResponse
@@ -190,7 +199,7 @@ describe('uploaderStatusRoute handler', () => {
     })
 
     test('returns 200 with data envelope for initiated status', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: true,
         status: 200,
         json: async () => validInitiatedResponse
@@ -206,7 +215,7 @@ describe('uploaderStatusRoute handler', () => {
     })
 
     test('fetches correct URL from config', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: true,
         status: 200,
         json: async () => validReadyResponse
@@ -215,13 +224,13 @@ describe('uploaderStatusRoute handler', () => {
       const { h } = buildMockH()
       await handler(buildMockRequest(validUploadId), h)
 
-      expect(global.fetch).toHaveBeenCalledTimes(1)
-      const [url] = global.fetch.mock.calls[0]
+      expect(mockHttpClient).toHaveBeenCalledTimes(1)
+      const [url] = mockHttpClient.mock.calls[0]
       expect(url).toBe(`http://cdp-uploader:7337/status/${validUploadId}`)
     })
 
     test('logs audit entry on request and response', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: true,
         status: 200,
         json: async () => validReadyResponse
@@ -255,9 +264,7 @@ describe('uploaderStatusRoute handler', () => {
 
   describe('error handling', () => {
     test('throws 504 on TimeoutError', async () => {
-      const timeoutError = new Error('The operation was aborted due to timeout')
-      timeoutError.name = 'TimeoutError'
-      global.fetch = vi.fn().mockRejectedValue(timeoutError)
+      mockHttpClient.mockRejectedValue(new TimeoutError('The operation was aborted due to timeout'))
 
       const { h } = buildMockH()
       await expect(handler(buildMockRequest(), h)).rejects.toMatchObject({
@@ -270,7 +277,7 @@ describe('uploaderStatusRoute handler', () => {
     })
 
     test('throws 502 on network error', async () => {
-      global.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'))
+      mockHttpClient.mockRejectedValue(new Error('ECONNREFUSED'))
 
       const { h } = buildMockH()
       await expect(handler(buildMockRequest(), h)).rejects.toMatchObject({
@@ -283,7 +290,7 @@ describe('uploaderStatusRoute handler', () => {
     })
 
     test('throws 404 when CDP Uploader returns 404', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: false,
         status: 404,
         text: async () => 'Not Found'
@@ -300,7 +307,7 @@ describe('uploaderStatusRoute handler', () => {
     })
 
     test('throws 502 when CDP Uploader returns 500', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: false,
         status: 500,
         text: async () => 'Internal Server Error'
@@ -317,7 +324,7 @@ describe('uploaderStatusRoute handler', () => {
     })
 
     test('throws 502 when CDP Uploader returns 503', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: false,
         status: 503,
         text: async () => 'Service Unavailable'
@@ -330,7 +337,7 @@ describe('uploaderStatusRoute handler', () => {
     })
 
     test('throws 502 when response JSON parsing fails', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: true,
         status: 200,
         json: async () => { throw new SyntaxError('Unexpected token') }
@@ -351,7 +358,7 @@ describe('uploaderStatusRoute handler', () => {
         uploadStatus: 'ready',
         // missing metadata, form, numberOfRejectedFiles
       }
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: true,
         status: 200,
         json: async () => invalidResponse
@@ -372,7 +379,7 @@ describe('uploaderStatusRoute handler', () => {
         ...validReadyResponse,
         uploadStatus: 'processing' // not a valid enum value
       }
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: true,
         status: 200,
         json: async () => invalidResponse

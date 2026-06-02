@@ -3,6 +3,7 @@ import { constants as httpConstants } from 'node:http2'
 
 import { createLogger } from '../../../../logging/logger.js'
 import { config } from '../../../../config/index.js'
+import { httpClient, TimeoutError } from '../../../../http/client.js'
 import {
   uploaderStatusParamsSchema,
   cdpUploaderStatusResponseSchema,
@@ -18,7 +19,6 @@ const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
 const uploaderUrl = config.get('uploaderUrl')
 const uploaderStatusEndpoint = config.get('uploaderStatusEndpoint')
-const cdpUploaderStatusTimeout = config.get('cdpUploaderTimeoutMs')
 
 export const uploaderStatusRoute = {
   method: 'GET',
@@ -49,16 +49,13 @@ export const uploaderStatusRoute = {
 
       logger.info(buildStatusRequestLog(request, uploadId), 'Forwarding status request to Upstream service')
 
-      // Fetch status from CDP Uploader with a configurable timeout
+      // Fetch status from CDP Uploader with configured timeout and retry policy
       let response
 
       try {
-        response = await fetch(url, {
-          method: 'GET',
-          signal: AbortSignal.timeout(cdpUploaderStatusTimeout)
-        })
+        response = await httpClient(url, { method: 'GET' })
       } catch (err) {
-        if (err.name === 'TimeoutError') {
+        if (err instanceof TimeoutError) {
           logger.error({ url, uploadId }, 'Upstream service status request timed out')
           throw Boom.gatewayTimeout('Upstream service request timed out')
         }

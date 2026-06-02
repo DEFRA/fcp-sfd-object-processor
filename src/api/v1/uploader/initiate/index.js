@@ -3,6 +3,7 @@ import { constants as httpConstants } from 'node:http2'
 
 import { createLogger } from '../../../../logging/logger.js'
 import { config } from '../../../../config/index.js'
+import { httpClient, TimeoutError } from '../../../../http/client.js'
 import { initiatePayloadSchema, initiateResponseSchema } from './schema.js'
 import { metricsCounter } from '../../../../api/common/helpers/metrics.js'
 
@@ -62,14 +63,13 @@ export const uploaderInitiateRoute = {
       let response
 
       try {
-        response = await fetch(url, {
+        response = await httpClient(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(config.get('cdpUploaderTimeoutMs'))
+          body: JSON.stringify(payload)
         })
       } catch (err) {
-        if (err.name === 'TimeoutError') {
+        if (err instanceof TimeoutError) {
           logger.error({ url }, 'Upstream service request timed out')
           throw Boom.gatewayTimeout('Upstream service request timed out')
         }

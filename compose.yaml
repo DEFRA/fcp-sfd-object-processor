@@ -25,6 +25,14 @@ services:
       CDP_UPLOADER_MIME_TYPES: ${CDP_UPLOADER_MIME_TYPES:-image/png,image/jpeg,image/gif,image/tiff,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.ms-excel.sheet.macroEnabled.12,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-word.document.macroEnabled.12}
       CDP_UPLOADER_MAX_FILE_SIZE: ${CDP_UPLOADER_MAX_FILE_SIZE:-10485760}
       CDP_UPLOADER_TIMEOUT_MS: ${CDP_UPLOADER_TIMEOUT_MS:-30000}
+      HTTP_RETRY_MAX_ATTEMPTS: ${HTTP_RETRY_MAX_ATTEMPTS:-3}
+      HTTP_RETRY_BASE_DELAY_MS: ${HTTP_RETRY_BASE_DELAY_MS:-500}
+      HTTP_RETRY_BACKOFF_MULTIPLIER: ${HTTP_RETRY_BACKOFF_MULTIPLIER:-1.5}
+      HTTP_RETRY_JITTER_PERCENTAGE: ${HTTP_RETRY_JITTER_PERCENTAGE:-15}
+      HTTP_RETRY_MAX_DELAY_MS: ${HTTP_RETRY_MAX_DELAY_MS:-15000}
+      RETRY_UNKNOWN_BEHAVIOR: ${RETRY_UNKNOWN_BEHAVIOR:-retryConservative}
+      RETRY_UNKNOWN_MAX_ATTEMPTS: ${RETRY_UNKNOWN_MAX_ATTEMPTS:-2}
+      RETRY_UNKNOWN_MAX_DELAY_MS: ${RETRY_UNKNOWN_MAX_DELAY_MS:-10000}
       PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL:-http://localhost:3004}
       # Database
       MONGO_URI: mongodb://mongodb:27017/?replicaSet=rs0

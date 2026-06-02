@@ -4,8 +4,20 @@ import { vi, describe, test, expect, beforeAll, afterAll, afterEach } from 'vite
 import { config } from '../../../../../src/config/index.js'
 import { createServer } from '../../../../../src/api'
 
+const { mockHttpClient } = vi.hoisted(() => ({ mockHttpClient: vi.fn() }))
+
+vi.mock('../../../../../src/http/client.js', () => ({
+  httpClient: mockHttpClient,
+  TimeoutError: class TimeoutError extends Error {
+    constructor (msg) { super(msg); this.name = 'TimeoutError' }
+  },
+  NetworkError: class NetworkError extends Error {},
+  AbortError: class AbortError extends Error {}
+}))
+
+const { TimeoutError } = await import('../../../../../src/http/client.js')
+
 let server
-const originalFetch = global.fetch
 
 const mockValidPayload = {
   redirect: '/upload-complete',
@@ -33,11 +45,10 @@ beforeAll(async () => {
 
 afterAll(async () => {
   vi.restoreAllMocks()
-  global.fetch = originalFetch
 })
 
 afterEach(() => {
-  global.fetch = originalFetch
+  mockHttpClient.mockReset()
 })
 
 describe('POST to the /api/v1/uploader/initiate route', async () => {
@@ -46,7 +57,7 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
 
   describe('with a valid payload and successful CDP Uploader response', () => {
     test('should return 200 with rewritten URLs', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: true,
         json: async () => mockCdpUploaderResponse
       })
@@ -64,7 +75,7 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
     })
 
     test('should forward enriched payload to CDP Uploader', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: true,
         json: async () => mockCdpUploaderResponse
       })
@@ -75,8 +86,8 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
         payload: mockValidPayload
       })
 
-      expect(global.fetch).toHaveBeenCalledTimes(1)
-      const [url, options] = global.fetch.mock.calls[0]
+      expect(mockHttpClient).toHaveBeenCalledTimes(1)
+      const [url, options] = mockHttpClient.mock.calls[0]
       const body = JSON.parse(options.body)
 
       expect(url).toContain('/initiate')
@@ -170,9 +181,7 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
 
   describe('CDP Uploader error handling', () => {
     test('should return 504 on timeout', async () => {
-      const timeoutError = new Error('The operation was aborted due to timeout')
-      timeoutError.name = 'TimeoutError'
-      global.fetch = vi.fn().mockRejectedValue(timeoutError)
+      mockHttpClient.mockRejectedValue(new TimeoutError('The operation was aborted due to timeout'))
 
       const response = await server.inject({
         method: 'POST',
@@ -184,7 +193,7 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
     })
 
     test('should return 502 on network error', async () => {
-      global.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'))
+      mockHttpClient.mockRejectedValue(new Error('ECONNREFUSED'))
 
       const response = await server.inject({
         method: 'POST',
@@ -196,7 +205,7 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
     })
 
     test('should return 502 on non-2xx response from CDP Uploader', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: false,
         status: 500,
         text: async () => 'Internal Server Error'
@@ -212,7 +221,7 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
     })
 
     test('should return 502 on invalid JSON response from CDP Uploader', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: true,
         json: async () => { throw new SyntaxError('Unexpected token') }
       })
