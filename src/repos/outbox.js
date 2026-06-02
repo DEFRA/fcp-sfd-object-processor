@@ -1,6 +1,9 @@
 import { config } from '../config/index.js'
 import { PENDING, FAILED, SENT } from '../constants/outbox.js'
 import { db } from '../data/db.js'
+import { createLogger } from '../logging/logger.js'
+
+const logger = createLogger()
 
 const outboxCollection = 'mongo.collections.outbox'
 
@@ -93,6 +96,31 @@ const bulkUpdateDeliveryStatus = async (session, fileIds, status, error = null) 
 
   if (!updateResult.acknowledged) {
     throw new Error('Failed to update outbox entries')
+  }
+
+  // If we just processed failures, log any entries that have reached terminal FAILED status
+  if (status === FAILED) {
+    try {
+      const terminalFilter = {
+        'payload.file.fileId': { $in: fileIds },
+        status: FAILED,
+        attempts: { $gte: maxAttempts }
+      }
+
+      const terminalDocs = await db.collection(collection)
+        .find(terminalFilter, { session })
+        .toArray()
+
+      terminalDocs.forEach(doc => {
+        const entryId = doc.payload?.file?.fileId || null
+        const attempts = doc.attempts
+        const reason = error || 'terminal_failure'
+        logger.error({ event: { type: 'outbox_terminal_failure', reference: doc._id?.toString() }, entryId, attempts, reason }, 'Outbox entry reached FAILED after max attempts')
+      })
+    } catch (err) {
+      // Non-fatal: log but don't fail the transaction because of logging
+      logger.error({ err }, 'Failed to log terminal outbox entries')
+    }
   }
 
   return updateResult

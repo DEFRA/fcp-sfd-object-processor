@@ -18,6 +18,9 @@ vi.mock('../../../../src/config/index.js', () => ({
       if (key === 'mongo.collections.outbox') return 'outbox'
       if (key === 'mongo.outboxQueryLimit') return 100
       if (key === 'messaging.outboxMaxAttempts') return 5
+      if (key === 'log') return { enabled: false, level: 'info', format: 'pino-pretty', redact: ['req', 'res'] }
+      if (key === 'serviceName') return 'test-service'
+      if (key === 'serviceVersion') return '0.0.0'
       return null
     })
   }
