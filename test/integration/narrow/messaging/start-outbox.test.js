@@ -254,7 +254,7 @@ describe('Outbox message processing', () => {
   })
 
   test('should retrieve and retry FAILED messages alongside PENDING messages', async () => {
-  // Arrange: Create mix of PENDING and FAILED entries
+    // Arrange: Create mix of PENDING and FAILED entries
     const metadataId1 = ObjectId.createFromHexString('507f1f77bcf86cd799439015')
     const metadataId2 = ObjectId.createFromHexString('507f1f77bcf86cd799439016')
 
