@@ -151,6 +151,30 @@ describe('publishPendingMessages', () => {
     expect(bulkUpdatePublishedAtDate).not.toHaveBeenCalled()
   })
 
+  test('should allow transient failure to be recovered on subsequent run', async () => {
+    // Arrange: only one pending message returned each run
+    const singleMessage = [mockPendingMessages[0]]
+    getProcessableOutboxEntries
+      .mockResolvedValueOnce(singleMessage)
+      .mockResolvedValueOnce(singleMessage)
+
+    // First run: publishing fails for the message
+    publishDocumentUploadMessageBatch
+      .mockResolvedValueOnce({ Successful: [], Failed: [{ Id: 'message-id-1' }] })
+      // Second run: publishing succeeds
+      .mockResolvedValueOnce({ Successful: [{ Id: 'message-id-1' }], Failed: [] })
+
+    // Act: run twice to simulate retry window
+    await publishPendingMessages()
+    await publishPendingMessages()
+
+    // Assert: first call records failure, second call marks as SENT and updates publishedAt
+    expect(bulkUpdateDeliveryStatus).toHaveBeenCalledTimes(2)
+    expect(bulkUpdateDeliveryStatus).toHaveBeenNthCalledWith(1, mockSession, ['message-id-1'], FAILED, 'Failed to send message')
+    expect(bulkUpdateDeliveryStatus).toHaveBeenNthCalledWith(2, mockSession, ['message-id-1'], SENT)
+    expect(bulkUpdatePublishedAtDate).toHaveBeenCalledTimes(1)
+  })
+
   test('should throw error when publishDocumentUploadMessageBatch fails', async () => {
     getProcessableOutboxEntries.mockResolvedValue(mockPendingMessages)
     const publishError = new Error('Publishing failed')
