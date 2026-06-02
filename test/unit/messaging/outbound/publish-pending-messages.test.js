@@ -88,7 +88,7 @@ describe('publishPendingMessages', () => {
   })
 
   test('should process messages in batches of 10 when more than batch size returned from getProcessableOutboxEntries', async () => {
-  // Create 25 mock messages
+    // Create 25 mock messages
     const largeBatch = Array.from({ length: 25 }, (_, index) => ({
       _id: `message-id-${index}`,
       messageId: `metadata-id-${index}`,
