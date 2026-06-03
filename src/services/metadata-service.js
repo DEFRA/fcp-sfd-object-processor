@@ -35,6 +35,13 @@ const persistMetadataWithOutbox = async (rawDocuments) => {
         .filter(val => val !== null && typeof val === 'object' && 'fileId' in val)
         .map(val => val.fileId)
 
+      if (fileIds.length === 0) {
+        logger.error(error, 'Duplicate key error but no fileIds found in payload')
+        throw error
+      }
+
+      // All files in a single callback share the same correlationId,
+      // so we only need to look up the first to retrieve it.
       const existingDocument = await getMetadataByFileId(fileIds[0])
       const { correlationId } = existingDocument.messaging
 

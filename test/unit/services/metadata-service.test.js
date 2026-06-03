@@ -271,6 +271,23 @@ describe('Metadata Service', () => {
       await expect(persistMetadataWithOutbox(rawDocuments)).rejects.toThrow('Some other database error')
       expect(getMetadataByFileId).not.toHaveBeenCalled()
     })
+
+    test('should rethrow E11000 error if no fileIds found in payload', async () => {
+      const duplicateKeyError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+      const payloadWithNoFiles = {
+        uploadStatus: 'ready',
+        metadata: { crn: 1234567890 },
+        form: {
+          'text-field': 'just a string',
+          'another-field': 'also not a file'
+        }
+      }
+
+      mockSession.withTransaction.mockRejectedValue(duplicateKeyError)
+
+      await expect(persistMetadataWithOutbox(payloadWithNoFiles)).rejects.toThrow('E11000 duplicate key error')
+      expect(getMetadataByFileId).not.toHaveBeenCalled()
+    })
   })
 
   describe('persistValidationFailureStatus', () => {
