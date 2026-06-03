@@ -1,13 +1,15 @@
 import { randomUUID } from 'node:crypto'
 
 import { client } from '../data/db.js'
-import { persistMetadata, formatInboundMetadata } from '../repos/metadata.js'
+import { persistMetadata, formatInboundMetadata, getMetadataByFileId } from '../repos/metadata.js'
 import { createOutboxEntries } from '../repos/outbox.js'
 import { insertStatus } from '../repos/status.js'
 import { createLogger } from '../logging/logger.js'
 import { buildValidatedStatusDocuments, buildValidationFailureStatusDocuments } from '../mappers/status.js'
 
 const logger = createLogger()
+
+const DUPLICATE_KEY_ERROR_CODE = 11000
 
 const persistMetadataWithOutbox = async (rawDocuments) => {
   const session = client.startSession()
@@ -28,6 +30,28 @@ const persistMetadataWithOutbox = async (rawDocuments) => {
       // this can be used in the response to the caller
     })
   } catch (error) {
+    if (error?.code === DUPLICATE_KEY_ERROR_CODE) {
+      const fileIds = Object.values(rawDocuments.form)
+        .filter(val => val !== null && typeof val === 'object' && 'fileId' in val)
+        .map(val => val.fileId)
+
+      const existingDocument = await getMetadataByFileId(fileIds[0])
+      const { correlationId } = existingDocument.messaging
+
+      logger.info(
+        {
+          event: {
+            type: 'duplicate_callback',
+            outcome: 'success',
+            reference: correlationId
+          }
+        },
+        'Duplicate callback received — returning existing correlationId'
+      )
+
+      return { duplicate: true, correlationId }
+    }
+
     logger.error(error, 'Failed to persist metadata with outbox')
     throw error
   } finally {

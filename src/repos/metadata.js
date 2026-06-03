@@ -20,6 +20,20 @@ const getS3ReferenceByFileId = async (fileId) => {
   return document
 }
 
+const getMetadataByFileId = async (fileId) => {
+  const collection = config.get(metadataCollection)
+  const document = await db.collection(collection)
+    .findOne(
+      { 'file.fileId': fileId },
+      { projection: { messaging: 1 } })
+
+  if (document === null) {
+    throw new NotFoundError('No documents found')
+  }
+
+  return document
+}
+
 // Format the raw payload received from the CDP Uploader before saving it in the DB
 // removes any formData that is not a file upload
 // creates subdocuments to organise data
@@ -111,5 +125,6 @@ export {
   persistMetadata,
   formatInboundMetadata,
   getS3ReferenceByFileId,
+  getMetadataByFileId,
   bulkUpdatePublishedAtDate
 }

@@ -9,11 +9,11 @@ import {
   buildValidationFailureStatusDocuments,
   buildValidatedStatusDocuments
 } from '../../../src/mappers/status.js'
-import { persistMetadata, formatInboundMetadata } from '../../../src/repos/metadata.js'
+import { persistMetadata, formatInboundMetadata, getMetadataByFileId } from '../../../src/repos/metadata.js'
 import { createOutboxEntries } from '../../../src/repos/outbox.js'
 import { insertStatus } from '../../../src/repos/status.js'
 import { client } from '../../../src/data/db.js'
-import { mockScanAndUploadResponseArray as rawDocuments } from '../../mocks/cdp-uploader.js'
+import { mockScanAndUploadResponseArray as rawDocuments, mockScanAndUploadResponse } from '../../mocks/cdp-uploader.js'
 import { mockFormattedDocuments as formattedDocuments } from '../../mocks/metadata.js'
 
 vi.mock('../../../src/repos/metadata.js')
@@ -224,6 +224,52 @@ describe('Metadata Service', () => {
         ]),
         mockSession
       )
+    })
+
+    test('should return duplicate indicator and correlationId on E11000 duplicate key error', async () => {
+      const existingCorrelationId = '123e4567-e89b-12d3-a456-426655440000'
+      const duplicateKeyError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+
+      mockSession.withTransaction.mockRejectedValue(duplicateKeyError)
+      getMetadataByFileId.mockResolvedValue({ messaging: { correlationId: existingCorrelationId } })
+
+      const result = await persistMetadataWithOutbox(mockScanAndUploadResponse)
+
+      expect(result).toEqual({ duplicate: true, correlationId: existingCorrelationId })
+      expect(getMetadataByFileId).toHaveBeenCalled()
+    })
+
+    test('should end session on E11000 duplicate key error', async () => {
+      const existingCorrelationId = '123e4567-e89b-12d3-a456-426655440000'
+      const duplicateKeyError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+
+      mockSession.withTransaction.mockRejectedValue(duplicateKeyError)
+      getMetadataByFileId.mockResolvedValue({ messaging: { correlationId: existingCorrelationId } })
+
+      await persistMetadataWithOutbox(mockScanAndUploadResponse)
+
+      expect(mockSession.endSession).toHaveBeenCalled()
+    })
+
+    test('should not create outbox entries on E11000 duplicate key error', async () => {
+      const existingCorrelationId = '123e4567-e89b-12d3-a456-426655440000'
+      const duplicateKeyError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+
+      mockSession.withTransaction.mockRejectedValue(duplicateKeyError)
+      getMetadataByFileId.mockResolvedValue({ messaging: { correlationId: existingCorrelationId } })
+
+      await persistMetadataWithOutbox(mockScanAndUploadResponse)
+
+      expect(createOutboxEntries).not.toHaveBeenCalled()
+    })
+
+    test('should rethrow non-duplicate errors', async () => {
+      const genericError = new Error('Some other database error')
+
+      mockSession.withTransaction.mockRejectedValue(genericError)
+
+      await expect(persistMetadataWithOutbox(rawDocuments)).rejects.toThrow('Some other database error')
+      expect(getMetadataByFileId).not.toHaveBeenCalled()
     })
   })
 

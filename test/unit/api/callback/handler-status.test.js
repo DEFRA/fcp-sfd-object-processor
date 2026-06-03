@@ -72,4 +72,30 @@ describe('callback handler status enforcement', () => {
     // Rejected files should trigger unexpected-status metric since fileStatus !== 'complete'
     expect(metricsModule.metricsCounter).toHaveBeenCalledWith('callback_unexpected_status')
   })
+
+  test('duplicate callback returns 200 with existing correlationId', async () => {
+    const payload = { ...mockScanAndUploadResponse, uploadStatus: 'ready' }
+    const existingCorrelationId = '123e4567-e89b-12d3-a456-426655440000'
+
+    metadataService.persistMetadataWithOutbox.mockResolvedValue({
+      duplicate: true,
+      correlationId: existingCorrelationId
+    })
+
+    const h = {
+      response: (body) => ({
+        body,
+        code: (status) => ({ status, body })
+      })
+    }
+
+    const result = await uploadCallback.options.handler({ payload }, h)
+
+    expect(metadataService.persistMetadataWithOutbox).toHaveBeenCalledWith(payload)
+    expect(result.status).toBe(200)
+    expect(result.body).toEqual({
+      message: 'Duplicate callback ignored',
+      correlationId: existingCorrelationId
+    })
+  })
 })

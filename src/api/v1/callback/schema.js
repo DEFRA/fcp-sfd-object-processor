@@ -67,6 +67,11 @@ const callbackSuccessResponseSchema = Joi.object({
   ids: Joi.array().items(Joi.string()).example(['60b8d295f1d2c916c8a5e9b7'])
 }).label('CallbackSuccessResponse')
 
+const callbackDuplicateResponseSchema = Joi.object({
+  message: Joi.string().example('Duplicate callback ignored'),
+  correlationId: Joi.string().uuid().example('550e8400-e29b-41d4-a716-446655440000')
+}).label('CallbackDuplicateResponse')
+
 const unprocessableEntityResponseSchema = Joi.object({
   statusCode: Joi.number().example(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY),
   error: Joi.string().example('Unprocessable Entity'),
@@ -76,4 +81,7 @@ const unprocessableEntityResponseSchema = Joi.object({
 export const callbackResponseSchema = generateResponseSchemas(
   callbackSuccessResponseSchema,
   httpConstants.HTTP_STATUS_CREATED,
-  { 422: unprocessableEntityResponseSchema })
+  {
+    200: callbackDuplicateResponseSchema,
+    422: unprocessableEntityResponseSchema
+  })

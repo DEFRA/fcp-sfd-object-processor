@@ -16,11 +16,16 @@ const db = client.db(config.get('mongo.database'))
 
 const createIndexes = async () => {
   const statusCollection = config.get('mongo.collections.status')
+  const uploadMetadataCollection = config.get('mongo.collections.uploadMetadata')
 
   await db.collection(statusCollection).createIndexes([
     { key: { sbi: 1 }, name: 'status_sbi_idx' },
     { key: { timestamp: -1 }, name: 'status_timestamp_idx' },
     { key: { sbi: 1, timestamp: -1 }, name: 'status_sbi_timestamp_idx' }
+  ])
+
+  await db.collection(uploadMetadataCollection).createIndexes([
+    { key: { 'file.fileId': 1 }, name: 'metadata_fileId_idx', unique: true }
   ])
 
   logger.info('MongoDB indexes created')
