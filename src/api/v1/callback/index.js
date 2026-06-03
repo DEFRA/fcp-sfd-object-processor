@@ -63,6 +63,13 @@ export const uploadCallback = {
       try {
         const result = await persistMetadataWithOutbox(request.payload)
 
+        if (result.duplicate) {
+          return h.response({
+            message: 'Duplicate callback ignored',
+            correlationId: result.correlationId
+          }).code(httpConstants.HTTP_STATUS_OK)
+        }
+
         return h.response({
           message: 'Metadata created',
           count: result.insertedCount,
