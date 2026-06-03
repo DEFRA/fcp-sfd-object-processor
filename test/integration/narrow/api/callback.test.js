@@ -630,9 +630,15 @@ describe('when the database is unavailable', async () => {
 })
 
 describe('POST to the /api/v1/callback route — idempotency', async () => {
+  let originalCollection
+
   beforeAll(async () => {
     server = await createServer()
     await server.initialize()
+
+    originalCollection = config.get('mongo.collections.uploadMetadata')
+    config.set('mongo.collections.uploadMetadata', 'test-callback-idempotency')
+    metadataCollection = config.get('mongo.collections.uploadMetadata')
 
     // Ensure the unique index exists on the test collection
     await db.collection(metadataCollection).createIndex(
@@ -642,6 +648,8 @@ describe('POST to the /api/v1/callback route — idempotency', async () => {
   })
 
   afterAll(async () => {
+    await db.collection(metadataCollection).deleteMany({})
+    config.set('mongo.collections.uploadMetadata', originalCollection)
     if (server && typeof server.stop === 'function') {
       await server.stop()
     }
