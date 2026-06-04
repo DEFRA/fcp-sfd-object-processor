@@ -117,7 +117,16 @@ const bulkUpdateDeliveryStatus = async (session, fileIds, status, error = null) 
         const entryId = doc.payload?.file?.fileId || null
         const attempts = doc.attempts
         const reason = error || 'terminal_failure'
-        logger.error({ event: { type: 'outbox_terminal_failure', reference: doc._id?.toString() }, entryId, attempts, reason }, 'Outbox entry reached FAILED after max attempts')
+        logger.error({
+          event: {
+            type: 'outbox_terminal_failure',
+            reference: doc._id?.toString(),
+            outcome: 'failure',
+            entryId,
+            attempts,
+            reason
+          }
+        }, 'Outbox entry reached FAILED after max attempts')
       })
     } catch (err) {
       // Non-fatal: log but don't fail the transaction because of logging
