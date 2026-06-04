@@ -108,6 +108,16 @@ const bulkUpdateDeliveryStatus = async (session, fileIds, status, error = null) 
         status: FAILED,
         attempts: { $gte: maxAttempts }
       }
+      // Only query for terminal docs when there is a possibility of any
+      // reaching terminal state after the increment. Check for any entries
+      // with attempts >= maxAttempts - 1; if none, skip the heavier query.
+      const potentialTerminalFilter = {
+        'payload.file.fileId': { $in: fileIds },
+        attempts: { $gte: Math.max(0, maxAttempts - 1) }
+      }
+
+      const potentialCount = await db.collection(collection).countDocuments(potentialTerminalFilter, { session })
+      if (potentialCount === 0) return updateResult
 
       const terminalDocs = await db.collection(collection)
         .find(terminalFilter, { session })

@@ -36,6 +36,7 @@ describe('Outbox Repository', () => {
     mockCollection = {
       insertMany: vi.fn(),
       find: vi.fn(),
+      countDocuments: vi.fn(),
       updateMany: vi.fn()
     }
 
@@ -326,6 +327,8 @@ describe('Outbox Repository', () => {
         toArray: vi.fn().mockResolvedValue([])
       }
 
+      // No potential terminal candidates: countDocuments resolves to 0
+      mockCollection.countDocuments.mockResolvedValue(0)
       mockCollection.find.mockReturnValue(mockCursor)
 
       const result = await bulkUpdateDeliveryStatus(mockSession, [mockFileId], FAILED, 'Test error message')
