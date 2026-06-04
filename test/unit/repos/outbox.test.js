@@ -26,7 +26,9 @@ beforeEach(() => {
 
   mockUpdateMany = vi.fn().mockResolvedValue({ acknowledged: true })
   mockCollection = {
-    updateMany: mockUpdateMany
+    updateMany: mockUpdateMany,
+    find: vi.fn().mockReturnValue({ toArray: vi.fn().mockResolvedValue([]) }),
+    countDocuments: vi.fn().mockResolvedValue(0)
   }
 
   db.collection = vi.fn().mockReturnValue(mockCollection)
