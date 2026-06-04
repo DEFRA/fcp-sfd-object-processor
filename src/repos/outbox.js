@@ -7,6 +7,85 @@ const logger = createLogger()
 
 const outboxCollection = 'mongo.collections.outbox'
 
+const buildFailurePipeline = (maxAttempts, errorMessage) => ([
+  {
+    $set: {
+      lastAttemptedAt: new Date(),
+      ...(errorMessage && { error: errorMessage })
+    }
+  },
+  {
+    $set: {
+      attempts: { $add: ['$attempts', 1] }
+    }
+  },
+  {
+    $set: {
+      status: {
+        // `attempts` has already been incremented in the previous stage,
+        // compare the updated value against `maxAttempts` to avoid double-increment.
+        $cond: [{ $gte: ['$attempts', maxAttempts] }, FAILED, PENDING]
+      }
+    }
+  }
+])
+
+const performSentUpdate = (collectionName, statusValue, filterObj, sess) => {
+  const updateDoc = {
+    $set: {
+      status: statusValue,
+      lastAttemptedAt: new Date()
+    },
+    $inc: { attempts: 1 }
+  }
+  return db.collection(collectionName).updateMany(filterObj, updateDoc, { session: sess })
+}
+
+const performFailureUpdate = (collectionName, filterObj, pipeline, sess) => {
+  return db.collection(collectionName).updateMany(filterObj, pipeline, { session: sess })
+}
+
+const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsVal, sess, errMsg) => {
+  const terminalFilter = {
+    'payload.file.fileId': { $in: fileIdsArr },
+    status: FAILED,
+    attempts: { $gte: maxAttemptsVal }
+  }
+
+  // Only query for terminal docs when there is a possibility of any
+  // reaching terminal state after the increment. Check for any entries
+  // with attempts >= maxAttempts - 1; if none, skip the heavier query.
+  const potentialTerminalFilter = {
+    'payload.file.fileId': { $in: fileIdsArr },
+    attempts: { $gte: Math.max(0, maxAttemptsVal - 1) }
+  }
+
+  const potentialCount = await db.collection(collectionName).countDocuments(potentialTerminalFilter, { session: sess })
+  if (potentialCount === 0) {
+    return
+  }
+
+  const terminalDocs = await db.collection(collectionName)
+    .find(terminalFilter, { session: sess })
+    .toArray()
+
+  terminalDocs.forEach(doc => {
+    const entryId = doc.payload?.file?.fileId || null
+    const attempts = doc.attempts
+    const reason = errMsg || 'terminal_failure'
+    logger.error({
+      event: {
+        type: 'outbox_terminal_failure',
+        reference: doc._id?.toString(),
+        outcome: 'failure',
+        entryId,
+        attempts,
+        reason
+      }
+    }, 'Outbox entry reached FAILED after max attempts')
+  })
+}
+
 const createOutboxEntries = async (ids, documents, session) => {
   const collection = config.get(outboxCollection)
 
@@ -58,88 +137,10 @@ const bulkUpdateDeliveryStatus = async (session, fileIds, status, error = null) 
   // by the caller. It does not necessarily represent the final persisted
   // status for the outbox entry — after the update the entry may remain
   // `PENDING` if `attempts` (after increment) are still below `maxAttempts`.
-  const buildFailurePipeline = (maxAttempts, errorMessage) => ([
-    {
-      $set: {
-        lastAttemptedAt: new Date(),
-        ...(errorMessage && { error: errorMessage })
-      }
-    },
-    {
-      $set: {
-        attempts: { $add: ['$attempts', 1] }
-      }
-    },
-    {
-      $set: {
-        status: {
-          // `attempts` has already been incremented in the previous stage,
-          // compare the updated value against `maxAttempts` to avoid double-increment.
-          $cond: [{ $gte: ['$attempts', maxAttempts] }, FAILED, PENDING]
-        }
-      }
-    }
-  ])
-
-  const performSentUpdate = (collectionName, filterObj, sess) => {
-    const updateDoc = {
-      $set: {
-        status,
-        lastAttemptedAt: new Date()
-      },
-      $inc: { attempts: 1 }
-    }
-    return db.collection(collectionName).updateMany(filterObj, updateDoc, { session: sess })
-  }
-
-  const performFailureUpdate = (collectionName, filterObj, pipeline, sess) => {
-    return db.collection(collectionName).updateMany(filterObj, pipeline, { session: sess })
-  }
-
-  const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsVal, sess, errMsg) => {
-    const terminalFilter = {
-      'payload.file.fileId': { $in: fileIdsArr },
-      status: FAILED,
-      attempts: { $gte: maxAttemptsVal }
-    }
-
-    // Only query for terminal docs when there is a possibility of any
-    // reaching terminal state after the increment. Check for any entries
-    // with attempts >= maxAttempts - 1; if none, skip the heavier query.
-    const potentialTerminalFilter = {
-      'payload.file.fileId': { $in: fileIdsArr },
-      attempts: { $gte: Math.max(0, maxAttemptsVal - 1) }
-    }
-
-    const potentialCount = await db.collection(collectionName).countDocuments(potentialTerminalFilter, { session: sess })
-    if (potentialCount === 0) {
-      return
-    }
-
-    const terminalDocs = await db.collection(collectionName)
-      .find(terminalFilter, { session: sess })
-      .toArray()
-
-    terminalDocs.forEach(doc => {
-      const entryId = doc.payload?.file?.fileId || null
-      const attempts = doc.attempts
-      const reason = errMsg || 'terminal_failure'
-      logger.error({
-        event: {
-          type: 'outbox_terminal_failure',
-          reference: doc._id?.toString(),
-          outcome: 'failure',
-          entryId,
-          attempts,
-          reason
-        }
-      }, 'Outbox entry reached FAILED after max attempts')
-    })
-  }
 
   if (status === SENT) {
     // On successful delivery: set status, lastAttemptedAt and increment attempts
-    updateResult = await performSentUpdate(collection, filter, session)
+    updateResult = await performSentUpdate(collection, status, filter, session)
   } else {
     // On failure: increment attempts, set lastAttemptedAt and error; only mark FINAL FAILED
     // when attempts after increment reach or exceed maxAttempts. Use update pipeline so we can
