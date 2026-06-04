@@ -121,7 +121,9 @@ const bulkUpdateDeliveryStatus = async (session, fileIds, status, error = null) 
       }
 
       const potentialCount = await db.collection(collection).countDocuments(potentialTerminalFilter, { session })
-      if (potentialCount === 0) return updateResult
+      if (potentialCount === 0) {
+        return updateResult
+      }
 
       const terminalDocs = await db.collection(collection)
         .find(terminalFilter, { session })
