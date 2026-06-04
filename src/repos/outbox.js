@@ -54,6 +54,10 @@ const bulkUpdateDeliveryStatus = async (session, fileIds, status, error = null) 
 
   let updateResult
 
+  // Note: `status` signals the outcome of this delivery attempt as passed
+  // by the caller. It does not necessarily represent the final persisted
+  // status for the outbox entry — after the update the entry may remain
+  // `PENDING` if `attempts` (after increment) are still below `maxAttempts`.
   if (status === SENT) {
     // On successful delivery: set status, lastAttemptedAt and increment attempts
     const updateDoc = {
