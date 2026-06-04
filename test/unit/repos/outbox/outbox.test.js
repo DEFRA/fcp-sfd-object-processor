@@ -321,6 +321,13 @@ describe('Outbox Repository', () => {
 
       mockCollection.updateMany.mockResolvedValue(mockUpdateManyResult)
       const mockFileId = randomUUID()
+      // Mock the cursor returned by find for the terminal logging path
+      const mockCursor = {
+        toArray: vi.fn().mockResolvedValue([])
+      }
+
+      mockCollection.find.mockReturnValue(mockCursor)
+
       const result = await bulkUpdateDeliveryStatus(mockSession, [mockFileId], FAILED, 'Test error message')
 
       // this is the response from the db operation
