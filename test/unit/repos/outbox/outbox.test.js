@@ -17,6 +17,10 @@ vi.mock('../../../../src/config/index.js', () => ({
     get: vi.fn((key) => {
       if (key === 'mongo.collections.outbox') return 'outbox'
       if (key === 'mongo.outboxQueryLimit') return 100
+      if (key === 'messaging.outboxMaxAttempts') return 5
+      if (key === 'log') return { enabled: false, level: 'info', format: 'pino-pretty', redact: ['req', 'res'] }
+      if (key === 'serviceName') return 'test-service'
+      if (key === 'serviceVersion') return '0.0.0'
       return null
     })
   }
@@ -32,6 +36,7 @@ describe('Outbox Repository', () => {
     mockCollection = {
       insertMany: vi.fn(),
       find: vi.fn(),
+      countDocuments: vi.fn(),
       updateMany: vi.fn()
     }
 
@@ -233,7 +238,7 @@ describe('Outbox Repository', () => {
       const result = await getProcessableOutboxEntries()
 
       expect(db.collection).toHaveBeenCalledWith('outbox')
-      expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] } })
+      expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] }, attempts: { $lt: 5 } })
       expect(mockCursor.toArray).toHaveBeenCalled()
       expect(result).toEqual(mockPendingEntries)
     })
@@ -250,7 +255,7 @@ describe('Outbox Repository', () => {
       const result = await getProcessableOutboxEntries()
 
       expect(db.collection).toHaveBeenCalledWith('outbox')
-      expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] } })
+      expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] }, attempts: { $lt: 5 } })
       expect(mockCursor.toArray).toHaveBeenCalled()
       expect(result).toEqual([])
     })
@@ -269,7 +274,7 @@ describe('Outbox Repository', () => {
 
       const result = await getProcessableOutboxEntries()
 
-      expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] } })
+      expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] }, attempts: { $lt: 5 } })
       expect(mockCursor.limit).toHaveBeenCalledWith(expect.any(Number))
       expect(mockCursor.toArray).toHaveBeenCalled()
       expect(result).toEqual(mockPendingEntries)
@@ -317,18 +322,31 @@ describe('Outbox Repository', () => {
 
       mockCollection.updateMany.mockResolvedValue(mockUpdateManyResult)
       const mockFileId = randomUUID()
+      // Mock the cursor returned by find for the terminal logging path
+      const mockCursor = {
+        toArray: vi.fn().mockResolvedValue([])
+      }
+
+      // No potential terminal candidates: countDocuments resolves to 0
+      mockCollection.countDocuments.mockResolvedValue(0)
+      mockCollection.find.mockReturnValue(mockCursor)
+
       const result = await bulkUpdateDeliveryStatus(mockSession, [mockFileId], FAILED, 'Test error message')
 
       // this is the response from the db operation
       const updatedEntry = mockCollection.updateMany.mock.calls[0]
 
       expect(updatedEntry[0]).toEqual({ 'payload.file.fileId': { $in: [mockFileId] } })
-      expect(updatedEntry[1].$set).toMatchObject({
-        status: FAILED,
-        lastAttemptedAt: expect.any(Date),
-        error: 'Test error message'
-      })
-      expect(updatedEntry[1].$inc).toEqual({ attempts: 1 })
+      // For failures we use an update pipeline: first stage sets lastAttemptedAt and error
+      const pipeline = updatedEntry[1]
+      expect(Array.isArray(pipeline)).toBe(true)
+      expect(pipeline[0]).toHaveProperty('$set')
+      expect(pipeline[0].$set).toMatchObject({ error: 'Test error message' })
+      expect(pipeline[1]).toHaveProperty('$set')
+      expect(pipeline[2]).toHaveProperty('$set')
+      // The final stage conditionally sets status to FAILED or PENDING
+      expect(JSON.stringify(pipeline[2])).toContain(FAILED)
+      expect(JSON.stringify(pipeline[2])).toContain(PENDING)
 
       expect(result).toEqual(mockUpdateManyResult)
     })

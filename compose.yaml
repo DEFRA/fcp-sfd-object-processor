@@ -30,6 +30,8 @@ services:
       MONGO_URI: mongodb://mongodb:27017/?replicaSet=rs0
       MONGO_READ_PREFERENCE: primary
       MONGO_OUTBOX_QUERY_LIMIT: ${MONGO_OUTBOX_QUERY_LIMIT:-100}
+      # Outbox
+      OUTBOX_MAX_ATTEMPTS: ${OUTBOX_MAX_ATTEMPTS:-5}
       # aws
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test

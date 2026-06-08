@@ -1,4 +1,5 @@
 import { createLogger } from '../../../../logging/logger.js'
+import { config } from '../../../../config/index.js'
 import { getProcessableOutboxEntries, bulkUpdateDeliveryStatus } from '../../../../repos/outbox.js'
 import { bulkUpdatePublishedAtDate } from '../../../../repos/metadata.js'
 import { publishDocumentUploadMessageBatch } from './publish-document-upload-message-batch.js'
@@ -24,6 +25,37 @@ const publishPendingMessages = async () => {
       const batch = pendingMessages.slice(i, i + BATCH_SIZE)
 
       const { Successful, Failed } = await publishDocumentUploadMessageBatch(batch)
+
+      // Cross-reference failed IDs against the batch to detect entries
+      // that will reach terminal FAILED state after this attempt and log
+      // a structured error for them.
+      if (Failed.length > 0) {
+        const maxAttempts = config.get('messaging.outboxMaxAttempts')
+        const failedIds = new Set(Failed.map(f => f.Id))
+
+        const imminentTerminal = batch.filter(entry => {
+          const entryId = entry?.payload?.file?.fileId || entry?.messageId
+          return failedIds.has(entryId) && ((entry.attempts || 0) + 1) >= maxAttempts
+        })
+
+        imminentTerminal.forEach(entry => {
+          const entryId = entry?.payload?.file?.fileId || entry?.messageId || null
+          const attempts = (entry.attempts || 0) + 1
+          const failedInfo = Failed.find(f => f.Id === entryId) || {}
+          const reason = failedInfo.Message || failedInfo.Code || 'failed_to_publish'
+
+          logger.error({
+            event: {
+              type: 'outbox_terminal_failure_imminent',
+              reference: entry._id?.toString(),
+              outcome: 'failure',
+              entryId,
+              attempts,
+              reason
+            }
+          }, 'Outbox entry will reach FAILED after this attempt')
+        })
+      }
 
       await session.withTransaction(async () => {
         if (Successful.length > 0) {

@@ -23,6 +23,7 @@ vi.mock('../../../../src/config/index.js', () => ({
       if (key === 'aws.messaging.topics.documentUploadEvents') {
         return 'arn:aws:sns:eu-west-2:000000000000:fcp_sfd_object_processor_events'
       }
+      if (key === 'messaging.outboxMaxAttempts') return 2
       return null
     })
   }
@@ -88,7 +89,7 @@ describe('publishPendingMessages', () => {
   })
 
   test('should process messages in batches of 10 when more than batch size returned from getProcessableOutboxEntries', async () => {
-  // Create 25 mock messages
+    // Create 25 mock messages
     const largeBatch = Array.from({ length: 25 }, (_, index) => ({
       _id: `message-id-${index}`,
       messageId: `metadata-id-${index}`,
@@ -151,6 +152,30 @@ describe('publishPendingMessages', () => {
     expect(bulkUpdatePublishedAtDate).not.toHaveBeenCalled()
   })
 
+  test('should allow transient failure to be recovered on subsequent run', async () => {
+    // Arrange: only one pending message returned each run
+    const singleMessage = [mockPendingMessages[0]]
+    getProcessableOutboxEntries
+      .mockResolvedValueOnce(singleMessage)
+      .mockResolvedValueOnce(singleMessage)
+
+    // First run: publishing fails for the message
+    publishDocumentUploadMessageBatch
+      .mockResolvedValueOnce({ Successful: [], Failed: [{ Id: 'message-id-1' }] })
+      // Second run: publishing succeeds
+      .mockResolvedValueOnce({ Successful: [{ Id: 'message-id-1' }], Failed: [] })
+
+    // Act: run twice to simulate retry window
+    await publishPendingMessages()
+    await publishPendingMessages()
+
+    // Assert: first call records failure, second call marks as SENT and updates publishedAt
+    expect(bulkUpdateDeliveryStatus).toHaveBeenCalledTimes(2)
+    expect(bulkUpdateDeliveryStatus).toHaveBeenNthCalledWith(1, mockSession, ['message-id-1'], FAILED, 'Failed to send message')
+    expect(bulkUpdateDeliveryStatus).toHaveBeenNthCalledWith(2, mockSession, ['message-id-1'], SENT)
+    expect(bulkUpdatePublishedAtDate).toHaveBeenCalledTimes(1)
+  })
+
   test('should throw error when publishDocumentUploadMessageBatch fails', async () => {
     getProcessableOutboxEntries.mockResolvedValue(mockPendingMessages)
     const publishError = new Error('Publishing failed')
@@ -185,5 +210,91 @@ describe('publishPendingMessages', () => {
     await expect(publishPendingMessages()).rejects.toThrow('Database error')
 
     expect(mockSession.endSession).toHaveBeenCalledOnce()
+  })
+
+  test('should log imminent terminal failures when attempts reach maxAttempts', async () => {
+    const { createLogger } = await import('../../../../src/logging/logger.js')
+    const logger = createLogger()
+
+    const imminentMessage = [
+      {
+        _id: 'imminent-id',
+        messageId: 'metadata-id-imminent',
+        payload: {
+          metadata: { sbi: '111111111' },
+          file: { fileId: 'file-imminent', filename: 'imminent.pdf' }
+        },
+        status: 'pending',
+        attempts: 1,
+        createdAt: new Date()
+      }
+    ]
+
+    // attempts = 1, outboxMaxAttempts mocked to 2 => (1 || 0) + 1 >= 2 true
+    getProcessableOutboxEntries.mockResolvedValue(imminentMessage)
+
+    publishDocumentUploadMessageBatch.mockResolvedValue({
+      Successful: [],
+      Failed: [{ Id: 'file-imminent', Message: 'SNS failure' }]
+    })
+
+    await publishPendingMessages()
+
+    expect(logger.error).toHaveBeenCalled()
+    const callArgs = logger.error.mock.calls[0][0]
+    expect(callArgs.event).toBeDefined()
+    expect(callArgs.event.type).toBe('outbox_terminal_failure_imminent')
+  })
+
+  test('should map entries without payload.file using messageId and update statuses accordingly', async () => {
+    const entries = [
+      {
+        _id: 'm1',
+        messageId: 'meta-1',
+        payload: { metadata: { sbi: '1' } },
+        attempts: 0
+      },
+      {
+        _id: 'm2',
+        messageId: 'meta-2',
+        payload: { metadata: { sbi: '2' } },
+        attempts: 0
+      }
+    ]
+
+    getProcessableOutboxEntries.mockResolvedValue(entries)
+
+    // SNS returns Ids that match the messageId values
+    publishDocumentUploadMessageBatch.mockResolvedValue({
+      Successful: [{ Id: 'meta-1' }],
+      Failed: [{ Id: 'meta-2' }]
+    })
+
+    await publishPendingMessages()
+
+    expect(bulkUpdateDeliveryStatus).toHaveBeenCalledWith(mockSession, ['meta-1'], SENT)
+    expect(bulkUpdatePublishedAtDate).toHaveBeenCalledWith(mockSession, ['meta-1'])
+    expect(bulkUpdateDeliveryStatus).toHaveBeenCalledWith(mockSession, ['meta-2'], FAILED, 'Failed to send message')
+  })
+
+  test('should NOT log imminent terminal failures when attempts remain below max', async () => {
+    const { createLogger } = await import('../../../../src/logging/logger.js')
+    const logger = createLogger()
+
+    const msg = [
+      {
+        _id: 'no-imminent',
+        messageId: 'meta-no',
+        payload: { file: { fileId: 'file-no' } },
+        attempts: 0
+      }
+    ]
+
+    getProcessableOutboxEntries.mockResolvedValue(msg)
+    publishDocumentUploadMessageBatch.mockResolvedValue({ Successful: [], Failed: [{ Id: 'file-no' }] })
+
+    await publishPendingMessages()
+
+    expect(logger.error).not.toHaveBeenCalled()
   })
 })
