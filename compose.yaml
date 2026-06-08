@@ -78,13 +78,17 @@ services:
       MOCK_VIRUS_SCAN_ENABLED: true
       MOCK_VIRUS_RESULT_DELAY: 3
       SQS_ENDPOINT: http://floci:4566
+      SQS_SCAN_RESULTS: http://floci:4566/000000000000/cdp-clamav-results
+      SQS_SCAN_RESULTS_CALLBACK: http://floci:4566/000000000000/cdp-uploader-scan-results-callback.fifo
+      SQS_DOWNLOAD_REQUESTS: http://floci:4566/000000000000/cdp-uploader-download-requests
+      SQS_MOCK_CLAMAV: mock-clamav
       S3_ENDPOINT: http://floci:4566
       CONSUMER_BUCKETS: fcp-sfd-object-processor-bucket
     networks:
       - fcp-sfd
 
   floci:
-    image: hectorvent/floci:1.5.5
+    image: floci/floci:1.5.22
     environment:
       FLOCI_HOSTNAME: floci
       FLOCI_DEFAULT_REGION: ${AWS_REGION:-eu-west-2}
