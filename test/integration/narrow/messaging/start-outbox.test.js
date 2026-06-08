@@ -540,6 +540,57 @@ describe('Outbox message processing', () => {
     config.set('mongo.outboxQueryLimit', originalQueryLimit)
   })
 
+  test('should NOT reprocess exhausted FAILED entries (attempts >= maxAttempts)', async () => {
+    // Arrange: create a metadata + outbox entry that is already exhausted
+    const metadataId = ObjectId.createFromHexString('507f1f77bcf86cd79943901f')
+
+    const metadataEntry = {
+      _id: metadataId,
+      metadata: mockPendingMessages[0].payload.metadata,
+      file: { fileId: 'file-exhausted', filename: 'exhausted.pdf', fileStatus: 'complete' },
+      s3: { key: 's3-key-exhausted', bucket: 'test-bucket' },
+      messaging: { publishedAt: null, correlationId: 'exhausted-correlation-id' }
+    }
+
+    await db.collection(metadataCollection).insertOne(metadataEntry)
+
+    // Set max attempts to 5 for clarity
+    const originalMaxAttempts = config.get('messaging.outboxMaxAttempts')
+    config.set('messaging.outboxMaxAttempts', 5)
+
+    const exhaustedMessage = {
+      messageId: metadataId,
+      payload: {
+        metadata: mockPendingMessages[0].payload.metadata,
+        file: { fileId: 'file-exhausted', filename: 'exhausted.pdf' },
+        messaging: { publishedAt: null, correlationId: 'exhausted-correlation-id' }
+      },
+      status: FAILED,
+      attempts: 5,
+      createdAt: new Date()
+    }
+
+    const insertResult = await db.collection(outboxCollection).insertOne(exhaustedMessage)
+    const insertedId = insertResult.insertedId
+
+    // Act: run the publisher
+    await publishPendingMessages()
+
+    // Assert: publishBatch should NOT have been called because there are no processable messages
+    expect(publishBatch).toHaveBeenCalledTimes(0)
+
+    // Assert: the exhausted entry remains unchanged (still FAILED and same attempts)
+    const stored = await db.collection(outboxCollection).findOne({ _id: insertedId })
+    expect(stored).toBeTruthy()
+    expect(stored.status).toBe(FAILED)
+    expect(stored.attempts).toBe(5)
+    // lastAttemptedAt should not have been set/updated
+    expect(stored.lastAttemptedAt).toBeUndefined()
+
+    // Cleanup: restore original max attempts
+    config.set('messaging.outboxMaxAttempts', originalMaxAttempts)
+  })
+
   test('should mark outbox entry as FAILED after exhausting max attempts across retries', async () => {
     // Arrange: single metadata + outbox entry
     const metadataId = ObjectId.createFromHexString('507f1f77bcf86cd79943901e')
