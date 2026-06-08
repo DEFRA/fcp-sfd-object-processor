@@ -245,4 +245,56 @@ describe('publishPendingMessages', () => {
     expect(callArgs.event).toBeDefined()
     expect(callArgs.event.type).toBe('outbox_terminal_failure_imminent')
   })
+
+  test('should map entries without payload.file using messageId and update statuses accordingly', async () => {
+    const entries = [
+      {
+        _id: 'm1',
+        messageId: 'meta-1',
+        payload: { metadata: { sbi: '1' } },
+        attempts: 0
+      },
+      {
+        _id: 'm2',
+        messageId: 'meta-2',
+        payload: { metadata: { sbi: '2' } },
+        attempts: 0
+      }
+    ]
+
+    getProcessableOutboxEntries.mockResolvedValue(entries)
+
+    // SNS returns Ids that match the messageId values
+    publishDocumentUploadMessageBatch.mockResolvedValue({
+      Successful: [{ Id: 'meta-1' }],
+      Failed: [{ Id: 'meta-2' }]
+    })
+
+    await publishPendingMessages()
+
+    expect(bulkUpdateDeliveryStatus).toHaveBeenCalledWith(mockSession, ['meta-1'], SENT)
+    expect(bulkUpdatePublishedAtDate).toHaveBeenCalledWith(mockSession, ['meta-1'])
+    expect(bulkUpdateDeliveryStatus).toHaveBeenCalledWith(mockSession, ['meta-2'], FAILED, 'Failed to send message')
+  })
+
+  test('should NOT log imminent terminal failures when attempts remain below max', async () => {
+    const { createLogger } = await import('../../../../src/logging/logger.js')
+    const logger = createLogger()
+
+    const msg = [
+      {
+        _id: 'no-imminent',
+        messageId: 'meta-no',
+        payload: { file: { fileId: 'file-no' } },
+        attempts: 0
+      }
+    ]
+
+    getProcessableOutboxEntries.mockResolvedValue(msg)
+    publishDocumentUploadMessageBatch.mockResolvedValue({ Successful: [], Failed: [{ Id: 'file-no' }] })
+
+    await publishPendingMessages()
+
+    expect(logger.error).not.toHaveBeenCalled()
+  })
 })
