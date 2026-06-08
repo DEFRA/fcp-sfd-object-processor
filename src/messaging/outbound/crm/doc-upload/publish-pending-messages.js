@@ -31,11 +31,11 @@ const publishPendingMessages = async () => {
       // a structured error for them.
       if (Failed.length > 0) {
         const maxAttempts = config.get('messaging.outboxMaxAttempts')
-        const failedIds = Failed.map(f => f.Id)
+        const failedIds = new Set(Failed.map(f => f.Id))
 
         const imminentTerminal = batch.filter(entry => {
           const entryId = entry?.payload?.file?.fileId || entry?.messageId
-          return failedIds.includes(entryId) && ((entry.attempts || 0) + 1) >= maxAttempts
+          return failedIds.has(entryId) && ((entry.attempts || 0) + 1) >= maxAttempts
         })
 
         imminentTerminal.forEach(entry => {
