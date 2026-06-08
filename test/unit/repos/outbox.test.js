@@ -1,3 +1,4 @@
+/* eslint-disable import-x/first, @stylistic/no-multiple-empty-lines */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../../src/config/index.js', () => {
@@ -11,7 +12,6 @@ vi.mock('../../../src/config/index.js', () => {
   })
   return { config: { get } }
 })
-
 vi.mock('../../../src/data/db.js', () => ({
   db: { collection: vi.fn() }
 }))
@@ -34,7 +34,7 @@ describe('src/repos/outbox', () => {
   })
 
   it('createOutboxEntries inserts only complete files and returns insertedIds', async () => {
-    const ids = { '0': 'm1', '1': 'm2' }
+    const ids = { 0: 'm1', 1: 'm2' }
     const documents = [
       { file: { fileStatus: 'complete' } },
       { file: { fileStatus: 'pending' } }
@@ -51,7 +51,7 @@ describe('src/repos/outbox', () => {
   })
 
   it('createOutboxEntries returns empty object when no complete files', async () => {
-    const ids = { '0': 'm1' }
+    const ids = { 0: 'm1' }
     const documents = [{ file: { fileStatus: 'pending' } }]
     // ensure insertMany not called
     const collectionObj = { insertMany: vi.fn() }
@@ -63,7 +63,7 @@ describe('src/repos/outbox', () => {
   })
 
   it('createOutboxEntries throws when insertMany not acknowledged', async () => {
-    const ids = { '0': 'm1' }
+    const ids = { 0: 'm1' }
     const documents = [{ file: { fileStatus: 'complete' } }]
     const collectionObj = { insertMany: vi.fn().mockResolvedValue({ acknowledged: false }) }
     db.collection.mockReturnValue(collectionObj)
