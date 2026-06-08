@@ -23,6 +23,7 @@ vi.mock('../../../../src/config/index.js', () => ({
       if (key === 'aws.messaging.topics.documentUploadEvents') {
         return 'arn:aws:sns:eu-west-2:000000000000:fcp_sfd_object_processor_events'
       }
+      if (key === 'messaging.outboxMaxAttempts') return 2
       return null
     })
   }
@@ -209,5 +210,39 @@ describe('publishPendingMessages', () => {
     await expect(publishPendingMessages()).rejects.toThrow('Database error')
 
     expect(mockSession.endSession).toHaveBeenCalledOnce()
+  })
+
+  test('should log imminent terminal failures when attempts reach maxAttempts', async () => {
+    const { createLogger } = await import('../../../../src/logging/logger.js')
+    const logger = createLogger()
+
+    const imminentMessage = [
+      {
+        _id: 'imminent-id',
+        messageId: 'metadata-id-imminent',
+        payload: {
+          metadata: { sbi: '111111111' },
+          file: { fileId: 'file-imminent', filename: 'imminent.pdf' }
+        },
+        status: 'pending',
+        attempts: 1,
+        createdAt: new Date()
+      }
+    ]
+
+    // attempts = 1, outboxMaxAttempts mocked to 2 => (1 || 0) + 1 >= 2 true
+    getProcessableOutboxEntries.mockResolvedValue(imminentMessage)
+
+    publishDocumentUploadMessageBatch.mockResolvedValue({
+      Successful: [],
+      Failed: [{ Id: 'file-imminent', Message: 'SNS failure' }]
+    })
+
+    await publishPendingMessages()
+
+    expect(logger.error).toHaveBeenCalled()
+    const callArgs = logger.error.mock.calls[0][0]
+    expect(callArgs.event).toBeDefined()
+    expect(callArgs.event.type).toBe('outbox_terminal_failure_imminent')
   })
 })
