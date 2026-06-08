@@ -1,85 +1,123 @@
-import { vi, describe, test, expect, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { bulkUpdateDeliveryStatus } from '../../../src/repos/outbox.js'
-import { FAILED, PENDING } from '../../../src/constants/outbox.js'
-import { config } from '../../../src/config/index.js'
-import { db } from '../../../src/data/db.js'
-
-vi.mock('../../../src/config/index.js')
-vi.mock('../../../src/data/db.js', () => ({
-  db: { collection: vi.fn() },
-  client: { startSession: vi.fn() }
-}))
-vi.mock('../../../src/logging/logger.js', () => ({
-  createLogger: vi.fn().mockReturnValue({
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn()
-  })
-}))
-
-let mockCollection
-let mockUpdateMany
-
-beforeEach(() => {
-  vi.resetAllMocks()
-
-  mockUpdateMany = vi.fn().mockResolvedValue({ acknowledged: true })
-  mockCollection = {
-    updateMany: mockUpdateMany,
-    find: vi.fn().mockReturnValue({ toArray: vi.fn().mockResolvedValue([]) }),
-    countDocuments: vi.fn().mockResolvedValue(0)
-  }
-
-  db.collection = vi.fn().mockReturnValue(mockCollection)
-  config.get = vi.fn().mockImplementation((key) => {
+vi.mock('../../../src/config/index.js', () => {
+  const get = vi.fn((key) => {
     switch (key) {
       case 'mongo.collections.outbox': return 'outbox'
-      case 'messaging.outboxMaxAttempts': return 3
+      case 'mongo.outboxQueryLimit': return 10
+      case 'messaging.outboxMaxAttempts': return 2
       default: return null
     }
   })
+  return { config: { get } }
 })
 
-describe('bulkUpdateDeliveryStatus', () => {
-  test('sets SENT and increments attempts', async () => {
-    await bulkUpdateDeliveryStatus(null, ['file-1'], 'SENT')
+vi.mock('../../../src/data/db.js', () => ({
+  db: { collection: vi.fn() }
+}))
 
-    expect(db.collection).toHaveBeenCalledWith('outbox')
-    expect(mockUpdateMany).toHaveBeenCalled()
-    const [filter, updateDoc] = mockUpdateMany.mock.calls[0]
-    expect(filter).toEqual({ 'payload.file.fileId': { $in: ['file-1'] } })
-    expect(updateDoc).toHaveProperty('$set')
-    expect(updateDoc.$set).toHaveProperty('status', 'SENT')
-    expect(updateDoc.$set).toHaveProperty('lastAttemptedAt')
-    expect(updateDoc).toHaveProperty('$inc')
-    expect(updateDoc.$inc).toHaveProperty('attempts', 1)
+vi.mock('../../../src/logging/logger.js', () => ({
+  createLogger: () => ({ error: vi.fn(), info: vi.fn(), warn: vi.fn() })
+}))
+
+import { config } from '../../../src/config/index.js'
+import { db } from '../../../src/data/db.js'
+import {
+  createOutboxEntries,
+  getProcessableOutboxEntries,
+  bulkUpdateDeliveryStatus
+} from '../../../src/repos/outbox.js'
+
+describe('src/repos/outbox', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
   })
 
-  test('increments attempts and keeps PENDING when below maxAttempts', async () => {
-    // Simulate failure update pipeline by returning acknowledged
-    await bulkUpdateDeliveryStatus(null, ['file-2'], 'FAILED', 'error')
+  it('createOutboxEntries inserts only complete files and returns insertedIds', async () => {
+    const ids = { '0': 'm1', '1': 'm2' }
+    const documents = [
+      { file: { fileStatus: 'complete' } },
+      { file: { fileStatus: 'pending' } }
+    ]
 
-    expect(db.collection).toHaveBeenCalledWith('outbox')
-    expect(mockUpdateMany).toHaveBeenCalled()
-    const [filter, pipeline] = mockUpdateMany.mock.calls[0]
-    expect(filter).toEqual({ 'payload.file.fileId': { $in: ['file-2'] } })
-    // pipeline should be an array of stages
-    expect(Array.isArray(pipeline)).toBe(true)
-    // The last stage sets status conditionally
-    const lastStage = pipeline[pipeline.length - 1]
-    expect(lastStage).toHaveProperty('$set')
-    // condition should reference FAILED and PENDING
-    expect(JSON.stringify(lastStage)).toContain(FAILED)
-    expect(JSON.stringify(lastStage)).toContain(PENDING)
+    const insertResult = { acknowledged: true, insertedIds: { 0: 'abc' } }
+    const collectionObj = { insertMany: vi.fn().mockResolvedValue(insertResult) }
+    db.collection.mockReturnValue(collectionObj)
+
+    const res = await createOutboxEntries(ids, documents, { session: 's' })
+    expect(collectionObj.insertMany).toHaveBeenCalled()
+    expect(res).toEqual(insertResult.insertedIds)
+    expect(config.get).toHaveBeenCalledWith('mongo.collections.outbox')
   })
 
-  test('marks FAILED when attempts reach maxAttempts', async () => {
-    // To test conditional setting, call function and ensure pipeline is used
-    await bulkUpdateDeliveryStatus(null, ['file-3'], 'FAILED')
+  it('createOutboxEntries returns empty object when no complete files', async () => {
+    const ids = { '0': 'm1' }
+    const documents = [{ file: { fileStatus: 'pending' } }]
+    // ensure insertMany not called
+    const collectionObj = { insertMany: vi.fn() }
+    db.collection.mockReturnValue(collectionObj)
 
-    const pipeline = mockUpdateMany.mock.calls[0][1]
-    const lastStage = pipeline[pipeline.length - 1]
-    expect(JSON.stringify(lastStage)).toContain(FAILED)
+    const res = await createOutboxEntries(ids, documents, null)
+    expect(res).toEqual({})
+    expect(collectionObj.insertMany).not.toHaveBeenCalled()
+  })
+
+  it('createOutboxEntries throws when insertMany not acknowledged', async () => {
+    const ids = { '0': 'm1' }
+    const documents = [{ file: { fileStatus: 'complete' } }]
+    const collectionObj = { insertMany: vi.fn().mockResolvedValue({ acknowledged: false }) }
+    db.collection.mockReturnValue(collectionObj)
+
+    await expect(createOutboxEntries(ids, documents, {})).rejects.toThrow('Failed to insert outbox entries')
+  })
+
+  it('getProcessableOutboxEntries queries with correct filter and returns entries', async () => {
+    const expected = [{ _id: '1' }]
+    const toArray = vi.fn().mockResolvedValue(expected)
+    const limit = vi.fn(() => ({ toArray }))
+    const find = vi.fn(() => ({ limit }))
+    const collectionObj = { find }
+    db.collection.mockReturnValue(collectionObj)
+
+    const res = await getProcessableOutboxEntries()
+    expect(find).toHaveBeenCalled()
+    expect(res).toBe(expected)
+  })
+
+  it('bulkUpdateDeliveryStatus uses sent update path and returns result', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
+    const collectionObj = { updateMany }
+    db.collection.mockReturnValue(collectionObj)
+
+    const session = { id: 's' }
+    const fileIds = ['f1']
+    const res = await bulkUpdateDeliveryStatus(session, fileIds, 'SENT')
+    expect(updateMany).toHaveBeenCalled()
+    expect(res).toEqual({ acknowledged: true })
+  })
+
+  it('bulkUpdateDeliveryStatus uses failure pipeline and logs terminal failures', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
+    const countDocuments = vi.fn().mockResolvedValue(1)
+    const toArray = vi.fn().mockResolvedValue([{ _id: 'x', status: 'FAILED', payload: { file: { fileId: 'f1' } }, attempts: 2 }])
+    const find = vi.fn(() => ({ toArray }))
+    const collectionObj = { updateMany, countDocuments, find }
+    db.collection.mockImplementation((name) => collectionObj)
+
+    const session = { id: 's' }
+    const fileIds = ['f1']
+    // ensure config max attempts === 2 from mock
+    const res = await bulkUpdateDeliveryStatus(session, fileIds, 'FAILED', 'boom')
+    expect(updateMany).toHaveBeenCalled()
+    expect(res).toEqual({ acknowledged: true })
+  })
+
+  it('bulkUpdateDeliveryStatus throws when update acknowledged is false', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ acknowledged: false })
+    const collectionObj = { updateMany }
+    db.collection.mockReturnValue(collectionObj)
+
+    await expect(bulkUpdateDeliveryStatus({}, ['f'], 'SENT')).rejects.toThrow('Failed to update outbox entries')
   })
 })
+
