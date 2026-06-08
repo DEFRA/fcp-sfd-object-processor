@@ -67,7 +67,7 @@
           "url": {
             "type": "string",
             "description": "Presigned URL that allows time-restricted access to a file in S3.",
-            "example": "https://my-bucket.s3.amazonaws.com/photos/cat.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20251006%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20251006T121314Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=5a2e4b9c9e4b6d4b8b7a6b6f4f1d5b2c6e7d8a9e6c3f1b2e4d5a6b7c8d9e0f1a"
+            "example": "https://my-bucket.s3.amazonaws.com/photos/cat.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20251006%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20251006T121314Z&X-Amz-Expires=300&X-Amz-SignedHeaders=host&X-Amz-Signature=5a2e4b9c9e4b6d4b8b7a6b6f4f1d5b2c6e7d8a9e6c3f1b2e4d5a6b7c8d9e0f1a"
           }
         },
         "required": [
@@ -329,7 +329,7 @@
       },
       "CdpStatusForm": {
         "type": "object",
-        "description": "Form data containing text fields, file upload objects, or arrays of file upload objects",
+        "description": "Form data containing text fields and file upload objects",
         "example": {
           "file-upload-1": {
             "fileId": "9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
@@ -342,22 +342,6 @@
             "s3Key": "scanned/folder/9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
             "s3Bucket": "fcp-sfd-object-processor-bucket"
           }
-        },
-        "additionalProperties": {
-          "oneOf": [
-            {
-              "$ref": "#/components/schemas/FileUpload"
-            },
-            {
-              "type": "array",
-              "items": {
-                "$ref": "#/components/schemas/FileUpload"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ]
         }
       },
       "MappedUploaderStatusData": {
@@ -420,7 +404,7 @@
           },
           "message": {
             "type": "string",
-            "example": "CDP Uploader request failed"
+            "example": "Upstream service request failed"
           }
         }
       },
@@ -437,7 +421,7 @@
           },
           "message": {
             "type": "string",
-            "example": "CDP Uploader request timed out"
+            "example": "Upstream service request timed out"
           }
         }
       },
@@ -530,20 +514,19 @@
         "type": "object",
         "description": "Form data containing both text fields and file uploads",
         "additionalProperties": {
-          "oneOf": [
-            {
-              "$ref": "#/components/schemas/FileUpload"
-            },
-            {
-              "type": "array",
-              "items": {
+          "$ref": "#/components/schemas/FileUpload"
+        },
+        "x-meta": {
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
                 "$ref": "#/components/schemas/FileUpload"
               }
-            },
-            {
-              "type": "string"
-            }
-          ]
+            ]
+          }
         }
       },
       "CallbackPayload": {
@@ -571,6 +554,22 @@
           "metadata",
           "form"
         ]
+      },
+      "CallbackDuplicateResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Duplicate callback ignored"
+          },
+          "correlationId": {
+            "type": "string",
+            "example": "550e8400-e29b-41d4-a716-446655440000",
+            "x-format": {
+              "guid": true
+            }
+          }
+        }
       },
       "ids": {
         "type": "array",
@@ -739,7 +738,7 @@
       },
       "FileUpload": {
         "type": "object",
-        "description": "File upload metadata from CDP Uploader. Fields present depend on file processing state.",
+        "description": "File upload metadata from CDP Uploader",
         "properties": {
           "fileId": {
             "type": "string",
@@ -761,12 +760,10 @@
           },
           "fileStatus": {
             "type": "string",
-            "description": "Status of the file upload. Absent for unprocessed files in initiated/pending upload states.",
+            "description": "Status of the file upload",
             "example": "complete",
             "enum": [
-              "complete",
-              "rejected",
-              "pending"
+              "complete"
             ]
           },
           "contentLength": {
@@ -777,45 +774,39 @@
           },
           "checksumSha256": {
             "type": "string",
-            "description": "SHA-256 checksum of the file encoded in base64. Present for complete and rejected files.",
+            "description": "SHA-256 checksum of the file encoded in base64",
             "example": "bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=",
             "pattern": "^[A-Za-z0-9+/]+=*$"
           },
           "detectedContentType": {
             "type": "string",
-            "description": "MIME type detected by virus scanning. Present for complete and rejected files.",
+            "description": "MIME type detected by virus scanning",
             "example": "application/pdf",
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9!#$&^_+-]*/[a-zA-Z0-9][a-zA-Z0-9!#$&^_+.-]*$"
           },
           "s3Key": {
             "type": "string",
-            "description": "S3 object key where the file is stored. Only present for complete files.",
+            "description": "S3 object key where the file is stored",
             "example": "scanned/folder/9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
             "minLength": 1
           },
           "s3Bucket": {
             "type": "string",
-            "description": "S3 bucket name where the file is stored. Only present for complete files.",
+            "description": "S3 bucket name where the file is stored",
             "example": "fcp-sfd-object-processor-bucket",
             "minLength": 1
-          },
-          "hasError": {
-            "type": "boolean",
-            "description": "Whether the file was rejected due to an error. Only present for rejected files.",
-            "example": true
-          },
-          "errorMessage": {
-            "type": "string",
-            "description": "Error message explaining why the file was rejected. Only present for rejected files.",
-            "example": "The selected file contains a virus",
-            "minLength": 1,
-            "maxLength": 2000
           }
         },
         "required": [
           "fileId",
           "filename",
-          "contentType"
+          "contentType",
+          "fileStatus",
+          "contentLength",
+          "checksumSha256",
+          "detectedContentType",
+          "s3Key",
+          "s3Bucket"
         ]
       }
     }
@@ -1080,10 +1071,8 @@
                             "fileId": "9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
                             "filename": "document.pdf",
                             "contentType": "application/pdf",
-                            "detectedContentType": "application/pdf",
-                            "checksumSha256": "bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=",
-                            "contentLength": 11264,
                             "fileStatus": "rejected",
+                            "contentLength": 11264,
                             "hasError": true,
                             "errorMessage": "File rejected: virus detected"
                           }
@@ -1110,7 +1099,9 @@
                           "file-upload-1": {
                             "fileId": "9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
                             "filename": "document.pdf",
-                            "contentType": "application/pdf"
+                            "contentType": "application/pdf",
+                            "detectedContentType": "application/pdf",
+                            "fileStatus": "pending"
                           }
                         }
                       }
@@ -1201,6 +1192,16 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallbackDuplicateResponse"
+                }
+              }
+            }
+          },
           "201": {
             "description": "Created",
             "content": {
@@ -1266,9 +1267,9 @@
     },
     "/api/v1/uploader/initiate": {
       "post": {
-        "summary": "Initiate a browser upload via CDP Uploader",
+        "summary": "Initiate a browser upload via upstream service",
         "operationId": "postApiV1UploaderInitiate",
-        "description": "Proxies initiation requests to CDP Uploader, enriching with server-side config and rewriting response URLs.",
+        "description": "Proxies initiation requests to upstream service, enriching with server-side config and rewriting response URLs.",
         "tags": [
           "uploader"
         ],

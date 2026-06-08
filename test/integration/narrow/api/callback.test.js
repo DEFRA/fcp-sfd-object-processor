@@ -5,6 +5,7 @@ import { db } from '../../../../src/data/db.js'
 import { config } from '../../../../src/config'
 import { createServer } from '../../../../src/api'
 import { mockScanAndUploadResponse, mockScanAndUploadResponseSingleFile } from '../../../mocks/cdp-uploader.js'
+import { baseMetadata, baseFileUpload2 } from '../../../mocks/base-data.js'
 
 let server
 let originalMetadataCollection
@@ -625,5 +626,120 @@ describe('when the database is unavailable', async () => {
     } finally {
       dbSpy.mockRestore()
     }
+  })
+})
+
+describe('POST to the /api/v1/callback route — idempotency', async () => {
+  let originalCollection
+
+  beforeAll(async () => {
+    server = await createServer()
+    await server.initialize()
+
+    originalCollection = config.get('mongo.collections.uploadMetadata')
+    config.set('mongo.collections.uploadMetadata', 'test-callback-idempotency')
+    metadataCollection = config.get('mongo.collections.uploadMetadata')
+
+    // Ensure the unique index exists on the test collection
+    await db.collection(metadataCollection).createIndex(
+      { 'file.fileId': 1 },
+      { name: 'metadata_fileId_idx', unique: true }
+    )
+  })
+
+  afterAll(async () => {
+    await db.collection(metadataCollection).deleteMany({})
+    config.set('mongo.collections.uploadMetadata', originalCollection)
+    if (server && typeof server.stop === 'function') {
+      await server.stop()
+    }
+  })
+
+  test('first callback succeeds and creates records', async () => {
+    const beforeMetadataCount = await db.collection(metadataCollection).countDocuments()
+    const beforeOutboxCount = await db.collection(outboxCollection).countDocuments()
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: mockScanAndUploadResponseSingleFile
+    })
+
+    const afterMetadataCount = await db.collection(metadataCollection).countDocuments()
+    const afterOutboxCount = await db.collection(outboxCollection).countDocuments()
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+    expect(afterMetadataCount - beforeMetadataCount).toBe(1)
+    expect(afterOutboxCount - beforeOutboxCount).toBe(1)
+  })
+
+  test('duplicate callback returns 200 with existing correlationId and creates no new records', async () => {
+    // Insert once
+    await server.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: mockScanAndUploadResponseSingleFile
+    })
+
+    const beforeMetadataCount = await db.collection(metadataCollection).countDocuments()
+    const beforeOutboxCount = await db.collection(outboxCollection).countDocuments()
+
+    // Get the correlationId from the first insert
+    const firstDoc = await db.collection(metadataCollection).findOne(
+      { 'file.fileId': mockScanAndUploadResponseSingleFile.form['single-file'].fileId },
+      { projection: { messaging: 1 } }
+    )
+    const existingCorrelationId = firstDoc.messaging.correlationId
+
+    // Send duplicate
+    const response = await server.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: mockScanAndUploadResponseSingleFile
+    })
+
+    const afterMetadataCount = await db.collection(metadataCollection).countDocuments()
+    const afterOutboxCount = await db.collection(outboxCollection).countDocuments()
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+    expect(response.result.message).toBe('Duplicate callback ignored')
+    expect(response.result.correlationId).toBe(existingCorrelationId)
+
+    // No new records created
+    expect(afterMetadataCount).toBe(beforeMetadataCount)
+    expect(afterOutboxCount).toBe(beforeOutboxCount)
+  })
+
+  test('different fileId is processed normally and creates new records', async () => {
+    // Insert once with single-file payload (uses baseFileUpload1)
+    await server.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: mockScanAndUploadResponseSingleFile
+    })
+
+    const beforeMetadataCount = await db.collection(metadataCollection).countDocuments()
+    const beforeOutboxCount = await db.collection(outboxCollection).countDocuments()
+
+    // Build a payload with a different fileId (baseFileUpload2)
+    const payloadWithDifferentFile = {
+      uploadStatus: 'ready',
+      metadata: baseMetadata,
+      form: { 'other-file': baseFileUpload2 },
+      numberOfRejectedFiles: 0
+    }
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: payloadWithDifferentFile
+    })
+
+    const afterMetadataCount = await db.collection(metadataCollection).countDocuments()
+    const afterOutboxCount = await db.collection(outboxCollection).countDocuments()
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+    expect(afterMetadataCount - beforeMetadataCount).toBe(1)
+    expect(afterOutboxCount - beforeOutboxCount).toBe(1)
   })
 })

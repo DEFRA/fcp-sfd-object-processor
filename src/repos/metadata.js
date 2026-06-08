@@ -5,6 +5,7 @@ import { NotFoundError } from '../errors/not-found-error.js'
 import { db } from '../data/db.js'
 
 const metadataCollection = 'mongo.collections.uploadMetadata'
+const noDocumentsFoundError = 'No documents found'
 
 const getS3ReferenceByFileId = async (fileId) => {
   const collection = config.get(metadataCollection)
@@ -14,7 +15,21 @@ const getS3ReferenceByFileId = async (fileId) => {
       { projection: { s3: 1 } }) // only return the s3Data
 
   if (document === null) {
-    throw new NotFoundError('No documents found')
+    throw new NotFoundError(noDocumentsFoundError)
+  }
+
+  return document
+}
+
+const getMetadataByFileId = async (fileId) => {
+  const collection = config.get(metadataCollection)
+  const document = await db.collection(collection)
+    .findOne(
+      { 'file.fileId': fileId },
+      { projection: { messaging: 1 } })
+
+  if (document === null) {
+    throw new NotFoundError(noDocumentsFoundError)
   }
 
   return document
@@ -69,7 +84,7 @@ const getMetadataBySbi = async (sbi) => {
     .toArray()
 
   if (documents.length === 0) {
-    throw new NotFoundError('No documents found')
+    throw new NotFoundError(noDocumentsFoundError)
   }
 
   return documents
@@ -111,5 +126,6 @@ export {
   persistMetadata,
   formatInboundMetadata,
   getS3ReferenceByFileId,
+  getMetadataByFileId,
   bulkUpdatePublishedAtDate
 }
