@@ -190,6 +190,11 @@ describe('uploader initiate handler', () => {
         isBoom: true,
         output: { statusCode: httpConstants.HTTP_STATUS_GATEWAY_TIMEOUT }
       })
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ retry: null }),
+        expect.stringContaining('timed out')
+      )
     })
 
     test('returns 502 on network error', async () => {
@@ -199,6 +204,11 @@ describe('uploader initiate handler', () => {
         isBoom: true,
         output: { statusCode: httpConstants.HTTP_STATUS_BAD_GATEWAY }
       })
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ retry: null }),
+        expect.stringContaining('failed')
+      )
     })
 
     test('returns 502 on non-2xx response', async () => {
@@ -212,6 +222,11 @@ describe('uploader initiate handler', () => {
         isBoom: true,
         output: { statusCode: httpConstants.HTTP_STATUS_BAD_GATEWAY }
       })
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(String)
+      )
     })
 
     test('returns 502 on invalid JSON response', async () => {
