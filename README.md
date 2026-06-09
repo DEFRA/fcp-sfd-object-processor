@@ -244,6 +244,44 @@ This service uses [Pino](https://getpino.io/) with [Elastic Common Schema (ECS)]
 | `event.kind` | text | High-level type — use for HTTP status code |
 | `event.duration` | long | Round-trip time in **nanoseconds** (`ms × 1,000,000`) |
 | `event.severity` | long | Custom severity level (0–10) |
+
+## HTTP Retry
+
+Outbound HTTP calls (to CDP Uploader) use [`@fetchkit/ffetch`](https://github.com/fetch-kit/ffetch) with configurable retry and exponential backoff.
+
+### Error classification
+
+| Category | Triggers | Behaviour |
+|---|---|---|
+| `retryable` | 5xx responses, 429 Too Many Requests, network errors (`ECONNREFUSED`, `ETIMEDOUT`, etc.), timeout | Retried up to `HTTP_RETRY_MAX_ATTEMPTS` |
+| `nonRetryable` | 4xx responses (excluding 429), user abort | Not retried — fails immediately |
+| `unknown` | Unrecognised/unexpected errors | Retried up to `RETRY_UNKNOWN_MAX_ATTEMPTS` (conservative budget) |
+
+### Retry metadata
+
+The HTTP client preserves existing success response contracts. For terminal thrown errors (for example, timeout/network failures), the error is enriched with:
+
+- `error.retryMetadata.attempts`
+- `error.retryMetadata.category` (`retryable`, `non-retryable`, `unknown`)
+- `error.retryMetadata.terminalReason`
+
+Retry decisions, terminal failures, and retry recovery are logged from the HTTP client layer using ECS-style `event.*` fields.
+
+### Configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| `HTTP_RETRY_MAX_ATTEMPTS` | `3` | Total attempts (including first) for retryable errors |
+| `HTTP_RETRY_BASE_DELAY_MS` | `500` | Initial backoff delay in milliseconds |
+| `HTTP_RETRY_BACKOFF_MULTIPLIER` | `1.5` | Multiplier applied each retry (500 → 750 → 1125 ms) |
+| `HTTP_RETRY_JITTER_PERCENTAGE` | `15` | ±% random jitter added to each delay to avoid thundering herd |
+| `HTTP_RETRY_MAX_DELAY_MS` | `15000` | Hard cap on any single retry delay |
+| `RETRY_UNKNOWN_MAX_ATTEMPTS` | `2` | Total attempts for unknown errors (1 retry) |
+| `RETRY_UNKNOWN_MAX_DELAY_MS` | `10000` | Hard cap on unknown-error retry delays |
+
+Request timeout per attempt is controlled by `CDP_UPLOADER_TIMEOUT_MS` (default `30000` ms).
+
+See [`src/config/retry.js`](src/config/retry.js) and [`src/http/client.js`](src/http/client.js) for implementation details.
 | `event.created` | date | Time the event was created |
 
 ### Approved `error.*` fields

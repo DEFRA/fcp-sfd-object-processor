@@ -40,6 +40,7 @@
     "@aws-sdk/s3-request-presigner": "3.1058.0",
     "@defra/hapi-tracing": "1.30.0",
     "@elastic/ecs-pino-format": "1.5.0",
+    "@fetchkit/ffetch": "5.5.1",
     "@hapi/boom": "10.0.1",
     "@hapi/hapi": "21.4.9",
     "@hapi/inert": "7.1.1",
@@ -65,6 +66,7 @@
     "undici": "6.24.1"
   },
   "devDependencies": {
+    "@fetchkit/chaos-fetch": "1.2.1",
     "@types/convict": "6.1.6",
     "@types/node": "22.13.4",
     "@types/webpack-assets-manifest": "5.1.4",

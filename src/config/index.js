@@ -6,6 +6,7 @@ import { databaseConfig } from './database.js'
 import { hapiSwaggerConfig } from './hapi-swagger.js'
 import { awsConfig } from './aws.js'
 import { authConfig } from './auth.js'
+import { retryConfig } from './retry.js'
 
 import { securityGroupArray } from './formats/entra-security-groups.js'
 import { entraTenantsArray } from './formats/entra-tenants-array.js'
@@ -25,7 +26,8 @@ const config = convict({
   ...databaseConfig,
   ...hapiSwaggerConfig,
   ...awsConfig,
-  ...authConfig
+  ...authConfig,
+  ...retryConfig
 })
 
 // Backwards compatibility: if `auth.entra.tenants` is empty but legacy single-tenant

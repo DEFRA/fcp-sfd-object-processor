@@ -3,11 +3,20 @@ import { vi, describe, test, expect, beforeAll, afterAll, afterEach } from 'vite
 
 import { createServer } from '../../../../../src/api/index.js'
 
+const { mockHttpClient } = vi.hoisted(() => ({ mockHttpClient: vi.fn() }))
+
+vi.mock('../../../../../src/http/client.js', () => ({
+  httpClient: mockHttpClient,
+  TimeoutError: class TimeoutError extends Error {
+    constructor (msg) { super(msg); this.name = 'TimeoutError' }
+  },
+  NetworkError: class NetworkError extends Error {},
+  AbortError: class AbortError extends Error {}
+}))
+
+const { TimeoutError } = await import('../../../../../src/http/client.js')
+
 let server
-const originalFetch = global.fetch
-
-// ─── Test fixtures ──────────────────────────────────────────────────────────
-
 const validUploadId = '9fcaabe5-77ec-44db-8356-3a6e8dc51b13'
 
 const completeFile = {
@@ -82,19 +91,18 @@ beforeAll(async () => {
 
 afterAll(async () => {
   vi.restoreAllMocks()
-  global.fetch = originalFetch
   await server.stop()
 })
 
 afterEach(() => {
-  global.fetch = originalFetch
+  mockHttpClient.mockReset()
 })
 
 // ─── Successful responses ────────────────────────────────────────────────────
 
 describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () => {
   test('returns 200 with data envelope for a ready upload with no rejections (success)', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    mockHttpClient.mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => mockReadyResponse
@@ -113,7 +121,7 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
   })
 
   test('returns 200 with full file details for a ready upload', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    mockHttpClient.mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => mockReadyResponse
@@ -136,7 +144,7 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
   })
 
   test('returns 200 for a pending upload', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    mockHttpClient.mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => mockPendingResponse
@@ -152,7 +160,7 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
   })
 
   test('returns 200 for an initiated upload with empty form', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    mockHttpClient.mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => mockInitiatedResponse
@@ -173,7 +181,7 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
       form: { 'file-field': rejectedFile },
       numberOfRejectedFiles: 1
     }
-    global.fetch = vi.fn().mockResolvedValue({
+    mockHttpClient.mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => responseWithRejection
@@ -200,7 +208,7 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
       metadata: validMetadata,
       form: {}
     }
-    global.fetch = vi.fn().mockResolvedValue({
+    mockHttpClient.mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => pendingResponseWithFullMetadata
@@ -217,7 +225,7 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
   })
 
   test('forwards the correct URL to CDP Uploader', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    mockHttpClient.mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => mockReadyResponse
@@ -228,8 +236,8 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
       url: `/api/v1/uploader/status/${validUploadId}`
     })
 
-    expect(global.fetch).toHaveBeenCalledTimes(1)
-    const [url] = global.fetch.mock.calls[0]
+    expect(mockHttpClient).toHaveBeenCalledTimes(1)
+    const [url] = mockHttpClient.mock.calls[0]
     expect(url).toContain(`/status/${validUploadId}`)
   })
 })
@@ -240,7 +248,7 @@ describe('GET /api/v1/uploader/status/{uploadId} — polling scenario', () => {
   test('multiple sequential checks for the same uploadId each return 200 with mapped statuses', async () => {
     // Simulate a polling flow: initiated → pending → ready (0 rejections)
     // Expected mapped output:    pending  → pending → success
-    global.fetch = vi.fn()
+    mockHttpClient.mockReset()
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -269,7 +277,7 @@ describe('GET /api/v1/uploader/status/{uploadId} — polling scenario', () => {
     expect(responses[1].result.data.uploadStatus).toBe('pending')
     expect(responses[2].statusCode).toBe(httpConstants.HTTP_STATUS_OK)
     expect(responses[2].result.data.uploadStatus).toBe('success')
-    expect(global.fetch).toHaveBeenCalledTimes(3)
+    expect(mockHttpClient).toHaveBeenCalledTimes(3)
   })
 })
 
@@ -315,7 +323,7 @@ describe('GET /api/v1/uploader/status/{uploadId} — input validation', () => {
 
 describe('GET /api/v1/uploader/status/{uploadId} — CDP Uploader errors', () => {
   test('returns 404 when CDP Uploader returns 404', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    mockHttpClient.mockResolvedValue({
       ok: false,
       status: 404,
       text: async () => 'Not Found'
@@ -330,7 +338,7 @@ describe('GET /api/v1/uploader/status/{uploadId} — CDP Uploader errors', () =>
   })
 
   test('returns 502 when CDP Uploader returns 500', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    mockHttpClient.mockResolvedValue({
       ok: false,
       status: 500,
       text: async () => 'Internal Server Error'
@@ -349,7 +357,7 @@ describe('GET /api/v1/uploader/status/{uploadId} — CDP Uploader errors', () =>
       uploadStatus: 'ready'
       // missing metadata, form, numberOfRejectedFiles
     }
-    global.fetch = vi.fn().mockResolvedValue({
+    mockHttpClient.mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => invalidResponse
@@ -364,7 +372,7 @@ describe('GET /api/v1/uploader/status/{uploadId} — CDP Uploader errors', () =>
   })
 
   test('returns 502 when CDP Uploader response is not valid JSON', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    mockHttpClient.mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => { throw new SyntaxError('Unexpected token') }
@@ -379,9 +387,7 @@ describe('GET /api/v1/uploader/status/{uploadId} — CDP Uploader errors', () =>
   })
 
   test('returns 504 when CDP Uploader request times out', async () => {
-    const timeoutError = new Error('The operation was aborted due to timeout')
-    timeoutError.name = 'TimeoutError'
-    global.fetch = vi.fn().mockRejectedValue(timeoutError)
+    mockHttpClient.mockRejectedValue(new TimeoutError('The operation was aborted due to timeout'))
 
     const response = await server.inject({
       method: 'GET',
@@ -392,7 +398,7 @@ describe('GET /api/v1/uploader/status/{uploadId} — CDP Uploader errors', () =>
   })
 
   test('returns 502 when CDP Uploader connection is refused', async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'))
+    mockHttpClient.mockRejectedValue(new Error('ECONNREFUSED'))
 
     const response = await server.inject({
       method: 'GET',
@@ -403,7 +409,7 @@ describe('GET /api/v1/uploader/status/{uploadId} — CDP Uploader errors', () =>
   })
 
   test('returns 502 when CDP Uploader returns invalid uploadStatus value', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    mockHttpClient.mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => ({

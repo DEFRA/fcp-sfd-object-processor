@@ -39,13 +39,15 @@ describe('uploader initiate handler', () => {
   let rewriteResponseUrls
   let mockLogger
   let mockMetricsCounter
-  const originalFetch = global.fetch
+  let mockHttpClient
+  let TimeoutError
 
   beforeEach(async () => {
     vi.resetModules()
 
     mockLogger = { info: vi.fn(), error: vi.fn(), warn: vi.fn() }
     mockMetricsCounter = vi.fn().mockResolvedValue(undefined)
+    mockHttpClient = vi.fn()
 
     vi.doMock('../../../../src/config/index.js', () => ({
       config: {
@@ -61,14 +63,22 @@ describe('uploader initiate handler', () => {
       metricsCounter: mockMetricsCounter
     }))
 
+    vi.doMock('../../../../src/http/client.js', () => ({
+      httpClient: mockHttpClient,
+      TimeoutError: class TimeoutError extends Error {
+        constructor (msg) { super(msg); this.name = 'TimeoutError' }
+      }
+    }))
+
     const mod = await import('../../../../src/api/v1/uploader/initiate/index.js')
     uploaderInitiateRoute = mod.uploaderInitiateRoute
     buildCdpUploaderPayload = mod.buildCdpUploaderPayload
     rewriteResponseUrls = mod.rewriteResponseUrls
+    const clientMod = await import('../../../../src/http/client.js')
+    TimeoutError = clientMod.TimeoutError
   })
 
   afterEach(() => {
-    global.fetch = originalFetch
     vi.restoreAllMocks()
   })
 
@@ -127,14 +137,14 @@ describe('uploader initiate handler', () => {
     })
 
     test('returns 200 with rewritten URLs on successful proxy', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: true,
         json: async () => mockCdpUploaderResponse
       })
 
       await uploaderInitiateRoute.options.handler(mockRequest, mockH)
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockHttpClient).toHaveBeenCalledWith(
         'http://cdp-uploader:7337/initiate',
         expect.objectContaining({
           method: 'POST',
@@ -154,14 +164,14 @@ describe('uploader initiate handler', () => {
     })
 
     test('sends correct payload to CDP Uploader', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: true,
         json: async () => mockCdpUploaderResponse
       })
 
       await uploaderInitiateRoute.options.handler(mockRequest, mockH)
 
-      const fetchBody = JSON.parse(global.fetch.mock.calls[0][1].body)
+      const fetchBody = JSON.parse(mockHttpClient.mock.calls[0][1].body)
       expect(fetchBody).toEqual({
         redirect: mockValidPayload.redirect,
         s3Bucket: 'test-bucket',
@@ -174,27 +184,35 @@ describe('uploader initiate handler', () => {
     })
 
     test('returns 504 on timeout', async () => {
-      const timeoutError = new Error('The operation was aborted due to timeout')
-      timeoutError.name = 'TimeoutError'
-      global.fetch = vi.fn().mockRejectedValue(timeoutError)
+      mockHttpClient.mockRejectedValue(new TimeoutError('The operation was aborted due to timeout'))
 
       await expect(uploaderInitiateRoute.options.handler(mockRequest, mockH)).rejects.toMatchObject({
         isBoom: true,
         output: { statusCode: httpConstants.HTTP_STATUS_GATEWAY_TIMEOUT }
       })
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ retry: null }),
+        expect.stringContaining('timed out')
+      )
     })
 
     test('returns 502 on network error', async () => {
-      global.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'))
+      mockHttpClient.mockRejectedValue(new Error('ECONNREFUSED'))
 
       await expect(uploaderInitiateRoute.options.handler(mockRequest, mockH)).rejects.toMatchObject({
         isBoom: true,
         output: { statusCode: httpConstants.HTTP_STATUS_BAD_GATEWAY }
       })
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ retry: null }),
+        expect.stringContaining('failed')
+      )
     })
 
     test('returns 502 on non-2xx response', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: false,
         status: 500,
         text: async () => 'Internal Server Error'
@@ -204,10 +222,15 @@ describe('uploader initiate handler', () => {
         isBoom: true,
         output: { statusCode: httpConstants.HTTP_STATUS_BAD_GATEWAY }
       })
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(String)
+      )
     })
 
     test('returns 502 on invalid JSON response', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: true,
         json: async () => { throw new SyntaxError('Unexpected token') }
       })
@@ -219,7 +242,7 @@ describe('uploader initiate handler', () => {
     })
 
     test('returns 502 when CDP response is missing uploadId', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: true,
         json: async () => ({ uploadUrl: 'http://cdp-uploader:7337/upload/some-id' })
       })
@@ -231,7 +254,7 @@ describe('uploader initiate handler', () => {
     })
 
     test('returns 502 when CDP response has null uploadId', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: true,
         json: async () => ({ ...mockCdpUploaderResponse, uploadId: null })
       })
@@ -243,7 +266,7 @@ describe('uploader initiate handler', () => {
     })
 
     test('returns 502 when CDP response is an empty object', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
+      mockHttpClient.mockResolvedValue({
         ok: true,
         json: async () => ({})
       })
