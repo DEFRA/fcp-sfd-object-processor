@@ -70,10 +70,10 @@ export const uploaderInitiateRoute = {
         })
       } catch (err) {
         if (err instanceof TimeoutError) {
-          logger.error({ url }, 'Upstream service request timed out')
+          logger.error({ url, retry: err.retryMetadata ?? null }, 'Upstream service request timed out')
           throw Boom.gatewayTimeout('Upstream service request timed out')
         }
-        logger.error({ error: { message: err.message }, url }, 'Upstream service request failed')
+        logger.error({ error: { message: err.message }, url, retry: err.retryMetadata ?? null }, 'Upstream service request failed')
         throw Boom.badGateway('Upstream service request failed')
       }
 

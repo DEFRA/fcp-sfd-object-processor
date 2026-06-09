@@ -56,10 +56,10 @@ export const uploaderStatusRoute = {
         response = await httpClient(url, { method: 'GET' })
       } catch (err) {
         if (err instanceof TimeoutError) {
-          logger.error({ url, uploadId }, 'Upstream service status request timed out')
+          logger.error({ url, uploadId, retry: err.retryMetadata ?? null }, 'Upstream service status request timed out')
           throw Boom.gatewayTimeout('Upstream service request timed out')
         }
-        logger.error({ error: { message: err.message }, url, uploadId }, 'Upstream service status request failed')
+        logger.error({ error: { message: err.message }, url, uploadId, retry: err.retryMetadata ?? null }, 'Upstream service status request failed')
         throw Boom.badGateway('Upstream service request failed')
       }
 

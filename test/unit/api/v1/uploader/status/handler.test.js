@@ -271,7 +271,7 @@ describe('uploaderStatusRoute handler', () => {
         output: { statusCode: httpConstants.HTTP_STATUS_GATEWAY_TIMEOUT }
       })
       expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.objectContaining({ uploadId: validUploadId }),
+        expect.objectContaining({ uploadId: validUploadId, retry: null }),
         expect.stringContaining('timed out')
       )
     })
@@ -284,7 +284,7 @@ describe('uploaderStatusRoute handler', () => {
         output: { statusCode: httpConstants.HTTP_STATUS_BAD_GATEWAY }
       })
       expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.objectContaining({ uploadId: validUploadId }),
+        expect.objectContaining({ uploadId: validUploadId, retry: null }),
         expect.stringContaining('failed')
       )
     })
