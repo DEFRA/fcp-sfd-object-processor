@@ -68,15 +68,6 @@ MongoDB replica sets are required because the metadata insert and outbox entry c
 
 No `.env` file is required for basic local development. All defaults are set in `compose.yaml`. See [`.env.example`](.env.example) for optional overrides (SonarQube token, auth configuration).
 
-### SonarQube Cloud token
-
-One of the npm scripts configured for this service enables code scanning by SonarQube Cloud. This will look for any issues and can be ran optionally before committing if the developer wishes to resolve issues during local development. This script helps ensure fewer issues are pushed to GitHub leading to earlier resolution of existing vulnerabilities. In order for this script to run successfully during local development you will need to generate your own personal `SONAR_TOKEN` and add it to your `.env`:
-
-- Log into [SonarQube Cloud](https://sonarcloud.io/login).
-- Navigate to your `My Account` settings.
-- On the left-hand sidebar navigate to the `Security` tab.
-- Under `Generate Tokens` enter a name for your token and click `Generate Token`.
-- Copy the token and add it to your `.env`, referring to it as [`SONAR_TOKEN`](.env.example).
 
 ## Getting Started
 
@@ -359,6 +350,34 @@ npx vitest watch test/unit/path/to/file.test.js
 ```
 
 > **Note:** `npm test` and `npx vitest run` require a local MongoDB instance with replica set support. Use `npm run docker:test` for a self-contained containerised test run.
+
+## SonarQube Cloud scan
+
+Run a local scan against [SonarCloud](https://sonarcloud.io/project/overview?id=DEFRA_fcp-sfd-object-processor) for the current git branch. See the [DEFRA SonarCloud guide](https://github.com/DEFRA/cdp-documentation/blob/main/how-to/sonarcloud.md) for organisation access and CI setup.
+
+### Setup
+
+1. Log in to [SonarQube Cloud](https://sonarcloud.io) with your DEFRA GitHub account
+2. Go to **My Account → Security → Generate Tokens** and create a personal token
+3. Add `SONAR_TOKEN=<your-token>` to your `.env` file
+4. Ensure Docker is running
+
+### Run
+
+Generate test coverage first, then scan:
+
+```bash
+npm run docker:test
+npm run sonar
+```
+
+The script uploads results for the current branch and prints:
+
+- Quality gate pass/fail and failed conditions
+- Open issues on new code (when the gate fails)
+- **Accepted / false-positive issues without comment** — DEFRA quality gates require a justification comment on each suppressed issue; add comments in SonarCloud under the issue **Activity** tab
+
+Exit code is `0` when the gate passes and all suppressed issues are commented, `1` otherwise.
 
 ## Pre-commit Hooks
 
