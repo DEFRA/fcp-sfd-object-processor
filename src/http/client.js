@@ -39,7 +39,10 @@ const classifyError = (ctx) => {
     return classifyResponseStatus(response.status)
   }
 
-  return error ? 'unknown' : 'nonRetryable'
+  // Callers gate this function behind isRetryDecisionFailure(), which
+  // guarantees either `error` or `response` is present. Since we have
+  // ruled out `response` above, `error` is always truthy here.
+  return 'unknown'
 }
 
 const calcDelay = (attempt, baseDelayMs, backoffMultiplier, jitterPct, capMs) => {
@@ -68,7 +71,7 @@ const buildTerminalReason = (ctx) => {
 }
 
 const attachRetryMetadata = (error, metadata) => {
-  if (!error || typeof error !== 'object') {
+  if (typeof error !== 'object' || error === null) {
     return
   }
 

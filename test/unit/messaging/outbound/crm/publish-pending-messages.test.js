@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { FAILED } from '../../../../../src/constants/outbox.js'
 
 const mockInfo = vi.fn()
 const mockError = vi.fn()
@@ -6,13 +7,15 @@ vi.mock('../../../../../src/logging/logger.js', () => ({
   createLogger: () => ({ info: mockInfo, error: mockError })
 }))
 
+const { mockConfigGet } = vi.hoisted(() => ({
+  mockConfigGet: vi.fn((key) => {
+    if (key === 'messaging.outboxMaxAttempts') return 2
+    return null
+  })
+}))
+
 vi.mock('../../../../../src/config/index.js', () => ({
-  config: {
-    get: vi.fn((key) => {
-      if (key === 'messaging.outboxMaxAttempts') return 2
-      return null
-    })
-  }
+  config: { get: mockConfigGet }
 }))
 
 const mockGetProcessable = vi.fn()
@@ -42,6 +45,10 @@ let bulkUpdateDeliveryStatus
 describe('publishPendingMessages', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockConfigGet.mockImplementation((key) => {
+      if (key === 'messaging.outboxMaxAttempts') return 2
+      return null
+    })
     // default session mock
     const session = {
       withTransaction: vi.fn(async (cb) => cb()),
@@ -100,5 +107,154 @@ describe('publishPendingMessages', () => {
     // ensure session end is still called
     const session = mockStartSession()
     expect(session.endSession).toHaveBeenCalled()
+  })
+
+  it('uses payload.file.fileId when logging imminent terminal failures', async () => {
+    const entry = {
+      _id: 'id-file',
+      payload: { file: { fileId: 'file-1' } },
+      attempts: 1
+    }
+    mockGetProcessable.mockResolvedValue([entry])
+    mockPublishBatch.mockResolvedValue({ Successful: [], Failed: [{ Id: 'file-1', Code: 'sns_error' }] })
+
+    await publishPendingMessages()
+
+    const imminentLog = mockError.mock.calls.find(call =>
+      call[0]?.event?.type === 'outbox_terminal_failure_imminent'
+    )
+    expect(imminentLog).toBeDefined()
+    expect(imminentLog[0].event.entryId).toBe('file-1')
+    expect(imminentLog[0].event.reason).toBe('sns_error')
+  })
+
+  it('does not log imminent terminal failure when attempts remain below max', async () => {
+    const entry = { messageId: 'm4', _id: 'id4', attempts: 0 }
+    mockGetProcessable.mockResolvedValue([entry])
+    mockPublishBatch.mockResolvedValue({ Successful: [], Failed: [{ Id: 'm4' }] })
+
+    await publishPendingMessages()
+
+    const imminentLog = mockError.mock.calls.find(call =>
+      call[0]?.event?.type === 'outbox_terminal_failure_imminent'
+    )
+    expect(imminentLog).toBeUndefined()
+  })
+
+  it('uses failure message when logging imminent terminal failures', async () => {
+    const entry = { messageId: 'm-msg', _id: 'id-msg', attempts: 1 }
+    mockGetProcessable.mockResolvedValue([entry])
+    mockPublishBatch.mockResolvedValue({ Successful: [], Failed: [{ Id: 'm-msg', Message: 'sns down' }] })
+
+    await publishPendingMessages()
+
+    const imminentLog = mockError.mock.calls.find(call =>
+      call[0]?.event?.type === 'outbox_terminal_failure_imminent'
+    )
+    expect(imminentLog[0].event.reason).toBe('sns down')
+    expect(imminentLog[0].event.attempts).toBe(2)
+  })
+
+  it('defaults imminent terminal reason when failure has no message or code', async () => {
+    const entry = { messageId: 'm5', _id: 'id5', attempts: 1 }
+    mockGetProcessable.mockResolvedValue([entry])
+    mockPublishBatch.mockResolvedValue({ Successful: [], Failed: [{ Id: 'm5' }] })
+
+    await publishPendingMessages()
+
+    const imminentLog = mockError.mock.calls.find(call =>
+      call[0]?.event?.type === 'outbox_terminal_failure_imminent'
+    )
+    expect(imminentLog[0].event.reason).toBe('failed_to_publish')
+  })
+
+  it('processes failed batch without successful updates', async () => {
+    const entry = { messageId: 'm6', _id: 'id6', attempts: 0 }
+    mockGetProcessable.mockResolvedValue([entry])
+    mockPublishBatch.mockResolvedValue({ Successful: [], Failed: [{ Id: 'm6', Message: 'failed' }] })
+
+    await publishPendingMessages()
+
+    expect(bulkUpdateDeliveryStatus).toHaveBeenCalledWith(
+      expect.anything(),
+      ['m6'],
+      FAILED,
+      'Failed to send message'
+    )
+    expect(mockBulkUpdatePublishedAtDate).not.toHaveBeenCalled()
+  })
+
+  it('falls back to default failure reason when failed metadata cannot be matched', async () => {
+    mockConfigGet.mockImplementation((key) => {
+      if (key === 'messaging.outboxMaxAttempts') return 1
+      return null
+    })
+    const entry = { attempts: 0 }
+    mockGetProcessable.mockResolvedValue([entry])
+    mockPublishBatch.mockResolvedValue({ Successful: [], Failed: [{}] })
+
+    await publishPendingMessages()
+
+    const imminentLog = mockError.mock.calls.find(call =>
+      call[0]?.event?.type === 'outbox_terminal_failure_imminent'
+    )
+    expect(imminentLog[0].event.entryId).toBeNull()
+    expect(imminentLog[0].event.reason).toBe('failed_to_publish')
+  })
+
+  it('resolves imminent terminal entry id from payload file id when present', async () => {
+    mockConfigGet.mockImplementation((key) => {
+      if (key === 'messaging.outboxMaxAttempts') return 1
+      return null
+    })
+    const entry = {
+      payload: { file: { fileId: 'file-only' } },
+      messageId: 'message-only',
+      attempts: 0
+    }
+    mockGetProcessable.mockResolvedValue([entry])
+    mockPublishBatch.mockResolvedValue({ Successful: [], Failed: [{ Id: 'file-only' }] })
+
+    await publishPendingMessages()
+
+    const imminentLog = mockError.mock.calls.find(call =>
+      call[0]?.event?.type === 'outbox_terminal_failure_imminent'
+    )
+    expect(imminentLog[0].event.entryId).toBe('file-only')
+  })
+
+  it('resolves imminent terminal entry id from messageId when file id is absent', async () => {
+    mockConfigGet.mockImplementation((key) => {
+      if (key === 'messaging.outboxMaxAttempts') return 1
+      return null
+    })
+    const entry = {
+      payload: { file: {} },
+      messageId: 'message-only',
+      attempts: undefined
+    }
+    mockGetProcessable.mockResolvedValue([entry])
+    mockPublishBatch.mockResolvedValue({ Successful: [], Failed: [{ Id: 'message-only' }] })
+
+    await publishPendingMessages()
+
+    const imminentLog = mockError.mock.calls.find(call =>
+      call[0]?.event?.type === 'outbox_terminal_failure_imminent'
+    )
+    expect(imminentLog[0].event.entryId).toBe('message-only')
+    expect(imminentLog[0].event.attempts).toBe(1)
+    expect(imminentLog[0].event.reference).toBeUndefined()
+  })
+
+  it('processes messages in batches of ten', async () => {
+    const entries = Array.from({ length: 11 }, (_, i) => ({ messageId: `m${i}`, _id: `id${i}` }))
+    mockGetProcessable.mockResolvedValue(entries)
+    mockPublishBatch.mockResolvedValue({ Successful: [{ Id: 'm0' }], Failed: [] })
+
+    await publishPendingMessages()
+
+    expect(mockPublishBatch).toHaveBeenCalledTimes(2)
+    expect(mockPublishBatch.mock.calls[0][0]).toHaveLength(10)
+    expect(mockPublishBatch.mock.calls[1][0]).toHaveLength(1)
   })
 })

@@ -13,7 +13,7 @@ export default defineConfig({
         '**/node_modules/**',
         '**/test/**',
         '.server',
-        'index.js'
+        'src/index.js'
       ]
     }
   }

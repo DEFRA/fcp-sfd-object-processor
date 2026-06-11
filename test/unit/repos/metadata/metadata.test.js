@@ -1,8 +1,16 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 
-import { formatInboundMetadata, persistMetadata, bulkUpdatePublishedAtDate } from '../../../../src/repos/metadata.js'
+import {
+  formatInboundMetadata,
+  persistMetadata,
+  bulkUpdatePublishedAtDate,
+  getS3ReferenceByFileId,
+  getMetadataByFileId,
+  getMetadataBySbi
+} from '../../../../src/repos/metadata.js'
 import { mockScanAndUploadResponse } from '../../../mocks/cdp-uploader.js'
 import { db } from '../../../../src/data/db.js'
+import { NotFoundError } from '../../../../src/errors/not-found-error.js'
 
 vi.mock('../../../../src/data/db.js', () => ({
   db: { collection: vi.fn() }
@@ -26,7 +34,9 @@ describe('Metadata Repository', () => {
 
     mockCollection = {
       insertMany: vi.fn(),
-      updateMany: vi.fn()
+      updateMany: vi.fn(),
+      findOne: vi.fn(),
+      find: vi.fn()
     }
 
     mockSession = {}
@@ -104,6 +114,111 @@ describe('Metadata Repository', () => {
         expect(formattedMetadata[0].messaging.correlationId).toBe(formattedMetadata[1].messaging.correlationId)
       })
     })
+
+    test('filters out non-file form entries', () => {
+      const payload = {
+        ...mockScanAndUploadResponse,
+        form: {
+          'a-file-upload-field': mockScanAndUploadResponse.form['a-file-upload-field'],
+          'text-field': 'not a file',
+          'empty-object': {},
+          'null-field': null
+        }
+      }
+
+      const formatted = formatInboundMetadata(payload)
+
+      expect(formatted).toHaveLength(1)
+      expect(formatted[0].file.fileId).toBe(mockScanAndUploadResponse.form['a-file-upload-field'].fileId)
+    })
+  })
+})
+
+describe('getS3ReferenceByFileId', () => {
+  let queryCollection
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    queryCollection = { findOne: vi.fn() }
+    db.collection.mockReturnValue(queryCollection)
+  })
+
+  test('returns s3 projection when document exists', async () => {
+    const document = { s3: { key: 'k', bucket: 'b' } }
+    queryCollection.findOne.mockResolvedValue(document)
+
+    const result = await getS3ReferenceByFileId('file-1')
+
+    expect(result).toEqual(document)
+    expect(queryCollection.findOne).toHaveBeenCalledWith(
+      { 'file.fileId': 'file-1' },
+      { projection: { s3: 1 } }
+    )
+  })
+
+  test('throws NotFoundError when document is missing', async () => {
+    queryCollection.findOne.mockResolvedValue(null)
+
+    await expect(getS3ReferenceByFileId('missing')).rejects.toThrow(NotFoundError)
+  })
+})
+
+describe('getMetadataByFileId', () => {
+  let queryCollection
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    queryCollection = { findOne: vi.fn() }
+    db.collection.mockReturnValue(queryCollection)
+  })
+
+  test('returns messaging projection when document exists', async () => {
+    const document = { messaging: { correlationId: 'corr-1' } }
+    queryCollection.findOne.mockResolvedValue(document)
+
+    const result = await getMetadataByFileId('file-1')
+
+    expect(result).toEqual(document)
+    expect(queryCollection.findOne).toHaveBeenCalledWith(
+      { 'file.fileId': 'file-1' },
+      { projection: { messaging: 1 } }
+    )
+  })
+
+  test('throws NotFoundError when document is missing', async () => {
+    queryCollection.findOne.mockResolvedValue(null)
+
+    await expect(getMetadataByFileId('missing')).rejects.toThrow(NotFoundError)
+  })
+})
+
+describe('getMetadataBySbi', () => {
+  let queryCollection
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    queryCollection = { find: vi.fn() }
+    db.collection.mockReturnValue(queryCollection)
+  })
+
+  test('returns documents when sbi matches', async () => {
+    const documents = [{ metadata: { sbi: '123' }, file: { fileId: 'f1' } }]
+    const toArray = vi.fn().mockResolvedValue(documents)
+    const project = vi.fn().mockReturnValue({ toArray })
+    queryCollection.find.mockReturnValue({ project })
+
+    const result = await getMetadataBySbi('123')
+
+    expect(result).toEqual(documents)
+    expect(queryCollection.find).toHaveBeenCalledWith({ 'metadata.sbi': '123' })
+  })
+
+  test('throws NotFoundError when no documents match', async () => {
+    const toArray = vi.fn().mockResolvedValue([])
+    const project = vi.fn().mockReturnValue({ toArray })
+    queryCollection.find.mockReturnValue({ project })
+
+    await expect(getMetadataBySbi('missing')).rejects.toThrow(NotFoundError)
   })
 })
 
@@ -111,6 +226,15 @@ describe('persistMetadata', () => {
   const mockDocuments = [
     { metadata: { sbi: '123' }, file: { fileId: 'file-id-1' } }
   ]
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockCollection = {
+      insertMany: vi.fn(),
+      updateMany: vi.fn()
+    }
+    db.collection.mockReturnValue(mockCollection)
+  })
 
   test('should insert documents and return result when acknowledged', async () => {
     const mockResult = {
@@ -138,6 +262,15 @@ describe('persistMetadata', () => {
 
 describe('bulkUpdatePublishedAtDate', () => {
   const mockIds = ['507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012']
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockCollection = {
+      insertMany: vi.fn(),
+      updateMany: vi.fn()
+    }
+    db.collection.mockReturnValue(mockCollection)
+  })
 
   test('should update publishedAt and return result when acknowledged', async () => {
     const mockResult = {
