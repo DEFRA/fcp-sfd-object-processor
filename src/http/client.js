@@ -39,7 +39,9 @@ const classifyError = (ctx) => {
     return classifyResponseStatus(response.status)
   }
 
-  // No response at this point implies a truthy, unclassified error from the caller.
+  // Callers gate this function behind isRetryDecisionFailure(), which
+  // guarantees either `error` or `response` is present. Since we have
+  // ruled out `response` above, `error` is always truthy here.
   return 'unknown'
 }
 
