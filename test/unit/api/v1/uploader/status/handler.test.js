@@ -45,6 +45,7 @@ vi.mock('../../../../../../src/http/client.js', () => ({
 // Import after mocks are established
 const { uploaderStatusRoute } = await import('../../../../../../src/api/v1/uploader/status/index.js')
 const { TimeoutError } = await import('../../../../../../src/http/client.js')
+const { metricsCounter } = await import('../../../../../../src/api/common/helpers/metrics.js')
 
 // ─── Test fixtures ──────────────────────────────────────────────────────────
 
@@ -276,6 +277,24 @@ describe('uploaderStatusRoute handler', () => {
       )
     })
 
+    test('includes retry metadata in timeout logs when present', async () => {
+      const timeoutError = new TimeoutError('timed out')
+      timeoutError.retryMetadata = { attempts: 3, category: 'retryable' }
+      mockHttpClient.mockRejectedValue(timeoutError)
+
+      const { h } = buildMockH()
+      await expect(handler(buildMockRequest(), h)).rejects.toMatchObject({
+        output: { statusCode: httpConstants.HTTP_STATUS_GATEWAY_TIMEOUT }
+      })
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          uploadId: validUploadId,
+          retry: { attempts: 3, category: 'retryable' }
+        }),
+        expect.stringContaining('timed out')
+      )
+    })
+
     test('throws 502 on network error', async () => {
       mockHttpClient.mockRejectedValue(new Error('ECONNREFUSED'))
 
@@ -285,6 +304,24 @@ describe('uploaderStatusRoute handler', () => {
       })
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.objectContaining({ uploadId: validUploadId, retry: null }),
+        expect.stringContaining('failed')
+      )
+    })
+
+    test('includes retry metadata in network error logs when present', async () => {
+      const networkError = new Error('ECONNREFUSED')
+      networkError.retryMetadata = { attempts: 3, category: 'retryable' }
+      mockHttpClient.mockRejectedValue(networkError)
+
+      const { h } = buildMockH()
+      await expect(handler(buildMockRequest(), h)).rejects.toMatchObject({
+        output: { statusCode: httpConstants.HTTP_STATUS_BAD_GATEWAY }
+      })
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          uploadId: validUploadId,
+          retry: { attempts: 3, category: 'retryable' }
+        }),
         expect.stringContaining('failed')
       )
     })
@@ -303,6 +340,23 @@ describe('uploaderStatusRoute handler', () => {
       expect(mockLogger.info).toHaveBeenCalledWith(
         expect.objectContaining({ uploadId: validUploadId }),
         expect.stringContaining('not found')
+      )
+    })
+
+    test('throws 502 when upstream error body cannot be read', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: async () => { throw new Error('stream closed') }
+      })
+
+      const { h } = buildMockH()
+      await expect(handler(buildMockRequest(), h)).rejects.toMatchObject({
+        output: { statusCode: httpConstants.HTTP_STATUS_BAD_GATEWAY }
+      })
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ body: 'Unable to read response body', uploadId: validUploadId }),
+        expect.any(String)
       )
     })
 
@@ -390,6 +444,29 @@ describe('uploaderStatusRoute handler', () => {
         output: { statusCode: httpConstants.HTTP_STATUS_BAD_GATEWAY }
       })
     })
+  })
+})
+
+describe('uploaderStatusRoute validate.failAction', () => {
+  const mockErr = new Error('"uploadId" is required')
+
+  test('logs validation failure', async () => {
+    await expect(
+      uploaderStatusRoute.options.validate.failAction(null, null, mockErr)
+    ).rejects.toThrow(mockErr)
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      { error: { message: mockErr.message } },
+      '/uploader/status validation failed'
+    )
+  })
+
+  test('increments validation failure metric', async () => {
+    await expect(
+      uploaderStatusRoute.options.validate.failAction(null, null, mockErr)
+    ).rejects.toThrow(mockErr)
+
+    expect(metricsCounter).toHaveBeenCalledWith('status_validation_failures')
   })
 })
 

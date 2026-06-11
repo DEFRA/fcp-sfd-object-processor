@@ -197,6 +197,24 @@ describe('uploader initiate handler', () => {
       )
     })
 
+    test('includes retry metadata in timeout logs when present', async () => {
+      const timeoutError = new TimeoutError('timed out')
+      timeoutError.retryMetadata = { attempts: 3, category: 'retryable' }
+      mockHttpClient.mockRejectedValue(timeoutError)
+
+      await expect(uploaderInitiateRoute.options.handler(mockRequest, mockH)).rejects.toMatchObject({
+        isBoom: true,
+        output: { statusCode: httpConstants.HTTP_STATUS_GATEWAY_TIMEOUT }
+      })
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          retry: { attempts: 3, category: 'retryable' }
+        }),
+        expect.stringContaining('timed out')
+      )
+    })
+
     test('returns 502 on network error', async () => {
       mockHttpClient.mockRejectedValue(new Error('ECONNREFUSED'))
 
@@ -208,6 +226,42 @@ describe('uploader initiate handler', () => {
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.objectContaining({ retry: null }),
         expect.stringContaining('failed')
+      )
+    })
+
+    test('includes retry metadata in network error logs when present', async () => {
+      const networkError = new Error('ECONNREFUSED')
+      networkError.retryMetadata = { attempts: 3, category: 'retryable' }
+      mockHttpClient.mockRejectedValue(networkError)
+
+      await expect(uploaderInitiateRoute.options.handler(mockRequest, mockH)).rejects.toMatchObject({
+        isBoom: true,
+        output: { statusCode: httpConstants.HTTP_STATUS_BAD_GATEWAY }
+      })
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          retry: { attempts: 3, category: 'retryable' }
+        }),
+        expect.stringContaining('failed')
+      )
+    })
+
+    test('returns 502 on non-2xx response when body cannot be read', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: async () => { throw new Error('stream closed') }
+      })
+
+      await expect(uploaderInitiateRoute.options.handler(mockRequest, mockH)).rejects.toMatchObject({
+        isBoom: true,
+        output: { statusCode: httpConstants.HTTP_STATUS_BAD_GATEWAY }
+      })
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ body: 'Unable to read response body' }),
+        expect.any(String)
       )
     })
 

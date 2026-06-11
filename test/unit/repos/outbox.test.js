@@ -16,8 +16,11 @@ vi.mock('../../../src/data/db.js', () => ({
   db: { collection: vi.fn() }
 }))
 
+const { mockLoggerError } = vi.hoisted(() => ({
+  mockLoggerError: vi.fn()
+}))
 vi.mock('../../../src/logging/logger.js', () => ({
-  createLogger: () => ({ error: vi.fn(), info: vi.fn(), warn: vi.fn() })
+  createLogger: () => ({ error: mockLoggerError, info: vi.fn(), warn: vi.fn() })
 }))
 
 import { config } from '../../../src/config/index.js'
@@ -118,6 +121,92 @@ describe('src/repos/outbox', () => {
     db.collection.mockReturnValue(collectionObj)
 
     await expect(bulkUpdateDeliveryStatus({}, ['f'], 'SENT')).rejects.toThrow('Failed to update outbox entries')
+  })
+
+  it('bulkUpdateDeliveryStatus logs terminal failures when entries reach max attempts', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
+    const countDocuments = vi.fn().mockResolvedValue(1)
+    const toArray = vi.fn().mockResolvedValue([
+      {
+        _id: 'terminal-id',
+        status: 'FAILED',
+        attempts: 2,
+        payload: { file: { fileId: 'f1' } }
+      }
+    ])
+    const find = vi.fn(() => ({ toArray }))
+    const collectionObj = { updateMany, countDocuments, find }
+    db.collection.mockReturnValue(collectionObj)
+
+    await bulkUpdateDeliveryStatus({ id: 's' }, ['f1'], 'FAILED', 'publish error')
+
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: expect.objectContaining({
+          type: 'outbox_terminal_failure',
+          entryId: 'f1',
+          reason: 'publish error'
+        })
+      }),
+      expect.stringContaining('FAILED after max attempts')
+    )
+  })
+
+  it('bulkUpdateDeliveryStatus continues when terminal failure logging throws', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
+    const countDocuments = vi.fn().mockRejectedValue(new Error('count failed'))
+    const collectionObj = { updateMany, countDocuments }
+    db.collection.mockReturnValue(collectionObj)
+
+    const result = await bulkUpdateDeliveryStatus({ id: 's' }, ['f1'], 'FAILED', 'boom')
+
+    expect(result).toEqual({ acknowledged: true })
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      { err: expect.any(Error) },
+      'Failed to log terminal outbox entries'
+    )
+  })
+
+  it('bulkUpdateDeliveryStatus logs terminal failure with default reason when error omitted', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
+    const countDocuments = vi.fn().mockResolvedValue(1)
+    const toArray = vi.fn().mockResolvedValue([
+      {
+        _id: 'terminal-id',
+        status: 'FAILED',
+        attempts: 2,
+        payload: {}
+      }
+    ])
+    const find = vi.fn(() => ({ toArray }))
+    const collectionObj = { updateMany, countDocuments, find }
+    db.collection.mockReturnValue(collectionObj)
+
+    await bulkUpdateDeliveryStatus({ id: 's' }, ['f1'], 'FAILED')
+
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: expect.objectContaining({
+          type: 'outbox_terminal_failure',
+          entryId: null,
+          reason: 'terminal_failure'
+        })
+      }),
+      expect.any(String)
+    )
+  })
+
+  it('bulkUpdateDeliveryStatus skips terminal query when no potential terminal entries', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
+    const countDocuments = vi.fn().mockResolvedValue(0)
+    const find = vi.fn()
+    const collectionObj = { updateMany, countDocuments, find }
+    db.collection.mockReturnValue(collectionObj)
+
+    await bulkUpdateDeliveryStatus({ id: 's' }, ['f1'], 'FAILED')
+
+    expect(countDocuments).toHaveBeenCalled()
+    expect(find).not.toHaveBeenCalled()
   })
 })
 

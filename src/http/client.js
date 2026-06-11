@@ -39,7 +39,8 @@ const classifyError = (ctx) => {
     return classifyResponseStatus(response.status)
   }
 
-  return error ? 'unknown' : 'nonRetryable'
+  // No response at this point implies a truthy, unclassified error from the caller.
+  return 'unknown'
 }
 
 const calcDelay = (attempt, baseDelayMs, backoffMultiplier, jitterPct, capMs) => {
@@ -68,7 +69,7 @@ const buildTerminalReason = (ctx) => {
 }
 
 const attachRetryMetadata = (error, metadata) => {
-  if (!error || typeof error !== 'object') {
+  if (typeof error !== 'object' || error === null) {
     return
   }
 

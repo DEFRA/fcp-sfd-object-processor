@@ -1,5 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { createClient as createChaosClient } from '@fetchkit/chaos-fetch'
+import { NetworkError } from '@fetchkit/ffetch'
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -176,6 +177,17 @@ describe('httpClient — network errors (retryable)', () => {
     expect(calls).toBe(1)
   })
 
+  test('retries on NetworkError class instances', async () => {
+    let calls = 0
+    const fetchHandler = async () => {
+      calls++
+      throw new NetworkError('network failure')
+    }
+
+    await expect(httpClient(url, { fetchHandler })).rejects.toThrow('network failure')
+    expect(calls).toBe(3)
+  })
+
   test('retries on TimeoutError class instances', async () => {
     let calls = 0
     const fetchHandler = async () => {
@@ -237,6 +249,7 @@ describe('httpClient — network errors (retryable)', () => {
 
 describe('httpClient — unknown errors', () => {
   test('handles thrown string errors and keeps metadata attach safe', async () => {
+    // eslint-disable-next-line no-throw-literal -- exercising non-Error throw classification
     const fetchHandler = async () => { throw 'string failure' }
     await expect(httpClient(url, { fetchHandler })).rejects.toMatchObject({
       name: 'RetryLimitError',
@@ -250,6 +263,7 @@ describe('httpClient — unknown errors', () => {
   })
 
   test('handles thrown object errors and stringifies message', async () => {
+    // eslint-disable-next-line no-throw-literal -- exercising non-Error throw classification
     const fetchHandler = async () => { throw { code: 'E_CUSTOM', detail: 'x' } }
     let thrown
     try {
@@ -388,5 +402,52 @@ describe('httpClient — unknown errors', () => {
         terminalReason: 'ECONNREFUSED'
       })
     )
+  })
+
+  test('retries on ENOTFOUND message pattern', async () => {
+    let calls = 0
+    const fetchHandler = async () => {
+      calls++
+      throw new Error('getaddrinfo ENOTFOUND upstream')
+    }
+    await expect(httpClient(url, { fetchHandler })).rejects.toThrow('ENOTFOUND')
+    expect(calls).toBe(3)
+  })
+
+  test('retries on EPIPE message pattern', async () => {
+    let calls = 0
+    const fetchHandler = async () => {
+      calls++
+      throw new Error('write EPIPE')
+    }
+    await expect(httpClient(url, { fetchHandler })).rejects.toThrow('EPIPE')
+    expect(calls).toBe(3)
+  })
+
+  test('does not retry on 499 client error', async () => {
+    let calls = 0
+    const fetchHandler = async () => {
+      calls++
+      return new Response('client closed', { status: 499 })
+    }
+    const res = await httpClient(url, { fetchHandler })
+    expect(res.status).toBe(499)
+    expect(calls).toBe(1)
+  })
+
+  test('retries on ETIMEDOUT message pattern', async () => {
+    let calls = 0
+    const fetchHandler = async () => {
+      calls++
+      throw new Error('connect ETIMEDOUT')
+    }
+    await expect(httpClient(url, { fetchHandler })).rejects.toThrow('ETIMEDOUT')
+    expect(calls).toBe(3)
+  })
+
+  test('does not attach retry metadata when terminal error is not an object', async () => {
+    // eslint-disable-next-line no-throw-literal -- terminal non-object throw path
+    const fetchHandler = async () => { throw null }
+    await expect(httpClient(url, { fetchHandler })).rejects.toBeDefined()
   })
 })
