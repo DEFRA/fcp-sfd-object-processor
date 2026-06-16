@@ -24,10 +24,10 @@ export const buildCdpUploaderPayload = (clientPayload) => {
 
 export const rewriteResponseUrls = (cdpResponse) => {
   const { uploadId } = cdpResponse
-  const uploaderUrl = config.get('uploaderUrl')
+  const externalUrl = config.get('uploaderExternalUrl') || config.get('uploaderUrl')
   return {
     uploadId,
-    uploadUrl: `${uploaderUrl}/upload-and-scan/${uploadId}`,
+    uploadUrl: `${externalUrl}/upload-and-scan/${uploadId}`,
     statusUrl: `${baseUrl}/uploader/status/${uploadId}`
   }
 }

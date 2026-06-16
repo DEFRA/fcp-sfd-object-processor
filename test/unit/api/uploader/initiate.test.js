@@ -24,6 +24,7 @@ const mockCdpUploaderResponse = {
 const mockConfigValues = {
   'baseUrl.v1': '/api/v1',
   uploaderUrl: 'http://cdp-uploader:7337',
+  uploaderExternalUrl: null,
   uploaderInitiateEndpoint: '/initiate',
   cdpUploaderS3Bucket: 'test-bucket',
   cdpUploaderS3Path: 'uploads',
