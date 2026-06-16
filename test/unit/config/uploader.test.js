@@ -4,10 +4,18 @@ import { uploaderConfig } from '../../../src/config/uploader.js'
 describe('uploaderConfig', () => {
   test('should have uploaderUrl field', () => {
     expect(uploaderConfig.uploaderUrl).toBeDefined()
-    expect(uploaderConfig.uploaderUrl.doc).toBe('The base URL for the cdp uploader api')
+    expect(uploaderConfig.uploaderUrl.doc).toBe('The internal base URL for server-to-server calls to the cdp uploader api')
     expect(uploaderConfig.uploaderUrl.format).toBe(String)
     expect(uploaderConfig.uploaderUrl.nullable).toBe(false)
     expect(uploaderConfig.uploaderUrl.env).toBe('CDP_UPLOADER_URL')
+  })
+
+  test('should have uploaderExternalUrl field', () => {
+    expect(uploaderConfig.uploaderExternalUrl).toBeDefined()
+    expect(uploaderConfig.uploaderExternalUrl.doc).toBe('The external base URL for cdp uploader exposed to browser clients. Falls back to CDP_UPLOADER_URL if not set.')
+    expect(uploaderConfig.uploaderExternalUrl.format).toBe(String)
+    expect(uploaderConfig.uploaderExternalUrl.nullable).toBe(true)
+    expect(uploaderConfig.uploaderExternalUrl.env).toBe('CDP_UPLOADER_EXTERNAL_URL')
   })
 
   test('should have uploaderInitiateEndpoint field with default', () => {
@@ -29,7 +37,7 @@ describe('uploaderConfig', () => {
   })
 
   test('should have all required fields', () => {
-    const requiredFields = ['uploaderUrl', 'uploaderInitiateEndpoint', 'uploaderStatusEndpoint']
+    const requiredFields = ['uploaderUrl', 'uploaderExternalUrl', 'uploaderInitiateEndpoint', 'uploaderStatusEndpoint']
     requiredFields.forEach(field => {
       expect(uploaderConfig[field]).toBeDefined()
     })
@@ -45,6 +53,10 @@ describe('uploaderConfig', () => {
 
   test('should reject null uploaderUrl', () => {
     expect(uploaderConfig.uploaderUrl.nullable).toBe(false)
+  })
+
+  test('should allow null uploaderExternalUrl', () => {
+    expect(uploaderConfig.uploaderExternalUrl.nullable).toBe(true)
   })
 
   test('endpoints should require string format', () => {

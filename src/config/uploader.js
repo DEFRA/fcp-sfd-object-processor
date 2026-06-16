@@ -1,10 +1,17 @@
 export const uploaderConfig = {
   uploaderUrl: {
-    doc: 'The base URL for the cdp uploader api',
+    doc: 'The internal base URL for server-to-server calls to the cdp uploader api',
     format: String,
     nullable: false,
     default: null,
     env: 'CDP_UPLOADER_URL'
+  },
+  uploaderExternalUrl: {
+    doc: 'The external base URL for cdp uploader exposed to browser clients. Falls back to CDP_UPLOADER_URL if not set.',
+    format: String,
+    nullable: true,
+    default: null,
+    env: 'CDP_UPLOADER_EXTERNAL_URL'
   },
   uploaderInitiateEndpoint: {
     doc: 'The endpoint path for initiating document scans',

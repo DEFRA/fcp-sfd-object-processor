@@ -132,30 +132,48 @@ describe('Uploader Initiate Functions', () => {
     beforeEach(() => {
       mockConfigGet.mockImplementation((key) => {
         switch (key) {
-          case 'uploaderUrl': return 'http://cdp-uploader:7337'
-          case 'baseUrl.v1': return '/api/v1'
-          default: return null
-        }
-      })
-    })
+         case 'uploaderExternalUrl': return null
+         case 'uploaderUrl': return 'http://cdp-uploader:7337'
+         case 'baseUrl.v1': return '/api/v1'
+         default: return null
+       }
+     })
+   })
 
-    test('should rewrite URLs correctly', () => {
-      const cdpResponse = {
-        uploadId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
-        originalUploadUrl: 'http://cdp-uploader:7337/upload/9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
-        originalStatusUrl: 'http://cdp-uploader:7337/status/9fcaabe5-77ec-44db-8356-3a6e8dc51b13'
-      }
+   test('should rewrite URLs correctly using uploaderUrl as fallback', () => {
+     const cdpResponse = {
+       uploadId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+       originalUploadUrl: 'http://cdp-uploader:7337/upload/9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+       originalStatusUrl: 'http://cdp-uploader:7337/status/9fcaabe5-77ec-44db-8356-3a6e8dc51b13'
+     }
 
-      const result = rewriteResponseUrls(cdpResponse)
+     const result = rewriteResponseUrls(cdpResponse)
 
-      expect(result).toEqual({
-        uploadId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
-        uploadUrl: 'http://cdp-uploader:7337/upload-and-scan/9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
-        statusUrl: '/api/v1/uploader/status/9fcaabe5-77ec-44db-8356-3a6e8dc51b13'
-      })
+     expect(result).toEqual({
+       uploadId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+       uploadUrl: 'http://cdp-uploader:7337/upload-and-scan/9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+       statusUrl: '/api/v1/uploader/status/9fcaabe5-77ec-44db-8356-3a6e8dc51b13'
+     })
 
-      expect(mockConfigGet).toHaveBeenCalledWith('uploaderUrl')
-    })
+     expect(mockConfigGet).toHaveBeenCalledWith('uploaderExternalUrl')
+     expect(mockConfigGet).toHaveBeenCalledWith('uploaderUrl')
+   })
+
+   test('should use uploaderExternalUrl when set', () => {
+     mockConfigGet.mockImplementation((key) => {
+       switch (key) {
+         case 'uploaderExternalUrl': return 'https://upload-file.ext-test.cdp.defra.gov.uk'
+         case 'uploaderUrl': return 'https://cdp-uploader.ext-test.cdp-int.defra.cloud'
+         case 'baseUrl.v1': return '/api/v1'
+         default: return null
+       }
+     })
+
+     const cdpResponse = { uploadId: 'test-upload-id' }
+     const result = rewriteResponseUrls(cdpResponse)
+
+     expect(result.uploadUrl).toBe('https://upload-file.ext-test.cdp.defra.gov.uk/upload-and-scan/test-upload-id')
+   })
 
     test('should handle different uploadIds', () => {
       const testUploadIds = [
