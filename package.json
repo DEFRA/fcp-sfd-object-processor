@@ -35,9 +35,9 @@
   ],
   "license": "OGL-UK-3.0",
   "dependencies": {
-    "@aws-sdk/client-s3": "3.1058.0",
-    "@aws-sdk/client-sns": "3.1058.0",
-    "@aws-sdk/s3-request-presigner": "3.1058.0",
+    "@aws-sdk/client-s3": "3.1064.0",
+    "@aws-sdk/client-sns": "3.1064.0",
+    "@aws-sdk/s3-request-presigner": "3.1064.0",
     "@defra/hapi-tracing": "1.30.0",
     "@elastic/ecs-pino-format": "1.5.0",
     "@fetchkit/ffetch": "5.5.1",
