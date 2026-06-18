@@ -53,6 +53,13 @@ export const awsConfig = {
           format: String,
           default: null,
           env: 'DOCUMENT_UPLOAD_EVENTS_TOPIC_ARN'
+        },
+        auditEvents: {
+          doc: 'ARN for the audit SNS topic',
+          format: String,
+          default: null,
+          nullable: true,
+          env: 'AUDIT_TOPIC_ARN'
         }
       }
 
