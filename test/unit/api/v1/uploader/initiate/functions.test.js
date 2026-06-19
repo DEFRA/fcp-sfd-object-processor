@@ -23,6 +23,10 @@ vi.mock('../../../../../../src/logging/logger.js', () => ({
   })
 }))
 
+vi.mock('../../../../../../src/repos/sessions.js', () => ({
+  insertSession: vi.fn()
+}))
+
 describe('Uploader Initiate Functions', () => {
   beforeEach(() => {
     vi.clearAllMocks()

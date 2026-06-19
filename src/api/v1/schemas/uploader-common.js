@@ -69,9 +69,11 @@ export const submissionFields = {
     .example(schemaConsts.SUBMISSION_ID_EXAMPLE),
 
   type: Joi.string()
+    .valid(schemaConsts.TYPE_EXAMPLE)
     .required()
     .description('Type of submission - determines CRM queue')
     .messages({
+      'any.only': 'type must be CS_Agreement_Evidence',
       'any.required': 'type is required'
     })
     .example(schemaConsts.TYPE_EXAMPLE),

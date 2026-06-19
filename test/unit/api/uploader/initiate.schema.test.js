@@ -137,12 +137,14 @@ describe('initiatePayloadSchema validation', () => {
       expect(error.details[0].path).toEqual(['metadata', 'type'])
     })
 
-    test('any string value for type passes validation', () => {
+    test('invalid type value fails validation', () => {
       const { error } = initiatePayloadSchema.validate({
         ...mockValidPayload,
         metadata: { ...mockValidPayload.metadata, type: 'SomeNewType' }
       })
-      expect(error).toBeUndefined()
+      expect(error).toBeDefined()
+      expect(error.details[0].type).toBe('any.only')
+      expect(error.message).toContain('type must be CS_Agreement_Evidence')
     })
 
     test('missing reference fails validation', () => {

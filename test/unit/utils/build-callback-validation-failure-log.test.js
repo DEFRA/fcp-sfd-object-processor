@@ -25,7 +25,8 @@ describe('buildCallbackValidationFailureLog', () => {
         action: 'post',
         category: '/api/v1/callback',
         outcome: 'failure',
-        reference: 'sub-123'
+        reference: 'sub-123',
+        fileIds: ['unknown']
       },
       error: {
         code: null,
@@ -34,6 +35,36 @@ describe('buildCallbackValidationFailureLog', () => {
         type: 'Error'
       }
     })
+  })
+
+  test('includes fileIds extracted from payload form', () => {
+    const request = {
+      ...mockRequest,
+      payload: {
+        metadata: { uosr: 'sub-123' },
+        form: {
+          'file-one': { fileId: 'aaaaaaaa-bbbb-4ccc-dddd-eeeeeeeeeeee' },
+          'file-two': { fileId: 'ffffffff-0000-4111-2222-333333333333' }
+        }
+      }
+    }
+    const log = buildCallbackValidationFailureLog(request, err)
+    expect(log.event.fileIds).toEqual([
+      'aaaaaaaa-bbbb-4ccc-dddd-eeeeeeeeeeee',
+      'ffffffff-0000-4111-2222-333333333333'
+    ])
+  })
+
+  test('falls back to ["unknown"] when form is absent from payload', () => {
+    const request = { ...mockRequest, payload: { metadata: { uosr: 'sub-123' } } }
+    const log = buildCallbackValidationFailureLog(request, err)
+    expect(log.event.fileIds).toEqual(['unknown'])
+  })
+
+  test('falls back to ["unknown"] when payload is null', () => {
+    const request = { ...mockRequest, payload: null }
+    const log = buildCallbackValidationFailureLog(request, err)
+    expect(log.event.fileIds).toEqual(['unknown'])
   })
 
   test('uses uosr from payload as event.reference', () => {

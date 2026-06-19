@@ -73,5 +73,6 @@ const buildValidationFailureStatusDocuments = (payload, validationError, correla
 export {
   mapValidationErrors,
   buildValidatedStatusDocuments,
-  buildValidationFailureStatusDocuments
+  buildValidationFailureStatusDocuments,
+  extractFileIdsFromPayload
 }

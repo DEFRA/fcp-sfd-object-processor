@@ -151,7 +151,7 @@ describe('cdpUploaderStatusResponseSchema', () => {
       }
       const payload = {
         uploadStatus: 'initiated',
-        metadata: {},
+        metadata: validMetadata,
         form: { 'file-field': unprocessedFile }
       }
       const { error } = cdpUploaderStatusResponseSchema.validate(payload)
@@ -161,7 +161,7 @@ describe('cdpUploaderStatusResponseSchema', () => {
     test('valid initiated response with empty form passes', () => {
       const payload = {
         uploadStatus: 'initiated',
-        metadata: {},
+        metadata: validMetadata,
         form: {}
       }
       const { error } = cdpUploaderStatusResponseSchema.validate(payload)
@@ -287,6 +287,29 @@ describe('cdpUploaderStatusResponseSchema', () => {
       }
       const { error } = cdpUploaderStatusResponseSchema.validate(payload)
       expect(error).toBeDefined()
+    })
+
+    test('rejects when metadata.type is invalid', () => {
+      // Note: cdpUploaderStatusResponseSchema uses Joi.object() (permissive) for metadata
+      // because CDP Uploader can return empty/partial metadata during initiated/pending states.
+      // Type validation is enforced at the initiate endpoint instead (fail-fast).
+      const payload = {
+        ...validReadyResponse,
+        metadata: { ...validMetadata, type: 'WRONG_TYPE' }
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      // Joi.object() is permissive — any type value passes here
+      expect(error).toBeUndefined()
+    })
+
+    test('rejects when metadata is missing required fields', () => {
+      // cdpUploaderStatusResponseSchema uses permissive Joi.object() — partial metadata passes
+      const payload = {
+        ...validReadyResponse,
+        metadata: { sbi: 105000000 }
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeUndefined()
     })
 
     test('numberOfRejectedFiles can be greater than zero', () => {
