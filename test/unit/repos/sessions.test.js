@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
-import { insertSession } from '../../../../src/repos/sessions.js'
-import { db } from '../../../../src/data/db.js'
+import { insertSession } from '../../../src/repos/sessions.js'
+import { db } from '../../../src/data/db.js'
 
-vi.mock('../../../../src/data/db.js', () => ({
+vi.mock('../../../src/data/db.js', () => ({
   db: { collection: vi.fn() }
 }))
 
-vi.mock('../../../../src/config/index.js', () => ({
+vi.mock('../../../src/config/index.js', () => ({
   config: {
     get: vi.fn((key) => {
       if (key === 'mongo.collections.sessions') return 'sessions'
