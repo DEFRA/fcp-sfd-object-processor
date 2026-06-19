@@ -20,6 +20,7 @@ aws sqs create-queue --queue-name cdp-uploader-scan-results-callback.fifo \
 
 # SFD messaging
 aws sns create-topic --name fcp_sfd_object_processor_events
+aws sns create-topic --name fcp_audit_fcp_sfd_object_processor
 aws sqs create-queue --queue-name fcp_sfd_crm_requests
 aws sns subscribe \
   --topic-arn arn:aws:sns:eu-west-2:000000000000:fcp_sfd_object_processor_events \

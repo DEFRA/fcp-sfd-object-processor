@@ -40,6 +40,8 @@ services:
       SNS_ENDPOINT: http://floci:4566
       # Messaging
       DOCUMENT_UPLOAD_EVENTS_TOPIC_ARN: arn:aws:sns:eu-west-2:000000000000:fcp_sfd_object_processor_events
+      AUDIT_TOPIC_ARN: arn:aws:sns:eu-west-2:000000000000:fcp_audit_fcp_sfd_object_processor
+      ENVIRONMENT: ${ENVIRONMENT:-local}
       # Auth
       AUTH_ENTRA_ENABLED: ${AUTH_ENTRA_ENABLED:-false}
       # Multi-tenant Entra configuration (JSON array). Example:
