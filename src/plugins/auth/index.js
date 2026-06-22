@@ -4,8 +4,10 @@ import { constants as httpConstants } from 'node:http2'
 import { getEntraAuthOptions } from './entra-options.js'
 import { getCognitoAuthOptions } from './cognito-options.js'
 import { AUTH_STRATEGY_NAMES } from '../../constants/auth.js'
+import { publishAuditEvent } from '../../messaging/outbound/audit/publish-audit-event.js'
 
 const logger = createLogger()
+const tracingHeader = config.get('tracing.header')
 
 export const auth = {
   plugin: {
@@ -44,7 +46,7 @@ export const auth = {
 
       // Additional logging for authentication failures for when a request is rejected
       // by Hapi before it reaches our validate function (e.g. missing/invalid token)
-      server.ext('onPreResponse', (request, h) => {
+      server.ext('onPreResponse', async (request, h) => {
         const response = request.response
 
         if (response.isBoom && response.output.statusCode === httpConstants.HTTP_STATUS_UNAUTHORIZED) {
@@ -59,6 +61,23 @@ export const auth = {
             tokenGroups: request.auth?.artifacts?.decoded?.payload?.groups, // includes groups from token if present, otherwise undefined
             tokenClientId: request.auth?.artifacts?.decoded?.payload?.client_id // includes client_id from Cognito token if present, otherwise undefined
           })
+          try {
+            await publishAuditEvent({
+              correlationid: request.headers[tracingHeader],
+              security: {
+                pmccode: 'AUTH',
+                priority: 1,
+                details: {
+                  message: response.message || response.output.payload.message || 'authentication_failed'
+                }
+              },
+              audit: {
+                entities: [{ entity: 'document', action: 'failed' }],
+                status: 'failure',
+                details: { path: request.path, method: request.method }
+              }
+            })
+          } catch (_) {}
         }
 
         return h.continue

@@ -19,6 +19,13 @@ vi.mock('../../../../src/plugins/auth/cognito-options.js', () => ({
   getCognitoAuthOptions: vi.fn().mockReturnValue({})
 }))
 
+const { mockPublishAuditEvent } = vi.hoisted(() => ({
+  mockPublishAuditEvent: vi.fn().mockResolvedValue(undefined)
+}))
+vi.mock('../../../../src/messaging/outbound/audit/publish-audit-event.js', () => ({
+  publishAuditEvent: mockPublishAuditEvent
+}))
+
 describe('auth plugin register', () => {
   let server
 
@@ -106,7 +113,7 @@ describe('auth plugin register', () => {
     }
 
     const h = { continue: Symbol('continue') }
-    const res = server._extHandler(request, h)
+    const res = await server._extHandler(request, h)
     expect(res).toBe(h.continue)
     expect(mockLogger.warn).toHaveBeenCalled()
     const warnArg = mockLogger.warn.mock.calls[0][0]
@@ -141,6 +148,7 @@ describe('auth plugin', () => {
         case 'auth.entra.enabled': return true
         case 'auth.entra.tenants': return [{ tenantId: 'test-tenant-id', allowedGroupIds: ['group-1', 'group-2'] }]
         case 'auth.cognito.enabled': return false
+        case 'tracing.header': return 'x-cdp-request-id'
         default: return null
       }
     })
@@ -318,7 +326,7 @@ describe('auth plugin', () => {
       }
       const mockH = { continue: Symbol('continue') }
 
-      const result = extensionHandler(mockRequest, mockH)
+      const result = await extensionHandler(mockRequest, mockH)
 
       expect(result).toBe(mockH.continue)
       expect(mockWarn).not.toHaveBeenCalled()
@@ -341,7 +349,7 @@ describe('auth plugin', () => {
       }
       const mockH = { continue: Symbol('continue') }
 
-      const result = extensionHandler(mockRequest, mockH)
+      const result = await extensionHandler(mockRequest, mockH)
 
       expect(result).toBe(mockH.continue)
     })
@@ -370,7 +378,7 @@ describe('auth plugin', () => {
       }
       const mockH = { continue: Symbol('continue') }
 
-      extensionHandler(mockRequest, mockH)
+      await extensionHandler(mockRequest, mockH)
 
       expect(mockWarn).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -404,7 +412,7 @@ describe('auth plugin', () => {
       }
       const mockH = { continue: Symbol('continue') }
 
-      extensionHandler(mockRequest, mockH)
+      await extensionHandler(mockRequest, mockH)
 
       expect(mockWarn).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -432,7 +440,7 @@ describe('auth plugin', () => {
       }
       const mockH = { continue: Symbol('continue') }
 
-      extensionHandler(mockRequest, mockH)
+      await extensionHandler(mockRequest, mockH)
 
       expect(mockWarn).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -440,6 +448,73 @@ describe('auth plugin', () => {
           tokenClientId: undefined
         })
       )
+    })
+
+    describe('event 7 — security audit event on auth failure', () => {
+      beforeEach(() => {
+        mockPublishAuditEvent.mockResolvedValue(undefined)
+      })
+
+      const build401Request = () => ({
+        response: {
+          isBoom: true,
+          output: { statusCode: 401, payload: { message: 'Unauthorized' } },
+          message: 'Invalid token'
+        },
+        path: '/api/v1/metadata',
+        method: 'GET',
+        info: { remoteAddress: '10.0.0.1' },
+        headers: { 'x-cdp-request-id': 'test-correlation-id', 'user-agent': 'test-agent' }
+      })
+
+      test('emits security + audit event on 401 response', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        await extensionHandler(build401Request(), { continue: Symbol('continue') })
+
+        expect(mockPublishAuditEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            correlationid: 'test-correlation-id',
+            security: expect.objectContaining({
+              pmccode: 'AUTH',
+              priority: 1
+            }),
+            audit: expect.objectContaining({
+              entities: [{ entity: 'document', action: 'failed' }],
+              status: 'failure',
+              details: expect.objectContaining({ path: '/api/v1/metadata', method: 'GET' })
+            })
+          })
+        )
+      })
+
+      test('does not emit audit event for non-401 responses', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const nonAuthRequest = {
+          response: { isBoom: true, output: { statusCode: 403 } },
+          path: '/test',
+          method: 'GET',
+          info: { remoteAddress: '127.0.0.1' },
+          headers: {}
+        }
+        await extensionHandler(nonAuthRequest, { continue: Symbol('continue') })
+
+        expect(mockPublishAuditEvent).not.toHaveBeenCalled()
+      })
+
+      test('audit failure does not prevent h.continue being returned', async () => {
+        mockPublishAuditEvent.mockRejectedValueOnce(new Error('SNS down'))
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const mockH = { continue: Symbol('continue') }
+        const result = await extensionHandler(build401Request(), mockH)
+
+        expect(result).toBe(mockH.continue)
+      })
     })
   })
 })
