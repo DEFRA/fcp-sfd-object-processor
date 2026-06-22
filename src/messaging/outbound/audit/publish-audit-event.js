@@ -16,9 +16,9 @@ const auditPublishConfig = {
   ip: '0.0.0.0'
 }
 
-export const publishAuditEvent = async (event) => {
+export const publishAuditEvent = async (event, { ip } = {}) => {
   try {
-    await _publishAuditEvent(event, auditPublishConfig)
+    await _publishAuditEvent(event, { ...auditPublishConfig, ...(ip && { ip }) })
   } catch (err) {
     logger.error(
       { event: { type: 'audit_publish_failed', outcome: 'failure', reason: err.message } },

@@ -53,6 +53,30 @@ describe('publishAuditEvent', () => {
     )
   })
 
+  test('should use provided ip when given', async () => {
+    const { publishAuditEvent: _publishAuditEvent } = await import('@defra/fcp-audit-publisher')
+    const { publishAuditEvent } = await import('../../../../../src/messaging/outbound/audit/publish-audit-event.js')
+
+    await publishAuditEvent(mockAuditEvent, { ip: '10.0.0.1' })
+
+    expect(_publishAuditEvent).toHaveBeenCalledWith(
+      mockAuditEvent,
+      expect.objectContaining({ ip: '10.0.0.1' })
+    )
+  })
+
+  test('should fall back to default ip when none provided', async () => {
+    const { publishAuditEvent: _publishAuditEvent } = await import('@defra/fcp-audit-publisher')
+    const { publishAuditEvent } = await import('../../../../../src/messaging/outbound/audit/publish-audit-event.js')
+
+    await publishAuditEvent(mockAuditEvent)
+
+    expect(_publishAuditEvent).toHaveBeenCalledWith(
+      mockAuditEvent,
+      expect.objectContaining({ ip: '0.0.0.0' })
+    )
+  })
+
   test('should not throw when publishAuditEvent rejects', async () => {
     const { publishAuditEvent: _publishAuditEvent } = await import('@defra/fcp-audit-publisher')
     const { publishAuditEvent } = await import('../../../../../src/messaging/outbound/audit/publish-audit-event.js')
