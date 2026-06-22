@@ -2,6 +2,7 @@ import { config } from '../config/index.js'
 import { PENDING, FAILED, SENT } from '../constants/outbox.js'
 import { db } from '../data/db.js'
 import { createLogger } from '../logging/logger.js'
+import { publishAuditEvent } from '../messaging/outbound/audit/publish-audit-event.js'
 
 const logger = createLogger()
 
@@ -69,7 +70,7 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
     .find(terminalFilter, { session: sess })
     .toArray()
 
-  terminalDocs.forEach(doc => {
+  for (const doc of terminalDocs) {
     const entryId = doc.payload?.file?.fileId || null
     const attempts = doc.attempts
     const reason = errMsg || 'terminal_failure'
@@ -83,7 +84,16 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
         reason
       }
     }, 'Outbox entry reached FAILED after max attempts')
-  })
+    try {
+      await publishAuditEvent({
+        audit: {
+          entities: [{ entity: 'document', action: 'failed', entityid: entryId ?? '' }],
+          status: 'failure',
+          details: { reason, attempts }
+        }
+      })
+    } catch (_) {}
+  }
 }
 
 const createOutboxEntries = async (ids, documents, session) => {
