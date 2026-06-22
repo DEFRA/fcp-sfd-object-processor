@@ -4,6 +4,7 @@ import { createServer } from '../../../../src/api'
 import { mockMetadataResponse } from '../../../mocks/metadata.js'
 import { config } from '../../../../src/config/index.js'
 import { db } from '../../../../src/data/db.js'
+import { assertValidAuditEvent } from '../../../helpers/validate-audit-payload.js'
 
 let server
 let originalCollection
@@ -117,6 +118,51 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
       expect(response.result.message).toBe('An internal server error occurred')
 
       await db.client.connect() // reconnect to allow test clean up
+    })
+  })
+})
+
+describe('GET /api/v1/metadata/sbi/{sbi} — audit event schema validation (event 2)', async () => {
+  let auditServer
+  const capturedAuditEvents = []
+
+  beforeAll(async () => {
+    vi.mock('../../../../src/messaging/outbound/audit/publish-audit-event.js', () => ({
+      publishAuditEvent: vi.fn().mockImplementation(async (event) => {
+        capturedAuditEvents.push(event)
+      })
+    }))
+
+    auditServer = await createServer()
+    await auditServer.initialize()
+
+    await db.collection(collection).deleteMany({})
+    await db.collection(collection).insertMany(mockMetadataResponse)
+  })
+
+  afterAll(async () => {
+    vi.restoreAllMocks()
+    if (auditServer && typeof auditServer.stop === 'function') {
+      await auditServer.stop()
+    }
+    await db.collection(collection).deleteMany({})
+  })
+
+  test('emits schema-valid document/read events for each matched document', async () => {
+    capturedAuditEvents.length = 0
+    const sbi = mockMetadataResponse[0].metadata.sbi
+
+    await auditServer.inject({
+      method: 'GET',
+      url: `/api/v1/metadata/sbi/${sbi}`
+    })
+
+    expect(capturedAuditEvents.length).toBeGreaterThan(0)
+    capturedAuditEvents.forEach(event => {
+      assertValidAuditEvent(event)
+      expect(event.audit.entities[0].entity).toBe('document')
+      expect(event.audit.entities[0].action).toBe('read')
+      expect(event.audit.status).toBe('success')
     })
   })
 })

@@ -6,6 +6,7 @@ import { config } from '../../../../src/config'
 import { createServer } from '../../../../src/api'
 import { mockScanAndUploadResponse, mockScanAndUploadResponseSingleFile } from '../../../mocks/cdp-uploader.js'
 import { baseMetadata, baseFileUpload2 } from '../../../mocks/base-data.js'
+import { assertValidAuditEvent } from '../../../helpers/validate-audit-payload.js'
 
 let server
 let originalMetadataCollection
@@ -741,5 +742,49 @@ describe('POST to the /api/v1/callback route — idempotency', async () => {
     expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
     expect(afterMetadataCount - beforeMetadataCount).toBe(1)
     expect(afterOutboxCount - beforeOutboxCount).toBe(1)
+  })
+})
+
+describe('POST /api/v1/callback — audit event schema validation (event 1)', async () => {
+  let auditServer
+  const capturedAuditEvents = []
+
+  beforeAll(async () => {
+    vi.mock('../../../../src/messaging/outbound/audit/publish-audit-event.js', () => ({
+      publishAuditEvent: vi.fn().mockImplementation(async (event) => {
+        capturedAuditEvents.push(event)
+      })
+    }))
+
+    auditServer = await createServer()
+    await auditServer.initialize()
+  })
+
+  afterAll(async () => {
+    vi.restoreAllMocks()
+    if (auditServer && typeof auditServer.stop === 'function') {
+      await auditServer.stop()
+    }
+    await db.collection(metadataCollection).deleteMany({})
+    await db.collection(outboxCollection).deleteMany({})
+    await db.collection(statusCollection).deleteMany({})
+  })
+
+  test('emits schema-valid document/created events for each file', async () => {
+    capturedAuditEvents.length = 0
+
+    await auditServer.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: mockScanAndUploadResponse
+    })
+
+    expect(capturedAuditEvents.length).toBeGreaterThan(0)
+    capturedAuditEvents.forEach(event => {
+      assertValidAuditEvent(event)
+      expect(event.audit.entities[0].entity).toBe('document')
+      expect(event.audit.entities[0].action).toBe('created')
+      expect(event.audit.status).toBe('success')
+    })
   })
 })

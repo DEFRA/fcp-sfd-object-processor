@@ -7,8 +7,10 @@ import { generatePresignedUrl } from '../../../repos/s3.js'
 import { NotFoundError } from '../../../errors/not-found-error.js'
 import { config } from '../../../config/index.js'
 import { blobResponseSchema } from './schemas/responses.js'
+import { publishAuditEvent } from '../../../messaging/outbound/audit/publish-audit-event.js'
 
 const baseUrl = config.get('baseUrl.v1')
+const tracingHeader = config.get('tracing.header')
 
 export const blobRoute = {
   method: 'GET',
@@ -32,6 +34,17 @@ export const blobRoute = {
       const { s3: s3Reference } = await getS3ReferenceByFileId(fileId)
 
       const { url } = await generatePresignedUrl(s3Reference)
+
+      try {
+        await publishAuditEvent({
+          correlationid: request.headers[tracingHeader],
+          audit: {
+            entities: [{ entity: 'document', action: 'read', entityid: fileId }],
+            status: 'success',
+            details: {}
+          }
+        })
+      } catch (_) {}
 
       return h.response({ data: { url } }).code(httpConstants.HTTP_STATUS_OK)
     } catch (err) {

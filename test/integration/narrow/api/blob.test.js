@@ -5,6 +5,7 @@ import { db } from '../../../../src/data/db.js'
 import { config } from '../../../../src/config'
 import { createServer } from '../../../../src/api'
 import { mockFormattedMetadata } from '../../../mocks/metadata.js'
+import { assertValidAuditEvent } from '../../../helpers/validate-audit-payload.js'
 
 let server
 let originalCollection
@@ -93,5 +94,52 @@ describe('GET to the /api/v1/blob/{fileId} route', async () => {
 
       await db.client.connect() // reconnect to allow test clean up
     })
+  })
+})
+
+describe('GET /api/v1/blob/{fileId} — audit event schema validation (event 3)', async () => {
+  let auditServer
+  const capturedAuditEvents = []
+
+  beforeAll(async () => {
+    vi.mock('../../../../src/messaging/outbound/audit/publish-audit-event.js', () => ({
+      publishAuditEvent: vi.fn().mockImplementation(async (event) => {
+        capturedAuditEvents.push(event)
+      })
+    }))
+
+    auditServer = await createServer()
+    await auditServer.initialize()
+
+    await db.collection(collection).insertOne(mockFormattedMetadata)
+  })
+
+  afterAll(async () => {
+    vi.restoreAllMocks()
+    if (auditServer && typeof auditServer.stop === 'function') {
+      await auditServer.stop()
+    }
+    await db.collection(collection).deleteMany({})
+    config.set('mongo.collections.uploadMetadata', originalCollection)
+  })
+
+  test('emits schema-valid document/read event without presigned URL', async () => {
+    capturedAuditEvents.length = 0
+    const fileId = mockFormattedMetadata.file.fileId
+
+    await auditServer.inject({
+      method: 'GET',
+      url: `/api/v1/blob/${fileId}`
+    })
+
+    expect(capturedAuditEvents.length).toBe(1)
+    assertValidAuditEvent(capturedAuditEvents[0])
+    expect(capturedAuditEvents[0].audit.entities[0].entity).toBe('document')
+    expect(capturedAuditEvents[0].audit.entities[0].action).toBe('read')
+    expect(capturedAuditEvents[0].audit.status).toBe('success')
+
+    const serialised = JSON.stringify(capturedAuditEvents[0])
+    expect(serialised).not.toContain('http')
+    expect(serialised).not.toContain('presigned')
   })
 })

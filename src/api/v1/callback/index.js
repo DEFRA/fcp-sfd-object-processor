@@ -8,9 +8,11 @@ import { persistMetadataWithOutbox, persistValidationFailureStatus } from '../..
 import { metricsCounter } from '../../common/helpers/metrics.js'
 import { validateCallbackPayload } from './validation/validate-callback-payload.js'
 import { buildCallbackValidationFailureLog, buildCallbackPersistFailureLog } from '../../../utils/build-callback-validation-failure-log.js'
+import { publishAuditEvent } from '../../../messaging/outbound/audit/publish-audit-event.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
+const tracingHeader = config.get('tracing.header')
 
 /**
  * Hapi route definition for the CDP Uploader callback endpoint.
@@ -70,10 +72,26 @@ export const uploadCallback = {
           }).code(httpConstants.HTTP_STATUS_OK)
         }
 
+        const fileIds = Object.values(result.insertedIds).map(id => id.toString())
+
+        for (const fileId of fileIds) {
+          try {
+            await publishAuditEvent({
+              correlationid: request.headers[tracingHeader],
+              audit: {
+                entities: [{ entity: 'document', action: 'created', entityid: fileId }],
+                accounts: { sbi: String(request.payload.metadata.sbi) },
+                status: 'success',
+                details: {}
+              }
+            })
+          } catch (_) {}
+        }
+
         return h.response({
           message: 'Metadata created',
           count: result.insertedCount,
-          ids: Object.values(result.insertedIds).map(id => id.toString())
+          ids: fileIds
         }).code(httpConstants.HTTP_STATUS_CREATED)
       } catch (err) {
         logger.error(err)
