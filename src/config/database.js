@@ -39,6 +39,11 @@ export const databaseConfig = {
         doc: 'collection for storing pending outbound messages to be processed and sent to external systems',
         format: String,
         default: 'outbox'
+      },
+      sessions: {
+        doc: 'collection for storing upload session records linking uploadId to submission metadata for end-to-end traceability',
+        format: String,
+        default: 'sessions'
       }
     }
   }

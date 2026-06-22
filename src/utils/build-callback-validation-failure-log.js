@@ -1,3 +1,5 @@
+import { extractFileIdsFromPayload } from '../mappers/status.js'
+
 /**
  * Builds the structured log context for a Joi schema validation failure on the callback endpoint.
  * Uses approved ECS event.* and error.* fields only.
@@ -11,7 +13,8 @@ export const buildCallbackValidationFailureLog = (request, err) => {
       action: request.method,
       category: request.path,
       outcome: 'failure',
-      reference: request.payload?.metadata?.uosr
+      reference: request.payload?.metadata?.uosr,
+      fileIds: extractFileIdsFromPayload(request.payload)
     },
     error: {
       code: err.statusCode ?? err.code ?? null,

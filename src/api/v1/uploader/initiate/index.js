@@ -6,6 +6,7 @@ import { config } from '../../../../config/index.js'
 import { httpClient, TimeoutError } from '../../../../http/client.js'
 import { initiatePayloadSchema, initiateResponseSchema } from './schema.js'
 import { metricsCounter } from '../../../../api/common/helpers/metrics.js'
+import { insertSession } from '../../../../repos/sessions.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -100,6 +101,16 @@ export const uploaderInitiateRoute = {
       }
 
       const data = rewriteResponseUrls(cdpResponse)
+
+      try {
+        await insertSession({
+          uploadId: cdpResponse.uploadId,
+          metadata: request.payload.metadata,
+          timestamp: new Date()
+        })
+      } catch (sessionErr) {
+        logger.error({ error: { message: sessionErr.message }, uploadId: cdpResponse.uploadId }, 'Failed to persist upload session record')
+      }
 
       return h.response({ data }).code(httpConstants.HTTP_STATUS_OK)
     }

@@ -1,23 +1,7 @@
 import Joi from 'joi'
-import { schemaConsts } from '../../../constants/schemas.js'
 import { fileUploadSchema, baseMetadataSchema, uploaderResponseFields } from '../schemas/uploader-common.js'
 import { generateResponseSchemas } from '../schemas/responses.js'
 import { constants as httpConstants } from 'node:http2'
-
-// Extended metadata schema for callback endpoint (restricted type)
-const callbackMetadataSchema = baseMetadataSchema.keys({
-  type: Joi.string()
-    .valid(schemaConsts.TYPE_EXAMPLE)
-    .required()
-    .description('Type of submission - determines CRM queue')
-    .messages({
-      'any.only': 'type must be CS_Agreement_Evidence',
-      'any.required': 'type is required'
-    })
-    .example(schemaConsts.TYPE_EXAMPLE)
-}).strict()
-  .description('Metadata about the upload submission')
-  .label('UploadMetadata')
 
 // File upload schema for individual file objects in the form
 // Reusing the shared fileUploadSchema from common schemas
@@ -53,7 +37,7 @@ const formSchema = Joi.object()
 export const callbackPayloadSchema = Joi.object({
   uploadStatus: uploaderResponseFields.uploadStatus,
 
-  metadata: callbackMetadataSchema.required(),
+  metadata: baseMetadataSchema.required(),
 
   form: formSchema.required(),
 

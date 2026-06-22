@@ -4,7 +4,14 @@ import { vi, describe, test, expect, beforeAll, afterAll, afterEach } from 'vite
 import { config } from '../../../../../src/config/index.js'
 import { createServer } from '../../../../../src/api'
 
-const { mockHttpClient } = vi.hoisted(() => ({ mockHttpClient: vi.fn() }))
+const { mockHttpClient, mockInsertSession } = vi.hoisted(() => ({
+  mockHttpClient: vi.fn(),
+  mockInsertSession: vi.fn()
+}))
+
+vi.mock('../../../../../src/repos/sessions.js', () => ({
+  insertSession: mockInsertSession
+}))
 
 vi.mock('../../../../../src/http/client.js', () => ({
   httpClient: mockHttpClient,
@@ -49,6 +56,7 @@ afterAll(async () => {
 
 afterEach(() => {
   mockHttpClient.mockReset()
+  mockInsertSession.mockReset()
 })
 
 describe('POST to the /api/v1/uploader/initiate route', async () => {
@@ -72,6 +80,43 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
       expect(response.result.data.uploadId).toBe('9fcaabe5-77ec-44db-8356-3a6e8dc51b13')
       expect(response.result.data.uploadUrl).toBe(`${config.get('uploaderUrl')}/upload-and-scan/9fcaabe5-77ec-44db-8356-3a6e8dc51b13`)
       expect(response.result.data.statusUrl).toBe('/api/v1/uploader/status/9fcaabe5-77ec-44db-8356-3a6e8dc51b13')
+    })
+
+    test('should call insertSession with uploadId, metadata and timestamp', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        json: async () => mockCdpUploaderResponse
+      })
+      mockInsertSession.mockResolvedValue({ acknowledged: true })
+
+      await server.inject({
+        method: 'POST',
+        url: '/api/v1/uploader/initiate',
+        payload: mockValidPayload
+      })
+
+      expect(mockInsertSession).toHaveBeenCalledWith({
+        uploadId: mockCdpUploaderResponse.uploadId,
+        metadata: mockValidPayload.metadata,
+        timestamp: expect.any(Date)
+      })
+    })
+
+    test('should return 200 even when insertSession throws', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        json: async () => mockCdpUploaderResponse
+      })
+      mockInsertSession.mockRejectedValue(new Error('DB connection error'))
+
+      const response = await server.inject({
+        method: 'POST',
+        url: '/api/v1/uploader/initiate',
+        payload: mockValidPayload
+      })
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+      expect(response.result.data.uploadId).toBe(mockCdpUploaderResponse.uploadId)
     })
 
     test('should forward enriched payload to CDP Uploader', async () => {
@@ -100,6 +145,21 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
   })
 
   describe('with an invalid payload', () => {
+    test('should return 400 for invalid metadata.type without calling CDP Uploader', async () => {
+      const response = await server.inject({
+        method: 'POST',
+        url: '/api/v1/uploader/initiate',
+        payload: {
+          ...mockValidPayload,
+          metadata: { ...mockValidPayload.metadata, type: 'INVALID_TYPE' }
+        }
+      })
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
+      expect(response.result.message).toContain('type must be CS_Agreement_Evidence')
+      expect(mockHttpClient).not.toHaveBeenCalled()
+    })
+
     test('should return 400 for missing redirect', async () => {
       const { redirect, ...payload } = mockValidPayload
 

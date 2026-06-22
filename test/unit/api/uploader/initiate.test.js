@@ -71,6 +71,10 @@ describe('uploader initiate handler', () => {
       }
     }))
 
+    vi.doMock('../../../../src/repos/sessions.js', () => ({
+      insertSession: vi.fn().mockResolvedValue({ acknowledged: true })
+    }))
+
     const mod = await import('../../../../src/api/v1/uploader/initiate/index.js')
     uploaderInitiateRoute = mod.uploaderInitiateRoute
     buildCdpUploaderPayload = mod.buildCdpUploaderPayload
