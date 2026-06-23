@@ -23,6 +23,13 @@ vi.mock('../../../src/logging/logger.js', () => ({
   createLogger: () => ({ error: mockLoggerError, info: vi.fn(), warn: vi.fn() })
 }))
 
+const { mockPublishAuditEvent } = vi.hoisted(() => ({
+  mockPublishAuditEvent: vi.fn().mockResolvedValue(undefined)
+}))
+vi.mock('../../../src/messaging/outbound/audit/publish-audit-event.js', () => ({
+  publishAuditEvent: mockPublishAuditEvent
+}))
+
 import { config } from '../../../src/config/index.js'
 import { db } from '../../../src/data/db.js'
 import {
@@ -207,6 +214,63 @@ describe('src/repos/outbox', () => {
 
     expect(countDocuments).toHaveBeenCalled()
     expect(find).not.toHaveBeenCalled()
+  })
+})
+
+describe('outbox — event 6 (document/failed audit event on terminal failure)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockPublishAuditEvent.mockResolvedValue(undefined)
+  })
+
+  const buildTerminalDoc = (fileId = 'file-id-1', attempts = 2) => ({
+    _id: { toString: () => 'outbox-doc-id' },
+    payload: { file: { fileId } },
+    attempts
+  })
+
+  const buildCollectionMock = (terminalDocs) => {
+    const toArray = vi.fn().mockResolvedValue(terminalDocs)
+    const find = vi.fn().mockReturnValue({ toArray })
+    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
+    const countDocuments = vi.fn().mockResolvedValue(terminalDocs.length)
+    return { updateMany, countDocuments, find }
+  }
+
+  it('emits document/failed audit event for each terminal doc', async () => {
+    const terminalDoc = buildTerminalDoc('file-id-1', 2)
+    db.collection.mockReturnValue(buildCollectionMock([terminalDoc]))
+
+    await bulkUpdateDeliveryStatus({ id: 's' }, ['file-id-1'], 'FAILED', 'SNS failure')
+
+    expect(mockPublishAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        audit: expect.objectContaining({
+          entities: [{ entity: 'document', action: 'failed', entityid: 'file-id-1' }],
+          status: 'failure',
+          details: expect.objectContaining({ reason: 'SNS failure', attempts: 2 })
+        })
+      })
+    )
+  })
+
+  it('audit failure does not prevent outbox update from completing', async () => {
+    const terminalDoc = buildTerminalDoc()
+    db.collection.mockReturnValue(buildCollectionMock([terminalDoc]))
+    mockPublishAuditEvent.mockRejectedValueOnce(new Error('SNS down'))
+
+    await expect(
+      bulkUpdateDeliveryStatus({ id: 's' }, ['file-id-1'], 'FAILED', 'error')
+    ).resolves.not.toThrow()
+  })
+
+  it('emits one event per terminal doc', async () => {
+    const terminalDocs = [buildTerminalDoc('file-1'), buildTerminalDoc('file-2')]
+    db.collection.mockReturnValue(buildCollectionMock(terminalDocs))
+
+    await bulkUpdateDeliveryStatus({ id: 's' }, ['file-1', 'file-2'], 'FAILED', 'error')
+
+    expect(mockPublishAuditEvent).toHaveBeenCalledTimes(2)
   })
 })
 
