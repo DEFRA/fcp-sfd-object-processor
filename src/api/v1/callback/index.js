@@ -8,9 +8,11 @@ import { persistMetadataWithOutbox, persistValidationFailureStatus } from '../..
 import { metricsCounter } from '../../common/helpers/metrics.js'
 import { validateCallbackPayload } from './validation/validate-callback-payload.js'
 import { buildCallbackValidationFailureLog, buildCallbackPersistFailureLog } from '../../../utils/build-callback-validation-failure-log.js'
+import { publishAuditEvent } from '../../../messaging/outbound/audit/publish-audit-event.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
+const tracingHeader = config.get('tracing.header')
 
 /**
  * Hapi route definition for the CDP Uploader callback endpoint.
@@ -42,6 +44,17 @@ export const uploadCallback = {
         } catch (persistError) {
           logger.error(buildCallbackPersistFailureLog(request, persistError), 'Failed to persist status for callback validation failure')
         }
+
+        try {
+          await publishAuditEvent({
+            correlationid: request.headers[tracingHeader],
+            audit: {
+              entities: [{ entity: 'document', action: 'failed' }],
+              status: 'failure',
+              details: { reason: 'payload_validation_failure' }
+            }
+          })
+        } catch (_) {}
 
         return h.response({ message: 'Validation failure persisted' }).code(httpConstants.HTTP_STATUS_CREATED).takeover()
       }
@@ -77,6 +90,16 @@ export const uploadCallback = {
         }).code(httpConstants.HTTP_STATUS_CREATED)
       } catch (err) {
         logger.error(err)
+        try {
+          await publishAuditEvent({
+            correlationid: request.headers[tracingHeader],
+            audit: {
+              entities: [{ entity: 'document', action: 'failed' }],
+              status: 'failure',
+              details: { reason: err.message || 'processing_error' }
+            }
+          })
+        } catch (_) {}
         return Boom.internal(err)
       }
     }
