@@ -30,7 +30,8 @@ const { getMetadataBySbi } = await import('../../../../../src/repos/metadata.js'
 const buildMockRequest = (sbi = '105000000') => ({
   params: { sbi },
   headers: { 'x-cdp-request-id': 'test-correlation-id' },
-  info: { remoteAddress: '1.2.3.4' }
+  info: { remoteAddress: '1.2.3.4' },
+  logger: { warn: vi.fn() }
 })
 
 const buildMockH = () => {

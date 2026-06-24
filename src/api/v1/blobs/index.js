@@ -44,7 +44,21 @@ export const blobRoute = {
             details: {}
           }
         })
-      } catch (_) {}
+      } catch (err) {
+        request.logger.warn({
+          event: {
+            type: 'audit_event_send_failure',
+            outcome: 'failure',
+            entityid: fileId
+          },
+          error: {
+            code: err.code ?? null,
+            message: err.message,
+            stack_trace: err.stack,
+            type: err?.constructor?.name || err?.name || 'Error'
+          }
+        }, 'Failed to send audit event')
+      }
 
       return h.response({ data: { url } }).code(httpConstants.HTTP_STATUS_OK)
     } catch (err) {

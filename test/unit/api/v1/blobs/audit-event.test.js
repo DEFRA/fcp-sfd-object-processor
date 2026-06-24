@@ -35,7 +35,8 @@ const { generatePresignedUrl } = await import('../../../../../src/repos/s3.js')
 const buildMockRequest = (fileId = 'test-file-id') => ({
   params: { fileId },
   headers: { 'x-cdp-request-id': 'test-correlation-id' },
-  info: { remoteAddress: '1.2.3.4' }
+  info: { remoteAddress: '1.2.3.4' },
+  logger: { warn: vi.fn() }
 })
 
 const buildMockH = () => {
