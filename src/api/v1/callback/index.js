@@ -8,7 +8,7 @@ import { persistMetadataWithOutbox, persistValidationFailureStatus } from '../..
 import { metricsCounter } from '../../common/helpers/metrics.js'
 import { validateCallbackPayload } from './validation/validate-callback-payload.js'
 import { buildCallbackValidationFailureLog, buildCallbackPersistFailureLog } from '../../../utils/build-callback-validation-failure-log.js'
-import { publishAuditEvent } from '../../../messaging/outbound/audit/publish-audit-event.js'
+import { sendAuditEvent } from '../../../messaging/outbound/audit/send-audit-event.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -76,8 +76,8 @@ export const uploadCallback = {
 
         for (const fileId of fileIds) {
           try {
-            await publishAuditEvent({
-              correlationid: request.headers[tracingHeader],
+            await sendAuditEvent({
+              correlationid: request?.headers?.[tracingHeader],
               audit: {
                 entities: [{ entity: 'document', action: 'created', entityid: fileId }],
                 accounts: { sbi: String(request.payload.metadata.sbi) },

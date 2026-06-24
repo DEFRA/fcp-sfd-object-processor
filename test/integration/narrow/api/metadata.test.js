@@ -1,10 +1,34 @@
 import { constants as httpConstants } from 'node:http2'
 import { vi, describe, test, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import { createServer } from '../../../../src/api'
 import { mockMetadataResponse } from '../../../mocks/metadata.js'
 import { config } from '../../../../src/config/index.js'
 import { db } from '../../../../src/data/db.js'
 import { assertValidAuditEvent } from '../../../helpers/validate-audit-payload.js'
+
+const capturedAuditEvents = []
+
+vi.mock('@defra/fcp-audit-publisher', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    publishAuditEvent: vi.fn().mockImplementation(async (event, config) => {
+      // Simulate what @defra/fcp-audit-publisher does: add required fields
+      const enrichedEvent = {
+        datetime: new Date().toISOString(),
+        version: config?.version || '1.0.0',
+        application: config?.application,
+        component: config?.component,
+        environment: config?.environment,
+        ip: config?.ip || '0.0.0.0',
+        correlationid: event.correlationid || config?.generateCorrelationId ? crypto.randomUUID() : undefined,
+        audit: event.audit
+      }
+      capturedAuditEvents.push(enrichedEvent)
+    })
+  }
+})
+
+import { createServer } from '../../../../src/api'
 
 let server
 let originalCollection
@@ -122,17 +146,10 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
   })
 })
 
-describe('GET /api/v1/metadata/sbi/{sbi} — audit event schema validation (event 2)', async () => {
+describe('GET /api/v1/metadata/sbi/{sbi} — audit event schema validation', async () => {
   let auditServer
-  const capturedAuditEvents = []
 
   beforeAll(async () => {
-    vi.mock('../../../../src/messaging/outbound/audit/publish-audit-event.js', () => ({
-      publishAuditEvent: vi.fn().mockImplementation(async (event) => {
-        capturedAuditEvents.push(event)
-      })
-    }))
-
     auditServer = await createServer()
     await auditServer.initialize()
 

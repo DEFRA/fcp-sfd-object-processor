@@ -16,8 +16,8 @@ vi.mock('../../../../../src/config/index.js', () => ({
   config: { get: mockConfigGet }
 }))
 
-vi.mock('../../../../../src/messaging/outbound/audit/publish-audit-event.js', () => ({
-  publishAuditEvent: mockPublishAuditEvent
+vi.mock('../../../../../src/messaging/outbound/audit/send-audit-event.js', () => ({
+  sendAuditEvent: mockPublishAuditEvent
 }))
 
 vi.mock('../../../../../src/repos/metadata.js', () => ({

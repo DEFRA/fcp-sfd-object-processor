@@ -3,10 +3,34 @@ import { vi, describe, test, expect, beforeAll, afterAll, afterEach } from 'vite
 
 import { db } from '../../../../src/data/db.js'
 import { config } from '../../../../src/config'
-import { createServer } from '../../../../src/api'
 import { mockScanAndUploadResponse, mockScanAndUploadResponseSingleFile } from '../../../mocks/cdp-uploader.js'
 import { baseMetadata, baseFileUpload2 } from '../../../mocks/base-data.js'
 import { assertValidAuditEvent } from '../../../helpers/validate-audit-payload.js'
+
+const capturedAuditEvents = []
+
+vi.mock('@defra/fcp-audit-publisher', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    publishAuditEvent: vi.fn().mockImplementation(async (event, config) => {
+      // Simulate what @defra/fcp-audit-publisher does: add required fields
+      const enrichedEvent = {
+        datetime: new Date().toISOString(),
+        version: config?.version || '1.0.0',
+        application: config?.application,
+        component: config?.component,
+        environment: config?.environment,
+        ip: config?.ip || '0.0.0.0',
+        correlationid: event.correlationid || config?.generateCorrelationId ? crypto.randomUUID() : undefined,
+        audit: event.audit
+      }
+      capturedAuditEvents.push(enrichedEvent)
+    })
+  }
+})
+
+import { createServer } from '../../../../src/api'
 
 let server
 let originalMetadataCollection
@@ -745,17 +769,10 @@ describe('POST to the /api/v1/callback route — idempotency', async () => {
   })
 })
 
-describe('POST /api/v1/callback — audit event schema validation (event 1)', async () => {
+describe('POST /api/v1/callback — audit event schema validation', async () => {
   let auditServer
-  const capturedAuditEvents = []
 
   beforeAll(async () => {
-    vi.mock('../../../../src/messaging/outbound/audit/publish-audit-event.js', () => ({
-      publishAuditEvent: vi.fn().mockImplementation(async (event) => {
-        capturedAuditEvents.push(event)
-      })
-    }))
-
     auditServer = await createServer()
     await auditServer.initialize()
   })

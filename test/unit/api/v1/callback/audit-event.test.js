@@ -27,8 +27,8 @@ vi.mock('../../../../../src/logging/logger.js', () => ({
   createLogger: () => mockLogger
 }))
 
-vi.mock('../../../../../src/messaging/outbound/audit/publish-audit-event.js', () => ({
-  publishAuditEvent: mockPublishAuditEvent
+vi.mock('../../../../../src/messaging/outbound/audit/send-audit-event.js', () => ({
+  sendAuditEvent: mockPublishAuditEvent
 }))
 
 vi.mock('../../../../../src/services/metadata-service.js', () => ({
