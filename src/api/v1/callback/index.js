@@ -8,9 +8,11 @@ import { persistMetadataWithOutbox, persistValidationFailureStatus } from '../..
 import { metricsCounter } from '../../common/helpers/metrics.js'
 import { validateCallbackPayload } from './validation/validate-callback-payload.js'
 import { buildCallbackValidationFailureLog, buildCallbackPersistFailureLog } from '../../../utils/build-callback-validation-failure-log.js'
+import { sendAuditEvent } from '../../../messaging/outbound/audit/send-audit-event.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
+const tracingHeader = config.get('tracing.header')
 
 /**
  * Hapi route definition for the CDP Uploader callback endpoint.
@@ -70,10 +72,40 @@ export const uploadCallback = {
           }).code(httpConstants.HTTP_STATUS_OK)
         }
 
+        const fileIds = Object.values(result.insertedIds).map(id => id.toString())
+
+        for (const fileId of fileIds) {
+          try {
+            await sendAuditEvent({
+              correlationid: request?.headers?.[tracingHeader],
+              audit: {
+                entities: [{ entity: 'document', action: 'created', entityid: fileId }],
+                accounts: { sbi: String(request.payload.metadata.sbi) },
+                status: 'success',
+                details: {}
+              }
+            })
+          } catch (err) {
+            logger.warn({
+              event: {
+                type: 'audit_event_send_failure',
+                outcome: 'failure',
+                entityid: fileId
+              },
+              error: {
+                code: err.code ?? null,
+                message: err.message,
+                stack_trace: err.stack,
+                type: err?.constructor?.name || err?.name || 'Error'
+              }
+            }, 'Failed to send audit event')
+          }
+        }
+
         return h.response({
           message: 'Metadata created',
           count: result.insertedCount,
-          ids: Object.values(result.insertedIds).map(id => id.toString())
+          ids: fileIds
         }).code(httpConstants.HTTP_STATUS_CREATED)
       } catch (err) {
         logger.error(err)

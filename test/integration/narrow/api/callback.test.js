@@ -3,9 +3,34 @@ import { vi, describe, test, expect, beforeAll, afterAll, afterEach } from 'vite
 
 import { db } from '../../../../src/data/db.js'
 import { config } from '../../../../src/config'
-import { createServer } from '../../../../src/api'
 import { mockScanAndUploadResponse, mockScanAndUploadResponseSingleFile } from '../../../mocks/cdp-uploader.js'
 import { baseMetadata, baseFileUpload2 } from '../../../mocks/base-data.js'
+import { assertValidAuditEvent } from '../../../helpers/validate-audit-payload.js'
+
+const capturedAuditEvents = []
+
+vi.mock('@defra/fcp-audit-publisher', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    publishAuditEvent: vi.fn().mockImplementation(async (event, config) => {
+      // Simulate what @defra/fcp-audit-publisher does: add required fields
+      const enrichedEvent = {
+        datetime: new Date().toISOString(),
+        version: config?.version || '1.0.0',
+        application: config?.application,
+        component: config?.component,
+        environment: config?.environment,
+        ip: config?.ip || '0.0.0.0',
+        correlationid: event.correlationid || config?.generateCorrelationId ? crypto.randomUUID() : undefined,
+        audit: event.audit
+      }
+      capturedAuditEvents.push(enrichedEvent)
+    })
+  }
+})
+
+import { createServer } from '../../../../src/api'
 
 let server
 let originalMetadataCollection
@@ -741,5 +766,42 @@ describe('POST to the /api/v1/callback route — idempotency', async () => {
     expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
     expect(afterMetadataCount - beforeMetadataCount).toBe(1)
     expect(afterOutboxCount - beforeOutboxCount).toBe(1)
+  })
+})
+
+describe('POST /api/v1/callback — audit event schema validation', async () => {
+  let auditServer
+
+  beforeAll(async () => {
+    auditServer = await createServer()
+    await auditServer.initialize()
+  })
+
+  afterAll(async () => {
+    vi.restoreAllMocks()
+    if (auditServer && typeof auditServer.stop === 'function') {
+      await auditServer.stop()
+    }
+    await db.collection(metadataCollection).deleteMany({})
+    await db.collection(outboxCollection).deleteMany({})
+    await db.collection(statusCollection).deleteMany({})
+  })
+
+  test('emits schema-valid document/created events for each file', async () => {
+    capturedAuditEvents.length = 0
+
+    await auditServer.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: mockScanAndUploadResponse
+    })
+
+    expect(capturedAuditEvents.length).toBeGreaterThan(0)
+    capturedAuditEvents.forEach(event => {
+      assertValidAuditEvent(event)
+      expect(event.audit.entities[0].entity).toBe('document')
+      expect(event.audit.entities[0].action).toBe('created')
+      expect(event.audit.status).toBe('success')
+    })
   })
 })

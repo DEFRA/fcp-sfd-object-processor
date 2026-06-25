@@ -19,13 +19,25 @@ aws sqs create-queue --queue-name cdp-uploader-scan-results-callback.fifo \
   --attributes '{"FifoQueue":"true","ContentBasedDeduplication":"true"}'
 
 # SFD messaging
-aws sns create-topic --name fcp_sfd_object_processor_events
-aws sns create-topic --name fcp_audit_fcp_sfd_object_processor
 aws sqs create-queue --queue-name fcp_sfd_crm_requests
+aws sqs create-queue --queue-name fcp_audit_events
+
+echo "Creating SNS topics and subscriptions..."
+
+aws sns create-topic --name fcp_sfd_object_processor_events
+sleep 1
+aws sns create-topic --name fcp_audit_fcp_sfd_object_processor
+sleep 1
+
 aws sns subscribe \
   --topic-arn arn:aws:sns:eu-west-2:000000000000:fcp_sfd_object_processor_events \
   --protocol sqs \
   --notification-endpoint arn:aws:sqs:eu-west-2:000000000000:fcp_sfd_crm_requests
+
+aws sns subscribe \
+  --topic-arn arn:aws:sns:eu-west-2:000000000000:fcp_audit_fcp_sfd_object_processor \
+  --protocol sqs \
+  --notification-endpoint arn:aws:sqs:eu-west-2:000000000000:fcp_audit_events
 
 # Test harness
 aws sqs create-queue --queue-name mock-clamav
