@@ -132,4 +132,76 @@ describe('callback handler — event 1 (document/created)', () => {
     expect(h.response).toHaveBeenCalledWith(expect.objectContaining({ message: 'Metadata created' }))
     expect(result.code).toBeDefined()
   })
+
+  test('logs error.type from err.constructor.name when available', async () => {
+    class SNSError extends Error {}
+    const err = new SNSError('connection refused')
+
+    persistMetadataWithOutbox.mockResolvedValueOnce({
+      insertedCount: 1,
+      insertedIds: { 0: { toString: () => 'file-id-1' } }
+    })
+    mockPublishAuditEvent.mockRejectedValueOnce(err)
+
+    const request = buildMockRequest()
+    const h = buildMockH()
+
+    await uploadCallback.options.handler(request, h)
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({ type: 'SNSError' })
+      }),
+      'Failed to send audit event'
+    )
+  })
+
+  test('logs error.type from err.name when constructor.name is absent', async () => {
+    const err = Object.create(null)
+    err.message = 'connection refused'
+    err.name = 'SpecialError'
+    err.stack = ''
+
+    persistMetadataWithOutbox.mockResolvedValueOnce({
+      insertedCount: 1,
+      insertedIds: { 0: { toString: () => 'file-id-1' } }
+    })
+    mockPublishAuditEvent.mockRejectedValueOnce(err)
+
+    const request = buildMockRequest()
+    const h = buildMockH()
+
+    await uploadCallback.options.handler(request, h)
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({ type: 'SpecialError' })
+      }),
+      'Failed to send audit event'
+    )
+  })
+
+  test('logs error.type as fallback "Error" when neither constructor.name nor name is set', async () => {
+    const err = Object.create(null)
+    err.message = 'connection refused'
+    err.stack = ''
+
+    persistMetadataWithOutbox.mockResolvedValueOnce({
+      insertedCount: 1,
+      insertedIds: { 0: { toString: () => 'file-id-1' } }
+    })
+    mockPublishAuditEvent.mockRejectedValueOnce(err)
+
+    const request = buildMockRequest()
+    const h = buildMockH()
+
+    await uploadCallback.options.handler(request, h)
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({ type: 'Error' })
+      }),
+      'Failed to send audit event'
+    )
+  })
 })

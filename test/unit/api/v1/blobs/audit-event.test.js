@@ -92,4 +92,64 @@ describe('blob handler — event 3 (document/read)', () => {
     expect(h.response).toHaveBeenCalledWith(expect.objectContaining({ data: { url: 'https://s3.example.com/presigned' } }))
     expect(result.code).toBeDefined()
   })
+
+  test('logs error.type from err.constructor.name when available', async () => {
+    class SNSError extends Error {}
+    const err = new SNSError('connection refused')
+
+    mockPublishAuditEvent.mockRejectedValueOnce(err)
+
+    const request = buildMockRequest('file-abc')
+    const h = buildMockH()
+
+    await blobRoute.handler(request, h)
+
+    expect(request.logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({ type: 'SNSError' })
+      }),
+      'Failed to send audit event'
+    )
+  })
+
+  test('logs error.type from err.name when constructor.name is absent', async () => {
+    const err = Object.create(null)
+    err.message = 'connection refused'
+    err.name = 'SpecialError'
+    err.stack = ''
+
+    mockPublishAuditEvent.mockRejectedValueOnce(err)
+
+    const request = buildMockRequest('file-abc')
+    const h = buildMockH()
+
+    await blobRoute.handler(request, h)
+
+    expect(request.logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({ type: 'SpecialError' })
+      }),
+      'Failed to send audit event'
+    )
+  })
+
+  test('logs error.type as fallback "Error" when neither constructor.name nor name is set', async () => {
+    const err = Object.create(null)
+    err.message = 'connection refused'
+    err.stack = ''
+
+    mockPublishAuditEvent.mockRejectedValueOnce(err)
+
+    const request = buildMockRequest('file-abc')
+    const h = buildMockH()
+
+    await blobRoute.handler(request, h)
+
+    expect(request.logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({ type: 'Error' })
+      }),
+      'Failed to send audit event'
+    )
+  })
 })
