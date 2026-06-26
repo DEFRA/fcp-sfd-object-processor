@@ -58,7 +58,6 @@ export const awsConfig = {
           doc: 'ARN for the audit SNS topic',
           format: String,
           default: null,
-          nullable: true,
           env: 'AUDIT_TOPIC_ARN'
         }
       }
