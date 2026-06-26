@@ -1,12 +1,27 @@
 import { vi, describe, beforeEach, test, expect } from 'vitest'
 import { createLogger } from '../../../../../src/logging/logger.js'
+import { assertValidAuditEvent } from '../../../../helpers/validate-audit-payload.js'
 
 vi.mock('@defra/fcp-audit-publisher', () => ({
-  publishAuditEvent: vi.fn().mockResolvedValue({ messageId: 'test-message-id' })
+  publishAuditEvent: vi.fn().mockResolvedValue({ messageId: 'test-message-id' }),
+  validateAuditEvent: vi.fn().mockReturnValue({ valid: true, errors: [] })
 }))
 
 vi.mock('../../../../../src/messaging/sns/client.js', () => ({
   snsClient: {}
+}))
+
+vi.mock('../../../../../src/config/index.js', () => ({
+  config: {
+    get: vi.fn((key) => {
+      const values = {
+        'aws.messaging.topics.auditEvents': 'arn:aws:sns:eu-west-2:000000000000:fcp_audit_fcp_sfd_object_processor',
+        serviceName: 'fcp-sfd-object-processor',
+        cdpEnvironment: 'test'
+      }
+      return values[key]
+    })
+  }
 }))
 
 vi.mock('../../../../../src/logging/logger.js', () => ({
@@ -38,6 +53,8 @@ describe('publishAuditEvent', () => {
   test('should call publishAuditEvent with event and service-level config', async () => {
     const { publishAuditEvent: _publishAuditEvent } = await import('@defra/fcp-audit-publisher')
     const { publishAuditEvent } = await import('../../../../../src/messaging/outbound/audit/publish-audit-event.js')
+
+    assertValidAuditEvent(mockAuditEvent)
 
     await publishAuditEvent(mockAuditEvent)
 
