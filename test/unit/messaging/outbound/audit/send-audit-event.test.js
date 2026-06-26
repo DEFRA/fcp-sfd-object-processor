@@ -1,6 +1,5 @@
 import { vi, describe, beforeEach, test, expect } from 'vitest'
 import { createLogger } from '../../../../../src/logging/logger.js'
-import { assertValidAuditEvent } from '../../../../helpers/validate-audit-payload.js'
 
 vi.mock('@defra/fcp-audit-publisher', () => ({
   publishAuditEvent: vi.fn().mockResolvedValue({ messageId: 'test-message-id' }),
@@ -52,10 +51,9 @@ describe('sendAuditEvent', () => {
 
   test('should call publishAuditEvent with event and service-level config', async () => {
     const { publishAuditEvent } = await import('@defra/fcp-audit-publisher')
+    const { sendAuditEvent } = await import('../../../../../src/messaging/outbound/audit/send-audit-event.js')
 
-    assertValidAuditEvent(mockAuditEvent)
-
-    await publishAuditEvent(mockAuditEvent)
+    await sendAuditEvent(mockAuditEvent)
 
     expect(publishAuditEvent).toHaveBeenCalledWith(
       mockAuditEvent,
