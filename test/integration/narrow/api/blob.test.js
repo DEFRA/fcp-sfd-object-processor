@@ -3,8 +3,33 @@ import { vi, describe, test, expect, beforeAll, beforeEach, afterAll } from 'vit
 
 import { db } from '../../../../src/data/db.js'
 import { config } from '../../../../src/config'
-import { createServer } from '../../../../src/api'
 import { mockFormattedMetadata } from '../../../mocks/metadata.js'
+import { assertValidAuditEvent } from '../../../helpers/validate-audit-payload.js'
+
+const capturedAuditEvents = []
+
+vi.mock('@defra/fcp-audit-publisher', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    publishAuditEvent: vi.fn().mockImplementation(async (event, config) => {
+      // Simulate what @defra/fcp-audit-publisher does: add required fields
+      const enrichedEvent = {
+        datetime: new Date().toISOString(),
+        version: config?.version || '1.0.0',
+        application: config?.application,
+        component: config?.component,
+        environment: config?.environment,
+        ip: config?.ip || '0.0.0.0',
+        correlationid: event.correlationid || config?.generateCorrelationId ? crypto.randomUUID() : undefined,
+        audit: event.audit
+      }
+      capturedAuditEvents.push(enrichedEvent)
+    })
+  }
+})
+
+import { createServer } from '../../../../src/api'
 
 let server
 let originalCollection
@@ -93,5 +118,47 @@ describe('GET to the /api/v1/blob/{fileId} route', async () => {
 
       await db.client.connect() // reconnect to allow test clean up
     })
+  })
+})
+
+describe('GET /api/v1/blob/{fileId} — audit event schema validation', async () => {
+  let auditServer
+
+  beforeAll(async () => {
+    auditServer = await createServer()
+    await auditServer.initialize()
+  })
+
+  beforeEach(async () => {
+    await db.collection(collection).insertOne(mockFormattedMetadata)
+  })
+
+  afterAll(async () => {
+    vi.restoreAllMocks()
+    if (auditServer && typeof auditServer.stop === 'function') {
+      await auditServer.stop()
+    }
+    await db.collection(collection).deleteMany({})
+    config.set('mongo.collections.uploadMetadata', originalCollection)
+  })
+
+  test('emits schema-valid document/read event without presigned URL', async () => {
+    capturedAuditEvents.length = 0
+    const fileId = mockFormattedMetadata.file.fileId
+
+    await auditServer.inject({
+      method: 'GET',
+      url: `/api/v1/blob/${fileId}`
+    })
+
+    expect(capturedAuditEvents.length).toBe(1)
+    assertValidAuditEvent(capturedAuditEvents[0])
+    expect(capturedAuditEvents[0].audit.entities[0].entity).toBe('document')
+    expect(capturedAuditEvents[0].audit.entities[0].action).toBe('read')
+    expect(capturedAuditEvents[0].audit.status).toBe('success')
+
+    const serialised = JSON.stringify(capturedAuditEvents[0])
+    expect(serialised).not.toContain('http')
+    expect(serialised).not.toContain('presigned')
   })
 })
