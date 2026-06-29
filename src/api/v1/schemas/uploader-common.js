@@ -1,5 +1,5 @@
 import Joi from 'joi'
-import { schemaConsts } from '../../../constants/schemas.js'
+import { schemaConsts, VALID_CASE_TYPES } from '../../../constants/schemas.js'
 import { mimeTypePattern } from '../../../constants/mime-types.js'
 
 // Common validation patterns used across schemas
@@ -69,11 +69,11 @@ export const submissionFields = {
     .example(schemaConsts.SUBMISSION_ID_EXAMPLE),
 
   type: Joi.string()
-    .valid(schemaConsts.TYPE_EXAMPLE)
+    .valid(...VALID_CASE_TYPES)
     .required()
     .description('Type of submission - determines CRM queue')
     .messages({
-      'any.only': 'type must be CS_Agreement_Evidence',
+      'any.only': 'type must be a recognised CRM queue type',
       'any.required': 'type is required'
     })
     .example(schemaConsts.TYPE_EXAMPLE),

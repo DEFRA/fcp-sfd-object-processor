@@ -30,11 +30,32 @@ describe('baseMetadataSchema — type field', () => {
     expect(error).toBeUndefined()
   })
 
+  test.each([
+    'Delinked_Amendment',
+    'Delinked_Evidence',
+    'ES_Agreement_Amendment',
+    'ES_Claim',
+    'ES_Claim_Evidence',
+    'SFI_Expanded_Offer_Evidence',
+    'SFI_23_Evidence',
+    'SFI_Pilot_Evidence',
+    'CS_Facilitation_Fund_Evidence',
+    'CS_Facilitation_Fund_Amendment',
+    'CS_Application_Declaration',
+    'CS_Application_Evidence',
+    'CS_Agreement_Amendment',
+    'CS_Revenue_Claim_Amendment',
+    'CS_Revenue_Claim_Evidence'
+  ])('accepts %s', (type) => {
+    const { error } = baseMetadataSchema.validate({ ...validMetadata, type })
+    expect(error).toBeUndefined()
+  })
+
   test('rejects an invalid type value', () => {
     const { error } = baseMetadataSchema.validate({ ...validMetadata, type: 'INVALID_TYPE' })
     expect(error).toBeDefined()
     expect(error.details[0].type).toBe('any.only')
-    expect(error.message).toContain('type must be CS_Agreement_Evidence')
+    expect(error.message).toContain('type must be a recognised CRM queue type')
   })
 
   test('rejects an empty type string', () => {

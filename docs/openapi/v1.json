@@ -435,6 +435,29 @@
           "ready"
         ]
       },
+      "type": {
+        "type": "string",
+        "description": "Type of submission - determines CRM queue",
+        "example": "CS_Agreement_Evidence",
+        "enum": [
+          "Delinked_Amendment",
+          "Delinked_Evidence",
+          "ES_Agreement_Amendment",
+          "ES_Claim",
+          "ES_Claim_Evidence",
+          "SFI_Expanded_Offer_Evidence",
+          "SFI_23_Evidence",
+          "SFI_Pilot_Evidence",
+          "CS_Facilitation_Fund_Evidence",
+          "CS_Facilitation_Fund_Amendment",
+          "CS_Application_Declaration",
+          "CS_Application_Evidence",
+          "CS_Agreement_Amendment",
+          "CS_Agreement_Evidence",
+          "CS_Revenue_Claim_Amendment",
+          "CS_Revenue_Claim_Evidence"
+        ]
+      },
       "service": {
         "type": "string",
         "description": "Source system that initiated the upload",
@@ -444,17 +467,8 @@
           "rps-portal"
         ]
       },
-      "type": {
-        "type": "string",
-        "description": "Type of submission - determines CRM queue",
-        "example": "CS_Agreement_Evidence",
-        "enum": [
-          "CS_Agreement_Evidence"
-        ]
-      },
-      "UploadMetadata": {
+      "metadata": {
         "type": "object",
-        "description": "Metadata about the upload submission",
         "properties": {
           "sbi": {
             "type": "integer",
@@ -482,6 +496,9 @@
             "description": "Unique identifier for the submission",
             "example": "1733826312"
           },
+          "type": {
+            "$ref": "#/components/schemas/type"
+          },
           "reference": {
             "type": "string",
             "description": "User-entered reference for the submission",
@@ -494,9 +511,6 @@
             "type": "string",
             "description": "Unique Object Storage Reference combining SBI and submission ID",
             "example": "105000000_1733826312"
-          },
-          "type": {
-            "$ref": "#/components/schemas/type"
           }
         },
         "required": [
@@ -504,10 +518,10 @@
           "crn",
           "frn",
           "submissionId",
+          "type",
           "reference",
           "service",
-          "uosr",
-          "type"
+          "uosr"
         ]
       },
       "CallbackForm": {
@@ -537,7 +551,7 @@
             "$ref": "#/components/schemas/UploadSessionStatus"
           },
           "metadata": {
-            "$ref": "#/components/schemas/UploadMetadata"
+            "$ref": "#/components/schemas/metadata"
           },
           "form": {
             "$ref": "#/components/schemas/CallbackForm"
@@ -645,9 +659,7 @@
             "example": "1733826312"
           },
           "type": {
-            "type": "string",
-            "description": "Type of submission - determines CRM queue",
-            "example": "CS_Agreement_Evidence"
+            "$ref": "#/components/schemas/type"
           },
           "reference": {
             "type": "string",

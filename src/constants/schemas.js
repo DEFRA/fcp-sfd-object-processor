@@ -35,3 +35,22 @@ export const schemaConsts = {
   S3_BUCKET_EXAMPLE: 'fcp-sfd-object-processor-bucket',
   NUMBER_OF_REJECTED_FILES_EXAMPLE: 0
 }
+
+export const VALID_CASE_TYPES = [
+  'Delinked_Amendment',
+  'Delinked_Evidence',
+  'ES_Agreement_Amendment',
+  'ES_Claim',
+  'ES_Claim_Evidence',
+  'SFI_Expanded_Offer_Evidence',
+  'SFI_23_Evidence',
+  'SFI_Pilot_Evidence',
+  'CS_Facilitation_Fund_Evidence',
+  'CS_Facilitation_Fund_Amendment',
+  'CS_Application_Declaration',
+  'CS_Application_Evidence',
+  'CS_Agreement_Amendment',
+  'CS_Agreement_Evidence',
+  'CS_Revenue_Claim_Amendment',
+  'CS_Revenue_Claim_Evidence'
+]
