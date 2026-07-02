@@ -1,5 +1,5 @@
 /* eslint-disable @stylistic/no-multiple-empty-lines */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 vi.mock('../../../src/config/index.js', () => {
   const get = vi.fn((key) => {
@@ -44,7 +44,7 @@ describe('src/repos/outbox', () => {
     vi.clearAllMocks()
   })
 
-  it('createOutboxEntries inserts only complete files and returns insertedIds', async () => {
+  test('createOutboxEntries inserts only complete files and returns insertedIds', async () => {
     const ids = { 0: 'm1', 1: 'm2' }
     const documents = [
       { file: { fileStatus: 'complete' } },
@@ -61,7 +61,7 @@ describe('src/repos/outbox', () => {
     expect(config.get).toHaveBeenCalledWith('mongo.collections.outbox')
   })
 
-  it('createOutboxEntries returns empty object when no complete files', async () => {
+  test('createOutboxEntries returns empty object when no complete files', async () => {
     const ids = { 0: 'm1' }
     const documents = [{ file: { fileStatus: 'pending' } }]
     // ensure insertMany not called
@@ -73,7 +73,7 @@ describe('src/repos/outbox', () => {
     expect(collectionObj.insertMany).not.toHaveBeenCalled()
   })
 
-  it('createOutboxEntries throws when insertMany not acknowledged', async () => {
+  test('createOutboxEntries throws when insertMany not acknowledged', async () => {
     const ids = { 0: 'm1' }
     const documents = [{ file: { fileStatus: 'complete' } }]
     const collectionObj = { insertMany: vi.fn().mockResolvedValue({ acknowledged: false }) }
@@ -82,7 +82,7 @@ describe('src/repos/outbox', () => {
     await expect(createOutboxEntries(ids, documents, {})).rejects.toThrow('Failed to insert outbox entries')
   })
 
-  it('getProcessableOutboxEntries queries with correct filter and returns entries', async () => {
+  test('getProcessableOutboxEntries queries with correct filter and returns entries', async () => {
     const expected = [{ _id: '1' }]
     const toArray = vi.fn().mockResolvedValue(expected)
     const limit = vi.fn(() => ({ toArray }))
@@ -95,7 +95,7 @@ describe('src/repos/outbox', () => {
     expect(res).toBe(expected)
   })
 
-  it('bulkUpdateDeliveryStatus uses sent update path and returns result', async () => {
+  test('bulkUpdateDeliveryStatus uses sent update path and returns result', async () => {
     const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
     const collectionObj = { updateMany }
     db.collection.mockReturnValue(collectionObj)
@@ -107,7 +107,7 @@ describe('src/repos/outbox', () => {
     expect(res).toEqual({ acknowledged: true })
   })
 
-  it('bulkUpdateDeliveryStatus uses failure pipeline and logs terminal failures', async () => {
+  test('bulkUpdateDeliveryStatus uses failure pipeline and logs terminal failures', async () => {
     const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
     const countDocuments = vi.fn().mockResolvedValue(1)
     const toArray = vi.fn().mockResolvedValue([{ _id: 'x', status: 'FAILED', payload: { file: { fileId: 'f1' } }, attempts: 2 }])
@@ -123,7 +123,7 @@ describe('src/repos/outbox', () => {
     expect(res).toEqual({ acknowledged: true })
   })
 
-  it('bulkUpdateDeliveryStatus throws when update acknowledged is false', async () => {
+  test('bulkUpdateDeliveryStatus throws when update acknowledged is false', async () => {
     const updateMany = vi.fn().mockResolvedValue({ acknowledged: false })
     const collectionObj = { updateMany }
     db.collection.mockReturnValue(collectionObj)
@@ -131,7 +131,7 @@ describe('src/repos/outbox', () => {
     await expect(bulkUpdateDeliveryStatus({}, ['f'], 'SENT')).rejects.toThrow('Failed to update outbox entries')
   })
 
-  it('bulkUpdateDeliveryStatus logs terminal failures when entries reach max attempts', async () => {
+  test('bulkUpdateDeliveryStatus logs terminal failures when entries reach max attempts', async () => {
     const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
     const countDocuments = vi.fn().mockResolvedValue(1)
     const toArray = vi.fn().mockResolvedValue([
@@ -160,7 +160,7 @@ describe('src/repos/outbox', () => {
     )
   })
 
-  it('bulkUpdateDeliveryStatus continues when terminal failure logging throws', async () => {
+  test('bulkUpdateDeliveryStatus continues when terminal failure logging throws', async () => {
     const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
     const countDocuments = vi.fn().mockRejectedValue(new Error('count failed'))
     const collectionObj = { updateMany, countDocuments }
@@ -175,7 +175,7 @@ describe('src/repos/outbox', () => {
     )
   })
 
-  it('bulkUpdateDeliveryStatus logs terminal failure with default reason when error omitted', async () => {
+  test('bulkUpdateDeliveryStatus logs terminal failure with default reason when error omitted', async () => {
     const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
     const countDocuments = vi.fn().mockResolvedValue(1)
     const toArray = vi.fn().mockResolvedValue([
@@ -204,7 +204,7 @@ describe('src/repos/outbox', () => {
     )
   })
 
-  it('bulkUpdateDeliveryStatus skips terminal query when no potential terminal entries', async () => {
+  test('bulkUpdateDeliveryStatus skips terminal query when no potential terminal entries', async () => {
     const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
     const countDocuments = vi.fn().mockResolvedValue(0)
     const find = vi.fn()
@@ -238,7 +238,7 @@ describe('outbox — event 6 (document/failed audit event on terminal failure)',
     return { updateMany, countDocuments, find }
   }
 
-  it('emits document/failed audit event for each terminal doc', async () => {
+  test('emits document/failed audit event for each terminal doc', async () => {
     const terminalDoc = buildTerminalDoc('file-id-1', 2)
     db.collection.mockReturnValue(buildCollectionMock([terminalDoc]))
 
@@ -255,7 +255,7 @@ describe('outbox — event 6 (document/failed audit event on terminal failure)',
     )
   })
 
-  it('uses error constructor name for logged error type when available', async () => {
+  test('uses error constructor name for logged error type when available', async () => {
     const terminalDoc = buildTerminalDoc()
     db.collection.mockReturnValue(buildCollectionMock([terminalDoc]))
     const sendError = new TypeError('SNS down')
@@ -284,7 +284,7 @@ describe('outbox — event 6 (document/failed audit event on terminal failure)',
     )
   })
 
-  it('uses error name for logged error type when constructor name is unavailable', async () => {
+  test('uses error name for logged error type when constructor name is unavailable', async () => {
     const terminalDoc = buildTerminalDoc()
     db.collection.mockReturnValue(buildCollectionMock([terminalDoc]))
 
@@ -310,7 +310,7 @@ describe('outbox — event 6 (document/failed audit event on terminal failure)',
     )
   })
 
-  it('uses default Error for logged error type when constructor name and name are unavailable', async () => {
+  test('uses default Error for logged error type when constructor name and name are unavailable', async () => {
     const terminalDoc = buildTerminalDoc()
     db.collection.mockReturnValue(buildCollectionMock([terminalDoc]))
 
@@ -335,7 +335,7 @@ describe('outbox — event 6 (document/failed audit event on terminal failure)',
     )
   })
 
-  it('emits one event per terminal doc', async () => {
+  test('emits one event per terminal doc', async () => {
     const terminalDocs = [buildTerminalDoc('file-1'), buildTerminalDoc('file-2')]
     db.collection.mockReturnValue(buildCollectionMock(terminalDocs))
 
