@@ -23,11 +23,11 @@ vi.mock('../../../src/logging/logger.js', () => ({
   createLogger: () => ({ error: mockLoggerError, info: vi.fn(), warn: vi.fn() })
 }))
 
-const { mockPublishAuditEvent } = vi.hoisted(() => ({
-  mockPublishAuditEvent: vi.fn().mockResolvedValue(undefined)
+const { mockSendAuditEvent } = vi.hoisted(() => ({
+  mockSendAuditEvent: vi.fn().mockResolvedValue(undefined)
 }))
-vi.mock('../../../src/messaging/outbound/audit/publish-audit-event.js', () => ({
-  publishAuditEvent: mockPublishAuditEvent
+vi.mock('../../../src/messaging/outbound/audit/send-audit-event.js', () => ({
+  sendAuditEvent: mockSendAuditEvent
 }))
 
 import { config } from '../../../src/config/index.js'
@@ -220,7 +220,7 @@ describe('src/repos/outbox', () => {
 describe('outbox — event 6 (document/failed audit event on terminal failure)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockPublishAuditEvent.mockResolvedValue(undefined)
+    mockSendAuditEvent.mockResolvedValue(undefined)
   })
 
   const buildTerminalDoc = (fileId = 'file-id-1', attempts = 2) => ({
@@ -243,7 +243,7 @@ describe('outbox — event 6 (document/failed audit event on terminal failure)',
 
     await bulkUpdateDeliveryStatus({ id: 's' }, ['file-id-1'], 'FAILED', 'SNS failure')
 
-    expect(mockPublishAuditEvent).toHaveBeenCalledWith(
+    expect(mockSendAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         audit: expect.objectContaining({
           entities: [{ entity: 'document', action: 'failed', entityid: 'file-id-1' }],
@@ -257,7 +257,7 @@ describe('outbox — event 6 (document/failed audit event on terminal failure)',
   it('audit failure does not prevent outbox update from completing', async () => {
     const terminalDoc = buildTerminalDoc()
     db.collection.mockReturnValue(buildCollectionMock([terminalDoc]))
-    mockPublishAuditEvent.mockRejectedValueOnce(new Error('SNS down'))
+    mockSendAuditEvent.mockRejectedValueOnce(new Error('SNS down'))
 
     await expect(
       bulkUpdateDeliveryStatus({ id: 's' }, ['file-id-1'], 'FAILED', 'error')
@@ -270,7 +270,7 @@ describe('outbox — event 6 (document/failed audit event on terminal failure)',
 
     await bulkUpdateDeliveryStatus({ id: 's' }, ['file-1', 'file-2'], 'FAILED', 'error')
 
-    expect(mockPublishAuditEvent).toHaveBeenCalledTimes(2)
+    expect(mockSendAuditEvent).toHaveBeenCalledTimes(2)
   })
 })
 

@@ -2,7 +2,7 @@ import { config } from '../config/index.js'
 import { PENDING, FAILED, SENT } from '../constants/outbox.js'
 import { db } from '../data/db.js'
 import { createLogger } from '../logging/logger.js'
-import { publishAuditEvent } from '../messaging/outbound/audit/publish-audit-event.js'
+import { sendAuditEvent } from '../messaging/outbound/audit/send-audit-event.js'
 
 const logger = createLogger()
 
@@ -85,7 +85,7 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
       }
     }, 'Outbox entry reached FAILED after max attempts')
     try {
-      await publishAuditEvent({
+      await sendAuditEvent({
         audit: {
           entities: [{ entity: 'document', action: 'failed', entityid: entryId ?? '' }],
           status: 'failure',
