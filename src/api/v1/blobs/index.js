@@ -7,8 +7,10 @@ import { generatePresignedUrl } from '../../../repos/s3.js'
 import { NotFoundError } from '../../../errors/not-found-error.js'
 import { config } from '../../../config/index.js'
 import { blobResponseSchema } from './schemas/responses.js'
+import { sendAuditEvent } from '../../../messaging/outbound/audit/send-audit-event.js'
 
 const baseUrl = config.get('baseUrl.v1')
+const tracingHeader = config.get('tracing.header')
 
 export const blobRoute = {
   method: 'GET',
@@ -32,6 +34,31 @@ export const blobRoute = {
       const { s3: s3Reference } = await getS3ReferenceByFileId(fileId)
 
       const { url } = await generatePresignedUrl(s3Reference)
+
+      try {
+        await sendAuditEvent({
+          correlationid: request?.headers?.[tracingHeader],
+          audit: {
+            entities: [{ entity: 'document', action: 'read', entityid: fileId }],
+            status: 'success',
+            details: {}
+          }
+        })
+      } catch (err) {
+        request.logger.warn({
+          event: {
+            type: 'audit_event_send_failure',
+            outcome: 'failure',
+            entityid: fileId
+          },
+          error: {
+            code: err.code ?? null,
+            message: err.message,
+            stack_trace: err.stack,
+            type: err?.constructor?.name || err?.name || 'Error'
+          }
+        }, 'Failed to send audit event')
+      }
 
       return h.response({ data: { url } }).code(httpConstants.HTTP_STATUS_OK)
     } catch (err) {

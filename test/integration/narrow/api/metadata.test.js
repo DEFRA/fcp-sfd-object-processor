@@ -1,9 +1,34 @@
 import { constants as httpConstants } from 'node:http2'
 import { vi, describe, test, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import { createServer } from '../../../../src/api'
 import { mockMetadataResponse } from '../../../mocks/metadata.js'
 import { config } from '../../../../src/config/index.js'
 import { db } from '../../../../src/data/db.js'
+import { assertValidAuditEvent } from '../../../helpers/validate-audit-payload.js'
+
+const capturedAuditEvents = []
+
+vi.mock('@defra/fcp-audit-publisher', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    publishAuditEvent: vi.fn().mockImplementation(async (event, config) => {
+      // Simulate what @defra/fcp-audit-publisher does: add required fields
+      const enrichedEvent = {
+        datetime: new Date().toISOString(),
+        version: config?.version || '1.0.0',
+        application: config?.application,
+        component: config?.component,
+        environment: config?.environment,
+        ip: config?.ip || '0.0.0.0',
+        correlationid: event.correlationid || config?.generateCorrelationId ? crypto.randomUUID() : undefined,
+        audit: event.audit
+      }
+      capturedAuditEvents.push(enrichedEvent)
+    })
+  }
+})
+
+import { createServer } from '../../../../src/api'
 
 let server
 let originalCollection
@@ -117,6 +142,44 @@ describe('GET to the /api/v1/metadata/sbi route', async () => {
       expect(response.result.message).toBe('An internal server error occurred')
 
       await db.client.connect() // reconnect to allow test clean up
+    })
+  })
+})
+
+describe('GET /api/v1/metadata/sbi/{sbi} — audit event schema validation', async () => {
+  let auditServer
+
+  beforeAll(async () => {
+    auditServer = await createServer()
+    await auditServer.initialize()
+
+    await db.collection(collection).deleteMany({})
+    await db.collection(collection).insertMany(mockMetadataResponse)
+  })
+
+  afterAll(async () => {
+    vi.restoreAllMocks()
+    if (auditServer && typeof auditServer.stop === 'function') {
+      await auditServer.stop()
+    }
+    await db.collection(collection).deleteMany({})
+  })
+
+  test('emits schema-valid document/read events for each matched document', async () => {
+    capturedAuditEvents.length = 0
+    const sbi = mockMetadataResponse[0].metadata.sbi
+
+    await auditServer.inject({
+      method: 'GET',
+      url: `/api/v1/metadata/sbi/${sbi}`
+    })
+
+    expect(capturedAuditEvents.length).toBeGreaterThan(0)
+    capturedAuditEvents.forEach(event => {
+      assertValidAuditEvent(event)
+      expect(event.audit.entities[0].entity).toBe('document')
+      expect(event.audit.entities[0].action).toBe('read')
+      expect(event.audit.status).toBe('success')
     })
   })
 })
