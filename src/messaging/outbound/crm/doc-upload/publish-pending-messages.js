@@ -1,6 +1,6 @@
 import { createLogger } from '../../../../logging/logger.js'
 import { config } from '../../../../config/index.js'
-import { getProcessableOutboxEntries, bulkUpdateDeliveryStatus } from '../../../../repos/outbox.js'
+import { getProcessableOutboxEntries, bulkUpdateDeliveryStatus, logTerminalFailuresIfAny } from '../../../../repos/outbox.js'
 import { bulkUpdatePublishedAtDate } from '../../../../repos/metadata.js'
 import { publishDocumentUploadMessageBatch } from './publish-document-upload-message-batch.js'
 import { SENT, FAILED, BATCH_SIZE } from '../../../../constants/outbox.js'
@@ -68,6 +68,15 @@ const publishPendingMessages = async () => {
           await bulkUpdateDeliveryStatus(session, Failed.map(message => message.Id), FAILED, 'Failed to send message')
         }
       })
+
+      // Transaction committed — emit audit events for terminal failures outside the transaction
+      // boundary to prevent duplicate events if the driver retries the transaction callback.
+      if (Failed.length > 0) {
+        const collection = config.get('mongo.collections.outbox')
+        const maxAttempts = config.get('messaging.outboxMaxAttempts')
+        await logTerminalFailuresIfAny(collection, Failed.map(message => message.Id), maxAttempts, null, 'Failed to send message')
+      }
+
       logger.info(`Outbox processing complete. Total: ${Successful.length} sent, ${Failed.length} failed`)
     }
   } catch (error) {

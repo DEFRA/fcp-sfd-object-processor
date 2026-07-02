@@ -10,6 +10,7 @@ vi.mock('../../../../../src/logging/logger.js', () => ({
 const { mockConfigGet } = vi.hoisted(() => ({
   mockConfigGet: vi.fn((key) => {
     if (key === 'messaging.outboxMaxAttempts') return 2
+    if (key === 'mongo.collections.outbox') return 'outbox'
     return null
   })
 }))
@@ -18,10 +19,15 @@ vi.mock('../../../../../src/config/index.js', () => ({
   config: { get: mockConfigGet }
 }))
 
+const { mockLogTerminalFailuresIfAny } = vi.hoisted(() => ({
+  mockLogTerminalFailuresIfAny: vi.fn().mockResolvedValue(undefined)
+}))
+
 const mockGetProcessable = vi.fn()
 vi.mock('../../../../../src/repos/outbox.js', () => ({
   getProcessableOutboxEntries: () => mockGetProcessable(),
-  bulkUpdateDeliveryStatus: vi.fn()
+  bulkUpdateDeliveryStatus: vi.fn(),
+  logTerminalFailuresIfAny: mockLogTerminalFailuresIfAny
 }))
 
 const mockBulkUpdatePublishedAtDate = vi.fn()
@@ -45,8 +51,10 @@ let bulkUpdateDeliveryStatus
 describe('publishPendingMessages', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockLogTerminalFailuresIfAny.mockResolvedValue(undefined)
     mockConfigGet.mockImplementation((key) => {
       if (key === 'messaging.outboxMaxAttempts') return 2
+      if (key === 'mongo.collections.outbox') return 'outbox'
       return null
     })
     // default session mock
@@ -256,5 +264,31 @@ describe('publishPendingMessages', () => {
     expect(mockPublishBatch).toHaveBeenCalledTimes(2)
     expect(mockPublishBatch.mock.calls[0][0]).toHaveLength(10)
     expect(mockPublishBatch.mock.calls[1][0]).toHaveLength(1)
+  })
+
+  it('calls logTerminalFailuresIfAny after withTransaction resolves when there are failures', async () => {
+    const entry = { messageId: 'm7', _id: 'id7', attempts: 1 }
+    mockGetProcessable.mockResolvedValue([entry])
+    mockPublishBatch.mockResolvedValue({ Successful: [], Failed: [{ Id: 'm7' }] })
+
+    await publishPendingMessages()
+
+    expect(mockLogTerminalFailuresIfAny).toHaveBeenCalledWith(
+      'outbox',
+      ['m7'],
+      2,
+      null,
+      'Failed to send message'
+    )
+  })
+
+  it('does not call logTerminalFailuresIfAny when Failed is empty', async () => {
+    const entry = { messageId: 'm8', _id: 'id8' }
+    mockGetProcessable.mockResolvedValue([entry])
+    mockPublishBatch.mockResolvedValue({ Successful: [{ Id: 'm8' }], Failed: [] })
+
+    await publishPendingMessages()
+
+    expect(mockLogTerminalFailuresIfAny).not.toHaveBeenCalled()
   })
 })
