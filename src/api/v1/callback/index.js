@@ -75,31 +75,15 @@ export const uploadCallback = {
         const fileIds = Object.values(result.insertedIds).map(id => id.toString())
 
         for (const fileId of fileIds) {
-          try {
-            await sendAuditEvent({
-              correlationid: request?.headers?.[tracingHeader],
-              audit: {
-                entities: [{ entity: 'document', action: 'created', entityid: fileId }],
-                accounts: { sbi: String(request.payload.metadata.sbi) },
-                status: 'success',
-                details: {}
-              }
-            })
-          } catch (err) {
-            logger.warn({
-              event: {
-                type: 'audit_event_send_failure',
-                outcome: 'failure',
-                entityid: fileId
-              },
-              error: {
-                code: err.code ?? null,
-                message: err.message,
-                stack_trace: err.stack,
-                type: err?.constructor?.name || err?.name || 'Error'
-              }
-            }, 'Failed to send audit event')
-          }
+          await sendAuditEvent({
+            correlationid: request?.headers?.[tracingHeader],
+            audit: {
+              entities: [{ entity: 'document', action: 'created', entityid: fileId }],
+              accounts: { sbi: String(request.payload.metadata.sbi) },
+              status: 'success',
+              details: {}
+            }
+          })
         }
 
         return h.response({

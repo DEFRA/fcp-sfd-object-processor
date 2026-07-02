@@ -84,29 +84,13 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
         reason
       }
     }, 'Outbox entry reached FAILED after max attempts')
-    try {
-      await sendAuditEvent({
-        audit: {
-          entities: [{ entity: 'document', action: 'failed', entityid: entryId ?? '' }],
-          status: 'failure',
-          details: { reason, attempts }
-        }
-      })
-    } catch (err) {
-      logger.warn({
-        event: {
-          type: 'audit_event_send_failure',
-          outcome: 'failure',
-          entityid: entryId ?? ''
-        },
-        error: {
-          code: err.code ?? null,
-          message: err.message,
-          stack_trace: err.stack,
-          type: err?.constructor?.name || err?.name || 'Error'
-        }
-      }, 'Failed to send audit event')
-    }
+    await sendAuditEvent({
+      audit: {
+        entities: [{ entity: 'document', action: 'failed', entityid: entryId ?? doc._id?.toString() ?? '' }],
+        status: 'failure',
+        details: { reason, attempts }
+      }
+    })
   }
 }
 
@@ -177,21 +161,12 @@ const bulkUpdateDeliveryStatus = async (session, fileIds, status, error = null) 
     throw new Error('Failed to update outbox entries')
   }
 
-  // If we just processed failures, log any entries that have reached terminal FAILED status
-  if (status === FAILED) {
-    try {
-      await logTerminalFailuresIfAny(collection, fileIds, maxAttempts, session, error)
-    } catch (err) {
-      // Non-fatal: log but don't fail the transaction because of logging
-      logger.error({ err }, 'Failed to log terminal outbox entries')
-    }
-  }
-
   return updateResult
 }
 
 export {
   createOutboxEntries,
   getProcessableOutboxEntries,
-  bulkUpdateDeliveryStatus
+  bulkUpdateDeliveryStatus,
+  logTerminalFailuresIfAny
 }

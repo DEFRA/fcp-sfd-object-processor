@@ -36,7 +36,8 @@ import { db } from '../../../src/data/db.js'
 import {
   createOutboxEntries,
   getProcessableOutboxEntries,
-  bulkUpdateDeliveryStatus
+  bulkUpdateDeliveryStatus,
+  logTerminalFailuresIfAny
 } from '../../../src/repos/outbox.js'
 
 describe('src/repos/outbox', () => {
@@ -107,20 +108,23 @@ describe('src/repos/outbox', () => {
     expect(res).toEqual({ acknowledged: true })
   })
 
-  test('bulkUpdateDeliveryStatus uses failure pipeline and logs terminal failures', async () => {
+  test('bulkUpdateDeliveryStatus uses failure pipeline and returns result', async () => {
     const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
-    const countDocuments = vi.fn().mockResolvedValue(1)
-    const toArray = vi.fn().mockResolvedValue([{ _id: 'x', status: 'FAILED', payload: { file: { fileId: 'f1' } }, attempts: 2 }])
-    const find = vi.fn(() => ({ toArray }))
-    const collectionObj = { updateMany, countDocuments, find }
-    db.collection.mockImplementation((name) => collectionObj)
+    const collectionObj = { updateMany }
+    db.collection.mockReturnValue(collectionObj)
 
-    const session = { id: 's' }
-    const fileIds = ['f1']
-    // ensure config max attempts === 2 from mock
-    const res = await bulkUpdateDeliveryStatus(session, fileIds, 'FAILED', 'boom')
+    const res = await bulkUpdateDeliveryStatus({ id: 's' }, ['f1'], 'FAILED', 'boom')
     expect(updateMany).toHaveBeenCalled()
     expect(res).toEqual({ acknowledged: true })
+  })
+
+  test('bulkUpdateDeliveryStatus does not call sendAuditEvent or logTerminalFailuresIfAny', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
+    db.collection.mockReturnValue({ updateMany })
+
+    await bulkUpdateDeliveryStatus({ id: 's' }, ['f1'], 'FAILED', 'boom')
+
+    expect(mockSendAuditEvent).not.toHaveBeenCalled()
   })
 
   test('bulkUpdateDeliveryStatus throws when update acknowledged is false', async () => {
@@ -130,67 +134,73 @@ describe('src/repos/outbox', () => {
 
     await expect(bulkUpdateDeliveryStatus({}, ['f'], 'SENT')).rejects.toThrow('Failed to update outbox entries')
   })
+})
 
-  test('bulkUpdateDeliveryStatus logs terminal failures when entries reach max attempts', async () => {
-    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
-    const countDocuments = vi.fn().mockResolvedValue(1)
-    const toArray = vi.fn().mockResolvedValue([
-      {
-        _id: 'terminal-id',
-        status: 'FAILED',
-        attempts: 2,
-        payload: { file: { fileId: 'f1' } }
-      }
-    ])
-    const find = vi.fn(() => ({ toArray }))
-    const collectionObj = { updateMany, countDocuments, find }
-    db.collection.mockReturnValue(collectionObj)
+describe('logTerminalFailuresIfAny', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockSendAuditEvent.mockResolvedValue(undefined)
+  })
 
-    await bulkUpdateDeliveryStatus({ id: 's' }, ['f1'], 'FAILED', 'publish error')
+  const buildTerminalDoc = (fileId = 'file-id-1', attempts = 2, id = 'outbox-doc-id') => ({
+    _id: { toString: () => id },
+    payload: { file: { fileId } },
+    attempts
+  })
 
-    expect(mockLoggerError).toHaveBeenCalledWith(
+  const buildCollectionMock = (terminalDocs, potentialCount) => {
+    const toArray = vi.fn().mockResolvedValue(terminalDocs)
+    const find = vi.fn().mockReturnValue({ toArray })
+    const countDocuments = vi.fn().mockResolvedValue(potentialCount ?? terminalDocs.length)
+    return { countDocuments, find }
+  }
+
+  test('emits document/failed audit event for each terminal doc', async () => {
+    const terminalDoc = buildTerminalDoc('file-id-1', 2)
+    db.collection.mockReturnValue(buildCollectionMock([terminalDoc]))
+
+    await logTerminalFailuresIfAny('outbox', ['file-id-1'], 2, null, 'SNS failure')
+
+    expect(mockSendAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
-        event: expect.objectContaining({
-          type: 'outbox_terminal_failure',
-          entryId: 'f1',
-          reason: 'publish error'
+        audit: expect.objectContaining({
+          entities: [{ entity: 'document', action: 'failed', entityid: 'file-id-1' }],
+          status: 'failure',
+          details: expect.objectContaining({ reason: 'SNS failure', attempts: 2 })
         })
-      }),
-      expect.stringContaining('FAILED after max attempts')
+      })
     )
   })
 
-  test('bulkUpdateDeliveryStatus continues when terminal failure logging throws', async () => {
-    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
-    const countDocuments = vi.fn().mockRejectedValue(new Error('count failed'))
-    const collectionObj = { updateMany, countDocuments }
-    db.collection.mockReturnValue(collectionObj)
+  test('emits one event per terminal doc', async () => {
+    const terminalDocs = [buildTerminalDoc('file-1'), buildTerminalDoc('file-2')]
+    db.collection.mockReturnValue(buildCollectionMock(terminalDocs))
 
-    const result = await bulkUpdateDeliveryStatus({ id: 's' }, ['f1'], 'FAILED', 'boom')
+    await logTerminalFailuresIfAny('outbox', ['file-1', 'file-2'], 2, null, 'error')
 
-    expect(result).toEqual({ acknowledged: true })
-    expect(mockLoggerError).toHaveBeenCalledWith(
-      { err: expect.any(Error) },
-      'Failed to log terminal outbox entries'
+    expect(mockSendAuditEvent).toHaveBeenCalledTimes(2)
+  })
+
+  test('uses doc._id as entityid fallback when payload.file.fileId is absent', async () => {
+    const doc = { _id: { toString: () => 'fallback-id' }, payload: {}, attempts: 2 }
+    db.collection.mockReturnValue(buildCollectionMock([doc]))
+
+    await logTerminalFailuresIfAny('outbox', ['file-id-1'], 2, null, 'error')
+
+    expect(mockSendAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        audit: expect.objectContaining({
+          entities: [{ entity: 'document', action: 'failed', entityid: 'fallback-id' }]
+        })
+      })
     )
   })
 
-  test('bulkUpdateDeliveryStatus logs terminal failure with default reason when error omitted', async () => {
-    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
-    const countDocuments = vi.fn().mockResolvedValue(1)
-    const toArray = vi.fn().mockResolvedValue([
-      {
-        _id: 'terminal-id',
-        status: 'FAILED',
-        attempts: 2,
-        payload: {}
-      }
-    ])
-    const find = vi.fn(() => ({ toArray }))
-    const collectionObj = { updateMany, countDocuments, find }
-    db.collection.mockReturnValue(collectionObj)
+  test('logs terminal failure with default reason when errMsg is omitted', async () => {
+    const doc = { _id: { toString: () => 'id' }, payload: {}, attempts: 2 }
+    db.collection.mockReturnValue(buildCollectionMock([doc]))
 
-    await bulkUpdateDeliveryStatus({ id: 's' }, ['f1'], 'FAILED')
+    await logTerminalFailuresIfAny('outbox', ['file-id-1'], 2, null)
 
     expect(mockLoggerError).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -204,144 +214,33 @@ describe('src/repos/outbox', () => {
     )
   })
 
-  test('bulkUpdateDeliveryStatus skips terminal query when no potential terminal entries', async () => {
-    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
-    const countDocuments = vi.fn().mockResolvedValue(0)
-    const find = vi.fn()
-    const collectionObj = { updateMany, countDocuments, find }
-    db.collection.mockReturnValue(collectionObj)
-
-    await bulkUpdateDeliveryStatus({ id: 's' }, ['f1'], 'FAILED')
-
-    expect(countDocuments).toHaveBeenCalled()
-    expect(find).not.toHaveBeenCalled()
-  })
-})
-
-describe('outbox — event 6 (document/failed audit event on terminal failure)', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    mockSendAuditEvent.mockResolvedValue(undefined)
-  })
-
-  const buildTerminalDoc = (fileId = 'file-id-1', attempts = 2) => ({
-    _id: { toString: () => 'outbox-doc-id' },
-    payload: { file: { fileId } },
-    attempts
-  })
-
-  const buildCollectionMock = (terminalDocs) => {
-    const toArray = vi.fn().mockResolvedValue(terminalDocs)
-    const find = vi.fn().mockReturnValue({ toArray })
-    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
-    const countDocuments = vi.fn().mockResolvedValue(terminalDocs.length)
-    return { updateMany, countDocuments, find }
-  }
-
-  test('emits document/failed audit event for each terminal doc', async () => {
-    const terminalDoc = buildTerminalDoc('file-id-1', 2)
+  test('logs structured error for each terminal doc', async () => {
+    const terminalDoc = buildTerminalDoc('f1', 2)
     db.collection.mockReturnValue(buildCollectionMock([terminalDoc]))
 
-    await bulkUpdateDeliveryStatus({ id: 's' }, ['file-id-1'], 'FAILED', 'SNS failure')
+    await logTerminalFailuresIfAny('outbox', ['f1'], 2, null, 'publish error')
 
-    expect(mockSendAuditEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        audit: expect.objectContaining({
-          entities: [{ entity: 'document', action: 'failed', entityid: 'file-id-1' }],
-          status: 'failure',
-          details: expect.objectContaining({ reason: 'SNS failure', attempts: 2 })
-        })
-      })
-    )
-  })
-
-  test('uses error constructor name for logged error type when available', async () => {
-    const terminalDoc = buildTerminalDoc()
-    db.collection.mockReturnValue(buildCollectionMock([terminalDoc]))
-    const sendError = new TypeError('SNS down')
-    sendError.code = 'SNS_PUBLISH_FAILED'
-    mockSendAuditEvent.mockRejectedValueOnce(sendError)
-
-    await expect(
-      bulkUpdateDeliveryStatus({ id: 's' }, ['file-id-1'], 'FAILED', 'error')
-    ).resolves.not.toThrow()
-
-    expect(mockLoggerWarn).toHaveBeenCalledWith(
+    expect(mockLoggerError).toHaveBeenCalledWith(
       expect.objectContaining({
         event: expect.objectContaining({
-          type: 'audit_event_send_failure',
-          outcome: 'failure',
-          entityid: 'file-id-1'
-        }),
-        error: expect.objectContaining({
-          code: 'SNS_PUBLISH_FAILED',
-          message: 'SNS down',
-          stack_trace: expect.any(String),
-          type: 'TypeError'
+          type: 'outbox_terminal_failure',
+          entryId: 'f1',
+          reason: 'publish error'
         })
       }),
-      'Failed to send audit event'
+      expect.stringContaining('FAILED after max attempts')
     )
   })
 
-  test('uses error name for logged error type when constructor name is unavailable', async () => {
-    const terminalDoc = buildTerminalDoc()
-    db.collection.mockReturnValue(buildCollectionMock([terminalDoc]))
+  test('skips terminal query when no potential terminal entries', async () => {
+    const find = vi.fn()
+    db.collection.mockReturnValue({ countDocuments: vi.fn().mockResolvedValue(0), find })
 
-    const sendError = Object.create(null)
-    sendError.code = 'SNS_PUBLISH_FAILED'
-    sendError.message = 'SNS down'
-    sendError.stack = 'test-stack'
-    sendError.name = 'NamedAuditError'
+    await logTerminalFailuresIfAny('outbox', ['f1'], 2, null)
 
-    mockSendAuditEvent.mockRejectedValueOnce(sendError)
-
-    await expect(
-      bulkUpdateDeliveryStatus({ id: 's' }, ['file-id-1'], 'FAILED', 'error')
-    ).resolves.not.toThrow()
-
-    expect(mockLoggerWarn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        error: expect.objectContaining({
-          type: 'NamedAuditError'
-        })
-      }),
-      'Failed to send audit event'
-    )
-  })
-
-  test('uses default Error for logged error type when constructor name and name are unavailable', async () => {
-    const terminalDoc = buildTerminalDoc()
-    db.collection.mockReturnValue(buildCollectionMock([terminalDoc]))
-
-    const sendError = Object.create(null)
-    sendError.code = 'SNS_PUBLISH_FAILED'
-    sendError.message = 'SNS down'
-    sendError.stack = 'test-stack'
-
-    mockSendAuditEvent.mockRejectedValueOnce(sendError)
-
-    await expect(
-      bulkUpdateDeliveryStatus({ id: 's' }, ['file-id-1'], 'FAILED', 'error')
-    ).resolves.not.toThrow()
-
-    expect(mockLoggerWarn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        error: expect.objectContaining({
-          type: 'Error'
-        })
-      }),
-      'Failed to send audit event'
-    )
-  })
-
-  test('emits one event per terminal doc', async () => {
-    const terminalDocs = [buildTerminalDoc('file-1'), buildTerminalDoc('file-2')]
-    db.collection.mockReturnValue(buildCollectionMock(terminalDocs))
-
-    await bulkUpdateDeliveryStatus({ id: 's' }, ['file-1', 'file-2'], 'FAILED', 'error')
-
-    expect(mockSendAuditEvent).toHaveBeenCalledTimes(2)
+    expect(find).not.toHaveBeenCalled()
+    expect(mockSendAuditEvent).not.toHaveBeenCalled()
   })
 })
+
 
