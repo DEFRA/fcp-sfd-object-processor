@@ -92,7 +92,21 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
           details: { reason, attempts }
         }
       })
-    } catch (_) {}
+    } catch (err) {
+      logger.warn({
+        event: {
+          type: 'audit_event_send_failure',
+          outcome: 'failure',
+          entityid: entryId ?? ''
+        },
+        error: {
+          code: err.code ?? null,
+          message: err.message,
+          stack_trace: err.stack,
+          type: err?.constructor?.name || err?.name || 'Error'
+        }
+      }, 'Failed to send audit event')
+    }
   }
 }
 

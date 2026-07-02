@@ -16,11 +16,12 @@ vi.mock('../../../src/data/db.js', () => ({
   db: { collection: vi.fn() }
 }))
 
-const { mockLoggerError } = vi.hoisted(() => ({
-  mockLoggerError: vi.fn()
+const { mockLoggerError, mockLoggerWarn } = vi.hoisted(() => ({
+  mockLoggerError: vi.fn(),
+  mockLoggerWarn: vi.fn()
 }))
 vi.mock('../../../src/logging/logger.js', () => ({
-  createLogger: () => ({ error: mockLoggerError, info: vi.fn(), warn: vi.fn() })
+  createLogger: () => ({ error: mockLoggerError, info: vi.fn(), warn: mockLoggerWarn })
 }))
 
 const { mockSendAuditEvent } = vi.hoisted(() => ({
@@ -254,14 +255,84 @@ describe('outbox — event 6 (document/failed audit event on terminal failure)',
     )
   })
 
-  it('audit failure does not prevent outbox update from completing', async () => {
+  it('uses error constructor name for logged error type when available', async () => {
     const terminalDoc = buildTerminalDoc()
     db.collection.mockReturnValue(buildCollectionMock([terminalDoc]))
-    mockSendAuditEvent.mockRejectedValueOnce(new Error('SNS down'))
+    const sendError = new TypeError('SNS down')
+    sendError.code = 'SNS_PUBLISH_FAILED'
+    mockSendAuditEvent.mockRejectedValueOnce(sendError)
 
     await expect(
       bulkUpdateDeliveryStatus({ id: 's' }, ['file-id-1'], 'FAILED', 'error')
     ).resolves.not.toThrow()
+
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: expect.objectContaining({
+          type: 'audit_event_send_failure',
+          outcome: 'failure',
+          entityid: 'file-id-1'
+        }),
+        error: expect.objectContaining({
+          code: 'SNS_PUBLISH_FAILED',
+          message: 'SNS down',
+          stack_trace: expect.any(String),
+          type: 'TypeError'
+        })
+      }),
+      'Failed to send audit event'
+    )
+  })
+
+  it('uses error name for logged error type when constructor name is unavailable', async () => {
+    const terminalDoc = buildTerminalDoc()
+    db.collection.mockReturnValue(buildCollectionMock([terminalDoc]))
+
+    const sendError = Object.create(null)
+    sendError.code = 'SNS_PUBLISH_FAILED'
+    sendError.message = 'SNS down'
+    sendError.stack = 'test-stack'
+    sendError.name = 'NamedAuditError'
+
+    mockSendAuditEvent.mockRejectedValueOnce(sendError)
+
+    await expect(
+      bulkUpdateDeliveryStatus({ id: 's' }, ['file-id-1'], 'FAILED', 'error')
+    ).resolves.not.toThrow()
+
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          type: 'NamedAuditError'
+        })
+      }),
+      'Failed to send audit event'
+    )
+  })
+
+  it('uses default Error for logged error type when constructor name and name are unavailable', async () => {
+    const terminalDoc = buildTerminalDoc()
+    db.collection.mockReturnValue(buildCollectionMock([terminalDoc]))
+
+    const sendError = Object.create(null)
+    sendError.code = 'SNS_PUBLISH_FAILED'
+    sendError.message = 'SNS down'
+    sendError.stack = 'test-stack'
+
+    mockSendAuditEvent.mockRejectedValueOnce(sendError)
+
+    await expect(
+      bulkUpdateDeliveryStatus({ id: 's' }, ['file-id-1'], 'FAILED', 'error')
+    ).resolves.not.toThrow()
+
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          type: 'Error'
+        })
+      }),
+      'Failed to send audit event'
+    )
   })
 
   it('emits one event per terminal doc', async () => {
