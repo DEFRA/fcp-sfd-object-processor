@@ -142,9 +142,9 @@ describe('logTerminalFailuresIfAny', () => {
     mockSendAuditEvent.mockResolvedValue(undefined)
   })
 
-  const buildTerminalDoc = (fileId = 'file-id-1', attempts = 2, id = 'outbox-doc-id') => ({
+  const buildTerminalDoc = (fileId = 'file-id-1', attempts = 2, id = 'outbox-doc-id', correlationId) => ({
     _id: { toString: () => id },
-    payload: { file: { fileId } },
+    payload: { file: { fileId }, ...(correlationId !== undefined && { messaging: { correlationId } }) },
     attempts
   })
 
@@ -193,6 +193,28 @@ describe('logTerminalFailuresIfAny', () => {
           entities: [{ entity: 'document', action: 'failed', entityid: 'fallback-id' }]
         })
       })
+    )
+  })
+
+  test('passes correlationid from payload.messaging.correlationId to audit event', async () => {
+    const doc = buildTerminalDoc('file-id-1', 2, 'outbox-doc-id', 'corr-123')
+    db.collection.mockReturnValue(buildCollectionMock([doc]))
+
+    await logTerminalFailuresIfAny('outbox', ['file-id-1'], 2, null, 'error')
+
+    expect(mockSendAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ correlationid: 'corr-123' })
+    )
+  })
+
+  test('passes correlationid as undefined when messaging is absent', async () => {
+    const doc = buildTerminalDoc('file-id-1', 2, 'outbox-doc-id')
+    db.collection.mockReturnValue(buildCollectionMock([doc]))
+
+    await logTerminalFailuresIfAny('outbox', ['file-id-1'], 2, null, 'error')
+
+    expect(mockSendAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ correlationid: undefined })
     )
   })
 

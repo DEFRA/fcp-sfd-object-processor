@@ -85,6 +85,7 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
       }
     }, 'Outbox entry reached FAILED after max attempts')
     await sendAuditEvent({
+      correlationid: doc.payload?.messaging?.correlationId,
       audit: {
         entities: [{ entity: 'document', action: 'failed', entityid: entryId ?? doc._id?.toString() ?? '' }],
         status: 'failure',
