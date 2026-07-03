@@ -13,7 +13,11 @@ vi.mock('../../../../src/data/db.js', () => ({
   }
 }))
 
-vi.mock('../../../../src/repos/outbox.js')
+vi.mock('../../../../src/repos/outbox.js', () => ({
+  getProcessableOutboxEntries: vi.fn(),
+  bulkUpdateDeliveryStatus: vi.fn(),
+  logTerminalFailuresIfAny: vi.fn().mockResolvedValue(undefined)
+}))
 vi.mock('../../../../src/messaging/outbound/crm/doc-upload/publish-document-upload-message-batch.js')
 vi.mock('../../../../src/repos/metadata.js')
 vi.mock('../../../../src/config/index.js', () => ({
@@ -176,15 +180,23 @@ describe('publishPendingMessages', () => {
     expect(bulkUpdatePublishedAtDate).toHaveBeenCalledTimes(1)
   })
 
-  test('should throw error when publishDocumentUploadMessageBatch fails', async () => {
+  test('should resolve and treat all entries as failed when publishDocumentUploadMessageBatch returns all Failed', async () => {
     getProcessableOutboxEntries.mockResolvedValue(mockPendingMessages)
-    const publishError = new Error('Publishing failed')
-    publishDocumentUploadMessageBatch.mockRejectedValue(publishError)
+    publishDocumentUploadMessageBatch.mockResolvedValue({
+      Successful: [],
+      Failed: mockPendingMessages.map(e => ({ Id: e.payload.file.fileId, Code: 'Error', Message: 'sns down' }))
+    })
 
-    await expect(publishPendingMessages()).rejects.toThrow('Publishing failed')
+    await expect(publishPendingMessages()).resolves.not.toThrow()
 
     expect(getProcessableOutboxEntries).toHaveBeenCalledOnce()
     expect(publishDocumentUploadMessageBatch).toHaveBeenCalledTimes(1)
+    expect(bulkUpdateDeliveryStatus).toHaveBeenCalledWith(
+      mockSession,
+      expect.arrayContaining([mockPendingMessages[0].payload.file.fileId, mockPendingMessages[1].payload.file.fileId]),
+      FAILED,
+      'Failed to send message'
+    )
     expect(mockSession.endSession).toHaveBeenCalledOnce()
   })
 
