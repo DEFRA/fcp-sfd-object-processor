@@ -71,7 +71,7 @@ const buildMockH = () => {
   return { response: mockResponse, continue: Symbol('continue') }
 }
 
-describe('callback handler — event 1 (document/created)', () => {
+describe('callback handler — (document/created)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockPublishAuditEvent.mockResolvedValue(undefined)
@@ -115,93 +115,5 @@ describe('callback handler — event 1 (document/created)', () => {
     await uploadCallback.options.handler(request, h)
 
     expect(mockPublishAuditEvent).not.toHaveBeenCalled()
-  })
-
-  test('audit failure does not affect 201 response', async () => {
-    persistMetadataWithOutbox.mockResolvedValueOnce({
-      insertedCount: 1,
-      insertedIds: { 0: { toString: () => 'file-id-1' } }
-    })
-    mockPublishAuditEvent.mockRejectedValueOnce(new Error('SNS down'))
-
-    const request = buildMockRequest()
-    const h = buildMockH()
-
-    const result = await uploadCallback.options.handler(request, h)
-
-    expect(h.response).toHaveBeenCalledWith(expect.objectContaining({ message: 'Metadata created' }))
-    expect(result.code).toBeDefined()
-  })
-
-  test('logs error.type from err.constructor.name when available', async () => {
-    class SNSError extends Error {}
-    const err = new SNSError('connection refused')
-
-    persistMetadataWithOutbox.mockResolvedValueOnce({
-      insertedCount: 1,
-      insertedIds: { 0: { toString: () => 'file-id-1' } }
-    })
-    mockPublishAuditEvent.mockRejectedValueOnce(err)
-
-    const request = buildMockRequest()
-    const h = buildMockH()
-
-    await uploadCallback.options.handler(request, h)
-
-    expect(mockLogger.warn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        error: expect.objectContaining({ type: 'SNSError' })
-      }),
-      'Failed to send audit event'
-    )
-  })
-
-  test('logs error.type from err.name when constructor.name is absent', async () => {
-    const err = Object.create(null)
-    err.message = 'connection refused'
-    err.name = 'SpecialError'
-    err.stack = ''
-
-    persistMetadataWithOutbox.mockResolvedValueOnce({
-      insertedCount: 1,
-      insertedIds: { 0: { toString: () => 'file-id-1' } }
-    })
-    mockPublishAuditEvent.mockRejectedValueOnce(err)
-
-    const request = buildMockRequest()
-    const h = buildMockH()
-
-    await uploadCallback.options.handler(request, h)
-
-    expect(mockLogger.warn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        error: expect.objectContaining({ type: 'SpecialError' })
-      }),
-      'Failed to send audit event'
-    )
-  })
-
-  test('logs error.type as fallback "Error" when neither constructor.name nor name is set', async () => {
-    const err = Object.create(null)
-    err.message = 'connection refused'
-    err.stack = ''
-
-    persistMetadataWithOutbox.mockResolvedValueOnce({
-      insertedCount: 1,
-      insertedIds: { 0: { toString: () => 'file-id-1' } }
-    })
-    mockPublishAuditEvent.mockRejectedValueOnce(err)
-
-    const request = buildMockRequest()
-    const h = buildMockH()
-
-    await uploadCallback.options.handler(request, h)
-
-    expect(mockLogger.warn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        error: expect.objectContaining({ type: 'Error' })
-      }),
-      'Failed to send audit event'
-    )
   })
 })
