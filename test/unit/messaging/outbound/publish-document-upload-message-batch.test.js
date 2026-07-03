@@ -122,7 +122,7 @@ describe('Publish Received Message', () => {
     expect(result.Failed[0].Id).toBeUndefined()
   })
 
-  test('synthesised Failed entry carries error name as Code', async () => {
+  test('synthesised Failed entry uses err.constructor.name as Code when present', async () => {
     class BatchRequestTooLongException extends Error {}
     const err = new BatchRequestTooLongException('too long')
     publishBatch.mockRejectedValue(err)
@@ -132,5 +132,28 @@ describe('Publish Received Message', () => {
 
     expect(result.Failed[0].Code).toBe('BatchRequestTooLongException')
     expect(result.Failed[0].Message).toBe('too long')
+  })
+
+  test('synthesised Failed entry falls back to err.name as Code when constructor.name is absent', async () => {
+    const err = Object.create(null)
+    err.message = 'sns down'
+    err.name = 'SpecialError'
+    publishBatch.mockRejectedValue(err)
+    buildDocumentUploadMessageBatch.mockReturnValue([])
+
+    const result = await publishDocumentUploadMessageBatch(mockPendingMessages)
+
+    expect(result.Failed[0].Code).toBe('SpecialError')
+  })
+
+  test('synthesised Failed entry falls back to PublishError as Code when both constructor.name and err.name are absent', async () => {
+    const err = Object.create(null)
+    err.message = 'sns down'
+    publishBatch.mockRejectedValue(err)
+    buildDocumentUploadMessageBatch.mockReturnValue([])
+
+    const result = await publishDocumentUploadMessageBatch(mockPendingMessages)
+
+    expect(result.Failed[0].Code).toBe('PublishError')
   })
 })
