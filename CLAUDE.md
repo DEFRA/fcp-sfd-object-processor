@@ -66,6 +66,7 @@ src/plugins/      → Hapi plugins (auth via Microsoft Entra ID JWT)
 - Never mock `mongodb` directly — mock `src/data/db.js` instead
 - Integration tests must set a unique collection name in `beforeAll` and clean up in `afterAll`
 - Use `server.inject()` for API testing (call `server.initialize()` first)
+- **Every branch of every inline conditional must have an explicit test.** For `a || b`, test when `a` is truthy (uses `a`), when `a` is falsy and `b` is truthy (falls back to `b`), and when both are falsy. For `a ?? b`, test when `a` is non-nullish and when `a` is null/undefined. For `a ?? b ?? c`, test all three arms. Do not stop after covering the happy path and one fallback.
 
 ## Logging
 

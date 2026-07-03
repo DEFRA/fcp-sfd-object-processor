@@ -196,6 +196,21 @@ describe('logTerminalFailuresIfAny', () => {
     )
   })
 
+  test('uses empty string as entityid when both payload.file.fileId and _id are absent', async () => {
+    const doc = { _id: null, payload: {}, attempts: 2 }
+    db.collection.mockReturnValue(buildCollectionMock([doc]))
+
+    await logTerminalFailuresIfAny('outbox', ['file-id-1'], 2, null, 'error')
+
+    expect(mockSendAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        audit: expect.objectContaining({
+          entities: [{ entity: 'document', action: 'failed', entityid: '' }]
+        })
+      })
+    )
+  })
+
   test('logs terminal failure with default reason when errMsg is omitted', async () => {
     const doc = { _id: { toString: () => 'id' }, payload: {}, attempts: 2 }
     db.collection.mockReturnValue(buildCollectionMock([doc]))

@@ -112,6 +112,16 @@ describe('Publish Received Message', () => {
     expect(result.Failed[0].Id).toBe('msg-fallback')
   })
 
+  test('synthesised Failed entry Id is undefined when both fileId and messageId are absent', async () => {
+    const messages = [{ payload: {} }]
+    publishBatch.mockRejectedValue(new Error('sns down'))
+    buildDocumentUploadMessageBatch.mockReturnValue([])
+
+    const result = await publishDocumentUploadMessageBatch(messages)
+
+    expect(result.Failed[0].Id).toBeUndefined()
+  })
+
   test('synthesised Failed entry carries error name as Code', async () => {
     class BatchRequestTooLongException extends Error {}
     const err = new BatchRequestTooLongException('too long')
