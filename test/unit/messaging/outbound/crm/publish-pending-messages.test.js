@@ -107,14 +107,13 @@ describe('publishPendingMessages', () => {
     expect(calledWith).toBeDefined()
   })
 
-  test('rethrows when publishDocumentUploadMessageBatch throws', async () => {
-    mockGetProcessable.mockResolvedValue([{ messageId: 'm3' }])
-    mockPublishBatch.mockRejectedValue(new Error('publish failed'))
+  test('resolves when publishDocumentUploadMessageBatch returns all Failed — treats entries as failed', async () => {
+    mockGetProcessable.mockResolvedValue([{ messageId: 'm3', payload: { file: { fileId: 'f3' } } }])
+    mockPublishBatch.mockResolvedValue({ Successful: [], Failed: [{ Id: 'f3', Code: 'PublishError', Message: 'sns down' }] })
 
-    await expect(publishPendingMessages()).rejects.toThrow('publish failed')
-    // ensure session end is still called
-    const session = mockStartSession()
-    expect(session.endSession).toHaveBeenCalled()
+    await expect(publishPendingMessages()).resolves.not.toThrow()
+    expect(bulkUpdateDeliveryStatus).toHaveBeenCalledWith(expect.anything(), ['f3'], FAILED, 'Failed to send message')
+    expect(mockLogTerminalFailuresIfAny).toHaveBeenCalled()
   })
 
   test('uses payload.file.fileId when logging imminent terminal failures', async () => {

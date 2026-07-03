@@ -6,8 +6,19 @@ import { publishBatch } from '../../../../src/messaging/sns/publish-batch.js'
 import { buildDocumentUploadMessageBatch } from '../../../../src/messaging/outbound/crm/doc-upload/build-document-upload-message-batch.js'
 import { publishDocumentUploadMessageBatch } from '../../../../src/messaging/outbound/crm/doc-upload/publish-document-upload-message-batch.js'
 
+vi.mock('../../../../src/messaging/sns/client.js')
 vi.mock('../../../../src/messaging/sns/publish-batch.js')
 vi.mock('../../../../src/messaging/outbound/crm/doc-upload/build-document-upload-message-batch.js')
+vi.mock('../../../../src/config/index.js', () => ({
+  config: {
+    get: vi.fn((key) => {
+      if (key === 'aws.messaging.topics.documentUploadEvents') {
+        return 'arn:aws:sns:eu-west-2:000000000000:fcp_sfd_object_processor_events'
+      }
+      return null
+    })
+  }
+}))
 
 vi.mock('../../../../src/logging/logger.js', () => ({
   createLogger: vi.fn().mockReturnValue({
@@ -68,16 +79,48 @@ describe('Publish Received Message', () => {
     })
   })
 
-  test('should throw error and log if publish fails', async () => {
+  test('should log and return synthesised Failed array when publishBatch throws', async () => {
     const mockError = new Error('Publish error')
-
     publishBatch.mockRejectedValue(mockError)
 
-    await expect(publishDocumentUploadMessageBatch(mockPendingMessages)).rejects.toThrow('Publish error')
+    const result = await publishDocumentUploadMessageBatch(mockPendingMessages)
 
-    expect(mockLogger.error).toHaveBeenCalledWith(
-      mockError,
-      'Error publishing document upload batch'
-    )
+    expect(mockLogger.error).toHaveBeenCalledWith(mockError, 'Error publishing document upload batch')
+    expect(result).toEqual({
+      Successful: [],
+      Failed: [{ Id: 'metadata-id-1', Code: 'Error', Message: 'Publish error' }]
+    })
+  })
+
+  test('synthesised Failed entry uses payload.file.fileId as Id when present', async () => {
+    const messages = [{ payload: { file: { fileId: 'file-abc' } }, messageId: 'msg-abc' }]
+    publishBatch.mockRejectedValue(new Error('sns down'))
+    buildDocumentUploadMessageBatch.mockReturnValue([])
+
+    const result = await publishDocumentUploadMessageBatch(messages)
+
+    expect(result.Failed[0].Id).toBe('file-abc')
+  })
+
+  test('synthesised Failed entry falls back to messageId when fileId absent', async () => {
+    const messages = [{ messageId: 'msg-fallback' }]
+    publishBatch.mockRejectedValue(new Error('sns down'))
+    buildDocumentUploadMessageBatch.mockReturnValue([])
+
+    const result = await publishDocumentUploadMessageBatch(messages)
+
+    expect(result.Failed[0].Id).toBe('msg-fallback')
+  })
+
+  test('synthesised Failed entry carries error name as Code', async () => {
+    class BatchRequestTooLongException extends Error {}
+    const err = new BatchRequestTooLongException('too long')
+    publishBatch.mockRejectedValue(err)
+    buildDocumentUploadMessageBatch.mockReturnValue([])
+
+    const result = await publishDocumentUploadMessageBatch(mockPendingMessages)
+
+    expect(result.Failed[0].Code).toBe('BatchRequestTooLongException')
+    expect(result.Failed[0].Message).toBe('too long')
   })
 })
