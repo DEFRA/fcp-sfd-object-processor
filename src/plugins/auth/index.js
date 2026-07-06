@@ -4,7 +4,7 @@ import { constants as httpConstants } from 'node:http2'
 import { getEntraAuthOptions } from './entra-options.js'
 import { getCognitoAuthOptions } from './cognito-options.js'
 import { AUTH_STRATEGY_NAMES } from '../../constants/auth.js'
-import { publishAuditEvent } from '../../messaging/outbound/audit/publish-audit-event.js'
+import { sendAuditEvent } from '../../messaging/outbound/audit/send-audit-event.js'
 
 const logger = createLogger()
 const tracingHeader = config.get('tracing.header')
@@ -62,7 +62,7 @@ export const auth = {
             tokenClientId: request.auth?.artifacts?.decoded?.payload?.client_id // includes client_id from Cognito token if present, otherwise undefined
           })
           try {
-            await publishAuditEvent({
+            await sendAuditEvent({
               correlationid: request.headers[tracingHeader],
               security: {
                 pmccode: 'AUTH',

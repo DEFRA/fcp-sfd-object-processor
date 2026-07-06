@@ -19,11 +19,11 @@ vi.mock('../../../../src/plugins/auth/cognito-options.js', () => ({
   getCognitoAuthOptions: vi.fn().mockReturnValue({})
 }))
 
-const { mockPublishAuditEvent } = vi.hoisted(() => ({
-  mockPublishAuditEvent: vi.fn().mockResolvedValue(undefined)
+const { mockSendAuditEvent } = vi.hoisted(() => ({
+  mockSendAuditEvent: vi.fn().mockResolvedValue(undefined)
 }))
-vi.mock('../../../../src/messaging/outbound/audit/publish-audit-event.js', () => ({
-  publishAuditEvent: mockPublishAuditEvent
+vi.mock('../../../../src/messaging/outbound/audit/send-audit-event.js', () => ({
+  sendAuditEvent: mockSendAuditEvent
 }))
 
 describe('auth plugin register', () => {
@@ -452,7 +452,7 @@ describe('auth plugin', () => {
 
     describe('event 7 — security audit event on auth failure', () => {
       beforeEach(() => {
-        mockPublishAuditEvent.mockResolvedValue(undefined)
+        mockSendAuditEvent.mockResolvedValue(undefined)
       })
 
       const build401Request = () => ({
@@ -473,7 +473,7 @@ describe('auth plugin', () => {
         const extensionHandler = mockServer.ext.mock.calls[0][1]
         await extensionHandler(build401Request(), { continue: Symbol('continue') })
 
-        expect(mockPublishAuditEvent).toHaveBeenCalledWith(
+        expect(mockSendAuditEvent).toHaveBeenCalledWith(
           expect.objectContaining({
             correlationid: 'test-correlation-id',
             security: expect.objectContaining({
@@ -502,11 +502,11 @@ describe('auth plugin', () => {
         }
         await extensionHandler(nonAuthRequest, { continue: Symbol('continue') })
 
-        expect(mockPublishAuditEvent).not.toHaveBeenCalled()
+        expect(mockSendAuditEvent).not.toHaveBeenCalled()
       })
 
       test('audit failure does not prevent h.continue being returned', async () => {
-        mockPublishAuditEvent.mockRejectedValueOnce(new Error('SNS down'))
+        mockSendAuditEvent.mockRejectedValueOnce(new Error('SNS down'))
         await auth.plugin.register(mockServer)
 
         const extensionHandler = mockServer.ext.mock.calls[0][1]
