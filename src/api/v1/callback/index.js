@@ -9,6 +9,7 @@ import { metricsCounter } from '../../common/helpers/metrics.js'
 import { validateCallbackPayload } from './validation/validate-callback-payload.js'
 import { buildCallbackValidationFailureLog, buildCallbackPersistFailureLog } from '../../../utils/build-callback-validation-failure-log.js'
 import { sendAuditEvent } from '../../../messaging/outbound/audit/send-audit-event.js'
+import { extractFileIdsFromPayload } from '../../../mappers/status.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -43,6 +44,19 @@ export const uploadCallback = {
           await persistValidationFailureStatus(request.payload, err)
         } catch (persistError) {
           logger.error(buildCallbackPersistFailureLog(request, persistError), 'Failed to persist status for callback validation failure')
+        }
+
+        const failedFileIds = extractFileIdsFromPayload(request.payload)
+        for (const fileId of failedFileIds) {
+          await sendAuditEvent({
+            correlationid: request?.headers?.[tracingHeader],
+            audit: {
+              entities: [{ entity: 'document', action: 'failed', entityid: fileId }],
+              accounts: { sbi: String(request.payload?.metadata?.sbi ?? '') },
+              status: 'failure',
+              details: { reason: 'payload_validation_failure' }
+            }
+          })
         }
 
         return h.response({ message: 'Validation failure persisted' }).code(httpConstants.HTTP_STATUS_CREATED).takeover()
@@ -81,7 +95,7 @@ export const uploadCallback = {
               entities: [{ entity: 'document', action: 'created', entityid: fileId }],
               accounts: { sbi: String(request.payload.metadata.sbi) },
               status: 'success',
-              details: {}
+              details: { reason: 'callback_successful' }
             }
           })
         }
@@ -93,6 +107,20 @@ export const uploadCallback = {
         }).code(httpConstants.HTTP_STATUS_CREATED)
       } catch (err) {
         logger.error(err)
+
+        const errorFileIds = extractFileIdsFromPayload(request.payload)
+        for (const fileId of errorFileIds) {
+          await sendAuditEvent({
+            correlationid: request?.headers?.[tracingHeader],
+            audit: {
+              entities: [{ entity: 'document', action: 'failed', entityid: fileId }],
+              accounts: { sbi: String(request.payload?.metadata?.sbi ?? '') },
+              status: 'failure',
+              details: { reason: 'callback_processing_failure' }
+            }
+          })
+        }
+
         return Boom.internal(err)
       }
     }
