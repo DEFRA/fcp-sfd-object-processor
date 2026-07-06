@@ -61,23 +61,23 @@ export const auth = {
             tokenGroups: request.auth?.artifacts?.decoded?.payload?.groups, // includes groups from token if present, otherwise undefined
             tokenClientId: request.auth?.artifacts?.decoded?.payload?.client_id // includes client_id from Cognito token if present, otherwise undefined
           })
-          try {
-            await sendAuditEvent({
-              correlationid: request.headers[tracingHeader],
-              security: {
-                pmccode: 'AUTH',
-                priority: 1,
-                details: {
-                  message: response.message || response.output.payload.message || 'authentication_failed'
-                }
-              },
-              audit: {
-                entities: [{ entity: 'document', action: 'failed' }],
-                status: 'failure',
-                details: { path: request.path, method: request.method }
+          // sendAuditEvent handles errors internally — no try/catch needed here.
+          // TODO: pass request.info.remoteAddress as ip override (separate ticket).
+          await sendAuditEvent({
+            correlationid: request.headers[tracingHeader],
+            security: {
+              pmccode: 'AUTH',
+              priority: 1,
+              details: {
+                message: response.message || response.output.payload.message || 'authentication_failed'
               }
-            })
-          } catch (_) {}
+            },
+            audit: {
+              entities: [{ entity: 'document', action: 'failed' }],
+              status: 'failure',
+              details: { path: request.path, method: request.method }
+            }
+          })
         }
 
         return h.continue

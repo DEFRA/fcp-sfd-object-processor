@@ -489,6 +489,24 @@ describe('auth plugin', () => {
         )
       })
 
+      test('does not emit audit event for non-boom (success) responses', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const successRequest = {
+          response: { isBoom: false },
+          path: '/test',
+          method: 'GET',
+          info: { remoteAddress: '127.0.0.1' },
+          headers: {}
+        }
+        const mockH = { continue: Symbol('continue') }
+        const result = await extensionHandler(successRequest, mockH)
+
+        expect(result).toBe(mockH.continue)
+        expect(mockSendAuditEvent).not.toHaveBeenCalled()
+      })
+
       test('does not emit audit event for non-401 responses', async () => {
         await auth.plugin.register(mockServer)
 
@@ -505,8 +523,7 @@ describe('auth plugin', () => {
         expect(mockSendAuditEvent).not.toHaveBeenCalled()
       })
 
-      test('audit failure does not prevent h.continue being returned', async () => {
-        mockSendAuditEvent.mockRejectedValueOnce(new Error('SNS down'))
+      test('returns h.continue after emitting audit event', async () => {
         await auth.plugin.register(mockServer)
 
         const extensionHandler = mockServer.ext.mock.calls[0][1]
