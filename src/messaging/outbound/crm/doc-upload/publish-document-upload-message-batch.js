@@ -11,11 +11,17 @@ const logger = createLogger()
 const publishDocumentUploadMessageBatch = async (pendingMessages) => {
   try {
     const documentUploadMessageBatch = buildDocumentUploadMessageBatch(pendingMessages)
-    const snsPublishResponse = await publishBatch(snsClient, snsTopic, documentUploadMessageBatch)
-    return snsPublishResponse
-  } catch (error) {
-    logger.error(error, 'Error publishing document upload batch')
-    throw error
+    return await publishBatch(snsClient, snsTopic, documentUploadMessageBatch)
+  } catch (err) {
+    logger.error(err, 'Error publishing document upload batch')
+    return {
+      Successful: [],
+      Failed: pendingMessages.map(entry => ({
+        Id: entry?.payload?.file?.fileId || entry?.messageId,
+        Code: err.constructor?.name ?? err.name ?? 'PublishError',
+        Message: err.message
+      }))
+    }
   }
 }
 

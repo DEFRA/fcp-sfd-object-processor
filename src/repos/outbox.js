@@ -2,6 +2,7 @@ import { config } from '../config/index.js'
 import { PENDING, FAILED, SENT } from '../constants/outbox.js'
 import { db } from '../data/db.js'
 import { createLogger } from '../logging/logger.js'
+import { sendAuditEvent } from '../messaging/outbound/audit/send-audit-event.js'
 
 const logger = createLogger()
 
@@ -69,7 +70,7 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
     .find(terminalFilter, { session: sess })
     .toArray()
 
-  terminalDocs.forEach(doc => {
+  for (const doc of terminalDocs) {
     const entryId = doc.payload?.file?.fileId || null
     const attempts = doc.attempts
     const reason = errMsg || 'terminal_failure'
@@ -83,7 +84,15 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
         reason
       }
     }, 'Outbox entry reached FAILED after max attempts')
-  })
+    await sendAuditEvent({
+      correlationid: doc.payload?.messaging?.correlationId,
+      audit: {
+        entities: [{ entity: 'document', action: 'failed', entityid: entryId ?? doc._id?.toString() ?? '' }],
+        status: 'failure',
+        details: { reason, attempts }
+      }
+    })
+  }
 }
 
 const createOutboxEntries = async (ids, documents, session) => {
@@ -153,21 +162,12 @@ const bulkUpdateDeliveryStatus = async (session, fileIds, status, error = null) 
     throw new Error('Failed to update outbox entries')
   }
 
-  // If we just processed failures, log any entries that have reached terminal FAILED status
-  if (status === FAILED) {
-    try {
-      await logTerminalFailuresIfAny(collection, fileIds, maxAttempts, session, error)
-    } catch (err) {
-      // Non-fatal: log but don't fail the transaction because of logging
-      logger.error({ err }, 'Failed to log terminal outbox entries')
-    }
-  }
-
   return updateResult
 }
 
 export {
   createOutboxEntries,
   getProcessableOutboxEntries,
-  bulkUpdateDeliveryStatus
+  bulkUpdateDeliveryStatus,
+  logTerminalFailuresIfAny
 }

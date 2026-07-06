@@ -32,32 +32,15 @@ export const metadataRoute = {
       const documents = await getMetadataBySbi(sbi)
 
       for (const doc of documents) {
-        try {
-          await sendAuditEvent({
-            correlationid: request?.headers?.[tracingHeader],
-            audit: {
-              entities: [{ entity: 'document', action: 'read', entityid: doc.file.fileId }],
-              accounts: { sbi: String(sbi) },
-              status: 'success',
-              details: {}
-            }
-          })
-        } catch (err) {
-          request.logger.warn({
-            event: {
-              type: 'audit_event_send_failure',
-              outcome: 'failure',
-              entityid: doc.file.fileId,
-              accounts: { sbi: String(sbi) }
-            },
-            error: {
-              code: err.code ?? null,
-              message: err.message,
-              stack_trace: err.stack,
-              type: err?.constructor?.name || err?.name || 'Error'
-            }
-          }, 'Failed to send audit event')
-        }
+        await sendAuditEvent({
+          correlationid: request?.headers?.[tracingHeader],
+          audit: {
+            entities: [{ entity: 'document', action: 'read', entityid: doc.file.fileId }],
+            accounts: { sbi: String(sbi) },
+            status: 'success',
+            details: {}
+          }
+        })
       }
 
       return h.response({ data: documents }).code(httpConstants.HTTP_STATUS_OK)

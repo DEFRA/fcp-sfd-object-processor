@@ -1,6 +1,6 @@
 import { createLogger } from '../../../../logging/logger.js'
 import { config } from '../../../../config/index.js'
-import { getProcessableOutboxEntries, bulkUpdateDeliveryStatus } from '../../../../repos/outbox.js'
+import { getProcessableOutboxEntries, bulkUpdateDeliveryStatus, logTerminalFailuresIfAny } from '../../../../repos/outbox.js'
 import { bulkUpdatePublishedAtDate } from '../../../../repos/metadata.js'
 import { publishDocumentUploadMessageBatch } from './publish-document-upload-message-batch.js'
 import { SENT, FAILED, BATCH_SIZE } from '../../../../constants/outbox.js'
@@ -25,17 +25,17 @@ const publishPendingMessages = async () => {
       const batch = pendingMessages.slice(i, i + BATCH_SIZE)
 
       const { Successful, Failed } = await publishDocumentUploadMessageBatch(batch)
+      const failedIds = Failed.map(f => f.Id)
 
       // Cross-reference failed IDs against the batch to detect entries
       // that will reach terminal FAILED state after this attempt and log
       // a structured error for them.
       if (Failed.length > 0) {
         const maxAttempts = config.get('messaging.outboxMaxAttempts')
-        const failedIds = new Set(Failed.map(f => f.Id))
 
         const imminentTerminal = batch.filter(entry => {
           const entryId = entry?.payload?.file?.fileId || entry?.messageId
-          return failedIds.has(entryId) && ((entry.attempts || 0) + 1) >= maxAttempts
+          return failedIds.includes(entryId) && ((entry.attempts || 0) + 1) >= maxAttempts
         })
 
         imminentTerminal.forEach(entry => {
@@ -65,9 +65,18 @@ const publishPendingMessages = async () => {
         }
 
         if (Failed.length > 0) {
-          await bulkUpdateDeliveryStatus(session, Failed.map(message => message.Id), FAILED, 'Failed to send message')
+          await bulkUpdateDeliveryStatus(session, failedIds, FAILED, 'Failed to send message')
         }
       })
+
+      // Transaction committed — emit audit events for terminal failures outside the transaction
+      // boundary to prevent duplicate events if the driver retries the transaction callback.
+      if (Failed.length > 0) {
+        const collection = config.get('mongo.collections.outbox')
+        const maxAttempts = config.get('messaging.outboxMaxAttempts')
+        await logTerminalFailuresIfAny(collection, failedIds, maxAttempts, null, 'Failed to send message')
+      }
+
       logger.info(`Outbox processing complete. Total: ${Successful.length} sent, ${Failed.length} failed`)
     }
   } catch (error) {
