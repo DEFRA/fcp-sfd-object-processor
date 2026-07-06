@@ -4,8 +4,10 @@ import { constants as httpConstants } from 'node:http2'
 import { getEntraAuthOptions } from './entra-options.js'
 import { getCognitoAuthOptions } from './cognito-options.js'
 import { AUTH_STRATEGY_NAMES } from '../../constants/auth.js'
+import { sendAuditEvent } from '../../messaging/outbound/audit/send-audit-event.js'
 
 const logger = createLogger()
+const tracingHeader = config.get('tracing.header')
 
 export const auth = {
   plugin: {
@@ -44,7 +46,7 @@ export const auth = {
 
       // Additional logging for authentication failures for when a request is rejected
       // by Hapi before it reaches our validate function (e.g. missing/invalid token)
-      server.ext('onPreResponse', (request, h) => {
+      server.ext('onPreResponse', async (request, h) => {
         const response = request.response
 
         if (response.isBoom && response.output.statusCode === httpConstants.HTTP_STATUS_UNAUTHORIZED) {
@@ -58,6 +60,23 @@ export const auth = {
             // Only include if token was present and decoded
             tokenGroups: request.auth?.artifacts?.decoded?.payload?.groups, // includes groups from token if present, otherwise undefined
             tokenClientId: request.auth?.artifacts?.decoded?.payload?.client_id // includes client_id from Cognito token if present, otherwise undefined
+          })
+          // sendAuditEvent handles errors internally — no try/catch needed here.
+          // TODO: pass request.info.remoteAddress as ip override (separate ticket).
+          await sendAuditEvent({
+            correlationid: request.headers[tracingHeader],
+            security: {
+              pmccode: 'AUTH',
+              priority: 1,
+              details: {
+                message: response.message || response.output.payload.message || 'authentication_failed'
+              }
+            },
+            audit: {
+              entities: [{ entity: 'document', action: 'failed' }],
+              status: 'failure',
+              details: { path: request.path, method: request.method }
+            }
           })
         }
 

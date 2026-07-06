@@ -19,6 +19,13 @@ vi.mock('../../../../src/plugins/auth/cognito-options.js', () => ({
   getCognitoAuthOptions: vi.fn().mockReturnValue({})
 }))
 
+const { mockSendAuditEvent } = vi.hoisted(() => ({
+  mockSendAuditEvent: vi.fn().mockResolvedValue(undefined)
+}))
+vi.mock('../../../../src/messaging/outbound/audit/send-audit-event.js', () => ({
+  sendAuditEvent: mockSendAuditEvent
+}))
+
 describe('auth plugin register', () => {
   let server
 
@@ -106,7 +113,7 @@ describe('auth plugin register', () => {
     }
 
     const h = { continue: Symbol('continue') }
-    const res = server._extHandler(request, h)
+    const res = await server._extHandler(request, h)
     expect(res).toBe(h.continue)
     expect(mockLogger.warn).toHaveBeenCalled()
     const warnArg = mockLogger.warn.mock.calls[0][0]
@@ -141,6 +148,7 @@ describe('auth plugin', () => {
         case 'auth.entra.enabled': return true
         case 'auth.entra.tenants': return [{ tenantId: 'test-tenant-id', allowedGroupIds: ['group-1', 'group-2'] }]
         case 'auth.cognito.enabled': return false
+        case 'tracing.header': return 'x-cdp-request-id'
         default: return null
       }
     })
@@ -318,7 +326,7 @@ describe('auth plugin', () => {
       }
       const mockH = { continue: Symbol('continue') }
 
-      const result = extensionHandler(mockRequest, mockH)
+      const result = await extensionHandler(mockRequest, mockH)
 
       expect(result).toBe(mockH.continue)
       expect(mockWarn).not.toHaveBeenCalled()
@@ -341,7 +349,7 @@ describe('auth plugin', () => {
       }
       const mockH = { continue: Symbol('continue') }
 
-      const result = extensionHandler(mockRequest, mockH)
+      const result = await extensionHandler(mockRequest, mockH)
 
       expect(result).toBe(mockH.continue)
     })
@@ -370,7 +378,7 @@ describe('auth plugin', () => {
       }
       const mockH = { continue: Symbol('continue') }
 
-      extensionHandler(mockRequest, mockH)
+      await extensionHandler(mockRequest, mockH)
 
       expect(mockWarn).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -404,7 +412,7 @@ describe('auth plugin', () => {
       }
       const mockH = { continue: Symbol('continue') }
 
-      extensionHandler(mockRequest, mockH)
+      await extensionHandler(mockRequest, mockH)
 
       expect(mockWarn).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -432,7 +440,7 @@ describe('auth plugin', () => {
       }
       const mockH = { continue: Symbol('continue') }
 
-      extensionHandler(mockRequest, mockH)
+      await extensionHandler(mockRequest, mockH)
 
       expect(mockWarn).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -440,6 +448,165 @@ describe('auth plugin', () => {
           tokenClientId: undefined
         })
       )
+    })
+
+    describe('event 7 — security audit event on auth failure', () => {
+      beforeEach(() => {
+        mockSendAuditEvent.mockResolvedValue(undefined)
+      })
+
+      const build401Request = () => ({
+        response: {
+          isBoom: true,
+          output: { statusCode: 401, payload: { message: 'Unauthorized' } },
+          message: 'Invalid token'
+        },
+        path: '/api/v1/metadata',
+        method: 'GET',
+        info: { remoteAddress: '10.0.0.1' },
+        headers: { 'x-cdp-request-id': 'test-correlation-id', 'user-agent': 'test-agent' }
+      })
+
+      test('emits security + audit event on 401 response', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        await extensionHandler(build401Request(), { continue: Symbol('continue') })
+
+        expect(mockSendAuditEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            correlationid: 'test-correlation-id',
+            security: expect.objectContaining({
+              pmccode: 'AUTH',
+              priority: 1
+            }),
+            audit: expect.objectContaining({
+              entities: [{ entity: 'document', action: 'failed' }],
+              status: 'failure',
+              details: expect.objectContaining({ path: '/api/v1/metadata', method: 'GET' })
+            })
+          })
+        )
+      })
+
+      test('does not emit audit event for non-boom (success) responses', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const successRequest = {
+          response: { isBoom: false },
+          path: '/test',
+          method: 'GET',
+          info: { remoteAddress: '127.0.0.1' },
+          headers: {}
+        }
+        const mockH = { continue: Symbol('continue') }
+        const result = await extensionHandler(successRequest, mockH)
+
+        expect(result).toBe(mockH.continue)
+        expect(mockSendAuditEvent).not.toHaveBeenCalled()
+      })
+
+      test('does not emit audit event for non-401 responses', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const nonAuthRequest = {
+          response: { isBoom: true, output: { statusCode: 403 } },
+          path: '/test',
+          method: 'GET',
+          info: { remoteAddress: '127.0.0.1' },
+          headers: {}
+        }
+        await extensionHandler(nonAuthRequest, { continue: Symbol('continue') })
+
+        expect(mockSendAuditEvent).not.toHaveBeenCalled()
+      })
+
+      test('returns h.continue after emitting audit event', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const mockH = { continue: Symbol('continue') }
+        const result = await extensionHandler(build401Request(), mockH)
+
+        expect(result).toBe(mockH.continue)
+      })
+    })
+
+    // Explicit branch coverage for the `response.message || response.output.payload.message`
+    // fallback (line 55, logged as `reason`) and the
+    // `response.message || response.output.payload.message || 'authentication_failed'`
+    // fallback (line 72, sent as `security.details.message`).
+    describe('reason/message fallback branches (lines 55 & 72)', () => {
+      const build401 = ({ topLevelMessage, payloadMessage }) => ({
+        response: {
+          isBoom: true,
+          output: { statusCode: 401, payload: { message: payloadMessage } },
+          message: topLevelMessage
+        },
+        path: '/api/v1/metadata',
+        method: 'GET',
+        info: { remoteAddress: '10.0.0.1' },
+        headers: { 'x-cdp-request-id': 'test-correlation-id', 'user-agent': 'test-agent' }
+      })
+
+      test('uses response.message when both response.message and payload.message are present', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const request = build401({ topLevelMessage: 'top-level-message', payloadMessage: 'payload-message' })
+        await extensionHandler(request, { continue: Symbol('continue') })
+
+        expect(mockWarn).toHaveBeenCalledWith(
+          expect.objectContaining({ reason: 'top-level-message' })
+        )
+        expect(mockSendAuditEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            security: expect.objectContaining({
+              details: expect.objectContaining({ message: 'top-level-message' })
+            })
+          })
+        )
+      })
+
+      test('falls back to payload.message when response.message is absent', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const request = build401({ topLevelMessage: undefined, payloadMessage: 'payload-message' })
+        await extensionHandler(request, { continue: Symbol('continue') })
+
+        expect(mockWarn).toHaveBeenCalledWith(
+          expect.objectContaining({ reason: 'payload-message' })
+        )
+        expect(mockSendAuditEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            security: expect.objectContaining({
+              details: expect.objectContaining({ message: 'payload-message' })
+            })
+          })
+        )
+      })
+
+      test('reason is undefined and audit message falls back to authentication_failed when both messages are absent', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const request = build401({ topLevelMessage: undefined, payloadMessage: undefined })
+        await extensionHandler(request, { continue: Symbol('continue') })
+
+        expect(mockWarn).toHaveBeenCalledWith(
+          expect.objectContaining({ reason: undefined })
+        )
+        expect(mockSendAuditEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            security: expect.objectContaining({
+              details: expect.objectContaining({ message: 'authentication_failed' })
+            })
+          })
+        )
+      })
     })
   })
 })
