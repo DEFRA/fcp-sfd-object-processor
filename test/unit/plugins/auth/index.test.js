@@ -533,5 +533,80 @@ describe('auth plugin', () => {
         expect(result).toBe(mockH.continue)
       })
     })
+
+    // Explicit branch coverage for the `response.message || response.output.payload.message`
+    // fallback (line 55, logged as `reason`) and the
+    // `response.message || response.output.payload.message || 'authentication_failed'`
+    // fallback (line 72, sent as `security.details.message`).
+    describe('reason/message fallback branches (lines 55 & 72)', () => {
+      const build401 = ({ topLevelMessage, payloadMessage }) => ({
+        response: {
+          isBoom: true,
+          output: { statusCode: 401, payload: { message: payloadMessage } },
+          message: topLevelMessage
+        },
+        path: '/api/v1/metadata',
+        method: 'GET',
+        info: { remoteAddress: '10.0.0.1' },
+        headers: { 'x-cdp-request-id': 'test-correlation-id', 'user-agent': 'test-agent' }
+      })
+
+      test('uses response.message when both response.message and payload.message are present', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const request = build401({ topLevelMessage: 'top-level-message', payloadMessage: 'payload-message' })
+        await extensionHandler(request, { continue: Symbol('continue') })
+
+        expect(mockWarn).toHaveBeenCalledWith(
+          expect.objectContaining({ reason: 'top-level-message' })
+        )
+        expect(mockSendAuditEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            security: expect.objectContaining({
+              details: expect.objectContaining({ message: 'top-level-message' })
+            })
+          })
+        )
+      })
+
+      test('falls back to payload.message when response.message is absent', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const request = build401({ topLevelMessage: undefined, payloadMessage: 'payload-message' })
+        await extensionHandler(request, { continue: Symbol('continue') })
+
+        expect(mockWarn).toHaveBeenCalledWith(
+          expect.objectContaining({ reason: 'payload-message' })
+        )
+        expect(mockSendAuditEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            security: expect.objectContaining({
+              details: expect.objectContaining({ message: 'payload-message' })
+            })
+          })
+        )
+      })
+
+      test('reason is undefined and audit message falls back to authentication_failed when both messages are absent', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const request = build401({ topLevelMessage: undefined, payloadMessage: undefined })
+        await extensionHandler(request, { continue: Symbol('continue') })
+
+        expect(mockWarn).toHaveBeenCalledWith(
+          expect.objectContaining({ reason: undefined })
+        )
+        expect(mockSendAuditEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            security: expect.objectContaining({
+              details: expect.objectContaining({ message: 'authentication_failed' })
+            })
+          })
+        )
+      })
+    })
   })
 })
