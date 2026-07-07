@@ -5,7 +5,8 @@
   "main": "src/index.js",
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=24",
+    "npm": ">=11.10"
   },
   "scripts": {
     "docker:debug": "docker compose -f compose.yaml -f compose.debug.yaml -p 'fcp-sfd-object-processor' up",
