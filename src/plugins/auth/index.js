@@ -46,13 +46,15 @@ export const auth = {
 
       // Additional logging for authentication failures for when a request is rejected
       // by Hapi before it reaches our validate function (e.g. missing/invalid token)
-      server.ext('onPreResponse', async (request, h) => {
+      server.ext('onPreResponse', (request, h) => {
         const response = request.response
 
         if (response.isBoom && response.output.statusCode === httpConstants.HTTP_STATUS_UNAUTHORIZED) {
+          const sanitisedMessage = response.output.payload.message || 'authentication_failed'
+
           logger.warn({
             msg: 'Authentication failed',
-            reason: response.message || response.output.payload.message,
+            reason: sanitisedMessage,
             path: request.path,
             method: request.method,
             sourceIp: request.info.remoteAddress,
@@ -61,15 +63,13 @@ export const auth = {
             tokenGroups: request.auth?.artifacts?.decoded?.payload?.groups, // includes groups from token if present, otherwise undefined
             tokenClientId: request.auth?.artifacts?.decoded?.payload?.client_id // includes client_id from Cognito token if present, otherwise undefined
           })
-          // sendAuditEvent handles errors internally — no try/catch needed here.
-          // TODO: pass request.info.remoteAddress as ip override (separate ticket).
-          await sendAuditEvent({
+          sendAuditEvent({
             correlationid: request.headers[tracingHeader],
             security: {
               pmccode: 'AUTH',
-              priority: 1,
+              priority: 1, // 1 marks this as a high-priority security event,
               details: {
-                message: response.message || response.output.payload.message || 'authentication_failed'
+                message: sanitisedMessage
               }
             },
             audit: {
@@ -77,6 +77,8 @@ export const auth = {
               status: 'failure',
               details: { path: request.path, method: request.method }
             }
+          }).catch((err) => {
+            logger.warn({ msg: 'Failed to send auth failure audit event', err })
           })
         }
 
