@@ -31,17 +31,17 @@ export const metadataRoute = {
       const sbi = Number.parseInt(request.params.sbi, 10)
       const documents = await getMetadataBySbi(sbi)
 
-      for (const doc of documents) {
-        await sendAuditEvent({
-          correlationid: request?.headers?.[tracingHeader],
-          audit: {
-            entities: [{ entity: 'document', action: 'read', entityid: doc.file.fileId }],
-            accounts: { sbi: String(sbi) },
-            status: 'success',
-            details: {}
-          }
-        })
-      }
+      // Promise.allSettled fires audit events concurrently and never rejects,
+      // so a broker/network failure can't turn this successful read into a 500.
+      await Promise.allSettled(documents.map(doc => sendAuditEvent({
+        correlationid: request?.headers?.[tracingHeader],
+        audit: {
+          entities: [{ entity: 'document', action: 'read', entityid: doc.file.fileId }],
+          accounts: { sbi: String(sbi) },
+          status: 'success',
+          details: {}
+        }
+      })))
 
       return h.response({ data: documents }).code(httpConstants.HTTP_STATUS_OK)
     } catch (err) {

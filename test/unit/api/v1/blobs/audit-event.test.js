@@ -11,9 +11,14 @@ const { mockConfigGet } = vi.hoisted(() => ({
 }))
 
 const mockPublishAuditEvent = vi.fn().mockResolvedValue(undefined)
+const mockLogger = { warn: vi.fn() }
 
 vi.mock('../../../../../src/config/index.js', () => ({
   config: { get: mockConfigGet }
+}))
+
+vi.mock('../../../../../src/logging/logger.js', () => ({
+  createLogger: () => mockLogger
 }))
 
 vi.mock('../../../../../src/messaging/outbound/audit/send-audit-event.js', () => ({
@@ -79,5 +84,33 @@ describe('blob handler — event 3 (document/read)', () => {
     const callArgs = JSON.stringify(mockPublishAuditEvent.mock.calls[0])
     expect(callArgs).not.toContain('presigned')
     expect(callArgs).not.toContain('s3.example.com')
+  })
+
+  test('still returns 200 with presigned URL when sendAuditEvent rejects', async () => {
+    mockPublishAuditEvent.mockRejectedValueOnce(new Error('broker down'))
+
+    const request = buildMockRequest('test-file-id')
+    const h = buildMockH()
+
+    const result = await blobRoute.handler(request, h)
+
+    expect(h.response).toHaveBeenCalledWith({ data: { url: 'https://s3.example.com/presigned' } })
+    expect(result.code).toHaveBeenCalledWith(200)
+  })
+
+  test('logs a warning when sendAuditEvent rejects', async () => {
+    mockPublishAuditEvent.mockRejectedValueOnce(new Error('broker down'))
+
+    const request = buildMockRequest('test-file-id')
+    const h = buildMockH()
+
+    await blobRoute.handler(request, h)
+
+    // Flush the microtask queue so the .catch() handler runs before assertions.
+    await new Promise((resolve) => setImmediate(resolve))
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ msg: 'Failed to send blob read audit event' })
+    )
   })
 })

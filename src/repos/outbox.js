@@ -70,7 +70,7 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
     .find(terminalFilter, { session: sess })
     .toArray()
 
-  for (const doc of terminalDocs) {
+  terminalDocs.forEach(doc => {
     const entryId = doc.payload?.file?.fileId || null
     const attempts = doc.attempts
     const reason = errMsg || 'terminal_failure'
@@ -84,7 +84,15 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
         reason
       }
     }, 'Outbox entry reached FAILED after max attempts')
-    await sendAuditEvent({
+  })
+
+  // Promise.allSettled fires audit events concurrently and never rejects, so an
+  // audit publish failure can't abort the outbox poller's remaining batches.
+  await Promise.allSettled(terminalDocs.map(doc => {
+    const entryId = doc.payload?.file?.fileId || null
+    const attempts = doc.attempts
+    const reason = errMsg || 'terminal_failure'
+    return sendAuditEvent({
       correlationid: doc.payload?.messaging?.correlationId,
       audit: {
         entities: [{ entity: 'document', action: 'failed', entityid: entryId ?? doc._id?.toString() ?? '' }],
@@ -92,7 +100,7 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
         details: { reason, attempts }
       }
     })
-  }
+  }))
 }
 
 const createOutboxEntries = async (ids, documents, session) => {
