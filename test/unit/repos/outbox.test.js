@@ -278,6 +278,20 @@ describe('logTerminalFailuresIfAny', () => {
     expect(find).not.toHaveBeenCalled()
     expect(mockSendAuditEvent).not.toHaveBeenCalled()
   })
+
+  test('resolves without throwing when sendAuditEvent rejects for one or more terminal docs', async () => {
+    const terminalDocs = [buildTerminalDoc('file-1'), buildTerminalDoc('file-2')]
+    db.collection.mockReturnValue(buildCollectionMock(terminalDocs))
+    mockSendAuditEvent
+      .mockRejectedValueOnce(new Error('broker down'))
+      .mockResolvedValueOnce(undefined)
+
+    await expect(
+      logTerminalFailuresIfAny('outbox', ['file-1', 'file-2'], 2, null, 'error')
+    ).resolves.not.toThrow()
+
+    expect(mockSendAuditEvent).toHaveBeenCalledTimes(2)
+  })
 })
 
 

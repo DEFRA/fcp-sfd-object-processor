@@ -30,6 +30,7 @@ describe('auth plugin register', () => {
   let server
 
   beforeEach(async () => {
+    vi.clearAllMocks()
     vi.resetModules()
     mockConfigGet = vi.fn((key) => {
       switch (key) {
@@ -535,11 +536,7 @@ describe('auth plugin', () => {
       })
     })
 
-    // Explicit branch coverage for the `response.message || response.output.payload.message`
-    // fallback (line 55, logged as `reason`) and the
-    // `response.message || response.output.payload.message || 'authentication_failed'`
-    // fallback (line 72, sent as `security.details.message`).
-    describe('reason/message fallback branches (lines 55 & 72)', () => {
+    describe('reason/message fallback branches (sanitised payload.message)', () => {
       const build401 = ({ topLevelMessage, payloadMessage }) => ({
         response: {
           isBoom: true,
@@ -552,7 +549,7 @@ describe('auth plugin', () => {
         headers: { 'x-cdp-request-id': 'test-correlation-id', 'user-agent': 'test-agent' }
       })
 
-      test('uses response.message when both response.message and payload.message are present', async () => {
+      test('uses payload.message and ignores response.message when both are present', async () => {
         await auth.plugin.register(mockServer)
 
         const extensionHandler = mockServer.ext.mock.calls[0][1]
@@ -560,19 +557,19 @@ describe('auth plugin', () => {
         await extensionHandler(request, { continue: Symbol('continue') })
 
         expect(mockWarn).toHaveBeenCalledWith(
-          expect.objectContaining({ reason: 'top-level-message' })
+          expect.objectContaining({ reason: 'payload-message' })
         )
         expect(mockSendAuditEvent).toHaveBeenCalledWith(
           expect.objectContaining({
             security: expect.objectContaining({
-              details: expect.objectContaining({ message: 'top-level-message' })
+              details: expect.objectContaining({ message: 'payload-message' })
             })
           }),
           expect.any(Object)
         )
       })
 
-      test('falls back to payload.message when response.message is absent', async () => {
+      test('uses payload.message when response.message is absent', async () => {
         await auth.plugin.register(mockServer)
 
         const extensionHandler = mockServer.ext.mock.calls[0][1]
@@ -592,7 +589,7 @@ describe('auth plugin', () => {
         )
       })
 
-      test('reason is undefined and audit message falls back to authentication_failed when both messages are absent', async () => {
+      test('reason and audit message fall back to authentication_failed when payload.message is absent', async () => {
         await auth.plugin.register(mockServer)
 
         const extensionHandler = mockServer.ext.mock.calls[0][1]
@@ -600,7 +597,7 @@ describe('auth plugin', () => {
         await extensionHandler(request, { continue: Symbol('continue') })
 
         expect(mockWarn).toHaveBeenCalledWith(
-          expect.objectContaining({ reason: undefined })
+          expect.objectContaining({ reason: 'authentication_failed' })
         )
         expect(mockSendAuditEvent).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -609,6 +606,40 @@ describe('auth plugin', () => {
             })
           }),
           expect.any(Object)
+        )
+      })
+    })
+
+    describe('sendAuditEvent rejection handling', () => {
+      test('still returns h.continue and logs a warning when sendAuditEvent rejects', async () => {
+        mockSendAuditEvent.mockRejectedValueOnce(new Error('SNS unavailable'))
+
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const mockH = { continue: Symbol('continue') }
+        const request = {
+          response: {
+            isBoom: true,
+            output: { statusCode: 401, payload: { message: 'Unauthorized' } },
+            message: 'Invalid token'
+          },
+          path: '/api/v1/metadata',
+          method: 'GET',
+          info: { remoteAddress: '10.0.0.1' },
+          headers: { 'x-cdp-request-id': 'test-correlation-id', 'user-agent': 'test-agent' }
+        }
+
+        const result = await extensionHandler(request, mockH)
+
+        expect(result).toBe(mockH.continue)
+
+        // Flush the microtask queue so the fire-and-forget rejection is handled
+        // before assertions run and before the test completes.
+        await new Promise((resolve) => setImmediate(resolve))
+
+        expect(mockWarn).toHaveBeenCalledWith(
+          expect.objectContaining({ msg: 'Failed to send auth failure audit event' })
         )
       })
     })

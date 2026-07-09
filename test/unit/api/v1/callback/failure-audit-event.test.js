@@ -147,6 +147,19 @@ describe('callback handler — event 4 (document/failed on processing error)', (
     expect(result.output.statusCode).toBe(500)
   })
 
+  test('Boom.internal is still returned even when sendAuditEvent rejects', async () => {
+    persistMetadataWithOutbox.mockRejectedValueOnce(new Error('DB failure'))
+    mockSendAuditEvent.mockRejectedValueOnce(new Error('broker down'))
+
+    const request = buildMockRequest()
+    const h = buildMockH()
+
+    const result = await uploadCallback.options.handler(request, h)
+
+    expect(result.isBoom).toBe(true)
+    expect(result.output.statusCode).toBe(500)
+  })
+
   test('audit entity contains no payload contents', async () => {
     persistMetadataWithOutbox.mockRejectedValueOnce(new Error('DB failure'))
 
@@ -260,5 +273,17 @@ describe('callback handler — event 5 (document/failed on Joi validation failur
       }),
       request
     )
+  })
+
+  test('returns 201 even when sendAuditEvent rejects in failAction', async () => {
+    mockSendAuditEvent.mockRejectedValueOnce(new Error('broker down'))
+
+    const mockErr = new Error('Validation failed')
+    const request = buildMockRequest()
+    const h = buildMockH()
+
+    await uploadCallback.options.validate.failAction(request, h, mockErr)
+
+    expect(h.response).toHaveBeenCalledWith({ message: 'Validation failure persisted' })
   })
 })

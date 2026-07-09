@@ -118,4 +118,22 @@ describe('callback handler — (document/created)', () => {
 
     expect(mockPublishAuditEvent).not.toHaveBeenCalled()
   })
+
+  test('still returns 201 with created response when sendAuditEvent rejects', async () => {
+    persistMetadataWithOutbox.mockResolvedValueOnce({
+      insertedCount: 1,
+      insertedIds: { 0: { toString: () => 'file-id-1' } }
+    })
+    mockPublishAuditEvent.mockRejectedValueOnce(new Error('broker down'))
+
+    const request = buildMockRequest()
+    const h = buildMockH()
+
+    const result = await uploadCallback.options.handler(request, h)
+
+    expect(h.response).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Metadata created' })
+    )
+    expect(result.code).toHaveBeenCalledWith(201)
+  })
 })
