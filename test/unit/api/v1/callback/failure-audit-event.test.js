@@ -94,7 +94,8 @@ describe('callback handler — event 4 (document/failed on processing error)', (
           status: 'failure',
           details: { reason: 'callback_processing_failure' }
         })
-      })
+      }),
+      request
     )
   })
 
@@ -111,7 +112,8 @@ describe('callback handler — event 4 (document/failed on processing error)', (
         audit: expect.objectContaining({
           entities: [{ entity: 'document', action: 'failed', entityid: 'unknown' }]
         })
-      })
+      }),
+      request
     )
   })
 
@@ -128,7 +130,8 @@ describe('callback handler — event 4 (document/failed on processing error)', (
         audit: expect.objectContaining({
           accounts: { sbi: '' }
         })
-      })
+      }),
+      request
     )
   })
 
@@ -152,8 +155,8 @@ describe('callback handler — event 4 (document/failed on processing error)', (
 
     await uploadCallback.options.handler(request, h)
 
-    const callArgs = JSON.stringify(mockSendAuditEvent.mock.calls[0])
-    expect(callArgs).not.toContain('uploadStatus')
+    const [auditEvent] = mockSendAuditEvent.mock.calls[0]
+    expect(JSON.stringify(auditEvent)).not.toContain('uploadStatus')
   })
 
   test('does not emit audit event on duplicate callback', async () => {
@@ -220,7 +223,8 @@ describe('callback handler — event 5 (document/failed on Joi validation failur
           status: 'failure',
           details: { reason: 'payload_validation_failure' }
         })
-      })
+      }),
+      request
     )
   })
 
@@ -236,7 +240,8 @@ describe('callback handler — event 5 (document/failed on Joi validation failur
         audit: expect.objectContaining({
           entities: [{ entity: 'document', action: 'failed', entityid: 'unknown' }]
         })
-      })
+      }),
+      request
     )
   })
 
@@ -252,7 +257,8 @@ describe('callback handler — event 5 (document/failed on Joi validation failur
         audit: expect.objectContaining({
           accounts: { sbi: '' }
         })
-      })
+      }),
+      request
     )
   })
 })

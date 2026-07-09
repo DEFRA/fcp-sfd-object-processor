@@ -66,7 +66,8 @@ describe('blob handler — event 3 (document/read)', () => {
           entities: [{ entity: 'document', action: 'read', entityid: 'test-file-id' }],
           status: 'success'
         })
-      })
+      }),
+      request
     )
   })
 

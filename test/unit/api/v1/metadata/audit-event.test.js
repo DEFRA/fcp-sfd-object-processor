@@ -66,7 +66,8 @@ describe('metadata handler — event 2 (document/read)', () => {
           accounts: { sbi: '105000000' },
           status: 'success'
         })
-      })
+      }),
+      request
     )
   })
 })

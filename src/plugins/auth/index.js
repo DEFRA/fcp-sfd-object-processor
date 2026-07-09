@@ -62,7 +62,6 @@ export const auth = {
             tokenClientId: request.auth?.artifacts?.decoded?.payload?.client_id // includes client_id from Cognito token if present, otherwise undefined
           })
           // sendAuditEvent handles errors internally — no try/catch needed here.
-          // TODO: pass request.info.remoteAddress as ip override (separate ticket).
           await sendAuditEvent({
             correlationid: request.headers[tracingHeader],
             security: {
@@ -77,7 +76,7 @@ export const auth = {
               status: 'failure',
               details: { path: request.path, method: request.method }
             }
-          })
+          }, request)
         }
 
         return h.continue

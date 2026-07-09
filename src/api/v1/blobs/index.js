@@ -42,7 +42,7 @@ export const blobRoute = {
           status: 'success',
           details: {}
         }
-      })
+      }, request)
 
       return h.response({ data: { url } }).code(httpConstants.HTTP_STATUS_OK)
     } catch (err) {

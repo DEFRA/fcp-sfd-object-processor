@@ -40,7 +40,7 @@ export const metadataRoute = {
             status: 'success',
             details: {}
           }
-        })
+        }, request)
       }
 
       return h.response({ data: documents }).code(httpConstants.HTTP_STATUS_OK)

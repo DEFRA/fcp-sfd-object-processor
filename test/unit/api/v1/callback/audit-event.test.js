@@ -100,7 +100,8 @@ describe('callback handler — (document/created)', () => {
           status: 'success',
           details: { reason: 'callback_successful' }
         })
-      })
+      }),
+      request
     )
   })
 
