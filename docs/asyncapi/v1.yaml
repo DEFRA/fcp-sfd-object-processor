@@ -13,27 +13,25 @@ channels:
   objectProcessorEventsTopic:
     address: fcp_sfd_object_processor_events
     description: Topic for publishing object processor events.
-    messages: 
+    messages:
       documentUploaded:
-        $ref: '#/components/messages/documentUploaded'
+        $ref: "#/components/messages/documentUploaded"
 
 operations:
   objectProcessorEvents:
     action: send
     channel:
-      $ref: '#/channels/objectProcessorEventsTopic'
+      $ref: "#/channels/objectProcessorEventsTopic"
     description: |
       Publish object processor events to the object processor events topic. These events will be consumed by the fcp-sfd-crm service to create cases and attach activities in the CRM system.
     messages:
-      - $ref: '#/channels/objectProcessorEventsTopic/messages/documentUploaded'
-
-
+      - $ref: "#/channels/objectProcessorEventsTopic/messages/documentUploaded"
 
 components:
   messages:
     documentUploaded:
       name: New document uploaded event
-      title: Document Uploaded Event 
+      title: Document Uploaded Event
       contentType: application/json
       payload:
         type: object
@@ -47,17 +45,17 @@ components:
           - data
         properties:
           id:
-            $ref: '#/components/schemas/id'
+            $ref: "#/components/schemas/id"
           source:
-            $ref: '#/components/schemas/source'
+            $ref: "#/components/schemas/source"
           type:
-            $ref: '#/components/schemas/type'
+            $ref: "#/components/schemas/type"
           specversion:
-            $ref: '#/components/schemas/specversion'
+            $ref: "#/components/schemas/specversion"
           datacontenttype:
-            $ref: '#/components/schemas/datacontenttype'
+            $ref: "#/components/schemas/datacontenttype"
           time:
-            $ref: '#/components/schemas/time'
+            $ref: "#/components/schemas/time"
           data:
             type: object
             additionalProperties: false
@@ -71,21 +69,20 @@ components:
               - submissionId
             properties:
               crn:
-                $ref: '#/components/schemas/crn'
+                $ref: "#/components/schemas/crn"
               crm:
-               $ref: '#/components/schemas/crm'
+                $ref: "#/components/schemas/crm"
               correlationId:
-                $ref: '#/components/schemas/correlationId'
+                $ref: "#/components/schemas/correlationId"
               file:
-                $ref: '#/components/schemas/file'
+                $ref: "#/components/schemas/file"
               sbi:
-                $ref: '#/components/schemas/sbi'
+                $ref: "#/components/schemas/sbi"
               sourceSystem:
-                $ref: '#/components/schemas/sourceSystem'
+                $ref: "#/components/schemas/sourceSystem"
               submissionId:
-                $ref: '#/components/schemas/submissionId'
-               
-  
+                $ref: "#/components/schemas/submissionId"
+
   schemas:
     crn:
       type: number
@@ -93,7 +90,7 @@ components:
       minimum: 1050000000
       maximum: 9999999999
       example: 1234567890
-    
+
     crm:
       type: object
       additionalProperties: false
@@ -102,10 +99,10 @@ components:
         - title
       properties:
         caseType:
-          $ref: '#/components/schemas/crmCaseType'
+          $ref: "#/components/schemas/crmCaseType"
         title:
-          $ref: '#/components/schemas/title'
-    
+          $ref: "#/components/schemas/title"
+
     contentType:
       type: string
       description: MIME type of the file
@@ -115,12 +112,12 @@ components:
 
     crmCaseType:
       type: string
-      description: The name of the CRM queue where the case is to be created  
+      description: The name of the CRM queue where the case is to be created
       minLength: 1
       maxLength: 100
+      pattern: "^[A-Za-z0-9_ -]+$"
       example: "CS_Agreement_Evidence"
-      # this should be one of a defined set of queue names making this an enum in future
-    
+
     correlationId:
       type: string
       description: Unique identifier for tracing the event through systems and connecting related events together
@@ -143,14 +140,13 @@ components:
         - contentType
       properties:
         fileId:
-          $ref: '#/components/schemas/fileId'
+          $ref: "#/components/schemas/fileId"
         fileName:
-          $ref: '#/components/schemas/fileName'
+          $ref: "#/components/schemas/fileName"
         contentType:
-          $ref: '#/components/schemas/contentType'
+          $ref: "#/components/schemas/contentType"
         url:
-          $ref: '#/components/schemas/url'
-
+          $ref: "#/components/schemas/url"
 
     fileId:
       type: string
@@ -217,7 +213,7 @@ components:
 
     title:
       type: string
-      description: Title to be displayed for the CRM case in the following format; [Document Type] - [Client Name] - [Processing Date] 
+      description: Title to be displayed for the CRM case in the following format; [Document Type] - [Client Name] - [Processing Date]
       example: Proof of purchase - Samuel F Armer - 12-12-2025
       minLength: 1
       maxLength: 200
@@ -228,11 +224,9 @@ components:
       example: uk.gov.fcp.sfd.document.uploaded
       minLength: 3
       maxLength: 250
-    
+
     url:
       type: string
       description: URL where the file can be accessed
       format: uri
       example: "https://example.com/files/123e4567-e89b-12d3-a456-426655440001"
-
-    

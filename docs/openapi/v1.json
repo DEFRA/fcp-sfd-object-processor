@@ -444,17 +444,8 @@
           "rps-portal"
         ]
       },
-      "type": {
-        "type": "string",
-        "description": "Type of submission - determines CRM queue",
-        "example": "CS_Agreement_Evidence",
-        "enum": [
-          "CS_Agreement_Evidence"
-        ]
-      },
-      "UploadMetadata": {
+      "metadata": {
         "type": "object",
-        "description": "Metadata about the upload submission",
         "properties": {
           "sbi": {
             "type": "integer",
@@ -482,6 +473,17 @@
             "description": "Unique identifier for the submission",
             "example": "1733826312"
           },
+          "type": {
+            "type": "string",
+            "description": "Type of submission - determines CRM queue",
+            "example": "CS_Agreement_Evidence",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[A-Za-z0-9_ -]+$",
+            "x-convert": {
+              "trim": true
+            }
+          },
           "reference": {
             "type": "string",
             "description": "User-entered reference for the submission",
@@ -494,9 +496,6 @@
             "type": "string",
             "description": "Unique Object Storage Reference combining SBI and submission ID",
             "example": "105000000_1733826312"
-          },
-          "type": {
-            "$ref": "#/components/schemas/type"
           }
         },
         "required": [
@@ -504,10 +503,10 @@
           "crn",
           "frn",
           "submissionId",
+          "type",
           "reference",
           "service",
-          "uosr",
-          "type"
+          "uosr"
         ]
       },
       "CallbackForm": {
@@ -537,7 +536,7 @@
             "$ref": "#/components/schemas/UploadSessionStatus"
           },
           "metadata": {
-            "$ref": "#/components/schemas/UploadMetadata"
+            "$ref": "#/components/schemas/metadata"
           },
           "form": {
             "$ref": "#/components/schemas/CallbackForm"
@@ -647,7 +646,13 @@
           "type": {
             "type": "string",
             "description": "Type of submission - determines CRM queue",
-            "example": "CS_Agreement_Evidence"
+            "example": "CS_Agreement_Evidence",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[A-Za-z0-9_ -]+$",
+            "x-convert": {
+              "trim": true
+            }
           },
           "reference": {
             "type": "string",

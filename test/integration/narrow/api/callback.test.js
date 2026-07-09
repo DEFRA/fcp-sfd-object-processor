@@ -30,9 +30,8 @@ vi.mock('@defra/fcp-audit-publisher', async (importOriginal) => {
   }
 })
 
-import { createServer } from '../../../../src/api'
-
 let server
+let createServer
 let originalMetadataCollection
 let originalOutboxCollection
 let originalStatusCollection
@@ -42,6 +41,7 @@ let statusCollection
 
 beforeAll(async () => {
   // set a new collection for each integration test to avoid db clashes between tests
+  ; ({ createServer } = await import('../../../../src/api'))
   vi.restoreAllMocks()
   originalMetadataCollection = config.get('mongo.collections.uploadMetadata')
   originalOutboxCollection = config.get('mongo.collections.outbox')

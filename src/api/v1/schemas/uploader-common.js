@@ -69,11 +69,16 @@ export const submissionFields = {
     .example(schemaConsts.SUBMISSION_ID_EXAMPLE),
 
   type: Joi.string()
-    .valid(schemaConsts.TYPE_EXAMPLE)
+    .trim()
+    .min(1)
+    .max(100)
+    .pattern(/^[A-Za-z0-9_ -]+$/)
     .required()
     .description('Type of submission - determines CRM queue')
     .messages({
-      'any.only': 'type must be CS_Agreement_Evidence',
+      'string.min': 'type must be at least 1 character long',
+      'string.max': 'type must be less than or equal to 100 characters long',
+      'string.pattern.base': 'type must only contain letters, numbers, spaces, underscores, or hyphens',
       'any.required': 'type is required'
     })
     .example(schemaConsts.TYPE_EXAMPLE),

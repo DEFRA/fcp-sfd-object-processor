@@ -28,9 +28,8 @@ vi.mock('@defra/fcp-audit-publisher', async (importOriginal) => {
   }
 })
 
-import { createServer } from '../../../../src/api'
-
 let server
+let createServer
 let originalCollection
 let collection
 
@@ -38,6 +37,7 @@ let collection
 
 beforeAll(async () => {
   // set a new collection for each integration test to avoid db clashes between tests
+  ; ({ createServer } = await import('../../../../src/api'))
   vi.restoreAllMocks()
   originalCollection = config.get('mongo.collections.uploadMetadata')
   config.set('mongo.collections.uploadMetadata', 'metadata-test-collection')
@@ -55,9 +55,11 @@ afterAll(async () => {
   config.set('mongo.collections.uploadMetadata', originalCollection)
 })
 
-describe('GET to the /api/v1/metadata/sbi route', async () => {
-  server = await createServer()
-  await server.initialize()
+describe('GET to the /api/v1/metadata/sbi route', () => {
+  beforeAll(async () => {
+    server = await createServer()
+    await server.initialize()
+  })
 
   describe('when there is valid data in the database', async () => {
     test('should return an array of metadata objects when one document found', async () => {

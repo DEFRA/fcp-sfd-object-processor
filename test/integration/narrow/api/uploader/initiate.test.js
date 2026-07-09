@@ -16,10 +16,10 @@ vi.mock('../../../../../src/repos/sessions.js', () => ({
 vi.mock('../../../../../src/http/client.js', () => ({
   httpClient: mockHttpClient,
   TimeoutError: class TimeoutError extends Error {
-    constructor (msg) { super(msg); this.name = 'TimeoutError' }
+    constructor(msg) { super(msg); this.name = 'TimeoutError' }
   },
-  NetworkError: class NetworkError extends Error {},
-  AbortError: class AbortError extends Error {}
+  NetworkError: class NetworkError extends Error { },
+  AbortError: class AbortError extends Error { }
 }))
 
 const { TimeoutError } = await import('../../../../../src/http/client.js')
@@ -151,12 +151,12 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
         url: '/api/v1/uploader/initiate',
         payload: {
           ...mockValidPayload,
-          metadata: { ...mockValidPayload.metadata, type: 'INVALID_TYPE' }
+          metadata: { ...mockValidPayload.metadata, type: 'INVALID@TYPE' }
         }
       })
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
-      expect(response.result.message).toContain('type must be CS_Agreement_Evidence')
+      expect(response.result.message).toContain('type must only contain letters, numbers, spaces, underscores, or hyphens')
       expect(mockHttpClient).not.toHaveBeenCalled()
     })
 
