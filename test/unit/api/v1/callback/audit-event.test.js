@@ -6,6 +6,7 @@ const { mockConfigGet } = vi.hoisted(() => ({
       case 'baseUrl.v1': return '/api/v1'
       case 'tracing.header': return 'x-cdp-request-id'
       case 'cdpUploaderMimeTypes': return ['application/pdf', 'image/jpeg', 'image/png']
+      case 'cdpUploaderDocumentTypes': return ['CS_Agreement_Evidence', 'CS_Application_Evidence']
       default: return null
     }
   })

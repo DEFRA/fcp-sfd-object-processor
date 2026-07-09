@@ -67,5 +67,11 @@ export const uploaderConfig = {
     nullable: false,
     default: 30000,
     env: 'CDP_UPLOADER_TIMEOUT_MS'
+  },
+  cdpUploaderDocumentTypes: {
+    doc: 'Comma-separated list of allowed document type values for the type field',
+    format: 'document-type-array',
+    default: [],
+    env: 'CDP_UPLOADER_DOCUMENT_TYPES'
   }
 }
