@@ -1,5 +1,15 @@
+function parseTypes (val) {
+  if (Array.isArray(val)) {
+    return val
+  } else if (val) {
+    return val.split(',')
+  } else {
+    return []
+  }
+}
+
 function validate (val) {
-  const types = Array.isArray(val) ? val : (val ? val.split(',') : [])
+  const types = parseTypes(val)
 
   if (types.length === 0) {
     throw new Error('CDP_UPLOADER_DOCUMENT_TYPES must contain at least one document type')
@@ -13,15 +23,9 @@ function validate (val) {
 }
 
 function coerce (val) {
-  if (val === null || val === '') {
-    return []
-  }
+  const types = parseTypes(val)
 
-  if (Array.isArray(val)) {
-    return val
-  }
-
-  return val.split(',').map(t => t.trim())
+  return Array.isArray(val) ? types : types.map(t => t.trim())
 }
 
 export const documentTypeArray = {
