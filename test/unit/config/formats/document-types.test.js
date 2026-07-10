@@ -52,4 +52,15 @@ describe('documentTypeArray format', () => {
       'CS_Application_Evidence'
     ])
   })
+
+  it('coerce trims whitespace from array entries', () => {
+    expect(documentTypeArray.coerce([' CS_Agreement_Evidence', 'GS_SIG_Claim_Evidence '])).toEqual([
+      'CS_Agreement_Evidence',
+      'GS_SIG_Claim_Evidence'
+    ])
+  })
+
+  it('coerce leaves non-string array entries untouched', () => {
+    expect(documentTypeArray.coerce([123])).toEqual([123])
+  })
 })

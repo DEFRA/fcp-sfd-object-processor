@@ -25,7 +25,7 @@ function validate (val) {
 function coerce (val) {
   const types = parseTypes(val)
 
-  return Array.isArray(val) ? types : types.map(t => t.trim())
+  return types.map(t => typeof t === 'string' ? t.trim() : t)
 }
 
 export const documentTypeArray = {
