@@ -30,6 +30,7 @@ const mockConfigValues = {
   cdpUploaderS3Path: 'uploads',
   cdpUploaderCallbackUrl: 'http://localhost:3004/api/v1/callback',
   cdpUploaderMimeTypes: ['application/pdf', 'image/jpeg'],
+  cdpUploaderDocumentTypes: ['CS_Agreement_Evidence', 'CS_Application_Evidence'],
   cdpUploaderMaxFileSize: 10485760,
   cdpUploaderTimeoutMs: 30000
 }

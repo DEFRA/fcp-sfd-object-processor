@@ -7,6 +7,7 @@ const { mockConfigGet } = vi.hoisted(() => ({
   mockConfigGet: vi.fn().mockImplementation((key) => {
     if (key === 'baseUrl.v1') return '/api/v1'
     if (key === 'cdpUploaderMimeTypes') return ['application/pdf', 'image/jpeg', 'image/png']
+    if (key === 'cdpUploaderDocumentTypes') return ['CS_Agreement_Evidence', 'CS_Application_Evidence']
     return null
   })
 }))

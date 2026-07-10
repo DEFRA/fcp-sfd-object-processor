@@ -16,7 +16,11 @@ const { mockMimeTypes } = vi.hoisted(() => ({
 
 vi.mock('../../../../../../src/config/index.js', () => ({
   config: {
-    get: (key) => key === 'cdpUploaderMimeTypes' ? mockMimeTypes : null
+    get: (key) => {
+      if (key === 'cdpUploaderMimeTypes') return mockMimeTypes
+      if (key === 'cdpUploaderDocumentTypes') return ['CS_Agreement_Evidence', 'CS_Application_Evidence']
+      return null
+    }
   }
 }))
 

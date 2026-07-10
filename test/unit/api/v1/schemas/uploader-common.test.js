@@ -3,6 +3,7 @@ import { describe, test, expect, vi } from 'vitest'
 const { mockConfigGet } = vi.hoisted(() => ({
   mockConfigGet: vi.fn().mockImplementation((key) => {
     if (key === 'cdpUploaderMimeTypes') return ['application/pdf', 'image/jpeg', 'image/png']
+    if (key === 'cdpUploaderDocumentTypes') return ['CS_Agreement_Evidence', 'CS_Application_Evidence']
     return null
   })
 }))
@@ -34,7 +35,8 @@ describe('baseMetadataSchema — type field', () => {
     const { error } = baseMetadataSchema.validate({ ...validMetadata, type: 'INVALID_TYPE' })
     expect(error).toBeDefined()
     expect(error.details[0].type).toBe('any.only')
-    expect(error.message).toContain('type must be CS_Agreement_Evidence')
+    expect(error.message).toContain('type must be one of:')
+    expect(error.message).toContain('CS_Agreement_Evidence')
   })
 
   test('rejects an empty type string', () => {

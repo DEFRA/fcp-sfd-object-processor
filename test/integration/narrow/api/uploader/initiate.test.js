@@ -156,7 +156,8 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
       })
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
-      expect(response.result.message).toContain('type must be CS_Agreement_Evidence')
+      expect(response.result.message).toContain('type must be one of:')
+      expect(response.result.message).toContain('CS_Agreement_Evidence')
       expect(mockHttpClient).not.toHaveBeenCalled()
     })
 
