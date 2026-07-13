@@ -26,13 +26,13 @@ const validMetadata = {
 }
 
 describe('baseMetadataSchema — type field', () => {
-  test('accepts CS_Agreement_Evidence', () => {
+  test('accepts a valid CRM case type string', () => {
     const { error } = baseMetadataSchema.validate(validMetadata)
     expect(error).toBeUndefined()
   })
 
-  test('rejects an invalid type value', () => {
-    const { error } = baseMetadataSchema.validate({ ...validMetadata, type: 'INVALID_TYPE' })
+  test('rejects an invalid type value', () => {
+    const { error } = baseMetadataSchema.validate({ ...validMetadata, type: 'CS_Invalid' })
     expect(error).toBeDefined()
     expect(error.details[0].type).toBe('any.only')
     expect(error.message).toContain('type must be one of:')

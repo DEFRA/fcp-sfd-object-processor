@@ -31,14 +31,14 @@ vi.mock('../../../src/messaging/outbound/audit/send-audit-event.js', () => ({
   sendAuditEvent: mockSendAuditEvent
 }))
 
-import { config } from '../../../src/config/index.js'
-import { db } from '../../../src/data/db.js'
-import {
+const { config } = await import('../../../src/config/index.js')
+const { db } = await import('../../../src/data/db.js')
+const {
   createOutboxEntries,
   getProcessableOutboxEntries,
   bulkUpdateDeliveryStatus,
   logTerminalFailuresIfAny
-} from '../../../src/repos/outbox.js'
+} = await import('../../../src/repos/outbox.js')
 
 describe('src/repos/outbox', () => {
   beforeEach(() => {

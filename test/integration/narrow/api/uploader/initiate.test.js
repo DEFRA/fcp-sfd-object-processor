@@ -18,8 +18,8 @@ vi.mock('../../../../../src/http/client.js', () => ({
   TimeoutError: class TimeoutError extends Error {
     constructor (msg) { super(msg); this.name = 'TimeoutError' }
   },
-  NetworkError: class NetworkError extends Error {},
-  AbortError: class AbortError extends Error {}
+  NetworkError: class NetworkError extends Error { },
+  AbortError: class AbortError extends Error { }
 }))
 
 const { TimeoutError } = await import('../../../../../src/http/client.js')
@@ -151,7 +151,7 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
         url: '/api/v1/uploader/initiate',
         payload: {
           ...mockValidPayload,
-          metadata: { ...mockValidPayload.metadata, type: 'INVALID_TYPE' }
+          metadata: { ...mockValidPayload.metadata, type: 'INVALID@TYPE' }
         }
       })
 

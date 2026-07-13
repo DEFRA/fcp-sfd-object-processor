@@ -298,10 +298,10 @@ describe('callbackPayloadSchema validation', () => {
       expect(error.details.some(d => d.path.includes('type'))).toBe(true)
     })
 
-    test('invalid type enum fails validation', () => {
+    test('invalid type value fails validation', () => {
       const { error } = callbackPayloadSchema.validate({
         ...validPayload,
-        metadata: { ...validPayload.metadata, type: 'Invalid_Type' }
+        metadata: { ...validPayload.metadata, type: 'Invalid@Type' }
       })
       expect(error).toBeDefined()
       expect(error.details.some(d => d.path.includes('type') && d.type === 'any.only')).toBe(true)
