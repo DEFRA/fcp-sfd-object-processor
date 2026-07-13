@@ -32,7 +32,7 @@ describe('baseMetadataSchema — type field', () => {
   })
 
   test('rejects an invalid type value', () => {
-    const { error } = baseMetadataSchema.validate({ ...validMetadata, type: 'INVALID@TYPE' })
+    const { error } = baseMetadataSchema.validate({ ...validMetadata, type: 'CS_Invalid' })
     expect(error).toBeDefined()
     expect(error.details[0].type).toBe('any.only')
     expect(error.message).toContain('type must be one of:')
