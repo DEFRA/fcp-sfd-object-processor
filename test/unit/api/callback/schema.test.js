@@ -298,13 +298,13 @@ describe('callbackPayloadSchema validation', () => {
       expect(error.details.some(d => d.path.includes('type'))).toBe(true)
     })
 
-    test('invalid type format fails validation', () => {
+    test('invalid type value fails validation', () => {
       const { error } = callbackPayloadSchema.validate({
         ...validPayload,
         metadata: { ...validPayload.metadata, type: 'Invalid@Type' }
       })
       expect(error).toBeDefined()
-      expect(error.details.some(d => d.path.includes('type') && d.type === 'string.pattern.base')).toBe(true)
+      expect(error.details.some(d => d.path.includes('type') && d.type === 'any.only')).toBe(true)
     })
 
     test('missing reference fails validation', () => {
