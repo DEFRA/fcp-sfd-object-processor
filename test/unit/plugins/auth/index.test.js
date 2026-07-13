@@ -486,7 +486,8 @@ describe('auth plugin', () => {
               status: 'failure',
               details: expect.objectContaining({ path: '/api/v1/metadata', method: 'GET' })
             })
-          })
+          }),
+          expect.any(Object)
         )
       })
 
@@ -563,7 +564,8 @@ describe('auth plugin', () => {
             security: expect.objectContaining({
               details: expect.objectContaining({ message: 'payload-message' })
             })
-          })
+          }),
+          expect.any(Object)
         )
       })
 
@@ -582,7 +584,8 @@ describe('auth plugin', () => {
             security: expect.objectContaining({
               details: expect.objectContaining({ message: 'payload-message' })
             })
-          })
+          }),
+          expect.any(Object)
         )
       })
 
@@ -601,7 +604,8 @@ describe('auth plugin', () => {
             security: expect.objectContaining({
               details: expect.objectContaining({ message: 'authentication_failed' })
             })
-          })
+          }),
+          expect.any(Object)
         )
       })
     })

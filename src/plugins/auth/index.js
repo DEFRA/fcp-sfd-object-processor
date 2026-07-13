@@ -77,7 +77,7 @@ export const auth = {
               status: 'failure',
               details: { path: request.path, method: request.method }
             }
-          }).catch((err) => {
+          }, request).catch((err) => {
             logger.warn({ msg: 'Failed to send auth failure audit event', err })
           })
         }

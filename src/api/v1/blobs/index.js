@@ -46,7 +46,7 @@ export const blobRoute = {
           status: 'success',
           details: {}
         }
-      }).catch((err) => {
+      }, request).catch((err) => {
         logger.warn({ msg: 'Failed to send blob read audit event', err })
       })
 

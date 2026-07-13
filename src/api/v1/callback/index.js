@@ -57,7 +57,7 @@ export const uploadCallback = {
             status: 'failure',
             details: { reason: 'payload_validation_failure' }
           }
-        })))
+        }, request)))
 
         return h.response({ message: 'Validation failure persisted' }).code(httpConstants.HTTP_STATUS_CREATED).takeover()
       }
@@ -96,7 +96,7 @@ export const uploadCallback = {
             status: 'success',
             details: { reason: 'callback_successful' }
           }
-        })))
+        }, request)))
 
         return h.response({
           message: 'Metadata created',
@@ -115,7 +115,7 @@ export const uploadCallback = {
             status: 'failure',
             details: { reason: 'callback_processing_failure' }
           }
-        })))
+        }, request)))
 
         return Boom.internal(err)
       }
