@@ -302,13 +302,62 @@ describe('POST to the /api/v1/callback route', async () => {
 
 describe('with an invalid payload', async () => {
   test('should return 201 for missing required fields', async () => {
+    const beforeStatusCount = await db.collection(statusCollection).countDocuments()
+
     const response = await server.inject({
       method: 'POST',
       url: '/api/v1/callback',
       payload: {}
     })
 
+    const afterStatusCount = await db.collection(statusCollection).countDocuments()
+    const statusRecord = await db.collection(statusCollection).findOne(
+      { fileId: 'unknown', validated: false },
+      { sort: { timestamp: -1 } }
+    )
+
     expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+    expect(response.result.message).toContain('Validation failure persisted')
+    expect(afterStatusCount - beforeStatusCount).toBe(1)
+    expect(statusRecord).toBeDefined()
+    expect(statusRecord.validated).toBe(false)
+    expect(statusRecord.errors).toBeInstanceOf(Array)
+    expect(statusRecord.errors.length).toBeGreaterThan(0)
+  })
+
+  test.each([
+    { name: 'null', payload: null },
+    { name: 'array', payload: [] },
+    { name: 'string', payload: 'plain-string-payload' }
+  ])('should return 201 for non-object %s payload and persist failure status', async ({ payload }) => {
+    const beforeMetadataCount = await db.collection(metadataCollection).countDocuments()
+    const beforeOutboxCount = await db.collection(outboxCollection).countDocuments()
+    const beforeStatusCount = await db.collection(statusCollection).countDocuments()
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: JSON.stringify(payload),
+      headers: {
+        'content-type': 'application/json'
+      }
+    })
+
+    const afterMetadataCount = await db.collection(metadataCollection).countDocuments()
+    const afterOutboxCount = await db.collection(outboxCollection).countDocuments()
+    const afterStatusCount = await db.collection(statusCollection).countDocuments()
+    const statusRecord = await db.collection(statusCollection).findOne(
+      { fileId: 'unknown', validated: false },
+      { sort: { timestamp: -1 } }
+    )
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+    expect(response.result.message).toContain('Validation failure persisted')
+    expect(afterMetadataCount).toBe(beforeMetadataCount)
+    expect(afterOutboxCount).toBe(beforeOutboxCount)
+    expect(afterStatusCount - beforeStatusCount).toBe(1)
+    expect(statusRecord).toBeDefined()
+    expect(statusRecord.validated).toBe(false)
   })
 
   test('should persist status records only when validation fails', async () => {
@@ -802,6 +851,33 @@ describe('POST /api/v1/callback — audit event schema validation', async () => 
       expect(event.audit.entities[0].entity).toBe('document')
       expect(event.audit.entities[0].action).toBe('created')
       expect(event.audit.status).toBe('success')
+    })
+  })
+
+  test('emits schema-valid document/failed events for schema validation failures', async () => {
+    capturedAuditEvents.length = 0
+
+    const invalidPayload = {
+      ...mockScanAndUploadResponse,
+      unknownField: 'should-fail'
+    }
+
+    const response = await auditServer.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: invalidPayload
+    })
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+    expect(capturedAuditEvents.length).toBeGreaterThan(0)
+    capturedAuditEvents.forEach(event => {
+      assertValidAuditEvent(event)
+      expect(event.audit.entities[0].entity).toBe('document')
+      expect(event.audit.entities[0].action).toBe('failed')
+      expect(typeof event.audit.entities[0].entityid).toBe('string')
+      expect(event.audit.entities[0].entityid.length).toBeGreaterThan(0)
+      expect(event.audit.status).toBe('failure')
+      expect(event.audit.details.reason).toBe('payload_validation_failure')
     })
   })
 })
