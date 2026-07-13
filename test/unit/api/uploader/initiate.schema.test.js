@@ -143,8 +143,9 @@ describe('initiatePayloadSchema validation', () => {
         metadata: { ...mockValidPayload.metadata, type: 'Some@NewType' }
       })
       expect(error).toBeDefined()
-      expect(error.details[0].type).toBe('string.pattern.base')
-      expect(error.message).toContain('type must only contain letters, numbers, spaces, underscores, or hyphens')
+      expect(error.details[0].type).toBe('any.only')
+      expect(error.message).toContain('type must be one of:')
+      expect(error.message).toContain('CS_Agreement_Evidence')
     })
 
     test('missing reference fails validation', () => {

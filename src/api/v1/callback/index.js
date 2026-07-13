@@ -47,17 +47,17 @@ export const uploadCallback = {
         }
 
         const failedFileIds = extractFileIdsFromPayload(request.payload)
-        for (const fileId of failedFileIds) {
-          await sendAuditEvent({
-            correlationid: request?.headers?.[tracingHeader],
-            audit: {
-              entities: [{ entity: 'document', action: 'failed', entityid: fileId }],
-              accounts: { sbi: String(request.payload?.metadata?.sbi ?? '') },
-              status: 'failure',
-              details: { reason: 'payload_validation_failure' }
-            }
-          })
-        }
+        // Promise.allSettled fires audit events concurrently and never rejects,
+        // so a broker/network failure can't turn this into a 500 or block the response.
+        await Promise.allSettled(failedFileIds.map(fileId => sendAuditEvent({
+          correlationid: request?.headers?.[tracingHeader],
+          audit: {
+            entities: [{ entity: 'document', action: 'failed', entityid: fileId }],
+            accounts: { sbi: String(request.payload?.metadata?.sbi ?? '') },
+            status: 'failure',
+            details: { reason: 'payload_validation_failure' }
+          }
+        })))
 
         return h.response({ message: 'Validation failure persisted' }).code(httpConstants.HTTP_STATUS_CREATED).takeover()
       }
@@ -88,17 +88,15 @@ export const uploadCallback = {
 
         const fileIds = Object.values(result.insertedIds).map(id => id.toString())
 
-        for (const fileId of fileIds) {
-          await sendAuditEvent({
-            correlationid: request?.headers?.[tracingHeader],
-            audit: {
-              entities: [{ entity: 'document', action: 'created', entityid: fileId }],
-              accounts: { sbi: String(request.payload.metadata.sbi) },
-              status: 'success',
-              details: { reason: 'callback_successful' }
-            }
-          })
-        }
+        await Promise.allSettled(fileIds.map(fileId => sendAuditEvent({
+          correlationid: request?.headers?.[tracingHeader],
+          audit: {
+            entities: [{ entity: 'document', action: 'created', entityid: fileId }],
+            accounts: { sbi: String(request.payload.metadata.sbi) },
+            status: 'success',
+            details: { reason: 'callback_successful' }
+          }
+        })))
 
         return h.response({
           message: 'Metadata created',
@@ -109,17 +107,15 @@ export const uploadCallback = {
         logger.error(err)
 
         const errorFileIds = extractFileIdsFromPayload(request.payload)
-        for (const fileId of errorFileIds) {
-          await sendAuditEvent({
-            correlationid: request?.headers?.[tracingHeader],
-            audit: {
-              entities: [{ entity: 'document', action: 'failed', entityid: fileId }],
-              accounts: { sbi: String(request.payload?.metadata?.sbi ?? '') },
-              status: 'failure',
-              details: { reason: 'callback_processing_failure' }
-            }
-          })
-        }
+        await Promise.allSettled(errorFileIds.map(fileId => sendAuditEvent({
+          correlationid: request?.headers?.[tracingHeader],
+          audit: {
+            entities: [{ entity: 'document', action: 'failed', entityid: fileId }],
+            accounts: { sbi: String(request.payload?.metadata?.sbi ?? '') },
+            status: 'failure',
+            details: { reason: 'callback_processing_failure' }
+          }
+        })))
 
         return Boom.internal(err)
       }

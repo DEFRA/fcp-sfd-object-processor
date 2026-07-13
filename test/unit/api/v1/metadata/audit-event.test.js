@@ -69,4 +69,18 @@ describe('metadata handler — event 2 (document/read)', () => {
       })
     )
   })
+
+  test('still returns 200 with documents when sendAuditEvent rejects', async () => {
+    const docs = [{ file: { fileId: 'file-1' }, metadata: { sbi: 105000000 } }]
+    getMetadataBySbi.mockResolvedValueOnce(docs)
+    mockPublishAuditEvent.mockRejectedValueOnce(new Error('broker down'))
+
+    const request = buildMockRequest()
+    const h = buildMockH()
+
+    const result = await metadataRoute.handler(request, h)
+
+    expect(h.response).toHaveBeenCalledWith({ data: docs })
+    expect(result.code).toHaveBeenCalledWith(200)
+  })
 })

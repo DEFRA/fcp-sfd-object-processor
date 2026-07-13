@@ -6,9 +6,11 @@ import { blobParamSchema } from './schemas/params.js'
 import { generatePresignedUrl } from '../../../repos/s3.js'
 import { NotFoundError } from '../../../errors/not-found-error.js'
 import { config } from '../../../config/index.js'
+import { createLogger } from '../../../logging/logger.js'
 import { blobResponseSchema } from './schemas/responses.js'
 import { sendAuditEvent } from '../../../messaging/outbound/audit/send-audit-event.js'
 
+const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
 const tracingHeader = config.get('tracing.header')
 
@@ -35,6 +37,8 @@ export const blobRoute = {
 
       const { url } = await generatePresignedUrl(s3Reference)
 
+      // Fire-and-forget-safe: catch prevents an audit publish failure from
+      // turning this successful presigned URL response into a 500.
       await sendAuditEvent({
         correlationid: request?.headers?.[tracingHeader],
         audit: {
@@ -42,6 +46,8 @@ export const blobRoute = {
           status: 'success',
           details: {}
         }
+      }).catch((err) => {
+        logger.warn({ msg: 'Failed to send blob read audit event', err })
       })
 
       return h.response({ data: { url } }).code(httpConstants.HTTP_STATUS_OK)

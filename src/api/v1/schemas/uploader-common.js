@@ -1,6 +1,9 @@
 import Joi from 'joi'
 import { schemaConsts } from '../../../constants/schemas.js'
 import { mimeTypePattern } from '../../../constants/mime-types.js'
+import { config } from '../../../config/index.js'
+
+export const allowedDocumentTypes = config.get('cdpUploaderDocumentTypes')
 
 // Common validation patterns used across schemas
 export const patterns = {
@@ -69,16 +72,11 @@ export const submissionFields = {
     .example(schemaConsts.SUBMISSION_ID_EXAMPLE),
 
   type: Joi.string()
-    .trim()
-    .min(1)
-    .max(100)
-    .pattern(/^[A-Za-z0-9_ -]+$/)
+    .valid(...allowedDocumentTypes)
     .required()
     .description('Type of submission - determines CRM queue')
     .messages({
-      'string.min': 'type must be at least 1 character long',
-      'string.max': 'type must be less than or equal to 100 characters long',
-      'string.pattern.base': 'type must only contain letters, numbers, spaces, underscores, or hyphens',
+      'any.only': `type must be one of: ${allowedDocumentTypes.join(', ')}`,
       'any.required': 'type is required'
     })
     .example(schemaConsts.TYPE_EXAMPLE),

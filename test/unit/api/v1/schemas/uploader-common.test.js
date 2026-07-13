@@ -3,6 +3,7 @@ import { describe, test, expect, vi } from 'vitest'
 const { mockConfigGet } = vi.hoisted(() => ({
   mockConfigGet: vi.fn().mockImplementation((key) => {
     if (key === 'cdpUploaderMimeTypes') return ['application/pdf', 'image/jpeg', 'image/png']
+    if (key === 'cdpUploaderDocumentTypes') return ['CS_Agreement_Evidence', 'CS_Application_Evidence']
     return null
   })
 }))
@@ -33,8 +34,9 @@ describe('baseMetadataSchema — type field', () => {
   test('rejects type with invalid characters', () => {
     const { error } = baseMetadataSchema.validate({ ...validMetadata, type: 'INVALID@TYPE' })
     expect(error).toBeDefined()
-    expect(error.details[0].type).toBe('string.pattern.base')
-    expect(error.message).toContain('type must only contain letters, numbers, spaces, underscores, or hyphens')
+    expect(error.details[0].type).toBe('any.only')
+    expect(error.message).toContain('type must be one of:')
+    expect(error.message).toContain('CS_Agreement_Evidence')
   })
 
   test('rejects an empty type string', () => {

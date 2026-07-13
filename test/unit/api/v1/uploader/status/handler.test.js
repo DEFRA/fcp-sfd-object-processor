@@ -9,6 +9,7 @@ const { mockConfigGet, mockHttpClient } = vi.hoisted(() => ({
       case 'uploaderUrl': return 'http://cdp-uploader:7337'
       case 'uploaderStatusEndpoint': return '/status'
       case 'cdpUploaderMimeTypes': return ['application/pdf', 'image/jpeg', 'image/png']
+      case 'cdpUploaderDocumentTypes': return ['CS_Agreement_Evidence', 'CS_Application_Evidence']
       default: return null
     }
   }),

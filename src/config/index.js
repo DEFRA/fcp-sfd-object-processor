@@ -13,12 +13,14 @@ import { entraTenantsArray } from './formats/entra-tenants-array.js'
 import { cognitoClientIdArray } from './formats/cognito-client-ids.js'
 import { endpointPath } from './formats/endpoint-path.js'
 import { mimeTypeArray } from './formats/mime-types.js'
+import { documentTypeArray } from './formats/document-types.js'
 
 convict.addFormat(securityGroupArray)
 convict.addFormat(entraTenantsArray)
 convict.addFormat(cognitoClientIdArray)
 convict.addFormat(endpointPath)
 convict.addFormat(mimeTypeArray)
+convict.addFormat(documentTypeArray)
 
 const config = convict({
   ...serverConfig,
