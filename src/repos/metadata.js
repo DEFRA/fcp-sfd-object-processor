@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { config } from '../config/index.js'
 import { NotFoundError } from '../errors/not-found-error.js'
 import { db } from '../data/db.js'
+import { flattenFormFiles } from '../utils/flatten-form-files.js'
 
 const metadataCollection = 'mongo.collections.uploadMetadata'
 const noDocumentsFoundError = 'No documents found'
@@ -43,11 +44,8 @@ const getMetadataByFileId = async (fileId) => {
 const formatInboundMetadata = (payload) => {
   const { metadata, uploadStatus, numberOfRejectedFiles } = payload
 
-  const formData = Object.values(payload.form)
-  // Flatten arrays to extract file uploads from grouped fields
-  const flattenedFormData = formData.flatMap(data => Array.isArray(data) ? data : [data])
-  // remove anything that's not an object with a fileId key
-  const filteredFormData = flattenedFormData.filter(data => typeof data === 'object' && data?.fileId)
+  // Flatten arrays to extract file uploads from grouped fields, then remove anything without a fileId
+  const filteredFormData = flattenFormFiles(payload.form).filter(data => typeof data === 'object' && data?.fileId)
 
   // ensure that all files uploaded together are grouped via the same correlationId
   const correlationId = randomUUID()

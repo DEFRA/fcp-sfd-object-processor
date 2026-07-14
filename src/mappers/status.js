@@ -1,3 +1,5 @@
+import { flattenFormFiles } from '../utils/flatten-form-files.js'
+
 const sanitiseReceivedValue = (value) => {
   if (value === undefined || value === null) {
     return ''
@@ -43,14 +45,7 @@ const buildValidatedStatusDocuments = (documents) => {
 }
 
 const extractFileIdsFromPayload = (payload) => {
-  const formValues = payload?.form && typeof payload.form === 'object'
-    ? Object.values(payload.form)
-    : []
-
-  // Flatten arrays to extract file IDs from grouped uploads
-  const flattenedValues = formValues.flatMap(value => Array.isArray(value) ? value : [value])
-
-  const fileIds = flattenedValues
+  const fileIds = flattenFormFiles(payload?.form)
     .filter(value => typeof value === 'object' && value !== null)
     .map(value => value.fileId)
     .filter(fileId => typeof fileId === 'string' && fileId.length > 0)

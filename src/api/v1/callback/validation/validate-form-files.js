@@ -1,4 +1,5 @@
 import { validateFileUploadConsistency } from './validate-file-upload-consistency.js'
+import { flattenFormFiles } from '../../../../utils/flatten-form-files.js'
 
 /**
  * Validates all file uploads in the form data for semantic consistency.
@@ -9,24 +10,15 @@ import { validateFileUploadConsistency } from './validate-file-upload-consistenc
  * @returns {{ isValid: boolean, error?: string, file?: Object }}
  */
 export function validateFormFiles (form) {
-  if (!form || typeof form !== 'object') {
-    return { isValid: true }
-  }
+  for (const fileVal of flattenFormFiles(form)) {
+    const isFileUpload = fileVal && typeof fileVal === 'object' && 'fileId' in fileVal
+    if (!isFileUpload) {
+      continue
+    }
 
-  for (const [, val] of Object.entries(form)) {
-    // Flatten arrays to validate grouped file uploads
-    const fileValues = Array.isArray(val) ? val : [val]
-
-    for (const fileVal of fileValues) {
-      const isFileUpload = fileVal && typeof fileVal === 'object' && 'fileId' in fileVal
-      if (!isFileUpload) {
-        continue
-      }
-
-      const check = validateFileUploadConsistency(fileVal)
-      if (!check.isValid) {
-        return { isValid: false, error: check.error, file: fileVal }
-      }
+    const check = validateFileUploadConsistency(fileVal)
+    if (!check.isValid) {
+      return { isValid: false, error: check.error, file: fileVal }
     }
   }
 

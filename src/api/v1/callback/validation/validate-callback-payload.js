@@ -2,6 +2,7 @@ import { createLogger } from '../../../../logging/logger.js'
 import { metricsCounter } from '../../../common/helpers/metrics.js'
 import { validateFormFiles } from './validate-form-files.js'
 import { handleValidationFailure } from './handle-validation-failure.js'
+import { flattenFormFiles } from '../../../../utils/flatten-form-files.js'
 
 const logger = createLogger()
 
@@ -31,13 +32,9 @@ export async function validateCallbackPayload (payload, h) {
 
   // Observability: numberOfRejectedFiles mismatch check (lenient — warn only)
   const form = requestPayload.form || {}
-  const actualRejectedCount = Object.values(form).reduce((count, val) => {
-    // Flatten arrays to count rejected files within grouped uploads
-    const fileValues = Array.isArray(val) ? val : [val]
-    return count + fileValues.filter(
-      fileVal => fileVal && typeof fileVal === 'object' && 'fileId' in fileVal && fileVal.fileStatus === 'rejected'
-    ).length
-  }, 0)
+  const actualRejectedCount = flattenFormFiles(form).filter(
+    fileVal => fileVal && typeof fileVal === 'object' && 'fileId' in fileVal && fileVal.fileStatus === 'rejected'
+  ).length
   const declaredRejectedCount = requestPayload.numberOfRejectedFiles
 
   if (declaredRejectedCount !== actualRejectedCount) {
@@ -59,15 +56,10 @@ export async function validateCallbackPayload (payload, h) {
   }
 
   // Stage 2: Contract validation — every file in the form must have fileStatus 'complete'
-  for (const [, val] of Object.entries(form)) {
-    // Flatten arrays to validate all grouped file uploads
-    const fileValues = Array.isArray(val) ? val : [val]
-
-    for (const fileVal of fileValues) {
-      if (isFileEntry(fileVal) && fileVal.fileStatus !== 'complete') {
-        await metricsCounter('callback_unexpected_status')
-        return handleValidationFailure(requestPayload, new Error(`fileStatus must be 'complete' but was '${fileVal.fileStatus}'`), fileVal, h)
-      }
+  for (const fileVal of flattenFormFiles(form)) {
+    if (isFileEntry(fileVal) && fileVal.fileStatus !== 'complete') {
+      await metricsCounter('callback_unexpected_status')
+      return handleValidationFailure(requestPayload, new Error(`fileStatus must be 'complete' but was '${fileVal.fileStatus}'`), fileVal, h)
     }
   }
 
