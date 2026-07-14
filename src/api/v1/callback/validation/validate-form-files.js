@@ -8,7 +8,7 @@ import { validateFileUploadConsistency } from './validate-file-upload-consistenc
  * @param {Object} form - The form object containing file uploads and text fields
  * @returns {{ isValid: boolean, error?: string, file?: Object }}
  */
-export function validateFormFiles (form) {
+export function validateFormFiles(form) {
   if (!form || typeof form !== 'object') {
     return { isValid: true }
   }
