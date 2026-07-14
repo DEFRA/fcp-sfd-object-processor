@@ -47,7 +47,10 @@ const extractFileIdsFromPayload = (payload) => {
     ? Object.values(payload.form)
     : []
 
-  const fileIds = formValues
+  // Flatten arrays to extract file IDs from grouped uploads
+  const flattenedValues = formValues.flatMap(value => Array.isArray(value) ? value : [value])
+
+  const fileIds = flattenedValues
     .filter(value => typeof value === 'object' && value !== null)
     .map(value => value.fileId)
     .filter(fileId => typeof fileId === 'string' && fileId.length > 0)

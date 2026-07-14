@@ -514,5 +514,93 @@ describe('Status Mappers', () => {
 
       expect(result[0].validated).toBe(false)
     })
+
+    test('should extract fileIds from array in form', () => {
+      const result = buildValidationFailureStatusDocuments(
+        {
+          metadata: { sbi: 105000000 },
+          form: {
+            documents: [
+              { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' },
+              { fileId: '3f90b889-eac7-4e98-975f-93fcef5b8554' }
+            ]
+          },
+          submissionId: 'sub-123'
+        },
+        mockRequiredFieldError,
+        '550e8400-e29b-41d4-a716-446655440000'
+      )
+
+      expect(result).toHaveLength(2)
+      expect(result[0].fileId).toBe('9fcaabe5-77ec-44db-8356-3a6e8dc51b13')
+      expect(result[1].fileId).toBe('3f90b889-eac7-4e98-975f-93fcef5b8554')
+    })
+
+    test('should extract fileIds from mixed single and array form entries', () => {
+      const result = buildValidationFailureStatusDocuments(
+        {
+          metadata: { sbi: 105000000 },
+          form: {
+            single: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' },
+            documents: [
+              { fileId: '3f90b889-eac7-4e98-975f-93fcef5b8554' },
+              { fileId: 'aaaa-bbbb-cccc-dddd' }
+            ]
+          },
+          submissionId: 'sub-123'
+        },
+        mockRequiredFieldError,
+        '550e8400-e29b-41d4-a716-446655440000'
+      )
+
+      expect(result).toHaveLength(3)
+      expect(result[0].fileId).toBe('9fcaabe5-77ec-44db-8356-3a6e8dc51b13')
+      expect(result[1].fileId).toBe('3f90b889-eac7-4e98-975f-93fcef5b8554')
+      expect(result[2].fileId).toBe('aaaa-bbbb-cccc-dddd')
+    })
+
+    test('should filter out non-file entries in arrays', () => {
+      const result = buildValidationFailureStatusDocuments(
+        {
+          metadata: { sbi: 105000000 },
+          form: {
+            documents: [
+              'string value',
+              { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' },
+              42,
+              null,
+              { name: 'no fileId' }
+            ]
+          },
+          submissionId: 'sub-123'
+        },
+        mockRequiredFieldError,
+        '550e8400-e29b-41d4-a716-446655440000'
+      )
+
+      expect(result).toHaveLength(1)
+      expect(result[0].fileId).toBe('9fcaabe5-77ec-44db-8356-3a6e8dc51b13')
+    })
+
+    test('should use "unknown" when array contains only non-file entries', () => {
+      const result = buildValidationFailureStatusDocuments(
+        {
+          metadata: { sbi: 105000000 },
+          form: {
+            documents: [
+              'string value',
+              42,
+              { name: 'no fileId' }
+            ]
+          },
+          submissionId: 'sub-123'
+        },
+        mockRequiredFieldError,
+        '550e8400-e29b-41d4-a716-446655440000'
+      )
+
+      expect(result).toHaveLength(1)
+      expect(result[0].fileId).toBe('unknown')
+    })
   })
 })
