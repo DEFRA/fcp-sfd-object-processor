@@ -38,13 +38,16 @@ const getMetadataByFileId = async (fileId) => {
 // Format the raw payload received from the CDP Uploader before saving it in the DB
 // removes any formData that is not a file upload
 // creates subdocuments to organise data
+// flattens arrays to handle grouped file uploads
 
 const formatInboundMetadata = (payload) => {
   const { metadata, uploadStatus, numberOfRejectedFiles } = payload
 
   const formData = Object.values(payload.form)
-  // remove anything thats not an object with a fileId key
-  const filteredFormData = formData.filter(data => typeof data === 'object' && data?.fileId)
+  // Flatten arrays to extract file uploads from grouped fields
+  const flattenedFormData = formData.flatMap(data => Array.isArray(data) ? data : [data])
+  // remove anything that's not an object with a fileId key
+  const filteredFormData = flattenedFormData.filter(data => typeof data === 'object' && data?.fileId)
 
   // ensure that all files uploaded together are grouped via the same correlationId
   const correlationId = randomUUID()
