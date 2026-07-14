@@ -32,6 +32,7 @@ const persistMetadataWithOutbox = async (rawDocuments) => {
   } catch (error) {
     if (error?.code === DUPLICATE_KEY_ERROR_CODE) {
       const fileIds = Object.values(rawDocuments.form)
+        .flatMap(val => Array.isArray(val) ? val : [val])
         .filter(val => val !== null && typeof val === 'object' && 'fileId' in val)
         .map(val => val.fileId)
 
