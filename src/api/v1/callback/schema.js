@@ -13,14 +13,19 @@ const formSchema = Joi.object()
     Joi.string(),
     Joi.alternatives().try(
       Joi.string().description('Text form field value'),
-      fileUploadSchema
+      fileUploadSchema,
+      Joi.array().items(fileUploadSchema).description('Array of file upload objects')
     )
   )
   .custom((value, helpers) => {
     // Check that at least one value is a file upload object (has fileId property)
-    const hasFileUpload = Object.values(value).some(
-      val => typeof val === 'object' && val !== null && 'fileId' in val
-    )
+    // Flatten arrays to check for file uploads within grouped fields
+    const hasFileUpload = Object.values(value).some(val => {
+      if (Array.isArray(val)) {
+        return val.some(item => typeof item === 'object' && item !== null && 'fileId' in item)
+      }
+      return typeof val === 'object' && val !== null && 'fileId' in val
+    })
     if (!hasFileUpload) {
       return helpers.error('object.min', { limit: 1 })
     }
