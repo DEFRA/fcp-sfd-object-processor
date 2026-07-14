@@ -115,4 +115,116 @@ describe('validateFormFiles', () => {
     // Should fail on first file encountered
     expect(result.file.fileId).toBe('aaaa-bbbb')
   })
+
+  test('validates array of file uploads for consistency', () => {
+    const form = {
+      documents: [
+        {
+          fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+          filename: 'test1.pdf',
+          contentType: 'application/pdf',
+          detectedContentType: 'application/pdf',
+          fileStatus: 'complete',
+          contentLength: 1024,
+          checksumSha256: 'bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=',
+          s3Key: 'scanned/abc/123',
+          s3Bucket: 'test-bucket'
+        },
+        {
+          fileId: 'c3d45e6f-7890-1abc-2def-3456789abcde',
+          filename: 'test2.pdf',
+          contentType: 'application/pdf',
+          detectedContentType: 'application/pdf',
+          fileStatus: 'complete',
+          contentLength: 2048,
+          checksumSha256: 'cng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=',
+          s3Key: 'scanned/def/456',
+          s3Bucket: 'test-bucket'
+        }
+      ]
+    }
+    expect(validateFormFiles(form)).toEqual({ isValid: true })
+  })
+
+  test('returns invalid when array contains a file with consistency violation', () => {
+    const form = {
+      documents: [
+        {
+          fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+          filename: 'test1.pdf',
+          contentType: 'application/pdf',
+          detectedContentType: 'application/pdf',
+          fileStatus: 'complete',
+          contentLength: 1024,
+          checksumSha256: 'bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=',
+          s3Key: 'scanned/abc/123',
+          s3Bucket: 'test-bucket'
+        },
+        {
+          fileId: 'c3d45e6f-7890-1abc-2def-3456789abcde',
+          filename: 'test2.pdf',
+          contentType: 'application/pdf',
+          detectedContentType: 'application/pdf',
+          fileStatus: 'complete',
+          contentLength: 0 // Invalid
+        }
+      ]
+    }
+
+    const result = validateFormFiles(form)
+    expect(result.isValid).toBe(false)
+    expect(result.error).toBeDefined()
+    expect(result.file.fileId).toBe('c3d45e6f-7890-1abc-2def-3456789abcde')
+  })
+
+  test('skips non-file entries in arrays', () => {
+    const form = {
+      documents: [
+        'string value',
+        {
+          fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+          filename: 'test.pdf',
+          contentType: 'application/pdf',
+          detectedContentType: 'application/pdf',
+          fileStatus: 'complete',
+          contentLength: 1024,
+          checksumSha256: 'bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=',
+          s3Key: 'scanned/abc/123',
+          s3Bucket: 'test-bucket'
+        },
+        42
+      ]
+    }
+    expect(validateFormFiles(form)).toEqual({ isValid: true })
+  })
+
+  test('validates mixed form with both single files and array groups', () => {
+    const form = {
+      'single-file': {
+        fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+        filename: 'single.pdf',
+        contentType: 'application/pdf',
+        detectedContentType: 'application/pdf',
+        fileStatus: 'complete',
+        contentLength: 1024,
+        checksumSha256: 'bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=',
+        s3Key: 'scanned/abc/123',
+        s3Bucket: 'test-bucket'
+      },
+      documents: [
+        {
+          fileId: 'c3d45e6f-7890-1abc-2def-3456789abcde',
+          filename: 'doc1.pdf',
+          contentType: 'application/pdf',
+          detectedContentType: 'application/pdf',
+          fileStatus: 'complete',
+          contentLength: 2048,
+          checksumSha256: 'cng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=',
+          s3Key: 'scanned/def/456',
+          s3Bucket: 'test-bucket'
+        }
+      ]
+    }
+    expect(validateFormFiles(form)).toEqual({ isValid: true })
+  })
 })
