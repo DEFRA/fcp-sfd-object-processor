@@ -31,9 +31,13 @@ export async function validateCallbackPayload (payload, h) {
 
   // Observability: numberOfRejectedFiles mismatch check (lenient — warn only)
   const form = requestPayload.form || {}
-  const actualRejectedCount = Object.values(form).filter(
-    val => isFileEntry(val) && val.fileStatus === 'rejected'
-  ).length
+  const actualRejectedCount = Object.values(form).reduce((count, val) => {
+    // Flatten arrays to count rejected files within grouped uploads
+    const fileValues = Array.isArray(val) ? val : [val]
+    return count + fileValues.filter(
+      fileVal => fileVal && typeof fileVal === 'object' && 'fileId' in fileVal && fileVal.fileStatus === 'rejected'
+    ).length
+  }, 0)
   const declaredRejectedCount = requestPayload.numberOfRejectedFiles
 
   if (declaredRejectedCount !== actualRejectedCount) {
@@ -56,9 +60,14 @@ export async function validateCallbackPayload (payload, h) {
 
   // Stage 2: Contract validation — every file in the form must have fileStatus 'complete'
   for (const [, val] of Object.entries(form)) {
-    if (isFileEntry(val) && val.fileStatus !== 'complete') {
-      await metricsCounter('callback_unexpected_status')
-      return handleValidationFailure(requestPayload, new Error(`fileStatus must be 'complete' but was '${val.fileStatus}'`), val, h)
+    // Flatten arrays to validate all grouped file uploads
+    const fileValues = Array.isArray(val) ? val : [val]
+
+    for (const fileVal of fileValues) {
+      if (isFileEntry(fileVal) && fileVal.fileStatus !== 'complete') {
+        await metricsCounter('callback_unexpected_status')
+        return handleValidationFailure(requestPayload, new Error(`fileStatus must be 'complete' but was '${fileVal.fileStatus}'`), fileVal, h)
+      }
     }
   }
 
