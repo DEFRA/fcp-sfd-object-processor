@@ -33,7 +33,7 @@ export async function validateCallbackPayload (payload, h) {
   // Observability: numberOfRejectedFiles mismatch check (lenient — warn only)
   const form = requestPayload.form || {}
   const actualRejectedCount = flattenFormFiles(form).filter(
-    fileVal => fileVal && typeof fileVal === 'object' && 'fileId' in fileVal && fileVal.fileStatus === 'rejected'
+    fileVal => isFileEntry(fileVal) && fileVal.fileStatus === 'rejected'
   ).length
   const declaredRejectedCount = requestPayload.numberOfRejectedFiles
 
