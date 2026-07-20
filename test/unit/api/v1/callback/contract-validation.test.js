@@ -92,6 +92,55 @@ describe('callback contract validation (fileStatus variants)', () => {
     expect(error).toBeDefined()
     expect(error.details.some(d => d.path.join('.').includes('fileStatus') && d.type === 'any.only')).toBe(true)
   })
+
+  test('pure grouped form (all files in array, no separate field names) passes schema validation', () => {
+    const payload = { ...base }
+    payload.form = {
+      documents: [
+        payload.form['a-file-upload-field'],
+        payload.form['another-file-upload-field']
+      ]
+    }
+
+    const { error } = callbackPayloadSchema.validate(payload)
+    expect(error).toBeUndefined()
+  })
+
+  test('mixed string field and grouped file array passes schema validation', () => {
+    const payload = { ...base }
+    payload.form = {
+      'text-field': 'some text value',
+      documents: [payload.form['a-file-upload-field']]
+    }
+
+    const { error } = callbackPayloadSchema.validate(payload)
+    expect(error).toBeUndefined()
+  })
+
+  test('grouped array containing a REJECTED file passes Joi schema (Stage 2 validation rejects it, not schema)', () => {
+    const payload = { ...base }
+    const rejectedFile = {
+      fileId: '550e8400-e29b-41d4-a716-446655440000',
+      filename: 'virus.pdf',
+      contentType: 'application/pdf',
+      detectedContentType: 'application/pdf',
+      fileStatus: 'rejected',
+      hasError: true,
+      errorMessage: 'The selected file contains a virus'
+    }
+    payload.form = {
+      documents: [
+        payload.form['a-file-upload-field'],
+        rejectedFile
+      ]
+    }
+    payload.numberOfRejectedFiles = 1
+
+    // Schema permits mixed complete+rejected in a grouped array;
+    // validateCallbackPayload (Stage 2) is responsible for rejecting this payload.
+    const { error } = callbackPayloadSchema.validate(payload)
+    expect(error).toBeUndefined()
+  })
 })
 
 describe('fileUploadSchema Joi edge cases', () => {

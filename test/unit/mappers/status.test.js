@@ -2,7 +2,8 @@ import { describe, expect, test, beforeEach, vi } from 'vitest'
 import {
   mapValidationErrors,
   buildValidatedStatusDocuments,
-  buildValidationFailureStatusDocuments
+  buildValidationFailureStatusDocuments,
+  extractFileIdsFromPayload
 } from '../../../src/mappers/status.js'
 import {
   mockRequiredFieldError,
@@ -11,6 +12,64 @@ import {
   mockPayloadNoFiles,
   mockValidatedDocuments
 } from '../../mocks/validation-errors.js'
+
+describe('extractFileIdsFromPayload', () => {
+  test('returns fileIds from a grouped array in form', () => {
+    const payload = {
+      form: {
+        documents: [
+          { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' },
+          { fileId: '3f90b889-eac7-4e98-975f-93fcef5b8554' }
+        ]
+      }
+    }
+    expect(extractFileIdsFromPayload(payload)).toEqual([
+      '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+      '3f90b889-eac7-4e98-975f-93fcef5b8554'
+    ])
+  })
+
+  test('returns fileIds from mixed single-field and grouped-array form', () => {
+    const payload = {
+      form: {
+        single: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' },
+        documents: [
+          { fileId: '3f90b889-eac7-4e98-975f-93fcef5b8554' },
+          { fileId: 'aaaa-bbbb-cccc-dddd' }
+        ]
+      }
+    }
+    expect(extractFileIdsFromPayload(payload)).toEqual([
+      '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+      '3f90b889-eac7-4e98-975f-93fcef5b8554',
+      'aaaa-bbbb-cccc-dddd'
+    ])
+  })
+
+  test('skips non-object and null entries within arrays, returning only valid fileIds', () => {
+    const payload = {
+      form: {
+        documents: [
+          'string value',
+          null,
+          { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' },
+          42,
+          { name: 'no fileId here' }
+        ]
+      }
+    }
+    expect(extractFileIdsFromPayload(payload)).toEqual(['9fcaabe5-77ec-44db-8356-3a6e8dc51b13'])
+  })
+
+  test('returns ["unknown"] when grouped array contains no valid fileIds', () => {
+    const payload = {
+      form: {
+        documents: ['string value', 42, { name: 'no fileId' }]
+      }
+    }
+    expect(extractFileIdsFromPayload(payload)).toEqual(['unknown'])
+  })
+})
 
 describe('Status Mappers', () => {
   describe('mapValidationErrors', () => {

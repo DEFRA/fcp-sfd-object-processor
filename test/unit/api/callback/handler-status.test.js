@@ -90,6 +90,34 @@ describe('callback handler status enforcement', () => {
     })
   })
 
+  test('duplicate callback with grouped array form returns 200 with existing correlationId and does not throw', async () => {
+    const groupedPayload = {
+      ...mockScanAndUploadResponse,
+      uploadStatus: 'ready',
+      form: {
+        documents: [
+          mockScanAndUploadResponse.form['a-file-upload-field'],
+          mockScanAndUploadResponse.form['another-file-upload-field']
+        ]
+      }
+    }
+    const existingCorrelationId = '123e4567-e89b-12d3-a456-426655440000'
+
+    metadataService.persistMetadataWithOutbox.mockResolvedValue({
+      duplicate: true,
+      correlationId: existingCorrelationId
+    })
+
+    const result = await uploadCallback.options.handler({ payload: groupedPayload }, buildMockH())
+
+    expect(metadataService.persistMetadataWithOutbox).toHaveBeenCalledWith(groupedPayload)
+    expect(result.status).toBe(200)
+    expect(result.body).toEqual({
+      message: 'Duplicate callback ignored',
+      correlationId: existingCorrelationId
+    })
+  })
+
   test('returns 500 when post-Joi validation throws', async () => {
     const payload = { ...mockScanAndUploadResponse, uploadStatus: 'ready' }
     vi.spyOn(validateCallbackModule, 'validateCallbackPayload').mockRejectedValue(new Error('validation exploded'))
