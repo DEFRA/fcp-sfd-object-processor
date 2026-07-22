@@ -10,6 +10,7 @@ import { flattenFormFiles } from '../../../../utils/flatten-form-files.js'
  * @returns {{ isValid: boolean, error?: string, file?: Object }}
  */
 export function validateFormFiles (form) {
+  // flattenFormFiles returns [] for null/undefined/non-object — loop is a safe no-op
   for (const fileVal of flattenFormFiles(form)) {
     const isFileUpload = fileVal && typeof fileVal === 'object' && 'fileId' in fileVal
     if (!isFileUpload) {
