@@ -93,7 +93,7 @@ describe('validateFormFiles', () => {
   test('returns invalid for first failing file (short-circuits)', () => {
     const form = {
       'file-1': {
-        fileId: 'aaaa-bbbb',
+        fileId: 'aaaabbbb-cccc-4ddd-8eee-ffff00001111',
         filename: 'first.pdf',
         contentType: 'application/pdf',
         detectedContentType: 'application/pdf',
@@ -113,7 +113,7 @@ describe('validateFormFiles', () => {
     const result = validateFormFiles(form)
     expect(result.isValid).toBe(false)
     // Should fail on first file encountered
-    expect(result.file.fileId).toBe('aaaa-bbbb')
+    expect(result.file.fileId).toBe('aaaabbbb-cccc-4ddd-8eee-ffff00001111')
   })
 
   test('validates array of file uploads for consistency', () => {

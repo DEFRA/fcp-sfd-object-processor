@@ -93,7 +93,7 @@ describe('validateCallbackPayload', () => {
       form: {
         documents: [
           validFileUpload,
-          { ...rejectedFileUpload, fileId: 'aaa-bbb' }
+          { ...rejectedFileUpload, fileId: 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d' }
         ]
       },
       numberOfRejectedFiles: 1
@@ -110,7 +110,7 @@ describe('validateCallbackPayload', () => {
       form: {
         documents: [
           validFileUpload,
-          { ...validFileUpload, fileId: 'ddd-eee' }
+          { ...validFileUpload, fileId: 'd4e5f6a7-b8c9-4d0e-8f1a-2b3c4d5e6f7a' }
         ]
       },
       numberOfRejectedFiles: 0
@@ -126,7 +126,7 @@ describe('validateCallbackPayload', () => {
       form: {
         documents: [
           validFileUpload,
-          { ...rejectedFileUpload, fileId: 'ddd-eee' }
+          { ...rejectedFileUpload, fileId: 'd4e5f6a7-b8c9-4d0e-8f1a-2b3c4d5e6f7a' }
         ]
       },
       numberOfRejectedFiles: 1
@@ -142,8 +142,8 @@ describe('validateCallbackPayload', () => {
       form: {
         'single-file': validFileUpload,
         documents: [
-          { ...rejectedFileUpload, fileId: 'aaa-bbb' },
-          { ...rejectedFileUpload, fileId: 'ccc-ddd' }
+          { ...rejectedFileUpload, fileId: 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d' },
+          { ...rejectedFileUpload, fileId: 'c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f' }
         ]
       },
       numberOfRejectedFiles: 2
@@ -154,8 +154,8 @@ describe('validateCallbackPayload', () => {
   })
 
   test('returns error for first non-complete file in array (short-circuits)', async () => {
-    const firstRejected = { ...rejectedFileUpload, fileId: 'first-rejection' }
-    const secondRejected = { ...rejectedFileUpload, fileId: 'second-rejection' }
+    const firstRejected = { ...rejectedFileUpload, fileId: 'f1234567-89ab-4cde-8f01-23456789abcd' }
+    const secondRejected = { ...rejectedFileUpload, fileId: 'f2345678-9abc-4def-8012-3456789abcde' }
 
     const payload = {
       uploadStatus: 'ready',

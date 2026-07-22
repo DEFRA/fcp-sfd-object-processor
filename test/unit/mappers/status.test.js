@@ -35,14 +35,14 @@ describe('extractFileIdsFromPayload', () => {
         single: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' },
         documents: [
           { fileId: '3f90b889-eac7-4e98-975f-93fcef5b8554' },
-          { fileId: 'aaaa-bbbb-cccc-dddd' }
+          { fileId: 'aaaabbbb-cccc-4ddd-8eee-ffff00001111' }
         ]
       }
     }
     expect(extractFileIdsFromPayload(payload)).toEqual([
       '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
       '3f90b889-eac7-4e98-975f-93fcef5b8554',
-      'aaaa-bbbb-cccc-dddd'
+      'aaaabbbb-cccc-4ddd-8eee-ffff00001111'
     ])
   })
 
@@ -603,7 +603,7 @@ describe('Status Mappers', () => {
             single: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' },
             documents: [
               { fileId: '3f90b889-eac7-4e98-975f-93fcef5b8554' },
-              { fileId: 'aaaa-bbbb-cccc-dddd' }
+              { fileId: 'aaaabbbb-cccc-4ddd-8eee-ffff00001111' }
             ]
           },
           submissionId: 'sub-123'
@@ -615,7 +615,7 @@ describe('Status Mappers', () => {
       expect(result).toHaveLength(3)
       expect(result[0].fileId).toBe('9fcaabe5-77ec-44db-8356-3a6e8dc51b13')
       expect(result[1].fileId).toBe('3f90b889-eac7-4e98-975f-93fcef5b8554')
-      expect(result[2].fileId).toBe('aaaa-bbbb-cccc-dddd')
+      expect(result[2].fileId).toBe('aaaabbbb-cccc-4ddd-8eee-ffff00001111')
     })
 
     test('should filter out non-file entries in arrays', () => {
