@@ -72,7 +72,7 @@
     "@types/node": "22.13.4",
     "@types/webpack-assets-manifest": "5.1.4",
     "@vitest/coverage-v8": "4.1.10",
-    "autoprefixer": "10.5.0",
+    "autoprefixer": "10.5.3",
     "dotenv": "17.4.2",
     "eslint": "9.39.4",
     "neostandard": "0.13.0",
