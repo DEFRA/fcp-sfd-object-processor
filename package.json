@@ -69,8 +69,8 @@
   "devDependencies": {
     "@fetchkit/chaos-fetch": "1.2.2",
     "@types/convict": "6.1.6",
-    "@types/node": "22.13.4",
-    "@types/webpack-assets-manifest": "5.1.4",
+    "@types/node": "26.1.1",
+    "@types/webpack-assets-manifest": "6.0.0",
     "@vitest/coverage-v8": "4.1.10",
     "autoprefixer": "10.5.0",
     "dotenv": "17.4.2",
