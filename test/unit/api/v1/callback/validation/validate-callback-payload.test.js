@@ -1,13 +1,13 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { validateCallbackPayload } from '../../../../../../src/api/v1/callback/validation/validate-callback-payload.js'
 
-vi.mock('../../../../logging/logger.js', () => ({
+vi.mock('../../../../../../src/logging/logger.js', () => ({
   createLogger: () => ({
     warn: vi.fn()
   })
 }))
 
-vi.mock('../../../common/helpers/metrics.js', () => ({
+vi.mock('../../../../../../src/api/common/helpers/metrics.js', () => ({
   metricsCounter: vi.fn()
 }))
 
