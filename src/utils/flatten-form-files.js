@@ -7,7 +7,7 @@
  * @param {object|null|undefined} form - The form object from the callback payload
  * @returns {Array<unknown>} Flat array of all form values (arrays expanded in-place)
  */
-const flattenFormFiles = (form) => {
+const flattenFormValues = (form) => {
   if (!form || typeof form !== 'object') {
     return []
   }
@@ -15,4 +15,4 @@ const flattenFormFiles = (form) => {
   return Object.values(form).flat()
 }
 
-export { flattenFormFiles }
+export { flattenFormValues }

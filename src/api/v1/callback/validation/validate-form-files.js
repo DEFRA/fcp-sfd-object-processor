@@ -1,5 +1,5 @@
 import { validateFileUploadConsistency } from './validate-file-upload-consistency.js'
-import { flattenFormFiles } from '../../../../utils/flatten-form-files.js'
+import { flattenFormValues } from '../../../../utils/flatten-form-files.js'
 
 /**
  * Validates all file uploads in the form data for semantic consistency.
@@ -10,8 +10,8 @@ import { flattenFormFiles } from '../../../../utils/flatten-form-files.js'
  * @returns {{ isValid: boolean, error?: string, file?: Object }}
  */
 export function validateFormFiles(form) {
-  // flattenFormFiles returns [] for null/undefined/non-object — loop is a safe no-op
-  for (const fileVal of flattenFormFiles(form)) {
+  // flattenFormValues returns [] for null/undefined/non-object — loop is a safe no-op
+  for (const fileVal of flattenFormValues(form)) {
     const isFileUpload = fileVal && typeof fileVal === 'object' && 'fileId' in fileVal
     if (!isFileUpload) {
       continue

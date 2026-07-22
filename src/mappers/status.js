@@ -1,4 +1,4 @@
-import { flattenFormFiles } from '../utils/flatten-form-files.js'
+import { flattenFormValues } from '../utils/flatten-form-files.js'
 
 const sanitiseReceivedValue = (value) => {
   if (value === undefined || value === null) {
@@ -45,7 +45,7 @@ const buildValidatedStatusDocuments = (documents) => {
 }
 
 const extractFileIdsFromPayload = (payload) => {
-  const fileIds = flattenFormFiles(payload?.form)
+  const fileIds = flattenFormValues(payload?.form)
     .filter(value => typeof value === 'object' && value !== null)
     .map(value => value.fileId)
     .filter(fileId => typeof fileId === 'string' && fileId.length > 0)
