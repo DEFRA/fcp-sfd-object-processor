@@ -12,7 +12,7 @@ const flattenFormFiles = (form) => {
     return []
   }
 
-  return Object.values(form).flatMap(val => Array.isArray(val) ? val : [val])
+  return Object.values(form).flat()
 }
 
 export { flattenFormFiles }
