@@ -6,6 +6,7 @@ import { createOutboxEntries } from '../repos/outbox.js'
 import { insertStatus } from '../repos/status.js'
 import { createLogger } from '../logging/logger.js'
 import { buildValidatedStatusDocuments, buildValidationFailureStatusDocuments } from '../mappers/status.js'
+import { flattenFormValues } from '../utils/flatten-form-files.js'
 
 const logger = createLogger()
 
@@ -31,7 +32,7 @@ const persistMetadataWithOutbox = async (rawDocuments) => {
     })
   } catch (error) {
     if (error?.code === DUPLICATE_KEY_ERROR_CODE) {
-      const fileIds = Object.values(rawDocuments.form)
+      const fileIds = flattenFormValues(rawDocuments.form)
         .filter(val => val !== null && typeof val === 'object' && 'fileId' in val)
         .map(val => val.fileId)
 

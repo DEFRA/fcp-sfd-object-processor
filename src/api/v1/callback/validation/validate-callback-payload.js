@@ -2,6 +2,7 @@ import { createLogger } from '../../../../logging/logger.js'
 import { metricsCounter } from '../../../common/helpers/metrics.js'
 import { validateFormFiles } from './validate-form-files.js'
 import { handleValidationFailure } from './handle-validation-failure.js'
+import { flattenFormValues } from '../../../../utils/flatten-form-files.js'
 
 const logger = createLogger()
 
@@ -31,8 +32,8 @@ export async function validateCallbackPayload (payload, h) {
 
   // Observability: numberOfRejectedFiles mismatch check (lenient — warn only)
   const form = requestPayload.form || {}
-  const actualRejectedCount = Object.values(form).filter(
-    val => isFileEntry(val) && val.fileStatus === 'rejected'
+  const actualRejectedCount = flattenFormValues(form).filter(
+    fileVal => isFileEntry(fileVal) && fileVal.fileStatus === 'rejected'
   ).length
   const declaredRejectedCount = requestPayload.numberOfRejectedFiles
 
@@ -55,10 +56,10 @@ export async function validateCallbackPayload (payload, h) {
   }
 
   // Stage 2: Contract validation — every file in the form must have fileStatus 'complete'
-  for (const [, val] of Object.entries(form)) {
-    if (isFileEntry(val) && val.fileStatus !== 'complete') {
+  for (const fileVal of flattenFormValues(form)) {
+    if (isFileEntry(fileVal) && fileVal.fileStatus !== 'complete') {
       await metricsCounter('callback_unexpected_status')
-      return handleValidationFailure(requestPayload, new Error(`fileStatus must be 'complete' but was '${val.fileStatus}'`), val, h)
+      return handleValidationFailure(requestPayload, new Error(`fileStatus must be 'complete' but was '${fileVal.fileStatus}'`), fileVal, h)
     }
   }
 

@@ -288,6 +288,46 @@ describe('Metadata Service', () => {
       await expect(persistMetadataWithOutbox(payloadWithNoFiles)).rejects.toThrow('E11000 duplicate key error')
       expect(getMetadataByFileId).not.toHaveBeenCalled()
     })
+
+    test('should return existing correlationId on duplicate E11000 when files are in an array', async () => {
+      const existingCorrelationId = '123e4567-e89b-12d3-a456-426655440000'
+      const duplicateKeyError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+      const payloadWithArrayFiles = {
+        ...mockScanAndUploadResponse,
+        form: {
+          documents: [
+            mockScanAndUploadResponse.form['a-file-upload-field'],
+            mockScanAndUploadResponse.form['another-file-upload-field']
+          ]
+        }
+      }
+
+      mockSession.withTransaction.mockRejectedValue(duplicateKeyError)
+      getMetadataByFileId.mockResolvedValue({ messaging: { correlationId: existingCorrelationId } })
+
+      const result = await persistMetadataWithOutbox(payloadWithArrayFiles)
+
+      expect(result).toEqual({ duplicate: true, correlationId: existingCorrelationId })
+      expect(getMetadataByFileId).toHaveBeenCalledWith(
+        mockScanAndUploadResponse.form['a-file-upload-field'].fileId
+      )
+    })
+
+    test('should rethrow E11000 when array contains no file objects', async () => {
+      const duplicateKeyError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+      const payloadWithEmptyArray = {
+        uploadStatus: 'ready',
+        metadata: { crn: 1234567890 },
+        form: {
+          documents: ['string1', 'string2']
+        }
+      }
+
+      mockSession.withTransaction.mockRejectedValue(duplicateKeyError)
+
+      await expect(persistMetadataWithOutbox(payloadWithEmptyArray)).rejects.toThrow('E11000 duplicate key error')
+      expect(getMetadataByFileId).not.toHaveBeenCalled()
+    })
   })
 
   describe('persistValidationFailureStatus', () => {

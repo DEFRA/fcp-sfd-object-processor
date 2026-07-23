@@ -53,7 +53,7 @@ describe('Metadata Repository', () => {
       })
 
       test('it should return an array of the same length as the number of file uploads from the payloads form', () => {
-      // remove any keys that don't have a 'fileId' as its not an upload then.
+        // remove any keys that don't have a 'fileId' as its not an upload then.
         const validKeys = Object.values(mockScanAndUploadResponse.form).filter(key => key.fileId)
         expect(formattedMetadata.length).toBe(validKeys.length)
       })
@@ -130,6 +130,103 @@ describe('Metadata Repository', () => {
 
       expect(formatted).toHaveLength(1)
       expect(formatted[0].file.fileId).toBe(mockScanAndUploadResponse.form['a-file-upload-field'].fileId)
+    })
+
+    test('normalises grouped uploads and extracts file uploads from arrays', () => {
+      const fileUpload1 = mockScanAndUploadResponse.form['a-file-upload-field']
+      const fileUpload2 = mockScanAndUploadResponse.form['another-file-upload-field']
+
+      const payload = {
+        ...mockScanAndUploadResponse,
+        form: {
+          documents: [fileUpload1, fileUpload2]
+        }
+      }
+
+      const formatted = formatInboundMetadata(payload)
+
+      expect(formatted).toHaveLength(2)
+      expect(formatted[0].file.fileId).toBe(fileUpload1.fileId)
+      expect(formatted[1].file.fileId).toBe(fileUpload2.fileId)
+    })
+
+    test('normalises grouped upload arrays with indexed field names and ignores non-file values', () => {
+      const fileUpload1 = mockScanAndUploadResponse.form['a-file-upload-field']
+      const fileUpload2 = mockScanAndUploadResponse.form['another-file-upload-field']
+
+      const payload = {
+        ...mockScanAndUploadResponse,
+        form: {
+          document: [fileUpload1, fileUpload2],
+          notes: 'not a file'
+        }
+      }
+
+      const formatted = formatInboundMetadata(payload)
+
+      expect(formatted).toHaveLength(2)
+      expect(formatted.map(item => item.file.fileId)).toEqual([fileUpload1.fileId, fileUpload2.fileId])
+    })
+
+    test('preserves correlationId across grouped file uploads in arrays', () => {
+      const fileUpload1 = mockScanAndUploadResponse.form['a-file-upload-field']
+      const fileUpload2 = mockScanAndUploadResponse.form['another-file-upload-field']
+
+      const payload = {
+        ...mockScanAndUploadResponse,
+        form: {
+          documents: [fileUpload1, fileUpload2]
+        }
+      }
+
+      const formatted = formatInboundMetadata(payload)
+
+      expect(formatted[0].messaging.correlationId).toBe(formatted[1].messaging.correlationId)
+    })
+
+    test('flattens arrays and filters non-file entries', () => {
+      const fileUpload1 = mockScanAndUploadResponse.form['a-file-upload-field']
+      const fileUpload2 = mockScanAndUploadResponse.form['another-file-upload-field']
+
+      const payload = {
+        ...mockScanAndUploadResponse,
+        form: {
+          'single-file': fileUpload1,
+          documents: [
+            'string value',
+            fileUpload2,
+            42,
+            null
+          ],
+          'text-field': 'not a file'
+        }
+      }
+
+      const formatted = formatInboundMetadata(payload)
+
+      expect(formatted).toHaveLength(2)
+      expect(formatted[0].file.fileId).toBe(fileUpload1.fileId)
+      expect(formatted[1].file.fileId).toBe(fileUpload2.fileId)
+      expect(formatted[0].messaging.correlationId).toBe(formatted[1].messaging.correlationId)
+    })
+
+    test('handles mixed single files and grouped arrays with same correlationId', () => {
+      const fileUpload1 = mockScanAndUploadResponse.form['a-file-upload-field']
+      const fileUpload2 = mockScanAndUploadResponse.form['another-file-upload-field']
+
+      const payload = {
+        ...mockScanAndUploadResponse,
+        form: {
+          single: fileUpload1,
+          documents: [fileUpload2]
+        }
+      }
+
+      const formatted = formatInboundMetadata(payload)
+
+      expect(formatted).toHaveLength(2)
+      // All files should share the same correlationId
+      expect(formatted[0].messaging.correlationId).toBe(formatted[1].messaging.correlationId)
     })
   })
 })

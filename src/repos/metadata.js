@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { config } from '../config/index.js'
 import { NotFoundError } from '../errors/not-found-error.js'
 import { db } from '../data/db.js'
+import { normaliseFormFields } from '../utils/normalise-form-fields.js'
 
 const metadataCollection = 'mongo.collections.uploadMetadata'
 const noDocumentsFoundError = 'No documents found'
@@ -38,13 +39,14 @@ const getMetadataByFileId = async (fileId) => {
 // Format the raw payload received from the CDP Uploader before saving it in the DB
 // removes any formData that is not a file upload
 // creates subdocuments to organise data
+// normalises grouped arrays to indexed field names and filters to file uploads
 
 const formatInboundMetadata = (payload) => {
   const { metadata, uploadStatus, numberOfRejectedFiles } = payload
 
-  const formData = Object.values(payload.form)
-  // remove anything thats not an object with a fileId key
-  const filteredFormData = formData.filter(data => typeof data === 'object' && data?.fileId)
+  // Re-key grouped arrays first, then remove anything without a fileId
+  const normalisedForm = normaliseFormFields(payload.form)
+  const filteredFormData = Object.values(normalisedForm ?? {}).filter(data => typeof data === 'object' && data?.fileId)
 
   // ensure that all files uploaded together are grouped via the same correlationId
   const correlationId = randomUUID()

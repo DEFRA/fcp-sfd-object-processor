@@ -612,5 +612,79 @@ describe('callbackPayloadSchema validation', () => {
       expect(error).toBeDefined()
       expect(error.details.some(d => d.type === 'object.min')).toBe(true)
     })
+
+    test('form with array of file uploads passes validation', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        form: {
+          documents: [
+            validPayload.form['a-file-upload-field'],
+            validPayload.form['another-file-upload-field']
+          ]
+        }
+      })
+      expect(error).toBeUndefined()
+    })
+
+    test('form with single file upload in array passes validation', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        form: {
+          documents: [validPayload.form['a-file-upload-field']]
+        }
+      })
+      expect(error).toBeUndefined()
+    })
+
+    test('form with mixed string fields and array of file uploads passes validation', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        form: {
+          'text-field': 'some text value',
+          documents: [
+            validPayload.form['a-file-upload-field'],
+            validPayload.form['another-file-upload-field']
+          ]
+        }
+      })
+      expect(error).toBeUndefined()
+    })
+
+    test('form with empty array fails validation', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        form: {
+          documents: []
+        }
+      })
+      expect(error).toBeDefined()
+      expect(error.details.some(d => d.type === 'object.min')).toBe(true)
+    })
+
+    test('form with array containing only strings fails validation', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        form: {
+          documents: ['string1', 'string2']
+        }
+      })
+      expect(error).toBeDefined()
+      // Array items don't match the schema (expected file upload objects)
+      expect(error.details.some(d => d.path.includes('documents'))).toBe(true)
+    })
+
+    test('form with array of mixed valid and invalid file objects fails on invalid object', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        form: {
+          documents: [
+            validPayload.form['a-file-upload-field'],
+            { ...validPayload.form['another-file-upload-field'], fileId: 'not-a-uuid' }
+          ]
+        }
+      })
+      expect(error).toBeDefined()
+      expect(error.details.some(d => d.path.includes('fileId') && d.type === 'string.guid')).toBe(true)
+    })
   })
 })

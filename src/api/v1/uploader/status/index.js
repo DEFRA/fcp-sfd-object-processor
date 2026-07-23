@@ -14,6 +14,7 @@ import {
   buildStatusRequestLog,
   buildStatusResponseLog
 } from '../../../../utils/build-uploader-status-log.js'
+import { normaliseFormFields } from '../../../../utils/normalise-form-fields.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -118,5 +119,9 @@ const mapCdpStatus = (cdpResponse) => {
     mappedStatus = 'pending'
   }
 
-  return { uploadStatus: mappedStatus, form, metadata }
+  return {
+    uploadStatus: mappedStatus,
+    form: normaliseFormFields(form),
+    metadata
+  }
 }
