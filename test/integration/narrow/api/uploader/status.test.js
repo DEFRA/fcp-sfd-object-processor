@@ -10,8 +10,8 @@ vi.mock('../../../../../src/http/client.js', () => ({
   TimeoutError: class TimeoutError extends Error {
     constructor (msg) { super(msg); this.name = 'TimeoutError' }
   },
-  NetworkError: class NetworkError extends Error {},
-  AbortError: class AbortError extends Error {}
+  NetworkError: class NetworkError extends Error { },
+  AbortError: class AbortError extends Error { }
 }))
 
 const { TimeoutError } = await import('../../../../../src/http/client.js')
@@ -65,6 +65,22 @@ const mockReadyResponse = {
   form: {
     'file-field': completeFile,
     'text-field': 'some text value'
+  },
+  numberOfRejectedFiles: 0
+}
+
+const mockReadyResponseWithGroupedForm = {
+  uploadStatus: 'ready',
+  metadata: validMetadata,
+  form: {
+    document: [
+      completeFile,
+      {
+        ...completeFile,
+        fileId: 'f8b1fcab-9cb7-4e98-abd4-4ea03e27df95',
+        filename: 'document-2.pdf'
+      }
+    ]
   },
   numberOfRejectedFiles: 0
 }
@@ -141,6 +157,24 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
     expect(file.s3Bucket).toBe(completeFile.s3Bucket)
     expect(file.checksumSha256).toBe(completeFile.checksumSha256)
     expect(file.contentLength).toBe(completeFile.contentLength)
+  })
+
+  test('returns indexed form keys for grouped file fields', async () => {
+    mockHttpClient.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => mockReadyResponseWithGroupedForm
+    })
+
+    const response = await server.inject({
+      method: 'GET',
+      url: `/api/v1/uploader/status/${validUploadId}`
+    })
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+    expect(response.result.data.form.document).toBeUndefined()
+    expect(response.result.data.form['document-1'].fileId).toBe(completeFile.fileId)
+    expect(response.result.data.form['document-2'].fileId).toBe('f8b1fcab-9cb7-4e98-abd4-4ea03e27df95')
   })
 
   test('returns 200 for a pending upload', async () => {

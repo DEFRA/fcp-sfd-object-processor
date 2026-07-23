@@ -39,8 +39,8 @@ vi.mock('../../../../../../src/http/client.js', () => ({
   TimeoutError: class TimeoutError extends Error {
     constructor (msg) { super(msg); this.name = 'TimeoutError' }
   },
-  NetworkError: class NetworkError extends Error {},
-  AbortError: class AbortError extends Error {}
+  NetworkError: class NetworkError extends Error { },
+  AbortError: class AbortError extends Error { }
 }))
 
 // Import after mocks are established
@@ -76,6 +76,22 @@ const validReadyResponseWithRejections = {
   metadata: { sbi: 105000000, crn: 1050000000 },
   form: { 'file-field': completeFile },
   numberOfRejectedFiles: 2
+}
+
+const validReadyResponseWithGroupedForm = {
+  uploadStatus: 'ready',
+  metadata: { sbi: 105000000, crn: 1050000000 },
+  form: {
+    document: [
+      completeFile,
+      {
+        ...completeFile,
+        fileId: 'f8b1fcab-9cb7-4e98-abd4-4ea03e27df95',
+        filename: 'document-2.pdf'
+      }
+    ]
+  },
+  numberOfRejectedFiles: 0
 }
 
 const validPendingResponse = {
@@ -198,6 +214,22 @@ describe('uploaderStatusRoute handler', () => {
         data: expect.objectContaining({ uploadStatus: 'pending' })
       })
       expect(mockCode).toHaveBeenCalledWith(httpConstants.HTTP_STATUS_OK)
+    })
+
+    test('normalises grouped form fields into indexed keys', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponseWithGroupedForm
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.form.document).toBeUndefined()
+      expect(data.form['document-1'].fileId).toBe(completeFile.fileId)
+      expect(data.form['document-2'].fileId).toBe('f8b1fcab-9cb7-4e98-abd4-4ea03e27df95')
     })
 
     test('returns 200 with data envelope for initiated status', async () => {

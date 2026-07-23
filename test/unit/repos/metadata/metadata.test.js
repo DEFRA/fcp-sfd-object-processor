@@ -132,7 +132,7 @@ describe('Metadata Repository', () => {
       expect(formatted[0].file.fileId).toBe(mockScanAndUploadResponse.form['a-file-upload-field'].fileId)
     })
 
-    test('flattens and extracts file uploads from arrays', () => {
+    test('normalises grouped uploads and extracts file uploads from arrays', () => {
       const fileUpload1 = mockScanAndUploadResponse.form['a-file-upload-field']
       const fileUpload2 = mockScanAndUploadResponse.form['another-file-upload-field']
 
@@ -148,6 +148,24 @@ describe('Metadata Repository', () => {
       expect(formatted).toHaveLength(2)
       expect(formatted[0].file.fileId).toBe(fileUpload1.fileId)
       expect(formatted[1].file.fileId).toBe(fileUpload2.fileId)
+    })
+
+    test('normalises grouped upload arrays with indexed field names and ignores non-file values', () => {
+      const fileUpload1 = mockScanAndUploadResponse.form['a-file-upload-field']
+      const fileUpload2 = mockScanAndUploadResponse.form['another-file-upload-field']
+
+      const payload = {
+        ...mockScanAndUploadResponse,
+        form: {
+          document: [fileUpload1, fileUpload2],
+          notes: 'not a file'
+        }
+      }
+
+      const formatted = formatInboundMetadata(payload)
+
+      expect(formatted).toHaveLength(2)
+      expect(formatted.map(item => item.file.fileId)).toEqual([fileUpload1.fileId, fileUpload2.fileId])
     })
 
     test('preserves correlationId across grouped file uploads in arrays', () => {

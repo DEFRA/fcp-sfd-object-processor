@@ -9,7 +9,7 @@ import { flattenFormValues } from '../../../../utils/flatten-form-files.js'
  * @param {Object} form - The form object containing file uploads and text fields
  * @returns {{ isValid: boolean, error?: string, file?: Object }}
  */
-export function validateFormFiles(form) {
+export function validateFormFiles (form) {
   // flattenFormValues returns [] for null/undefined/non-object — loop is a safe no-op
   for (const fileVal of flattenFormValues(form)) {
     const isFileUpload = fileVal && typeof fileVal === 'object' && 'fileId' in fileVal

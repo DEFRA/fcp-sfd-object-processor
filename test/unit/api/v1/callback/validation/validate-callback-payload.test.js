@@ -3,6 +3,8 @@ import { validateCallbackPayload } from '../../../../../../src/api/v1/callback/v
 
 vi.mock('../../../../../../src/logging/logger.js', () => ({
   createLogger: () => ({
+    error: vi.fn(),
+    info: vi.fn(),
     warn: vi.fn()
   })
 }))
