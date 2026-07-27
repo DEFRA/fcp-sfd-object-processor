@@ -136,8 +136,7 @@ export const uploaderResponseFields = {
     .example(schemaConsts.NUMBER_OF_REJECTED_FILES_EXAMPLE)
     .messages({
       'number.min': '"numberOfRejectedFiles" must be a non-negative integer',
-      'number.integer': '"numberOfRejectedFiles" must be an integer',
-      'any.required': '"numberOfRejectedFiles" is required when uploadStatus is ready'
+      'number.integer': '"numberOfRejectedFiles" must be an integer'
     })
     .when('uploadStatus', {
       switch: [
