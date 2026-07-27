@@ -110,7 +110,7 @@ describe('buildDocumentUploadMessageBatch', () => {
     })
 
     test('should set data.file.url from file.fileId', () => {
-      expect(result[0].data.file.url).toBe(`https://mock-public-api-base-url/api/v1/blobs/${file.fileId}`)
+      expect(result[0].data.file.url).toBe(`https://mock-public-api-base-url/api/v1/blob/${file.fileId}`)
     })
   })
 
