@@ -168,6 +168,17 @@ describe('cdpUploaderStatusResponseSchema', () => {
       expect(error).toBeUndefined()
     })
 
+    test('ready response without numberOfRejectedFiles defaults to 0', () => {
+      const payload = {
+        uploadStatus: 'ready',
+        metadata: validMetadata,
+        form: { 'file-field': completeFile }
+      }
+      const { error, value } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeUndefined()
+      expect(value.numberOfRejectedFiles).toBe(0)
+    })
+
     test('valid ready response with rejected file passes', () => {
       const payload = {
         uploadStatus: 'ready',
@@ -431,11 +442,11 @@ describe('cdpUploaderStatusResponseSchema', () => {
   })
 
   describe('numberOfRejectedFiles validation', () => {
-    test('missing numberOfRejectedFiles fails when uploadStatus is ready', () => {
+    test('missing numberOfRejectedFiles defaults to 0 when uploadStatus is ready', () => {
       const { numberOfRejectedFiles, ...payload } = validReadyResponse
-      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
-      expect(error).toBeDefined()
-      expect(error.message).toContain('"numberOfRejectedFiles" is required when uploadStatus is ready')
+      const { error, value } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeUndefined()
+      expect(value.numberOfRejectedFiles).toBe(0)
     })
 
     test('negative numberOfRejectedFiles fails', () => {
