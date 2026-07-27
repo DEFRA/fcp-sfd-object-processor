@@ -140,7 +140,6 @@ export const uploaderResponseFields = {
     })
     .when('uploadStatus', {
       switch: [
-        { is: 'ready', then: Joi.optional() },
         { is: 'pending', then: Joi.forbidden() },
         { is: 'initiated', then: Joi.forbidden() }
       ],
