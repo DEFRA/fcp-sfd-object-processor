@@ -131,6 +131,7 @@ export const uploaderResponseFields = {
   numberOfRejectedFiles: Joi.number()
     .integer()
     .min(0)
+    .default(0)
     .description('Number of files rejected during upload')
     .example(schemaConsts.NUMBER_OF_REJECTED_FILES_EXAMPLE)
     .messages({
