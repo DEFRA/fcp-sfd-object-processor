@@ -600,10 +600,10 @@ describe('uploaderResponseFields', () => {
       expect(error).toBeUndefined()
     })
 
-    test('missing numberOfRejectedFiles fails when uploadStatus is ready', () => {
-      const { error } = wrapperSchema.validate({ uploadStatus: 'ready' })
-      expect(error).toBeDefined()
-      expect(error.message).toContain('"numberOfRejectedFiles" is required when uploadStatus is ready')
+    test('missing numberOfRejectedFiles defaults to 0 when uploadStatus is ready', () => {
+      const { error, value } = wrapperSchema.validate({ uploadStatus: 'ready' })
+      expect(error).toBeUndefined()
+      expect(value.numberOfRejectedFiles).toBe(0)
     })
 
     test('negative integer fails when uploadStatus is ready', () => {

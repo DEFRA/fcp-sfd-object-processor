@@ -88,12 +88,11 @@ describe('callbackPayloadSchema validation', () => {
       expect(error.details[0].path).toEqual(['numberOfRejectedFiles'])
     })
 
-    test('numberOfRejectedFiles is required when uploadStatus is ready', () => {
+    test('numberOfRejectedFiles defaults to 0 when uploadStatus is ready', () => {
       const { numberOfRejectedFiles, ...payload } = validPayload
-      const { error } = callbackPayloadSchema.validate({ ...payload, uploadStatus: 'ready' })
-      expect(error).toBeDefined()
-      expect(error.details[0].path).toEqual(['numberOfRejectedFiles'])
-      expect(error.details[0].type).toBe('any.required')
+      const { error, value } = callbackPayloadSchema.validate({ ...payload, uploadStatus: 'ready' })
+      expect(error).toBeUndefined()
+      expect(value.numberOfRejectedFiles).toBe(0)
     })
 
     test('numberOfRejectedFiles is forbidden when uploadStatus is pending', () => {
