@@ -8,7 +8,7 @@ const { mockHttpClient } = vi.hoisted(() => ({ mockHttpClient: vi.fn() }))
 vi.mock('../../../../../src/http/client.js', () => ({
   httpClient: mockHttpClient,
   TimeoutError: class TimeoutError extends Error {
-    constructor (msg) { super(msg); this.name = 'TimeoutError' }
+    constructor(msg) { super(msg); this.name = 'TimeoutError' }
   },
   NetworkError: class NetworkError extends Error { },
   AbortError: class AbortError extends Error { }
@@ -134,6 +134,31 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
     expect(response.result.data.uploadStatus).toBe('success')
     expect(response.result.data.numberOfRejectedFiles).toBeUndefined()
     expect(response.result.data.form['file-field'].fileId).toBe(completeFile.fileId)
+  })
+
+  test('ready upload without numberOfRejectedFiles defaults to 0 and maps to success', async () => {
+    const readyResponseWithoutRejectedCount = {
+      uploadStatus: 'ready',
+      metadata: { sbi: 105000000, crn: 1050000000 },
+      form: { 'file-field': completeFile }
+      // numberOfRejectedFiles intentionally omitted
+    }
+
+    mockHttpClient.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => readyResponseWithoutRejectedCount
+    })
+
+    const response = await server.inject({
+      method: 'GET',
+      url: `/api/v1/uploader/status/${validUploadId}`
+    })
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+    expect(response.result.data).toBeDefined()
+    expect(response.result.data.uploadStatus).toBe('success')
+    expect(response.result.data.numberOfRejectedFiles).toBeUndefined()
   })
 
   test('returns 200 with full file details for a ready upload', async () => {

@@ -90,7 +90,7 @@ export const uploaderStatusRoute = {
       }
 
       // Validate the response matches the expected CDP Uploader contract
-      const { error: validationError } = cdpUploaderStatusResponseSchema.validate(cdpResponse)
+      const { error: validationError, value: validatedResponse } = cdpUploaderStatusResponseSchema.validate(cdpResponse)
 
       if (validationError) {
         logger.error(
@@ -102,9 +102,9 @@ export const uploaderStatusRoute = {
 
       const duration = Date.now() - startTime
 
-      logger.info(buildStatusResponseLog(uploadId, cdpResponse, duration), 'Upstream service status response received')
+      logger.info(buildStatusResponseLog(uploadId, validatedResponse, duration), 'Upstream service status response received')
 
-      return h.response({ data: mapCdpStatus(cdpResponse) }).code(httpConstants.HTTP_STATUS_OK)
+      return h.response({ data: mapCdpStatus(validatedResponse) }).code(httpConstants.HTTP_STATUS_OK)
     }
   }
 }
