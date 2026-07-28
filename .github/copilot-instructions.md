@@ -250,7 +250,7 @@ Messages published to SNS follow **CloudEvents v1.0** specification. Contract de
       fileId: 'uuid',
       fileName: 'document.pdf',
       contentType: 'application/pdf',
-      url: 'https://fcp-placeholder.cdp-int.defra.cloud/api/v1/blobs/{fileId}'
+      url: 'https://fcp-placeholder.cdp-int.defra.cloud/api/v1/blob/{fileId}'
     },
     sbi: 123456789,              // Single Business Identifier
     sourceSystem: 'fcp-sfd-frontend',  // Or 'rps-portal'

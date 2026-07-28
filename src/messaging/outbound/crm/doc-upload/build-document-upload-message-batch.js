@@ -34,7 +34,7 @@ export const buildDocumentUploadMessageBatch = (pendingMessages) => {
           fileId: file.fileId,
           fileName: file.filename,
           contentType: file.contentType,
-          url: `${baseUrl}/api/v1/blobs/${file.fileId}`
+          url: `${baseUrl}/api/v1/blob/${file.fileId}`
         },
         sbi: metadata.sbi,
         sourceSystem: metadata.service,
