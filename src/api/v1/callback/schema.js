@@ -61,16 +61,15 @@ const callbackDuplicateResponseSchema = Joi.object({
   correlationId: Joi.string().uuid().example('550e8400-e29b-41d4-a716-446655440000')
 }).label('CallbackDuplicateResponse')
 
-const unprocessableEntityResponseSchema = Joi.object({
-  statusCode: Joi.number().example(httpConstants.HTTP_STATUS_UNPROCESSABLE_ENTITY),
-  error: Joi.string().example('Unprocessable Entity'),
-  message: Joi.string().example('"property0" is not allowed. "property1" is not allowed')
-}).label('UnprocessableEntity')
-
+// The callback endpoint has auth disabled (called by CDP Uploader) and persists
+// validation failures as 201 rather than rejecting them, so it never returns
+// 401, 404 or 422. Only success (201), duplicate (200), malformed body (400)
+// and unexpected errors (500) are reachable.
 export const callbackResponseSchema = generateResponseSchemas(
   callbackSuccessResponseSchema,
   httpConstants.HTTP_STATUS_CREATED,
   {
-    200: callbackDuplicateResponseSchema,
-    422: unprocessableEntityResponseSchema
-  })
+    200: callbackDuplicateResponseSchema
+  },
+  { omit: [httpConstants.HTTP_STATUS_UNAUTHORIZED, httpConstants.HTTP_STATUS_NOT_FOUND] }
+)

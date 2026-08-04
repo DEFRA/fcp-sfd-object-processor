@@ -191,6 +191,69 @@
           }
         }
       },
+      "Model1": {
+        "type": "object",
+        "properties": {
+          "correlationId": {
+            "type": "string",
+            "x-format": {
+              "guid": {
+                "version": [
+                  "uuidv4"
+                ]
+              }
+            }
+          },
+          "sbi": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 100000000,
+            "maximum": 999999999
+          },
+          "fileId": {
+            "type": "string",
+            "x-format": {
+              "guid": {
+                "version": [
+                  "uuidv4"
+                ]
+              }
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "validated": {
+            "type": "boolean"
+          },
+          "errors": {
+            "anyOf": [
+              {
+                "$ref": "#/x-alt-definitions/errors"
+              },
+              {
+                "type": "string",
+                "nullable": true
+              }
+            ]
+          }
+        }
+      },
+      "data": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/Model1"
+        }
+      },
+      "Model2": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/data"
+          }
+        }
+      },
       "MetadataFields": {
         "type": "object",
         "description": "Metadata about the item",
@@ -299,7 +362,7 @@
           "file"
         ]
       },
-      "data": {
+      "Model3": {
         "type": "array",
         "items": {
           "$ref": "#/components/schemas/MetadataDocument"
@@ -309,7 +372,7 @@
         "type": "object",
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/data"
+            "$ref": "#/components/schemas/Model3"
           }
         }
       },
@@ -435,6 +498,84 @@
           "ready"
         ]
       },
+      "type": {
+        "type": "string",
+        "description": "Type of submission - determines CRM queue",
+        "example": "CS_Agreement_Evidence",
+        "enum": [
+          "Business_Structure_Change",
+          "CS_Agreement_Amendment",
+          "CS_Revenue_Claim_Amendment",
+          "CS_Facilitation_Fund_Amendment",
+          "ES_Agreement_Amendment",
+          "Delinked_Amendment",
+          "GS_Calf_Housing_Amendment",
+          "GS_FETF_Amendment",
+          "GS_GHE_Amendment",
+          "GS_IFP_Amendment",
+          "GS_Laying_Hens_Amendment",
+          "GS_SAF_Amendment",
+          "GS_SIG_Amendment",
+          "GS_TSRS_Amendment",
+          "GS_Water_Management_Amendment",
+          "GS_WRF_Amendment",
+          "ES_Claim",
+          "GS_Adding_Value_Claim",
+          "GS_Calf_Housing_Claim",
+          "GS_FETF_Claim",
+          "GS_GHE_Claim",
+          "GS_IFP_Claim",
+          "GS_Laying_Hens_Claim",
+          "GS_SAF_Claim",
+          "GS_SIG_Claim",
+          "GS_TSRS_Claim",
+          "GS_Water_Management_Claim",
+          "GS_WRF_Claim",
+          "CS_Application_Declaration",
+          "GS_SIG_Declaration",
+          "CS_Application_Evidence",
+          "CS_Agreement_Evidence",
+          "CS_Revenue_Claim_Evidence",
+          "CS_Capital_Claim_Evidence",
+          "CS_Facilitation_Fund_Evidence",
+          "SFI_Pilot_Evidence",
+          "SFI23_Evidence",
+          "SFI_Expanded_Offer_Evidence",
+          "ES_Claim_Evidence",
+          "Delinked_Evidence",
+          "Probate_Evidence",
+          "Complaint_Evidence",
+          "Appeal_Evidence",
+          "GS_Adding_Value_Evidence",
+          "GS_Calf_Housing_App_Form",
+          "GS_Calf_Housing_App_Evidence",
+          "GS_Calf_Housing_AEL&D_Form",
+          "GS_Calf_Housing_AEL&D_Evidence",
+          "GS_Calf_Housing_Grant_Fund_Agg",
+          "GS_Calf_Housing_Claim_Evidence",
+          "GS_FETF_Grant_Fund_Agg",
+          "GS_FETF_Claim_Evidence",
+          "GS_GHE_Claim_Evidence",
+          "GS_IFP_Grant_Fund_Agg",
+          "GS_IFP_Claim_Evidence",
+          "GS_Laying_Hens_App_Form",
+          "GS_Laying_Hens_App_Evidence",
+          "GS_Laying_Hens_Grant_Fund_Agg",
+          "GS_Laying_Hens_Claim_Evidence",
+          "GS_SAF_Claim_Evidence",
+          "GS_SIG_App_General",
+          "GS_SIG_App_Evidence",
+          "GS_SIG_SSL&D_Form",
+          "GS_SIG_SSL&D_Evidence",
+          "GS_SIG_Grant_Fund_Agg",
+          "GS_SIG_Claim_Evidence",
+          "GS_TSRS_Claim_Evidence",
+          "GS_Water_Management_Claim_Evidence",
+          "GS_WRF_Claim_Evidence",
+          "CS_HT_APP_Evidence_No_Maps",
+          "CS_HT_APP_Evidence_Includes_Maps"
+        ]
+      },
       "service": {
         "type": "string",
         "description": "Source system that initiated the upload",
@@ -474,15 +615,7 @@
             "example": "1733826312"
           },
           "type": {
-            "type": "string",
-            "description": "Type of submission - determines CRM queue",
-            "example": "CS_Agreement_Evidence",
-            "minLength": 1,
-            "maxLength": 100,
-            "pattern": "^[A-Za-z0-9_ -]+$",
-            "x-convert": {
-              "trim": true
-            }
+            "$ref": "#/components/schemas/type"
           },
           "reference": {
             "type": "string",
@@ -513,25 +646,20 @@
         "type": "object",
         "description": "Form data containing both text fields and file uploads",
         "additionalProperties": {
-          "$ref": "#/components/schemas/FileUpload"
-        },
-        "x-meta": {
-          "additionalProperties": {
-            "oneOf": [
-              {
-                "type": "string"
-              },
-              {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/components/schemas/FileUpload"
+            },
+            {
+              "type": "array",
+              "items": {
                 "$ref": "#/components/schemas/FileUpload"
-              },
-              {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/FileUpload"
-                }
               }
-            ]
-          }
+            }
+          ]
         }
       },
       "CallbackPayload": {
@@ -551,6 +679,7 @@
             "type": "integer",
             "description": "Number of files rejected during upload",
             "example": 0,
+            "default": 0,
             "minimum": 0
           }
         },
@@ -602,23 +731,6 @@
           }
         }
       },
-      "UnprocessableEntity": {
-        "type": "object",
-        "properties": {
-          "statusCode": {
-            "type": "number",
-            "example": 422
-          },
-          "error": {
-            "type": "string",
-            "example": "Unprocessable Entity"
-          },
-          "message": {
-            "type": "string",
-            "example": "\"property0\" is not allowed. \"property1\" is not allowed"
-          }
-        }
-      },
       "InitiateMetadata": {
         "type": "object",
         "description": "Metadata about the upload submission",
@@ -650,15 +762,7 @@
             "example": "1733826312"
           },
           "type": {
-            "type": "string",
-            "description": "Type of submission - determines CRM queue",
-            "example": "CS_Agreement_Evidence",
-            "minLength": 1,
-            "maxLength": 100,
-            "pattern": "^[A-Za-z0-9_ -]+$",
-            "x-convert": {
-              "trim": true
-            }
+            "$ref": "#/components/schemas/type"
           },
           "reference": {
             "type": "string",
@@ -903,6 +1007,75 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/NotFound"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/status/{correlationId}": {
+      "get": {
+        "summary": "Retrieve persisted callback validation status by correlationId",
+        "operationId": "getApiV1StatusCorrelationid",
+        "description": "Returns the stored status records (validation outcome and any errors) for a given correlationId.",
+        "parameters": [
+          {
+            "name": "correlationId",
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "x-format": {
+                "guid": {
+                  "version": [
+                    "uuidv4"
+                  ]
+                }
+              }
+            },
+            "required": true
+          }
+        ],
+        "tags": [
+          "status"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Model2"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequest"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Unauthorized"
                 }
               }
             }
@@ -1233,36 +1406,6 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Unauthorized"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotFound"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Unprocessable Entity",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UnprocessableEntity"
-                }
-              }
-            }
-          },
           "500": {
             "description": "Internal Server Error",
             "content": {
@@ -1324,16 +1467,6 @@
               }
             }
           },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotFound"
-                }
-              }
-            }
-          },
           "500": {
             "description": "Internal Server Error",
             "content": {
@@ -1365,6 +1498,28 @@
             }
           }
         }
+      }
+    }
+  },
+  "x-alt-definitions": {
+    "Model1": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "errorType": {
+          "type": "string"
+        },
+        "receivedValue": {
+          "type": "string"
+        }
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/x-alt-definitions/Model1"
       }
     }
   }

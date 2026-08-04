@@ -134,21 +134,22 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
       }
     }
 
-    // Ensure CallbackForm schema includes FileUpload as additionalProperties if missing
+    // Ensure CallbackForm schema documents the true value union if missing.
+    // Form field values are text strings, a single file upload, or an array of
+    // file uploads (grouped uploads under one field key), matching the Joi schema.
     const cbForm = spec.components.schemas.CallbackForm
     if (cbForm && (!cbForm.properties || Object.keys(cbForm.properties).length === 0)) {
-      // Add x-meta to indicate additionalProperties is FileUpload
       cbForm.type = 'object'
       cbForm.description = 'Form data containing both text fields and file uploads'
-      cbForm.additionalProperties = { $ref: '#/components/schemas/FileUpload' }
-      // Optionally, add x-meta for downstream tools if needed
-      cbForm['x-meta'] = {
-        additionalProperties: {
-          oneOf: [
-            { type: 'string' },
-            { $ref: '#/components/schemas/FileUpload' }
-          ]
-        }
+      cbForm.additionalProperties = {
+        oneOf: [
+          { type: 'string' },
+          { $ref: '#/components/schemas/FileUpload' },
+          {
+            type: 'array',
+            items: { $ref: '#/components/schemas/FileUpload' }
+          }
+        ]
       }
     }
 
