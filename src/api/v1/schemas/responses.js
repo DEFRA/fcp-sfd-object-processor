@@ -47,11 +47,21 @@ export const gatewayTimeoutResponseSchema = Joi.object({
   message: Joi.string().example('Upstream service request timed out')
 }).label('GatewayTimeout')
 
-export const generateResponseSchemas = (successSchema, successCode = 200, customSchemas = {}) => ({
-  [successCode]: successSchema,
-  400: badRequestResponseSchema,
-  401: unauthorizedResponseSchema,
-  404: notfoundResponseSchema,
-  500: serverErrorResponseSchema,
-  ...customSchemas
-})
+export const generateResponseSchemas = (successSchema, successCode = 200, customSchemas = {}, { omit = [] } = {}) => {
+  const schemas = {
+    [successCode]: successSchema,
+    400: badRequestResponseSchema,
+    401: unauthorizedResponseSchema,
+    404: notfoundResponseSchema,
+    500: serverErrorResponseSchema,
+    ...customSchemas
+  }
+
+  // Remove default status codes a route can never produce, so the generated
+  // OpenAPI contract only documents responses the handler actually returns.
+  for (const code of omit) {
+    delete schemas[code]
+  }
+
+  return schemas
+}

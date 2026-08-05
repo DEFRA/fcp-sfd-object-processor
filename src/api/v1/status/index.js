@@ -12,7 +12,9 @@ export const statusRoute = {
   method: 'GET',
   path: `${baseUrl}/status/{correlationId}`,
   options: {
-    tags: ['status'],
+    description: 'Retrieve persisted callback validation status by correlationId',
+    notes: 'Returns the stored status records (validation outcome and any errors) for a given correlationId.',
+    tags: ['api', 'status'],
     validate: {
       params: statusParamSchema,
       failAction: (_request, _h, err) => {

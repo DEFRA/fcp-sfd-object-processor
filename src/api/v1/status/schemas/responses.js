@@ -1,4 +1,5 @@
 import Joi from 'joi'
+import { constants as httpConstants } from 'node:http2'
 import { generateResponseSchemas } from '../../schemas/responses.js'
 import { schemaConsts } from '../../../../constants/schemas.js'
 
@@ -34,4 +35,12 @@ const statusSuccessSchema = Joi.object({
 })
   .required()
 
-export const statusResponseSchema = generateResponseSchemas(statusSuccessSchema)
+// The handler returns an empty data array when no records match, so it never
+// produces a 404. Only success (200), invalid correlationId (400), auth (401)
+// and unexpected errors (500) are reachable.
+export const statusResponseSchema = generateResponseSchemas(
+  statusSuccessSchema,
+  httpConstants.HTTP_STATUS_OK,
+  {},
+  { omit: [httpConstants.HTTP_STATUS_NOT_FOUND] }
+)

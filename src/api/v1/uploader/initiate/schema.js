@@ -47,5 +47,6 @@ export const initiateResponseSchema = generateResponseSchemas(
   {
     502: badGatewayResponseSchema,
     504: gatewayTimeoutResponseSchema
-  }
+  },
+  { omit: [httpConstants.HTTP_STATUS_NOT_FOUND] }
 )
