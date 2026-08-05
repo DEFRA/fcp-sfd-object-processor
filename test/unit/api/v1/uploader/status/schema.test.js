@@ -1,5 +1,22 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, vi } from 'vitest'
 import { constants as httpConstants } from 'node:http2'
+
+// Populate the MIME allow-list so `Joi.string().valid(...allowedMimeTypes)` is
+// an active constraint. Without this the config default is [] and valid() is
+// inert, which would let disallowed content types pass regardless of the schema.
+const { mockConfigGet } = vi.hoisted(() => ({
+  mockConfigGet: vi.fn().mockImplementation((key) => {
+    switch (key) {
+      case 'cdpUploaderMimeTypes': return ['application/pdf', 'image/jpeg', 'image/png']
+      case 'cdpUploaderDocumentTypes': return ['CS_Agreement_Evidence', 'CS_Application_Evidence']
+      default: return null
+    }
+  })
+}))
+
+vi.mock('../../../../../../src/config/index.js', () => ({
+  config: { get: mockConfigGet }
+}))
 
 import {
   uploaderStatusParamsSchema,
@@ -218,6 +235,100 @@ describe('cdpUploaderStatusResponseSchema', () => {
       }
       const { error } = cdpUploaderStatusResponseSchema.validate(payload)
       expect(error).toBeUndefined()
+    })
+
+    test('rejected file with contentType: application/zip (wrong type rejection) passes', () => {
+      const wrongTypeRejectedFile = {
+        fileId: 'a0b1c2d3-e4f5-4789-abcd-ef0123456789',
+        filename: 'test.zip',
+        contentType: 'application/zip',
+        fileStatus: 'rejected',
+        hasError: true,
+        errorMessage: 'The selected file type is not allowed'
+      }
+      const payload = {
+        uploadStatus: 'ready',
+        metadata: validMetadata,
+        form: { 'file-field': wrongTypeRejectedFile },
+        numberOfRejectedFiles: 1
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeUndefined()
+    })
+
+    test('rejected file with disallowed detectedContentType passes', () => {
+      const wrongTypeRejectedFile = {
+        fileId: 'a0b1c2d3-e4f5-4789-abcd-ef0123456789',
+        filename: 'test.zip',
+        contentType: 'application/zip',
+        detectedContentType: 'application/zip',
+        fileStatus: 'rejected',
+        hasError: true,
+        errorMessage: 'The selected file type is not allowed'
+      }
+      const payload = {
+        uploadStatus: 'ready',
+        metadata: validMetadata,
+        form: { 'file-field': wrongTypeRejectedFile },
+        numberOfRejectedFiles: 1
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeUndefined()
+    })
+
+    test('rejected file with errorCode passes', () => {
+      const payload = {
+        uploadStatus: 'ready',
+        metadata: validMetadata,
+        form: { 'file-field': { ...rejectedFile, errorCode: 'WRONG_TYPE' } },
+        numberOfRejectedFiles: 1
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeUndefined()
+    })
+
+    test('rejected file with errorParams passes', () => {
+      const payload = {
+        uploadStatus: 'ready',
+        metadata: validMetadata,
+        form: { 'file-field': { ...rejectedFile, errorCode: 'FILE_TOO_LARGE', errorParams: { maxFileSize: 10000000 } } },
+        numberOfRejectedFiles: 1
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeUndefined()
+    })
+
+    test('non-rejected (pending) file with disallowed contentType still fails', () => {
+      const pendingZipFile = {
+        fileId: 'a0b1c2d3-e4f5-4789-abcd-ef0123456789',
+        filename: 'test.zip',
+        contentType: 'application/zip',
+        fileStatus: 'pending'
+      }
+      const payload = {
+        uploadStatus: 'pending',
+        metadata: validMetadata,
+        form: { 'file-field': pendingZipFile }
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeDefined()
+      expect(error.message).toContain('contentType')
+    })
+
+    test('complete file with disallowed contentType still fails', () => {
+      const completeZipFile = {
+        ...completeFile,
+        contentType: 'application/zip'
+      }
+      const payload = {
+        uploadStatus: 'ready',
+        metadata: validMetadata,
+        form: { 'file-field': completeZipFile },
+        numberOfRejectedFiles: 0
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeDefined()
+      expect(error.message).toContain('contentType')
     })
 
     test('rejected file with contentLength: 0 passes via status endpoint', () => {

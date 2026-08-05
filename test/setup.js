@@ -5,6 +5,7 @@ process.env.CDP_UPLOADER_S3_BUCKET = process.env.CDP_UPLOADER_S3_BUCKET || 'test
 process.env.CDP_UPLOADER_S3_PATH = process.env.CDP_UPLOADER_S3_PATH || 'test/path'
 process.env.CDP_UPLOADER_CALLBACK_URL = process.env.CDP_UPLOADER_CALLBACK_URL || 'http://localhost:3000/callback'
 process.env.CDP_UPLOADER_MAX_FILE_SIZE = process.env.CDP_UPLOADER_MAX_FILE_SIZE || '10485760'
+process.env.CDP_UPLOADER_MIME_TYPES = process.env.CDP_UPLOADER_MIME_TYPES || 'image/png,image/jpeg,image/gif,image/tiff,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.ms-excel.sheet.macroEnabled.12,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-word.document.macroEnabled.12'
 process.env.MONGO_READ_PREFERENCE = process.env.MONGO_READ_PREFERENCE || 'primary'
 // Set the topic ARN used by tests to the expected value
 process.env.DOCUMENT_UPLOAD_EVENTS_TOPIC_ARN = 'arn:aws:sns:eu-west-2:000000000000:fcp_sfd_object_processor_events'

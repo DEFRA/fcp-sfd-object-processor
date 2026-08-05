@@ -26,7 +26,11 @@ export const uploaderStatusParamsSchema = Joi.object({
  * - Unprocessed (initiated/early pending): only fileId, filename, contentType
  * - Pending scan: fileStatus: 'pending' added, other fields still absent
  * - Complete: all fields present
- * - Rejected: includes detectedContentType, checksumSha256, hasError, errorMessage
+ * - Rejected: includes hasError, errorMessage, errorCode, errorParams.
+ *   For wrong-MIME-type rejections, contentType will be the disallowed type
+ *   (e.g. application/zip), so the allowedMimeTypes constraint is relaxed for
+ *   rejected files. detectedContentType is absent (file was never uploaded),
+ *   but is also relaxed in case cdp-uploader populates it in future.
  */
 const cdpStatusFileBaseSchema = Joi.object({
   fileId: Joi.string()
@@ -41,16 +45,17 @@ const cdpStatusFileBaseSchema = Joi.object({
     .description('Original name of the uploaded file')
     .label('filename'),
 
-  contentType: Joi.string()
-    .valid(...allowedMimeTypes)
-    .required()
-    .description('MIME type of the uploaded file')
-    .label('contentType'),
+  contentType: Joi.alternatives().conditional('fileStatus', {
+    is: 'rejected',
+    then: Joi.string().min(1).required().description('MIME type of the uploaded file (any value for rejected files)'),
+    otherwise: Joi.string().valid(...allowedMimeTypes).required().description('MIME type of the uploaded file')
+  }).label('contentType'),
 
-  detectedContentType: Joi.string()
-    .valid(...allowedMimeTypes)
-    .description('MIME type detected by virus scanning')
-    .label('detectedContentType'),
+  detectedContentType: Joi.alternatives().conditional('fileStatus', {
+    is: 'rejected',
+    then: Joi.string().min(1).description('MIME type detected by virus scanning (any value for rejected files)'),
+    otherwise: Joi.string().valid(...allowedMimeTypes).description('MIME type detected by virus scanning')
+  }).label('detectedContentType'),
 
   contentLength: Joi.number()
     .integer()
@@ -66,6 +71,10 @@ const cdpStatusFileBaseSchema = Joi.object({
   hasError: Joi.boolean().label('hasError'),
 
   errorMessage: Joi.string().min(1).max(ERROR_MESSAGE_MAX_LENGTH).label('errorMessage'),
+
+  errorCode: Joi.string().min(1).max(100).description('Stable error code for localisation (e.g. FILE_TOO_LARGE, WRONG_TYPE)').label('errorCode'),
+
+  errorParams: Joi.object().description('Additional parameters for the error code (e.g. { maxFileSize: 10000000 })').label('errorParams'),
 
   checksumSha256: Joi.string()
     .pattern(base64Pattern)
