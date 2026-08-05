@@ -8,7 +8,7 @@ const { mockHttpClient } = vi.hoisted(() => ({ mockHttpClient: vi.fn() }))
 vi.mock('../../../../../src/http/client.js', () => ({
   httpClient: mockHttpClient,
   TimeoutError: class TimeoutError extends Error {
-    constructor(msg) { super(msg); this.name = 'TimeoutError' }
+    constructor (msg) { super(msg); this.name = 'TimeoutError' }
   },
   NetworkError: class NetworkError extends Error { },
   AbortError: class AbortError extends Error { }
@@ -259,6 +259,42 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
     expect(file.hasError).toBe(true)
     expect(file.errorMessage).toBeDefined()
     expect(file.detectedContentType).toBeUndefined()
+  })
+
+  test('returns 200 with failure status and errorMessage when file is rejected for wrong MIME type', async () => {
+    const wrongTypeRejectedFile = {
+      fileId: 'c2d3e4f5-a6b7-4789-abcd-ef0123456789',
+      filename: 'test.zip',
+      contentType: 'application/zip',
+      fileStatus: 'rejected',
+      hasError: true,
+      errorCode: 'WRONG_TYPE',
+      errorMessage: 'The selected file type is not allowed'
+    }
+    const responseWithWrongType = {
+      uploadStatus: 'ready',
+      metadata: validMetadata,
+      form: { 'file-field': wrongTypeRejectedFile },
+      numberOfRejectedFiles: 1
+    }
+    mockHttpClient.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => responseWithWrongType
+    })
+
+    const response = await server.inject({
+      method: 'GET',
+      url: `/api/v1/uploader/status/${validUploadId}`
+    })
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+    expect(response.result.data.uploadStatus).toBe('failure')
+    const file = response.result.data.form['file-field']
+    expect(file.fileStatus).toBe('rejected')
+    expect(file.contentType).toBe('application/zip')
+    expect(file.errorMessage).toBe('The selected file type is not allowed')
+    expect(file.errorCode).toBe('WRONG_TYPE')
   })
 
   test('returns 200 with pending status for pending response with full metadata and empty form', async () => {
