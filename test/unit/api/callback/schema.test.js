@@ -485,14 +485,13 @@ describe('callbackPayloadSchema validation', () => {
       expect(error.details.some(d => d.path.includes('checksumSha256') && d.type === 'string.pattern.base')).toBe(true)
     })
 
-    test('missing detectedContentType fails validation', () => {
+    test('missing detectedContentType passes validation (absent for text-based or rejected-before-upload files)', () => {
       const { detectedContentType, ...fileUpload } = validFileUpload
       const { error } = callbackPayloadSchema.validate({
         ...validPayload,
         form: { 'test-file': fileUpload }
       })
-      expect(error).toBeDefined()
-      expect(error.details.some(d => d.path.includes('detectedContentType'))).toBe(true)
+      expect(error).toBeUndefined()
     })
 
     test('invalid detectedContentType format fails validation', () => {

@@ -75,10 +75,12 @@ const fileUploadBaseSchema = Joi.object({
     })
     .example(schemaConsts.CONTENT_TYPE_EXAMPLE).label('contentType'),
 
+  // Not required: CDP Uploader only populates this when it can detect the MIME
+  // type from the file's magic bytes. It is absent for plain text files, and for
+  // any file rejected before upload (see cdp-uploader README, "Callback" section).
   detectedContentType: Joi.string()
     .valid(...allowedMimeTypes)
-    .required()
-    .description('MIME type detected by virus scanning')
+    .description('MIME type detected by virus scanning (absent for text-based files or files rejected before upload)')
     .messages({
       'any.only': '"detectedContentType" must be one of the allowed MIME types'
     })
