@@ -57,6 +57,44 @@ describe('callback contract validation (fileStatus variants)', () => {
     expect(hasErrorMessageRef).toBe(true)
   })
 
+  test('COMPLETE text/plain file with no detectedContentType passes validation (CDP Uploader cannot detect MIME type from magic bytes for plain text)', () => {
+    const payload = { ...base }
+    const file = {
+      fileId: '550e8400-e29b-41d4-a716-446655440000',
+      filename: 'notes.txt',
+      contentType: 'text/plain',
+      fileStatus: 'complete',
+      s3Key: 'uploads/notes.txt',
+      s3Bucket: 'test-bucket',
+      checksumSha256: 'bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=',
+      contentLength: 42
+    }
+    payload.form = { 'text-file': file }
+
+    const { error } = callbackPayloadSchema.validate(payload)
+    expect(error).toBeUndefined()
+  })
+
+  test('COMPLETE file with an invalid detectedContentType still fails validation (allowedMimeTypes constraint preserved)', () => {
+    const payload = { ...base }
+    const file = {
+      fileId: '550e8400-e29b-41d4-a716-446655440000',
+      filename: 'notes.txt',
+      contentType: 'text/plain',
+      detectedContentType: 'application/x-malicious',
+      fileStatus: 'complete',
+      s3Key: 'uploads/notes.txt',
+      s3Bucket: 'test-bucket',
+      checksumSha256: 'bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=',
+      contentLength: 42
+    }
+    payload.form = { 'text-file': file }
+
+    const { error } = callbackPayloadSchema.validate(payload)
+    expect(error).toBeDefined()
+    expect(error.details.some(d => d.path.join('.').includes('detectedContentType') && d.type === 'any.only')).toBe(true)
+  })
+
   test('PENDING file with minimal fields passes validation', () => {
     const payload = { ...base }
     const minimalFile = {

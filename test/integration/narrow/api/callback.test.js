@@ -133,6 +133,52 @@ describe('POST to the /api/v1/callback route', async () => {
         expect(status.timestamp).toBeInstanceOf(Date)
       })
     })
+
+    test('should save a plain text file with no detectedContentType (CDP Uploader cannot detect MIME type from magic bytes for text/plain)', async () => {
+      const payload = {
+        ...mockScanAndUploadResponse,
+        form: {
+          'text-file': {
+            fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+            filename: 'notes.txt',
+            contentType: 'text/plain',
+            fileStatus: 'complete',
+            contentLength: 42,
+            checksumSha256: 'bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=', // pragma: allowlist secret
+            // detectedContentType intentionally omitted, matching the real CDP Uploader callback
+            s3Key: 'uploads/9fcaabe5-77ec-44db-8356-3a6e8dc51b13/notes.txt',
+            s3Bucket: 'cdp-example-node-frontend'
+          }
+        },
+        numberOfRejectedFiles: 0
+      }
+
+      const beforeMetadataCount = await db.collection(metadataCollection).countDocuments()
+      const beforeOutboxCount = await db.collection(outboxCollection).countDocuments()
+
+      const response = await server.inject({
+        method: 'POST',
+        url: '/api/v1/callback',
+        payload
+      })
+
+      const afterMetadataCount = await db.collection(metadataCollection).countDocuments()
+      const afterOutboxCount = await db.collection(outboxCollection).countDocuments()
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+      expect(afterMetadataCount - beforeMetadataCount).toBe(1)
+      expect(afterOutboxCount - beforeOutboxCount).toBe(1)
+
+      const statusRecords = await db.collection(statusCollection)
+        .find({ sbi: payload.metadata.sbi, validated: true })
+        .sort({ timestamp: -1 })
+        .limit(1)
+        .toArray()
+
+      expect(statusRecords).toHaveLength(1)
+      expect(statusRecords[0].validated).toBe(true)
+      expect(statusRecords[0].errors).toBeNull()
+    })
   })
 
   describe('fileStatus variants (rejected/pending)', async () => {
