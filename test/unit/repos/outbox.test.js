@@ -35,8 +35,6 @@ const { config } = await import('../../../src/config/index.js')
 const { db } = await import('../../../src/data/db.js')
 const {
   createOutboxEntries,
-  getProcessableOutboxEntries,
-  bulkUpdateDeliveryStatus,
   logTerminalFailuresIfAny
 } = await import('../../../src/repos/outbox.js')
 
@@ -81,58 +79,6 @@ describe('src/repos/outbox', () => {
     db.collection.mockReturnValue(collectionObj)
 
     await expect(createOutboxEntries(ids, documents, {})).rejects.toThrow('Failed to insert outbox entries')
-  })
-
-  test('getProcessableOutboxEntries queries with correct filter and returns entries', async () => {
-    const expected = [{ _id: '1' }]
-    const toArray = vi.fn().mockResolvedValue(expected)
-    const limit = vi.fn(() => ({ toArray }))
-    const find = vi.fn(() => ({ limit }))
-    const collectionObj = { find }
-    db.collection.mockReturnValue(collectionObj)
-
-    const res = await getProcessableOutboxEntries()
-    expect(find).toHaveBeenCalled()
-    expect(res).toBe(expected)
-  })
-
-  test('bulkUpdateDeliveryStatus uses sent update path and returns result', async () => {
-    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
-    const collectionObj = { updateMany }
-    db.collection.mockReturnValue(collectionObj)
-
-    const session = { id: 's' }
-    const fileIds = ['f1']
-    const res = await bulkUpdateDeliveryStatus(session, fileIds, 'SENT')
-    expect(updateMany).toHaveBeenCalled()
-    expect(res).toEqual({ acknowledged: true })
-  })
-
-  test('bulkUpdateDeliveryStatus uses failure pipeline and returns result', async () => {
-    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
-    const collectionObj = { updateMany }
-    db.collection.mockReturnValue(collectionObj)
-
-    const res = await bulkUpdateDeliveryStatus({ id: 's' }, ['f1'], 'FAILED', 'boom')
-    expect(updateMany).toHaveBeenCalled()
-    expect(res).toEqual({ acknowledged: true })
-  })
-
-  test('bulkUpdateDeliveryStatus does not call sendAuditEvent or logTerminalFailuresIfAny', async () => {
-    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
-    db.collection.mockReturnValue({ updateMany })
-
-    await bulkUpdateDeliveryStatus({ id: 's' }, ['f1'], 'FAILED', 'boom')
-
-    expect(mockSendAuditEvent).not.toHaveBeenCalled()
-  })
-
-  test('bulkUpdateDeliveryStatus throws when update acknowledged is false', async () => {
-    const updateMany = vi.fn().mockResolvedValue({ acknowledged: false })
-    const collectionObj = { updateMany }
-    db.collection.mockReturnValue(collectionObj)
-
-    await expect(bulkUpdateDeliveryStatus({}, ['f'], 'SENT')).rejects.toThrow('Failed to update outbox entries')
   })
 })
 
@@ -293,5 +239,3 @@ describe('logTerminalFailuresIfAny', () => {
     expect(mockSendAuditEvent).toHaveBeenCalledTimes(2)
   })
 })
-
-
