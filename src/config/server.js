@@ -144,6 +144,12 @@ export const serverConfig = {
       format: 'int',
       default: 5,
       env: 'OUTBOX_MAX_ATTEMPTS'
+    },
+    outboxClaimLeaseMs: {
+      doc: 'Duration in milliseconds for which an outbox processing claim remains valid',
+      format: 'int',
+      default: 300000,
+      env: 'OUTBOX_CLAIM_LEASE_MS'
     }
   },
   publicApiBaseUrl: {

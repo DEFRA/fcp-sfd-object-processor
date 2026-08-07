@@ -47,6 +47,7 @@ describe('data/db createIndexes', () => {
         case 'mongo.collections.status': return 'status'
         case 'mongo.collections.uploadMetadata': return 'uploadMetadata'
         case 'mongo.collections.sessions': return 'sessions'
+        case 'mongo.collections.outbox': return 'outbox'
         default: return undefined
       }
     })
@@ -56,12 +57,13 @@ describe('data/db createIndexes', () => {
     mocks.connect.mockResolvedValue({ db: mocks.db })
   })
 
-  test('creates status, metadata and sessions indexes on startup', async () => {
+  test('creates status, metadata, sessions and outbox indexes on startup', async () => {
     await import('../../../src/data/db.js')
 
     expect(mocks.collection).toHaveBeenNthCalledWith(1, 'status')
     expect(mocks.collection).toHaveBeenNthCalledWith(2, 'uploadMetadata')
     expect(mocks.collection).toHaveBeenNthCalledWith(3, 'sessions')
+    expect(mocks.collection).toHaveBeenNthCalledWith(4, 'outbox')
 
     expect(mocks.createIndexes).toHaveBeenNthCalledWith(1, [
       { key: { sbi: 1 }, name: 'status_sbi_idx' },
@@ -76,6 +78,11 @@ describe('data/db createIndexes', () => {
     expect(mocks.createIndexes).toHaveBeenNthCalledWith(3, [
       { key: { uploadId: 1 }, name: 'sessions_uploadId_idx', unique: true },
       { key: { timestamp: -1 }, name: 'sessions_timestamp_idx' }
+    ])
+
+    expect(mocks.createIndexes).toHaveBeenNthCalledWith(4, [
+      { key: { status: 1, createdAt: 1 }, name: 'outbox_status_createdAt_idx' },
+      { key: { status: 1, claimedUntil: 1 }, name: 'outbox_status_claimedUntil_idx' }
     ])
   })
 })
