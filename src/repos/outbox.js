@@ -7,6 +7,7 @@ import { sendAuditEvent } from '../messaging/outbound/audit/send-audit-event.js'
 const logger = createLogger()
 
 const outboxCollection = 'mongo.collections.outbox'
+const outboxMaxAttemptsConfig = 'messaging.outboxMaxAttempts'
 
 const buildFailurePipeline = (maxAttempts, errorMessage) => ([
   {
@@ -132,7 +133,7 @@ const createOutboxEntries = async (ids, documents, session) => {
 const getProcessableOutboxEntries = async () => {
   const collection = config.get(outboxCollection)
   const queryLimit = config.get('mongo.outboxQueryLimit')
-  const maxAttempts = config.get('messaging.outboxMaxAttempts')
+  const maxAttempts = config.get(outboxMaxAttemptsConfig)
 
   const processableEntries = await db.collection(collection)
     .find({ status: { $in: [PENDING, FAILED] }, attempts: { $lt: maxAttempts } })
@@ -145,7 +146,7 @@ const getProcessableOutboxEntries = async () => {
 const claimProcessableOutboxEntries = async (instanceId, now = new Date()) => {
   const collection = config.get(outboxCollection)
   const queryLimit = config.get('mongo.outboxQueryLimit')
-  const maxAttempts = config.get('messaging.outboxMaxAttempts')
+  const maxAttempts = config.get(outboxMaxAttemptsConfig)
   const leaseTimeoutMs = config.get('messaging.outboxClaimLeaseMs')
   const claimedUntil = new Date(now.getTime() + leaseTimeoutMs)
   const claimedEntries = []
@@ -231,7 +232,7 @@ const finalizeClaimedOutboxEntries = async (
   now = new Date()
 ) => {
   const collection = config.get(outboxCollection)
-  const maxAttempts = config.get('messaging.outboxMaxAttempts')
+  const maxAttempts = config.get(outboxMaxAttemptsConfig)
   const filter = {
     _id: { $in: entryIds },
     status: PROCESSING,
@@ -275,7 +276,7 @@ const finalizeClaimedOutboxEntries = async (
 
 const bulkUpdateDeliveryStatus = async (session, fileIds, status, error = null) => {
   const collection = config.get(outboxCollection)
-  const maxAttempts = config.get('messaging.outboxMaxAttempts')
+  const maxAttempts = config.get(outboxMaxAttemptsConfig)
 
   const filter = { 'payload.file.fileId': { $in: fileIds } }
 
