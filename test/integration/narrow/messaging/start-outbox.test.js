@@ -2,7 +2,7 @@ import { ObjectId } from 'mongodb'
 import { vi, describe, test, expect, beforeAll, afterEach, afterAll, beforeEach } from 'vitest'
 import { config } from '../../../../src/config/index.js'
 import { db } from '../../../../src/data/db.js'
-import { PENDING, SENT, FAILED } from '../../../../src/constants/outbox.js'
+import { PENDING, SENT, FAILED, PERMANENT_FAILURE } from '../../../../src/constants/outbox.js'
 import { publishPendingMessages } from '../../../../src/messaging/outbound/crm/doc-upload/publish-pending-messages.js'
 import { mockPendingMessages } from '../../../mocks/outbox.js'
 import { publishBatch } from '../../../../src/messaging/sns/publish-batch.js'
@@ -148,7 +148,7 @@ describe('Outbox message processing', () => {
     expect(publishBatch).toHaveBeenCalledTimes(1)
   })
 
-  test('should update outbox status to FAILED when messages fail to publish and leave metadata publishedAt as null', async () => {
+  test('should update outbox status to PERMANENT_FAILURE when messages fail to publish and leave metadata publishedAt as null', async () => {
     // Arrange: Create ObjectIds that will link outbox and metadata entries
     const metadataId1 = ObjectId.createFromHexString('507f1f77bcf86cd799439013')
     const metadataId2 = ObjectId.createFromHexString('507f1f77bcf86cd799439014')
@@ -226,14 +226,14 @@ describe('Outbox message processing', () => {
     // restore original max attempts
     config.set('messaging.outboxMaxAttempts', originalMaxAttempts)
 
-    // Assert: Verify outbox entries are updated to FAILED
+    // Assert: Verify outbox entries are updated to PERMANENT_FAILURE
     const updatedMessages = await db.collection(outboxCollection)
       .find({ _id: { $in: insertedIds } })
       .toArray()
 
     expect(updatedMessages).toHaveLength(2)
     updatedMessages.forEach(msg => {
-      expect(msg.status).toBe(FAILED)
+      expect(msg.status).toBe(PERMANENT_FAILURE)
       expect(msg.attempts).toBe(1)
       expect(msg.lastAttemptedAt).toBeInstanceOf(Date)
       expect(msg.error).toBe('Failed to send message')
@@ -662,10 +662,10 @@ describe('Outbox message processing', () => {
     // restore original max attempts
     config.set('messaging.outboxMaxAttempts', originalMaxAttempts)
 
-    // Assert: entry should now be FAILED with attempts=2
+    // Assert: entry should now be PERMANENT_FAILURE with attempts=2
     updated = await db.collection(outboxCollection).findOne({ _id: insertedId })
     expect(updated).toBeTruthy()
-    expect(updated.status).toBe(FAILED)
+    expect(updated.status).toBe(PERMANENT_FAILURE)
     expect(updated.attempts).toBe(2)
     expect(updated.lastAttemptedAt).toBeInstanceOf(Date)
     expect(updated.error).toBeTruthy()

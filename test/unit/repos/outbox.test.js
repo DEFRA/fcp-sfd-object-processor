@@ -210,7 +210,7 @@ describe('logTerminalFailuresIfAny', () => {
           reason: 'publish error'
         })
       }),
-      expect.stringContaining('FAILED after max attempts')
+      expect.stringContaining('PERMANENT_FAILURE after max attempts')
     )
   })
 

@@ -1,5 +1,5 @@
 import { config } from '../config/index.js'
-import { PENDING, PROCESSING, FAILED, SENT } from '../constants/outbox.js'
+import { PENDING, PROCESSING, FAILED, PERMANENT_FAILURE, SENT } from '../constants/outbox.js'
 import { db } from '../data/db.js'
 import { createLogger } from '../logging/logger.js'
 import { sendAuditEvent } from '../messaging/outbound/audit/send-audit-event.js'
@@ -12,7 +12,7 @@ const outboxMaxAttemptsConfig = 'messaging.outboxMaxAttempts'
 const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsVal, sess, errMsg) => {
   const terminalFilter = {
     'payload.file.fileId': { $in: fileIdsArr },
-    status: FAILED,
+    status: PERMANENT_FAILURE,
     attempts: { $gte: maxAttemptsVal }
   }
 
@@ -46,7 +46,7 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
         attempts,
         reason
       }
-    }, 'Outbox entry reached FAILED after max attempts')
+    }, 'Outbox entry reached PERMANENT_FAILURE after max attempts')
   })
 
   // Promise.allSettled fires audit events concurrently and never rejects, so an
@@ -102,6 +102,7 @@ const claimProcessableOutboxEntries = async (instanceId, now = new Date()) => {
 
   const filter = {
     attempts: { $lt: maxAttempts },
+    status: { $nin: [PERMANENT_FAILURE] },
     $or: [
       { status: PENDING },
       { status: PROCESSING, claimedUntil: { $lt: now } }
@@ -163,7 +164,7 @@ const buildClaimedFailurePipeline = (maxAttempts, error, now) => ([
   {
     $set: {
       status: {
-        $cond: [{ $gte: ['$attempts', maxAttempts] }, FAILED, PENDING]
+        $cond: [{ $gte: ['$attempts', maxAttempts] }, PERMANENT_FAILURE, PENDING]
       }
     }
   },

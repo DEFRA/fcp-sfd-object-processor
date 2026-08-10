@@ -7,7 +7,7 @@ import {
 } from '../../../../repos/outbox.js'
 import { bulkUpdatePublishedAtDate } from '../../../../repos/metadata.js'
 import { publishDocumentUploadMessageBatch } from './publish-document-upload-message-batch.js'
-import { PENDING, SENT, FAILED, BATCH_SIZE } from '../../../../constants/outbox.js'
+import { PENDING, SENT, FAILED, PERMANENT_FAILURE, BATCH_SIZE } from '../../../../constants/outbox.js'
 import { client } from '../../../../data/db.js'
 import { outboxWorkerId } from '../../outbox-worker-id.js'
 
@@ -105,7 +105,7 @@ const logTerminalFailures = (entries, failedResults) => {
         attempts: (entry.attempts || 0) + 1,
         reason
       }
-    }, 'Outbox entry will reach FAILED after this attempt')
+    }, 'Outbox entry will reach PERMANENT_FAILURE after this attempt')
   })
 }
 
@@ -167,7 +167,7 @@ const publishPendingMessages = async () => {
         const retryableEntries = finalizedFailed.filter(entry => ((entry.attempts || 0) + 1) < maxAttempts)
 
         logFinalizations(retryableEntries, PENDING)
-        logFinalizations(terminalEntries, FAILED)
+        logFinalizations(terminalEntries, PERMANENT_FAILURE)
         logTerminalFailures(terminalEntries, Failed)
 
         await logTerminalFailuresIfAny(

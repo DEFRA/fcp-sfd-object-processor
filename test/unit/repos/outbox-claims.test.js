@@ -53,6 +53,7 @@ describe('outbox claims', () => {
     expect(findOneAndUpdate).toHaveBeenCalledTimes(2)
     expect(findOneAndUpdate).toHaveBeenCalledWith({
       attempts: { $lt: 3 },
+      status: { $nin: ['PERMANENT_FAILURE'] },
       $or: [
         { status: 'PENDING' },
         { status: 'PROCESSING', claimedUntil: { $lt: now } }
@@ -170,7 +171,7 @@ describe('outbox claims', () => {
       },
       {
         $set: {
-          status: { $cond: [{ $gte: ['$attempts', 3] }, 'FAILED', 'PENDING'] }
+          status: { $cond: [{ $gte: ['$attempts', 3] }, 'PERMANENT_FAILURE', 'PENDING'] }
         }
       },
       { $unset: ['claimedAt', 'claimedUntil', 'claimedBy'] }

@@ -7,7 +7,7 @@ import {
   claimProcessableOutboxEntries,
   finalizeClaimedOutboxEntries
 } from '../../../../src/repos/outbox.js'
-import { FAILED, PENDING, PROCESSING, SENT } from '../../../../src/constants/outbox.js'
+import { FAILED, PENDING, PROCESSING, PERMANENT_FAILURE, SENT } from '../../../../src/constants/outbox.js'
 
 const originalCollectionName = config.get('mongo.collections.outbox')
 const collectionName = `${originalCollectionName}-claims-integration`
@@ -87,7 +87,7 @@ describe('outbox claim repository concurrency', () => {
         claimedAt: new Date('2026-08-07T09:59:00.000Z'),
         claimedUntil: new Date('2026-08-07T10:01:00.000Z')
       }),
-      buildEntry(testRunId, { status: FAILED, attempts: 3 })
+      buildEntry(testRunId, { status: PERMANENT_FAILURE, attempts: 3 })
     ])
 
     const claimed = await claimProcessableOutboxEntries('worker-2', now)
@@ -191,7 +191,7 @@ describe('outbox claim repository concurrency', () => {
 
     expect(result.matchedCount).toBe(2)
     expect(entries[0]).toMatchObject({ status: PENDING, attempts: 1, error: 'SNS unavailable' })
-    expect(entries[1]).toMatchObject({ status: FAILED, attempts: 3, error: 'SNS unavailable' })
+    expect(entries[1]).toMatchObject({ status: PERMANENT_FAILURE, attempts: 3, error: 'SNS unavailable' })
     expect(entries[0]).not.toHaveProperty('claimedBy')
     expect(entries[1]).not.toHaveProperty('claimedBy')
   })

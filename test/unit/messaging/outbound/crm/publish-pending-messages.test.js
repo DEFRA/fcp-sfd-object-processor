@@ -115,8 +115,8 @@ describe('publishPendingMessages observability', () => {
       'Outbox entry finalized as PENDING'
     )
     expect(mocks.loggerInfo).toHaveBeenCalledWith(
-      expect.objectContaining({ event: expect.objectContaining({ type: 'outbox_finalized', status: 'FAILED' }) }),
-      'Outbox entry finalized as FAILED'
+      expect.objectContaining({ event: expect.objectContaining({ type: 'outbox_finalized', status: 'PERMANENT_FAILURE' }) }),
+      'Outbox entry finalized as PERMANENT_FAILURE'
     )
     expect(mocks.loggerError).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -127,7 +127,7 @@ describe('publishPendingMessages observability', () => {
           reason: 'terminal_failure'
         })
       }),
-      'Outbox entry will reach FAILED after this attempt'
+      'Outbox entry will reach PERMANENT_FAILURE after this attempt'
     )
   })
 
