@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'vitest'
 import { db } from '../../../../src/data/db.js'
+import { config } from '../../../../src/config/index.js'
 
 describe('Create Mongo client', () => {
   test('should return an instance of database client', async () => {
@@ -24,11 +25,33 @@ describe('Create Mongo client', () => {
   })
 
   test('status collection should include required indexes', async () => {
-    const indexes = await db.collection('status').indexes()
+    const collectionName = config.get('mongo.collections.status')
+    const indexes = await db.collection(collectionName).indexes()
     const indexNames = indexes.map(index => index.name)
 
+    expect(indexNames).toContain('status_correlationId_timestamp_idx')
     expect(indexNames).toContain('status_sbi_idx')
     expect(indexNames).toContain('status_timestamp_idx')
     expect(indexNames).toContain('status_sbi_timestamp_idx')
+  })
+
+  test('uploadMetadata collection should include required indexes', async () => {
+    const collectionName = config.get('mongo.collections.uploadMetadata')
+    const indexes = await db.collection(collectionName).indexes()
+    const indexNames = indexes.map(index => index.name)
+
+    expect(indexNames).toContain('metadata_fileId_idx')
+    expect(indexNames).toContain('metadata_sbi_idx')
+  })
+
+  test('outbox collection should include required indexes', async () => {
+    const collectionName = config.get('mongo.collections.outbox')
+    const indexes = await db.collection(collectionName).indexes()
+    const indexNames = indexes.map(index => index.name)
+
+    expect(indexNames).toContain('outbox_status_createdAt_idx')
+    expect(indexNames).toContain('outbox_status_claimedUntil_idx')
+    expect(indexNames).toContain('outbox_status_attempts_idx')
+    expect(indexNames).toContain('outbox_payload_fileId_idx')
   })
 })

@@ -21,13 +21,15 @@ const createIndexes = async () => {
   const outboxCollection = config.get('mongo.collections.outbox')
 
   await db.collection(statusCollection).createIndexes([
+    { key: { correlationId: 1, timestamp: 1 }, name: 'status_correlationId_timestamp_idx' },
     { key: { sbi: 1 }, name: 'status_sbi_idx' },
     { key: { timestamp: -1 }, name: 'status_timestamp_idx' },
     { key: { sbi: 1, timestamp: -1 }, name: 'status_sbi_timestamp_idx' }
   ])
 
   await db.collection(uploadMetadataCollection).createIndexes([
-    { key: { 'file.fileId': 1 }, name: 'metadata_fileId_idx', unique: true }
+    { key: { 'file.fileId': 1 }, name: 'metadata_fileId_idx', unique: true },
+    { key: { 'metadata.sbi': 1 }, name: 'metadata_sbi_idx' }
   ])
 
   await db.collection(sessionsCollection).createIndexes([
@@ -37,7 +39,9 @@ const createIndexes = async () => {
 
   await db.collection(outboxCollection).createIndexes([
     { key: { status: 1, createdAt: 1 }, name: 'outbox_status_createdAt_idx' },
-    { key: { status: 1, claimedUntil: 1 }, name: 'outbox_status_claimedUntil_idx' }
+    { key: { status: 1, claimedUntil: 1 }, name: 'outbox_status_claimedUntil_idx' },
+    { key: { status: 1, attempts: 1 }, name: 'outbox_status_attempts_idx' },
+    { key: { 'payload.file.fileId': 1 }, name: 'outbox_payload_fileId_idx' }
   ])
 
   logger.info('MongoDB indexes created')

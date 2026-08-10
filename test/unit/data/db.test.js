@@ -66,13 +66,15 @@ describe('data/db createIndexes', () => {
     expect(mocks.collection).toHaveBeenNthCalledWith(4, 'outbox')
 
     expect(mocks.createIndexes).toHaveBeenNthCalledWith(1, [
+      { key: { correlationId: 1, timestamp: 1 }, name: 'status_correlationId_timestamp_idx' },
       { key: { sbi: 1 }, name: 'status_sbi_idx' },
       { key: { timestamp: -1 }, name: 'status_timestamp_idx' },
       { key: { sbi: 1, timestamp: -1 }, name: 'status_sbi_timestamp_idx' }
     ])
 
     expect(mocks.createIndexes).toHaveBeenNthCalledWith(2, [
-      { key: { 'file.fileId': 1 }, name: 'metadata_fileId_idx', unique: true }
+      { key: { 'file.fileId': 1 }, name: 'metadata_fileId_idx', unique: true },
+      { key: { 'metadata.sbi': 1 }, name: 'metadata_sbi_idx' }
     ])
 
     expect(mocks.createIndexes).toHaveBeenNthCalledWith(3, [
@@ -82,7 +84,9 @@ describe('data/db createIndexes', () => {
 
     expect(mocks.createIndexes).toHaveBeenNthCalledWith(4, [
       { key: { status: 1, createdAt: 1 }, name: 'outbox_status_createdAt_idx' },
-      { key: { status: 1, claimedUntil: 1 }, name: 'outbox_status_claimedUntil_idx' }
+      { key: { status: 1, claimedUntil: 1 }, name: 'outbox_status_claimedUntil_idx' },
+      { key: { status: 1, attempts: 1 }, name: 'outbox_status_attempts_idx' },
+      { key: { 'payload.file.fileId': 1 }, name: 'outbox_payload_fileId_idx' }
     ])
   })
 })
