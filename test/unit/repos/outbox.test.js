@@ -182,17 +182,24 @@ describe('logTerminalFailuresIfAny', () => {
     const doc = { _id: { toString: () => 'id' }, payload: {}, attempts: 2 }
     db.collection.mockReturnValue(buildCollectionMock([doc]))
 
-    await logTerminalFailuresIfAny('outbox', ['file-id-1'], 2, null)
+    await logTerminalFailuresIfAny('outbox', ['file-id-1'], 2, null, undefined, 'worker-1')
 
     expect(mockLoggerError).toHaveBeenCalledWith(
-      expect.objectContaining({
-        event: expect.objectContaining({
+      {
+        event: {
           type: 'outbox_terminal_failure',
-          entryId: null,
+          action: 'terminal_failure',
+          reference: 'id',
+          outcome: 'failure',
           reason: 'terminal_failure'
-        })
-      }),
-      expect.any(String)
+        },
+        process: { name: 'worker-1' },
+        error: {
+          type: 'outbox_terminal_failure',
+          message: 'terminal_failure'
+        }
+      },
+      'Outbox entry reached FAILED after max attempts; attempt=2'
     )
   })
 
@@ -200,17 +207,25 @@ describe('logTerminalFailuresIfAny', () => {
     const terminalDoc = buildTerminalDoc('f1', 2)
     db.collection.mockReturnValue(buildCollectionMock([terminalDoc]))
 
-    await logTerminalFailuresIfAny('outbox', ['f1'], 2, null, 'publish error')
+    await logTerminalFailuresIfAny('outbox', ['f1'], 2, null, 'publish error', 'worker-1')
 
     expect(mockLoggerError).toHaveBeenCalledWith(
-      expect.objectContaining({
-        event: expect.objectContaining({
+      {
+        event: {
           type: 'outbox_terminal_failure',
-          entryId: 'f1',
+          action: 'terminal_failure',
+          reference: 'outbox-doc-id',
+          outcome: 'failure',
           reason: 'publish error'
-        })
-      }),
-      expect.stringContaining('FAILED after max attempts')
+        },
+        process: { name: 'worker-1' },
+        transaction: { id: 'f1' },
+        error: {
+          type: 'outbox_terminal_failure',
+          message: 'publish error'
+        }
+      },
+      'Outbox entry reached FAILED after max attempts; attempt=2'
     )
   })
 
