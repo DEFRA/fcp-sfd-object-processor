@@ -1,4 +1,3 @@
-/* eslint-disable @stylistic/no-multiple-empty-lines */
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 vi.mock('../../../src/config/index.js', () => {
