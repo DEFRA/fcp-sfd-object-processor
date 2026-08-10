@@ -253,8 +253,8 @@ describe('Outbox message processing', () => {
     expect(publishBatch).toHaveBeenCalledTimes(1)
   })
 
-  test('should retrieve and retry FAILED messages alongside PENDING messages', async () => {
-    // Arrange: Create mix of PENDING and FAILED entries
+  test('should process PENDING messages without retrying terminal FAILED messages', async () => {
+    // Arrange: Create a terminal FAILED entry alongside a PENDING entry
     const metadataId1 = ObjectId.createFromHexString('507f1f77bcf86cd799439015')
     const metadataId2 = ObjectId.createFromHexString('507f1f77bcf86cd799439016')
 
@@ -307,32 +307,33 @@ describe('Outbox message processing', () => {
     const insertResult = await db.collection(outboxCollection).insertMany(testMessages)
     const insertedIds = Object.values(insertResult.insertedIds)
 
-    // Mock SNS publishBatch to return successful response
+    // Mock SNS publishBatch to return a successful response for the PENDING entry only
     publishBatch.mockResolvedValue({
-      Successful: insertedIds.map((id, index) => ({
-        Id: testMessages[index].payload.file.fileId,
-        MessageId: `sns-message-${index}`,
-        SequenceNumber: String(index)
-      })),
+      Successful: [{
+        Id: testMessages[1].payload.file.fileId,
+        MessageId: 'sns-message-pending',
+        SequenceNumber: '1'
+      }],
       Failed: []
     })
 
     // Act: Run publishPendingMessages
     await publishPendingMessages()
 
-    // Assert: All PENDING and FAILED messages should be processed
+    // Assert: FAILED remains terminal and PENDING is processed
     const updatedMessages = await db.collection(outboxCollection)
       .find({ _id: { $in: insertedIds } })
       .toArray()
 
     expect(updatedMessages).toHaveLength(2)
-    expect(updatedMessages[0].attempts).toBe(2)
-    expect(updatedMessages[1].attempts).toBe(1)
-
-    updatedMessages.forEach(msg => {
-      expect(msg.status).toBe(SENT)
-      expect(msg.lastAttemptedAt).toBeInstanceOf(Date)
-    })
+    const failedMessage = updatedMessages.find(message => message._id.equals(insertedIds[0]))
+    const sentMessage = updatedMessages.find(message => message._id.equals(insertedIds[1]))
+    expect(failedMessage.status).toBe(FAILED)
+    expect(failedMessage.attempts).toBe(1)
+    expect(failedMessage.lastAttemptedAt).toBeUndefined()
+    expect(sentMessage.status).toBe(SENT)
+    expect(sentMessage.attempts).toBe(1)
+    expect(sentMessage.lastAttemptedAt).toBeInstanceOf(Date)
 
     // Assert: Verify metadata entries have publishedAt updated
     const updatedMetadata = await db.collection(metadataCollection)
@@ -340,10 +341,8 @@ describe('Outbox message processing', () => {
       .toArray()
 
     expect(updatedMetadata).toHaveLength(2)
-    updatedMetadata.forEach(doc => {
-      expect(doc.messaging.publishedAt).toBeInstanceOf(Date)
-      expect(doc.messaging.publishedAt).not.toBeNull()
-    })
+    expect(updatedMetadata.find(doc => doc._id.equals(metadataId1)).messaging.publishedAt).toBeNull()
+    expect(updatedMetadata.find(doc => doc._id.equals(metadataId2)).messaging.publishedAt).toBeInstanceOf(Date)
 
     // Verify publishBatch was called
     expect(publishBatch).toHaveBeenCalledTimes(1)
@@ -463,12 +462,12 @@ describe('Outbox message processing', () => {
     expect(publishBatch).toHaveBeenCalledTimes(1)
   })
 
-  test('should respect query limit when retrieving PENDING and FAILED messages combined', async () => {
+  test('should respect query limit while excluding terminal FAILED messages', async () => {
     // Arrange: Set query limit to 3
     const originalQueryLimit = config.get('mongo.outboxQueryLimit')
     config.set('mongo.outboxQueryLimit', 3)
 
-    // Create metadata and outbox entries - 3 PENDING + 3 FAILED = 6 total
+    // Create metadata and outbox entries - 3 PENDING + 3 terminal FAILED
     const metadataIds = [
       ObjectId.createFromHexString('507f1f77bcf86cd799439018'),
       ObjectId.createFromHexString('507f1f77bcf86cd799439019'),

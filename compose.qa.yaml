@@ -1,0 +1,10 @@
+services:
+  fcp-sfd-object-processor:
+    container_name: !reset null
+    ports: !reset []
+
+  mongodb:
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./scripts/qa:/qa:ro
