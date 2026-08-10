@@ -1,5 +1,5 @@
 import { config } from '../config/index.js'
-import { PENDING, FAILED, SENT } from '../constants/outbox.js'
+import { PENDING, PROCESSING, FAILED, SENT } from '../constants/outbox.js'
 import { db } from '../data/db.js'
 import { createLogger } from '../logging/logger.js'
 import { sendAuditEvent } from '../messaging/outbound/audit/send-audit-event.js'
@@ -7,44 +7,7 @@ import { sendAuditEvent } from '../messaging/outbound/audit/send-audit-event.js'
 const logger = createLogger()
 
 const outboxCollection = 'mongo.collections.outbox'
-
-const buildFailurePipeline = (maxAttempts, errorMessage) => ([
-  {
-    $set: {
-      lastAttemptedAt: new Date(),
-      ...(errorMessage && { error: errorMessage })
-    }
-  },
-  {
-    $set: {
-      attempts: { $add: ['$attempts', 1] }
-    }
-  },
-  {
-    $set: {
-      status: {
-        // `attempts` has already been incremented in the previous stage,
-        // compare the updated value against `maxAttempts` to avoid double-increment.
-        $cond: [{ $gte: ['$attempts', maxAttempts] }, FAILED, PENDING]
-      }
-    }
-  }
-])
-
-const performSentUpdate = (collectionName, statusValue, filterObj, sess) => {
-  const updateDoc = {
-    $set: {
-      status: statusValue,
-      lastAttemptedAt: new Date()
-    },
-    $inc: { attempts: 1 }
-  }
-  return db.collection(collectionName).updateMany(filterObj, updateDoc, { session: sess })
-}
-
-const performFailureUpdate = (collectionName, filterObj, pipeline, sess) => {
-  return db.collection(collectionName).updateMany(filterObj, pipeline, { session: sess })
-}
+const outboxMaxAttemptsConfig = 'messaging.outboxMaxAttempts'
 
 const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsVal, sess, errMsg) => {
   const terminalFilter = {
@@ -129,45 +92,132 @@ const createOutboxEntries = async (ids, documents, session) => {
   return insertedIds
 }
 
-const getProcessableOutboxEntries = async () => {
+const claimProcessableOutboxEntries = async (instanceId, now = new Date()) => {
   const collection = config.get(outboxCollection)
   const queryLimit = config.get('mongo.outboxQueryLimit')
-  const maxAttempts = config.get('messaging.outboxMaxAttempts')
+  const maxAttempts = config.get(outboxMaxAttemptsConfig)
+  const leaseTimeoutMs = config.get('messaging.outboxClaimLeaseMs')
+  const claimedUntil = new Date(now.getTime() + leaseTimeoutMs)
+  const claimedEntries = []
 
-  const processableEntries = await db.collection(collection)
-    .find({ status: { $in: [PENDING, FAILED] }, attempts: { $lt: maxAttempts } })
-    .limit(queryLimit)
-    .toArray()
+  const filter = {
+    attempts: { $lt: maxAttempts },
+    $or: [
+      { status: PENDING },
+      { status: PROCESSING, claimedUntil: { $lt: now } }
+    ]
+  }
 
-  return processableEntries
+  const update = {
+    $set: {
+      status: PROCESSING,
+      claimedAt: now,
+      claimedUntil,
+      claimedBy: instanceId
+    }
+  }
+
+  for (let index = 0; index < queryLimit; index++) {
+    const entry = await db.collection(collection).findOneAndUpdate(filter, update, {
+      sort: { createdAt: 1 },
+      returnDocument: 'before'
+    })
+
+    if (!entry) {
+      break
+    }
+
+    if (entry.status === PROCESSING) {
+      logger.warn({
+        event: {
+          type: 'outbox_claim_reclaimed',
+          reference: entry._id?.toString(),
+          previousClaimedBy: entry.claimedBy,
+          previousClaimedUntil: entry.claimedUntil,
+          claimedBy: instanceId,
+          claimedUntil
+        }
+      }, 'Reclaimed expired outbox claim')
+    }
+
+    claimedEntries.push({
+      ...entry,
+      status: PROCESSING,
+      claimedAt: now,
+      claimedUntil,
+      claimedBy: instanceId
+    })
+  }
+
+  return claimedEntries
 }
 
-const bulkUpdateDeliveryStatus = async (session, fileIds, status, error = null) => {
-  const collection = config.get(outboxCollection)
-  const maxAttempts = config.get('messaging.outboxMaxAttempts')
+const buildClaimedFailurePipeline = (maxAttempts, error, now) => ([
+  {
+    $set: {
+      attempts: { $add: [{ $ifNull: ['$attempts', 0] }, 1] },
+      lastAttemptedAt: now,
+      ...(error && { error })
+    }
+  },
+  {
+    $set: {
+      status: {
+        $cond: [{ $gte: ['$attempts', maxAttempts] }, FAILED, PENDING]
+      }
+    }
+  },
+  {
+    $unset: ['claimedAt', 'claimedUntil', 'claimedBy']
+  }
+])
 
-  const filter = { 'payload.file.fileId': { $in: fileIds } }
+const finalizeClaimedOutboxEntries = async (
+  session,
+  entryIds,
+  instanceId,
+  deliveryStatus,
+  error = null,
+  now = new Date()
+) => {
+  const collection = config.get(outboxCollection)
+  const maxAttempts = config.get(outboxMaxAttemptsConfig)
+  const filter = {
+    _id: { $in: entryIds },
+    status: PROCESSING,
+    claimedBy: instanceId,
+    claimedUntil: { $gt: now }
+  }
+  const options = session ? { session } : {}
 
   let updateResult
 
-  // Note: `status` signals the outcome of this delivery attempt as passed
-  // by the caller. It does not necessarily represent the final persisted
-  // status for the outbox entry — after the update the entry may remain
-  // `PENDING` if `attempts` (after increment) are still below `maxAttempts`.
-
-  if (status === SENT) {
-    // On successful delivery: set status, lastAttemptedAt and increment attempts
-    updateResult = await performSentUpdate(collection, status, filter, session)
+  if (deliveryStatus === SENT) {
+    updateResult = await db.collection(collection).updateMany(filter, {
+      $set: {
+        status: SENT,
+        lastAttemptedAt: now
+      },
+      $inc: { attempts: 1 },
+      $unset: {
+        claimedAt: '',
+        claimedUntil: '',
+        claimedBy: '',
+        error: ''
+      }
+    }, options)
+  } else if (deliveryStatus === FAILED) {
+    updateResult = await db.collection(collection).updateMany(
+      filter,
+      buildClaimedFailurePipeline(maxAttempts, error, now),
+      options
+    )
   } else {
-    // On failure: increment attempts, set lastAttemptedAt and error; only mark FINAL FAILED
-    // when attempts after increment reach or exceed maxAttempts. Use update pipeline so we can
-    // compute the new attempts value and set status conditionally.
-    const pipeline = buildFailurePipeline(maxAttempts, error)
-    updateResult = await performFailureUpdate(collection, filter, pipeline, session)
+    throw new Error(`Unsupported outbox delivery status: ${deliveryStatus}`)
   }
 
   if (!updateResult.acknowledged) {
-    throw new Error('Failed to update outbox entries')
+    throw new Error('Failed to finalize claimed outbox entries')
   }
 
   return updateResult
@@ -175,7 +225,7 @@ const bulkUpdateDeliveryStatus = async (session, fileIds, status, error = null) 
 
 export {
   createOutboxEntries,
-  getProcessableOutboxEntries,
-  bulkUpdateDeliveryStatus,
+  claimProcessableOutboxEntries,
+  finalizeClaimedOutboxEntries,
   logTerminalFailuresIfAny
 }

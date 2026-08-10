@@ -1,312 +1,206 @@
-import { beforeEach, describe, expect, vi, test } from 'vitest'
-import { publishPendingMessages } from '../../../../src/messaging/outbound/crm/doc-upload/publish-pending-messages.js'
-import { getProcessableOutboxEntries, bulkUpdateDeliveryStatus } from '../../../../src/repos/outbox.js'
-import { bulkUpdatePublishedAtDate } from '../../../../src/repos/metadata.js'
-import { publishDocumentUploadMessageBatch } from '../../../../src/messaging/outbound/crm/doc-upload/publish-document-upload-message-batch.js'
-import { client } from '../../../../src/data/db.js'
-import { SENT, FAILED } from '../../../../src/constants/outbox.js'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 
-vi.mock('../../../../src/data/db.js', () => ({
-  db: { collection: vi.fn() },
-  client: {
-    startSession: vi.fn()
-  }
+import { FAILED, SENT } from '../../../../src/constants/outbox.js'
+
+const mocks = vi.hoisted(() => ({
+  claim: vi.fn(),
+  finalize: vi.fn(),
+  logTerminal: vi.fn(),
+  updatePublishedAt: vi.fn(),
+  publishBatch: vi.fn(),
+  startSession: vi.fn(),
+  loggerInfo: vi.fn(),
+  loggerWarn: vi.fn(),
+  loggerError: vi.fn(),
+  configGet: vi.fn((key) => {
+    if (key === 'messaging.outboxMaxAttempts') return 2
+    if (key === 'mongo.collections.outbox') return 'outbox'
+    return null
+  })
 }))
 
 vi.mock('../../../../src/repos/outbox.js', () => ({
-  getProcessableOutboxEntries: vi.fn(),
-  bulkUpdateDeliveryStatus: vi.fn(),
-  logTerminalFailuresIfAny: vi.fn().mockResolvedValue(undefined)
+  claimProcessableOutboxEntries: mocks.claim,
+  finalizeClaimedOutboxEntries: mocks.finalize,
+  logTerminalFailuresIfAny: mocks.logTerminal
 }))
-vi.mock('../../../../src/messaging/outbound/crm/doc-upload/publish-document-upload-message-batch.js')
-vi.mock('../../../../src/repos/metadata.js')
+
+vi.mock('../../../../src/repos/metadata.js', () => ({
+  bulkUpdatePublishedAtDate: mocks.updatePublishedAt
+}))
+
+vi.mock('../../../../src/messaging/outbound/crm/doc-upload/publish-document-upload-message-batch.js', () => ({
+  publishDocumentUploadMessageBatch: mocks.publishBatch
+}))
+
+vi.mock('../../../../src/messaging/outbound/outbox-worker-id.js', () => ({
+  outboxWorkerId: 'worker-1'
+}))
+
+vi.mock('../../../../src/data/db.js', () => ({
+  client: { startSession: mocks.startSession }
+}))
+
 vi.mock('../../../../src/config/index.js', () => ({
-  config: {
-    get: vi.fn((key) => {
-      if (key === 'mongo.collections.outbox') return 'outbox'
-      if (key === 'aws.messaging.topics.documentUploadEvents') {
-        return 'arn:aws:sns:eu-west-2:000000000000:fcp_sfd_object_processor_events'
-      }
-      if (key === 'messaging.outboxMaxAttempts') return 2
-      return null
-    })
-  }
+  config: { get: mocks.configGet }
 }))
 
 vi.mock('../../../../src/logging/logger.js', () => ({
-  createLogger: vi.fn().mockReturnValue({
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn()
+  createLogger: () => ({
+    info: mocks.loggerInfo,
+    warn: mocks.loggerWarn,
+    error: mocks.loggerError
   })
 }))
 
-describe('publishPendingMessages', () => {
-  let mockSession
+const { publishPendingMessages } = await import('../../../../src/messaging/outbound/crm/doc-upload/publish-pending-messages.js')
 
-  const mockPendingMessages = [
-    {
-      _id: 'message-id-1',
-      messageId: 'metadata-id-1',
-      payload: {
-        metadata: { sbi: '123456789' },
-        file: { fileId: 'file-1', filename: 'test1.pdf' }
-      },
-      status: 'pending',
-      attempts: 0,
-      createdAt: new Date()
-    },
-    {
-      _id: 'message-id-2',
-      messageId: 'metadata-id-2',
-      payload: {
-        metadata: { sbi: '987654321' },
-        file: { fileId: 'file-2', filename: 'test2.pdf' }
-      },
-      status: 'pending',
-      attempts: 0,
-      createdAt: new Date()
-    }
-  ]
+const buildEntry = (id, attempts = 0) => ({
+  _id: `outbox-${id}`,
+  messageId: `metadata-${id}`,
+  payload: { file: { fileId: `file-${id}` } },
+  status: 'PROCESSING',
+  attempts,
+  claimedBy: 'worker-1',
+  claimedAt: new Date('2026-08-07T10:00:00.000Z'),
+  claimedUntil: new Date('2026-08-07T10:05:00.000Z')
+})
+
+describe('publishPendingMessages', () => {
+  let session
 
   beforeEach(() => {
     vi.clearAllMocks()
-
-    mockSession = {
-      withTransaction: vi.fn((callback) => callback()),
+    session = {
+      withTransaction: vi.fn(async callback => callback()),
       endSession: vi.fn()
     }
-
-    client.startSession.mockReturnValue(mockSession)
+    mocks.startSession.mockReturnValue(session)
+    mocks.finalize.mockResolvedValue({ acknowledged: true, matchedCount: 1 })
+    mocks.logTerminal.mockResolvedValue(undefined)
+    mocks.updatePublishedAt.mockResolvedValue({ acknowledged: true })
+    mocks.publishBatch.mockResolvedValue({ Successful: [], Failed: [] })
   })
 
-  test('should fetch pending messages and publish them', async () => {
-    getProcessableOutboxEntries.mockResolvedValue(mockPendingMessages)
-    publishDocumentUploadMessageBatch.mockResolvedValue({
-      Successful: [{ Id: 'id-1', messageId: 'message-id-1', SequenceNumber: 1 }],
-      Failed: [{ Id: 'id-2', messageId: 'message-id-2', SequenceNumber: 2 }]
+  test('claims with the process worker ID and finalizes SNS results by outbox ID', async () => {
+    const successfulEntry = buildEntry('success')
+    const failedEntry = buildEntry('failure')
+    mocks.claim.mockResolvedValue([successfulEntry, failedEntry])
+    mocks.publishBatch.mockResolvedValue({
+      Successful: [{ Id: 'file-success' }],
+      Failed: [{ Id: 'file-failure', Message: 'SNS unavailable' }]
     })
 
     await publishPendingMessages()
 
-    expect(getProcessableOutboxEntries).toHaveBeenCalledOnce()
-  })
-
-  test('should process messages in batches of 10 when more than batch size returned from getProcessableOutboxEntries', async () => {
-    // Create 25 mock messages
-    const largeBatch = Array.from({ length: 25 }, (_, index) => ({
-      _id: `message-id-${index}`,
-      messageId: `metadata-id-${index}`,
-      payload: {
-        metadata: { sbi: `${123456789 + index}` },
-        file: { fileId: `file-${index}`, filename: `test${index}.pdf` }
-      },
-      status: 'pending',
-      attempts: 0,
-      createdAt: new Date()
-    }))
-
-    getProcessableOutboxEntries.mockResolvedValue(largeBatch)
-    publishDocumentUploadMessageBatch.mockResolvedValue({
-      Successful: [],
-      Failed: []
-    })
-
-    await publishPendingMessages()
-
-    expect(getProcessableOutboxEntries).toHaveBeenCalledOnce()
-
-    // Should be called 3 times: 10 + 10 + 5
-    expect(publishDocumentUploadMessageBatch).toHaveBeenCalledTimes(3)
-
-    // First batch: messages 0-9 (10 messages)
-    expect(publishDocumentUploadMessageBatch).toHaveBeenNthCalledWith(1, largeBatch.slice(0, 10))
-
-    // Second batch: messages 10-19 (10 messages)
-    expect(publishDocumentUploadMessageBatch).toHaveBeenNthCalledWith(2, largeBatch.slice(10, 20))
-
-    // Third batch: messages 20-24 (5 messages)
-    expect(publishDocumentUploadMessageBatch).toHaveBeenNthCalledWith(3, largeBatch.slice(20, 25))
-  })
-
-  test('should handle when there are no pending messages', async () => {
-    getProcessableOutboxEntries.mockResolvedValue([])
-
-    await publishPendingMessages()
-
-    expect(getProcessableOutboxEntries).toHaveBeenCalledOnce()
-    expect(publishDocumentUploadMessageBatch).not.toHaveBeenCalled()
-    expect(bulkUpdateDeliveryStatus).not.toHaveBeenCalled()
-    expect(bulkUpdatePublishedAtDate).not.toHaveBeenCalled()
-  })
-
-  test('should update status to FAILED when publishDocumentUploadMessageBatch returns Failed messages', async () => {
-    getProcessableOutboxEntries.mockResolvedValue(mockPendingMessages)
-    publishDocumentUploadMessageBatch.mockResolvedValue({
-      Successful: [],
-      Failed: [{ Id: 'message-id-1', messageId: 'sns-message-id', SequenceNumber: 1 }]
-    })
-    await publishPendingMessages()
-
-    expect(getProcessableOutboxEntries).toHaveBeenCalledOnce()
-    expect(publishDocumentUploadMessageBatch).toHaveBeenCalledTimes(1)
-
-    expect(bulkUpdateDeliveryStatus).toHaveBeenCalledTimes(1)
-    expect(bulkUpdateDeliveryStatus).toHaveBeenCalledWith(mockSession, ['message-id-1'], FAILED, 'Failed to send message')
-    expect(bulkUpdatePublishedAtDate).not.toHaveBeenCalled()
-  })
-
-  test('should allow transient failure to be recovered on subsequent run', async () => {
-    // Arrange: only one pending message returned each run
-    const singleMessage = [mockPendingMessages[0]]
-    getProcessableOutboxEntries
-      .mockResolvedValueOnce(singleMessage)
-      .mockResolvedValueOnce(singleMessage)
-
-    // First run: publishing fails for the message
-    publishDocumentUploadMessageBatch
-      .mockResolvedValueOnce({ Successful: [], Failed: [{ Id: 'message-id-1' }] })
-      // Second run: publishing succeeds
-      .mockResolvedValueOnce({ Successful: [{ Id: 'message-id-1' }], Failed: [] })
-
-    // Act: run twice to simulate retry window
-    await publishPendingMessages()
-    await publishPendingMessages()
-
-    // Assert: first call records failure, second call marks as SENT and updates publishedAt
-    expect(bulkUpdateDeliveryStatus).toHaveBeenCalledTimes(2)
-    expect(bulkUpdateDeliveryStatus).toHaveBeenNthCalledWith(1, mockSession, ['message-id-1'], FAILED, 'Failed to send message')
-    expect(bulkUpdateDeliveryStatus).toHaveBeenNthCalledWith(2, mockSession, ['message-id-1'], SENT)
-    expect(bulkUpdatePublishedAtDate).toHaveBeenCalledTimes(1)
-  })
-
-  test('should resolve and treat all entries as failed when publishDocumentUploadMessageBatch returns all Failed', async () => {
-    getProcessableOutboxEntries.mockResolvedValue(mockPendingMessages)
-    publishDocumentUploadMessageBatch.mockResolvedValue({
-      Successful: [],
-      Failed: mockPendingMessages.map(e => ({ Id: e.payload.file.fileId, Code: 'Error', Message: 'sns down' }))
-    })
-
-    await expect(publishPendingMessages()).resolves.not.toThrow()
-
-    expect(getProcessableOutboxEntries).toHaveBeenCalledOnce()
-    expect(publishDocumentUploadMessageBatch).toHaveBeenCalledTimes(1)
-    expect(bulkUpdateDeliveryStatus).toHaveBeenCalledWith(
-      mockSession,
-      expect.arrayContaining([mockPendingMessages[0].payload.file.fileId, mockPendingMessages[1].payload.file.fileId]),
+    expect(mocks.claim).toHaveBeenCalledWith('worker-1')
+    expect(mocks.finalize).toHaveBeenNthCalledWith(
+      1,
+      session,
+      ['outbox-success'],
+      'worker-1',
+      SENT,
+      null
+    )
+    expect(mocks.finalize).toHaveBeenNthCalledWith(
+      2,
+      session,
+      ['outbox-failure'],
+      'worker-1',
       FAILED,
       'Failed to send message'
     )
-    expect(mockSession.endSession).toHaveBeenCalledOnce()
+    expect(mocks.updatePublishedAt).toHaveBeenCalledWith(session, ['file-success'])
+    expect(mocks.logTerminal).toHaveBeenCalledWith(
+      'outbox',
+      ['file-failure'],
+      2,
+      null,
+      'Failed to send message'
+    )
+    expect(session.withTransaction).toHaveBeenCalledOnce()
+    expect(session.endSession).toHaveBeenCalledOnce()
   })
 
-  test('should use transaction session for database operations', async () => {
-    getProcessableOutboxEntries.mockResolvedValue(mockPendingMessages)
-    publishDocumentUploadMessageBatch.mockResolvedValue({
-      Successful: [
-        { Id: mockPendingMessages[0].messageId }, { Id: mockPendingMessages[1].messageId }
-      ],
+  test('does not publish when no entries can be claimed', async () => {
+    mocks.claim.mockResolvedValue([])
+
+    await publishPendingMessages()
+
+    expect(mocks.publishBatch).not.toHaveBeenCalled()
+    expect(mocks.finalize).not.toHaveBeenCalled()
+    expect(session.endSession).toHaveBeenCalledOnce()
+  })
+
+  test('preserves SNS batches of ten', async () => {
+    const entries = Array.from({ length: 21 }, (_, index) => buildEntry(index))
+    mocks.claim.mockResolvedValue(entries)
+
+    await publishPendingMessages()
+
+    expect(mocks.publishBatch).toHaveBeenCalledTimes(3)
+    expect(mocks.publishBatch).toHaveBeenNthCalledWith(1, entries.slice(0, 10))
+    expect(mocks.publishBatch).toHaveBeenNthCalledWith(2, entries.slice(10, 20))
+    expect(mocks.publishBatch).toHaveBeenNthCalledWith(3, entries.slice(20))
+  })
+
+  test('updates metadata only for successful entries whose claims are finalized', async () => {
+    const accepted = buildEntry('accepted')
+    const rejected = buildEntry('rejected')
+    mocks.claim.mockResolvedValue([accepted, rejected])
+    mocks.publishBatch.mockResolvedValue({
+      Successful: [{ Id: 'file-accepted' }, { Id: 'file-rejected' }],
+      Failed: []
+    })
+    mocks.finalize
+      .mockResolvedValueOnce({ acknowledged: true, matchedCount: 1 })
+      .mockResolvedValueOnce({ acknowledged: true, matchedCount: 0 })
+
+    await publishPendingMessages()
+
+    expect(mocks.updatePublishedAt).toHaveBeenCalledWith(session, ['file-accepted'])
+    expect(mocks.loggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: expect.objectContaining({
+          type: 'outbox_finalization_rejected',
+          reference: 'outbox-rejected',
+          claimedBy: 'worker-1'
+        })
+      }),
+      'Outbox entry could not be finalized by this worker'
+    )
+  })
+
+  test('leaves unmatched SNS results claimed for lease recovery and logs them', async () => {
+    mocks.claim.mockResolvedValue([buildEntry('known')])
+    mocks.publishBatch.mockResolvedValue({
+      Successful: [{ Id: 'file-unknown' }],
       Failed: []
     })
 
     await publishPendingMessages()
 
-    expect(bulkUpdateDeliveryStatus).toHaveBeenCalledWith(mockSession, [mockPendingMessages[0].messageId, mockPendingMessages[1].messageId], SENT)
-    expect(bulkUpdatePublishedAtDate).toHaveBeenCalledWith(mockSession, [mockPendingMessages[0].messageId, mockPendingMessages[1].messageId])
+    expect(mocks.finalize).not.toHaveBeenCalled()
+    expect(mocks.loggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: expect.objectContaining({
+          type: 'outbox_publish_result_unmatched',
+          entryId: 'file-unknown'
+        })
+      }),
+      'SNS publish result did not match a claimed outbox entry'
+    )
   })
 
-  test('should end session even if error occurs', async () => {
-    const mockError = new Error('Database error')
-    getProcessableOutboxEntries.mockRejectedValue(mockError)
+  test('ends the session and rethrows claim errors', async () => {
+    mocks.claim.mockRejectedValue(new Error('Mongo unavailable'))
 
-    await expect(publishPendingMessages()).rejects.toThrow('Database error')
+    await expect(publishPendingMessages()).rejects.toThrow('Mongo unavailable')
 
-    expect(mockSession.endSession).toHaveBeenCalledOnce()
-  })
-
-  test('should log imminent terminal failures when attempts reach maxAttempts', async () => {
-    const { createLogger } = await import('../../../../src/logging/logger.js')
-    const logger = createLogger()
-
-    const imminentMessage = [
-      {
-        _id: 'imminent-id',
-        messageId: 'metadata-id-imminent',
-        payload: {
-          metadata: { sbi: '111111111' },
-          file: { fileId: 'file-imminent', filename: 'imminent.pdf' }
-        },
-        status: 'pending',
-        attempts: 1,
-        createdAt: new Date()
-      }
-    ]
-
-    // attempts = 1, outboxMaxAttempts mocked to 2 => (1 || 0) + 1 >= 2 true
-    getProcessableOutboxEntries.mockResolvedValue(imminentMessage)
-
-    publishDocumentUploadMessageBatch.mockResolvedValue({
-      Successful: [],
-      Failed: [{ Id: 'file-imminent', Message: 'SNS failure' }]
-    })
-
-    await publishPendingMessages()
-
-    expect(logger.error).toHaveBeenCalled()
-    const callArgs = logger.error.mock.calls[0][0]
-    expect(callArgs.event).toBeDefined()
-    expect(callArgs.event.type).toBe('outbox_terminal_failure_imminent')
-  })
-
-  test('should map entries without payload.file using messageId and update statuses accordingly', async () => {
-    const entries = [
-      {
-        _id: 'm1',
-        messageId: 'meta-1',
-        payload: { metadata: { sbi: '1' } },
-        attempts: 0
-      },
-      {
-        _id: 'm2',
-        messageId: 'meta-2',
-        payload: { metadata: { sbi: '2' } },
-        attempts: 0
-      }
-    ]
-
-    getProcessableOutboxEntries.mockResolvedValue(entries)
-
-    // SNS returns Ids that match the messageId values
-    publishDocumentUploadMessageBatch.mockResolvedValue({
-      Successful: [{ Id: 'meta-1' }],
-      Failed: [{ Id: 'meta-2' }]
-    })
-
-    await publishPendingMessages()
-
-    expect(bulkUpdateDeliveryStatus).toHaveBeenCalledWith(mockSession, ['meta-1'], SENT)
-    expect(bulkUpdatePublishedAtDate).toHaveBeenCalledWith(mockSession, ['meta-1'])
-    expect(bulkUpdateDeliveryStatus).toHaveBeenCalledWith(mockSession, ['meta-2'], FAILED, 'Failed to send message')
-  })
-
-  test('should NOT log imminent terminal failures when attempts remain below max', async () => {
-    const { createLogger } = await import('../../../../src/logging/logger.js')
-    const logger = createLogger()
-
-    const msg = [
-      {
-        _id: 'no-imminent',
-        messageId: 'meta-no',
-        payload: { file: { fileId: 'file-no' } },
-        attempts: 0
-      }
-    ]
-
-    getProcessableOutboxEntries.mockResolvedValue(msg)
-    publishDocumentUploadMessageBatch.mockResolvedValue({ Successful: [], Failed: [{ Id: 'file-no' }] })
-
-    await publishPendingMessages()
-
-    expect(logger.error).not.toHaveBeenCalled()
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.any(Error),
+      'Error publishing pending outbox messages'
+    )
+    expect(session.endSession).toHaveBeenCalledOnce()
   })
 })
