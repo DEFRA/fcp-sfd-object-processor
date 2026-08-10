@@ -27,6 +27,7 @@ describe('Create Mongo client', () => {
     const indexes = await db.collection('status').indexes()
     const indexNames = indexes.map(index => index.name)
 
+    expect(indexNames).toContain('status_correlationId_timestamp_idx')
     expect(indexNames).toContain('status_sbi_idx')
     expect(indexNames).toContain('status_timestamp_idx')
     expect(indexNames).toContain('status_sbi_timestamp_idx')

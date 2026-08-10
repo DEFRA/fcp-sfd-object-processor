@@ -66,6 +66,7 @@ describe('data/db createIndexes', () => {
     expect(mocks.collection).toHaveBeenNthCalledWith(4, 'outbox')
 
     expect(mocks.createIndexes).toHaveBeenNthCalledWith(1, [
+      { key: { correlationId: 1, timestamp: 1 }, name: 'status_correlationId_timestamp_idx' },
       { key: { sbi: 1 }, name: 'status_sbi_idx' },
       { key: { timestamp: -1 }, name: 'status_timestamp_idx' },
       { key: { sbi: 1, timestamp: -1 }, name: 'status_sbi_timestamp_idx' }
