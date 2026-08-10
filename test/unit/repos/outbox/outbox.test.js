@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, vi, test } from 'vitest'
 import { ObjectId } from 'mongodb'
-import { randomUUID } from 'node:crypto'
 
-import { createOutboxEntries, getProcessableOutboxEntries, bulkUpdateDeliveryStatus } from '../../../../src/repos/outbox.js'
+import { createOutboxEntries } from '../../../../src/repos/outbox.js'
 import { mockMetadataResponse as documents } from '../../../mocks/metadata.js'
-import { PENDING, SENT, FAILED } from '../../../../src/constants/outbox.js'
+import { PENDING } from '../../../../src/constants/outbox.js'
 import { db } from '../../../../src/data/db.js'
 
 vi.mock('../../../../src/data/db.js', () => ({
@@ -216,147 +215,6 @@ describe('Outbox Repository', () => {
 
       expect(mockCollection.insertMany).not.toHaveBeenCalled()
       expect(result).toEqual({})
-    })
-  })
-
-  describe('getProcessableOutboxEntries', () => {
-    test('should retrieve outbox entries with status pending and failed', async () => {
-      const mockPendingEntries = [
-        { _id: new ObjectId(), status: PENDING, payload: {} },
-        { _id: new ObjectId(), status: PENDING, payload: {} },
-        { _id: new ObjectId(), status: FAILED, payload: {} }
-      ]
-
-      // A cursor is what is returned from mongo find operations
-      const mockCursor = {
-        limit: vi.fn().mockReturnThis(),
-        toArray: vi.fn().mockResolvedValue(mockPendingEntries)
-      }
-
-      mockCollection.find.mockReturnValue(mockCursor)
-
-      const result = await getProcessableOutboxEntries()
-
-      expect(db.collection).toHaveBeenCalledWith('outbox')
-      expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] }, attempts: { $lt: 5 } })
-      expect(mockCursor.toArray).toHaveBeenCalled()
-      expect(result).toEqual(mockPendingEntries)
-    })
-
-    test('should return empty array when no pending entries found', async () => {
-      // A cursor is what is returned from mongo find operations
-      const mockCursor = {
-        limit: vi.fn().mockReturnThis(),
-        toArray: vi.fn().mockResolvedValue([])
-      }
-
-      mockCollection.find.mockReturnValue(mockCursor)
-
-      const result = await getProcessableOutboxEntries()
-
-      expect(db.collection).toHaveBeenCalledWith('outbox')
-      expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] }, attempts: { $lt: 5 } })
-      expect(mockCursor.toArray).toHaveBeenCalled()
-      expect(result).toEqual([])
-    })
-
-    test('should apply limit to query', async () => {
-      const mockPendingEntries = [
-        { _id: new ObjectId(), status: PENDING, payload: {} }
-      ]
-
-      const mockCursor = {
-        limit: vi.fn().mockReturnThis(),
-        toArray: vi.fn().mockResolvedValue(mockPendingEntries)
-      }
-
-      mockCollection.find.mockReturnValue(mockCursor)
-
-      const result = await getProcessableOutboxEntries()
-
-      expect(mockCollection.find).toHaveBeenCalledWith({ status: { $in: [PENDING, FAILED] }, attempts: { $lt: 5 } })
-      expect(mockCursor.limit).toHaveBeenCalledWith(expect.any(Number))
-      expect(mockCursor.toArray).toHaveBeenCalled()
-      expect(result).toEqual(mockPendingEntries)
-    })
-  })
-
-  describe('bulkUpdateDeliveryStatus', () => {
-    const mockSession = {}
-
-    test('should update outbox entry status to sent', async () => {
-      const mockUpdateManyResult = {
-        acknowledged: true,
-        matchedCount: 1,
-        modifiedCount: 1,
-        upsertedCount: 0,
-        upsertedId: null
-      }
-
-      mockCollection.updateMany.mockResolvedValue(mockUpdateManyResult)
-      const mockFileId = randomUUID()
-
-      const result = await bulkUpdateDeliveryStatus(mockSession, [mockFileId], SENT)
-
-      // this is the response from the db operation
-      const updatedEntry = mockCollection.updateMany.mock.calls[0]
-
-      expect(updatedEntry[0]).toEqual({ 'payload.file.fileId': { $in: [mockFileId] } })
-      expect(updatedEntry[1].$set).toMatchObject({
-        status: SENT,
-        lastAttemptedAt: expect.any(Date)
-      })
-      expect(updatedEntry[1].$inc).toEqual({ attempts: 1 })
-
-      expect(result).toEqual(mockUpdateManyResult)
-    })
-
-    test('should include error message when outbox entry status to failed', async () => {
-      const mockUpdateManyResult = {
-        acknowledged: true,
-        matchedCount: 1,
-        modifiedCount: 1,
-        upsertedCount: 0,
-        upsertedId: null
-      }
-
-      mockCollection.updateMany.mockResolvedValue(mockUpdateManyResult)
-      const mockFileId = randomUUID()
-      // Mock the cursor returned by find for the terminal logging path
-      const mockCursor = {
-        toArray: vi.fn().mockResolvedValue([])
-      }
-
-      // No potential terminal candidates: countDocuments resolves to 0
-      mockCollection.countDocuments.mockResolvedValue(0)
-      mockCollection.find.mockReturnValue(mockCursor)
-
-      const result = await bulkUpdateDeliveryStatus(mockSession, [mockFileId], FAILED, 'Test error message')
-
-      // this is the response from the db operation
-      const updatedEntry = mockCollection.updateMany.mock.calls[0]
-
-      expect(updatedEntry[0]).toEqual({ 'payload.file.fileId': { $in: [mockFileId] } })
-      // For failures we use an update pipeline: first stage sets lastAttemptedAt and error
-      const pipeline = updatedEntry[1]
-      expect(Array.isArray(pipeline)).toBe(true)
-      expect(pipeline[0]).toHaveProperty('$set')
-      expect(pipeline[0].$set).toMatchObject({ error: 'Test error message' })
-      expect(pipeline[1]).toHaveProperty('$set')
-      expect(pipeline[2]).toHaveProperty('$set')
-      // The final stage conditionally sets status to FAILED or PENDING
-      expect(JSON.stringify(pipeline[2])).toContain(FAILED)
-      expect(JSON.stringify(pipeline[2])).toContain(PENDING)
-
-      expect(result).toEqual(mockUpdateManyResult)
-    })
-
-    test('should throw error when database update fails', async () => {
-      const mockFileId = randomUUID()
-      mockCollection.updateMany.mockResolvedValue({ acknowledged: false })
-
-      await expect(bulkUpdateDeliveryStatus(mockSession, [mockFileId], SENT))
-        .rejects.toThrow('Failed to update outbox entries')
     })
   })
 })
