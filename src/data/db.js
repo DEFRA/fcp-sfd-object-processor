@@ -28,7 +28,8 @@ const createIndexes = async () => {
   ])
 
   await db.collection(uploadMetadataCollection).createIndexes([
-    { key: { 'file.fileId': 1 }, name: 'metadata_fileId_idx', unique: true }
+    { key: { 'file.fileId': 1 }, name: 'metadata_fileId_idx', unique: true },
+    { key: { 'metadata.sbi': 1 }, name: 'metadata_sbi_idx' }
   ])
 
   await db.collection(sessionsCollection).createIndexes([
@@ -38,7 +39,9 @@ const createIndexes = async () => {
 
   await db.collection(outboxCollection).createIndexes([
     { key: { status: 1, createdAt: 1 }, name: 'outbox_status_createdAt_idx' },
-    { key: { status: 1, claimedUntil: 1 }, name: 'outbox_status_claimedUntil_idx' }
+    { key: { status: 1, claimedUntil: 1 }, name: 'outbox_status_claimedUntil_idx' },
+    { key: { status: 1, attempts: 1 }, name: 'outbox_status_attempts_idx' },
+    { key: { 'payload.file.fileId': 1 }, name: 'outbox_payload_fileId_idx' }
   ])
 
   logger.info('MongoDB indexes created')

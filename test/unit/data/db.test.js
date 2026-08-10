@@ -73,7 +73,8 @@ describe('data/db createIndexes', () => {
     ])
 
     expect(mocks.createIndexes).toHaveBeenNthCalledWith(2, [
-      { key: { 'file.fileId': 1 }, name: 'metadata_fileId_idx', unique: true }
+      { key: { 'file.fileId': 1 }, name: 'metadata_fileId_idx', unique: true },
+      { key: { 'metadata.sbi': 1 }, name: 'metadata_sbi_idx' }
     ])
 
     expect(mocks.createIndexes).toHaveBeenNthCalledWith(3, [
@@ -83,7 +84,9 @@ describe('data/db createIndexes', () => {
 
     expect(mocks.createIndexes).toHaveBeenNthCalledWith(4, [
       { key: { status: 1, createdAt: 1 }, name: 'outbox_status_createdAt_idx' },
-      { key: { status: 1, claimedUntil: 1 }, name: 'outbox_status_claimedUntil_idx' }
+      { key: { status: 1, claimedUntil: 1 }, name: 'outbox_status_claimedUntil_idx' },
+      { key: { status: 1, attempts: 1 }, name: 'outbox_status_attempts_idx' },
+      { key: { 'payload.file.fileId': 1 }, name: 'outbox_payload_fileId_idx' }
     ])
   })
 })
