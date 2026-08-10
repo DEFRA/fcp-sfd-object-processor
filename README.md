@@ -218,6 +218,27 @@ The following services are started by `docker compose up`:
 
 MongoDB connection string: `mongodb://mongodb:27017/?replicaSet=rs0`
 
+## MongoDB indexes
+
+MongoDB indexes are created automatically when the service starts in [`src/data/db.js`](src/data/db.js) via `createIndexes()`. The startup routine includes indexes for `status`, `uploadMetadata`, `sessions`, and `outbox` collections.
+
+Current key indexes include:
+
+- `uploadMetadata`
+   - Unique `{"file.fileId": 1}` (`metadata_fileId_idx`)
+   - `{"metadata.sbi": 1}` (`metadata_sbi_idx`)
+- `outbox`
+   - `{"status": 1, "createdAt": 1}` (`outbox_status_createdAt_idx`)
+   - `{"status": 1, "claimedUntil": 1}` (`outbox_status_claimedUntil_idx`)
+   - `{"status": 1, "attempts": 1}` (`outbox_status_attempts_idx`)
+   - `{"payload.file.fileId": 1}` (`outbox_payload_fileId_idx`)
+
+The service uses MongoDB `createIndexes`, which is idempotent and safe to run repeatedly across restarts and deployments.
+
+### Test collections
+
+Most integration tests use dedicated test collection names and rely on the same startup index creation path. Where a test creates an isolated collection after startup (for example callback idempotency tests), create any required indexes explicitly in the test setup before assertions.
+
 ## Logging
 
 This service uses [Pino](https://getpino.io/) with [Elastic Common Schema (ECS)](https://www.elastic.co/guide/en/ecs/current/index.html) formatting. **All structured log fields must be nested under `event.*` or `error.*`** — flat top-level fields are not visible on the platform.
