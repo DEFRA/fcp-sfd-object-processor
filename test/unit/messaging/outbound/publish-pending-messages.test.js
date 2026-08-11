@@ -116,7 +116,8 @@ describe('publishPendingMessages', () => {
       ['file-failure'],
       2,
       null,
-      'Failed to send message'
+      'Failed to send message',
+      'worker-1'
     )
     expect(session.withTransaction).toHaveBeenCalledOnce()
     expect(session.endSession).toHaveBeenCalledOnce()
@@ -160,13 +161,21 @@ describe('publishPendingMessages', () => {
 
     expect(mocks.updatePublishedAt).toHaveBeenCalledWith(session, ['file-accepted'])
     expect(mocks.loggerWarn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        event: expect.objectContaining({
+      {
+        event: {
           type: 'outbox_finalization_rejected',
+          action: 'finalize_claim',
           reference: 'outbox-rejected',
-          claimedBy: 'worker-1'
-        })
-      }),
+          outcome: 'failure',
+          reason: 'claim_expired_or_ownership_lost'
+        },
+        process: { name: 'worker-1' },
+        transaction: { id: 'file-rejected' },
+        error: {
+          type: 'outbox_claim_ownership_error',
+          message: 'claim_expired_or_ownership_lost'
+        }
+      },
       'Outbox entry could not be finalized by this worker'
     )
   })
@@ -182,12 +191,19 @@ describe('publishPendingMessages', () => {
 
     expect(mocks.finalize).not.toHaveBeenCalled()
     expect(mocks.loggerWarn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        event: expect.objectContaining({
+      {
+        event: {
           type: 'outbox_publish_result_unmatched',
-          entryId: 'file-unknown'
-        })
-      }),
+          action: 'match_publish_result',
+          outcome: 'failure',
+          reason: 'publish_result_did_not_match_claimed_entry'
+        },
+        transaction: { id: 'file-unknown' },
+        error: {
+          type: 'outbox_publish_result_unmatched',
+          message: 'publish_result_did_not_match_claimed_entry'
+        }
+      },
       'SNS publish result did not match a claimed outbox entry'
     )
   })

@@ -90,6 +90,7 @@ describe('outbox claims', () => {
     const expiredClaim = {
       _id: { toString: () => 'entry-1' },
       status: 'PROCESSING',
+      payload: { file: { fileId: 'file-1' } },
       claimedBy: 'worker-old',
       claimedUntil: new Date('2026-08-07T09:59:00.000Z')
     }
@@ -102,14 +103,19 @@ describe('outbox claims', () => {
     await claimProcessableOutboxEntries('worker-new', new Date('2026-08-07T10:00:00.000Z'))
 
     expect(mocks.loggerWarn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        event: expect.objectContaining({
+      {
+        event: {
           type: 'outbox_claim_reclaimed',
+          action: 'reclaim_expired_claim',
           reference: 'entry-1',
-          previousClaimedBy: 'worker-old',
-          claimedBy: 'worker-new'
-        })
-      }),
+          outcome: 'success',
+          created: new Date('2026-08-07T10:00:00.000Z'),
+          duration: 300000000000,
+          reason: 'expired_claim previousOwner=worker-old previousClaimedUntil=2026-08-07T09:59:00.000Z'
+        },
+        process: { name: 'worker-new' },
+        transaction: { id: 'file-1' }
+      },
       'Reclaimed expired outbox claim'
     )
   })

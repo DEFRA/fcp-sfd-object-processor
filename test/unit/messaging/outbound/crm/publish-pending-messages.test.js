@@ -74,7 +74,7 @@ describe('publishPendingMessages observability', () => {
     mocks.logTerminal.mockResolvedValue(undefined)
   })
 
-  test('logs claim ownership fields for every claimed entry', async () => {
+  test('logs every claimed entry using CDP-supported ECS fields', async () => {
     const entry = buildEntry('claimed', 0)
     mocks.claim.mockResolvedValue([entry])
     mocks.publishBatch.mockResolvedValue({ Successful: [], Failed: [] })
@@ -82,17 +82,19 @@ describe('publishPendingMessages observability', () => {
     await publishPendingMessages()
 
     expect(mocks.loggerInfo).toHaveBeenCalledWith(
-      expect.objectContaining({
-        event: expect.objectContaining({
+      {
+        event: {
           type: 'outbox_claimed',
+          action: 'claim',
           reference: 'outbox-claimed',
-          entryId: 'file-claimed',
-          claimedBy: 'worker-observability',
-          claimedAt: entry.claimedAt,
-          claimedUntil: entry.claimedUntil
-        })
-      }),
-      'Outbox entry claimed for processing'
+          outcome: 'success',
+          created: entry.claimedAt,
+          duration: 300000000000
+        },
+        process: { name: 'worker-observability' },
+        transaction: { id: 'file-claimed' }
+      },
+      'Outbox entry claimed for processing; attempt=1'
     )
   })
 
@@ -111,23 +113,60 @@ describe('publishPendingMessages observability', () => {
     await publishPendingMessages()
 
     expect(mocks.loggerInfo).toHaveBeenCalledWith(
-      expect.objectContaining({ event: expect.objectContaining({ type: 'outbox_finalized', status: 'PENDING' }) }),
-      'Outbox entry finalized as PENDING'
+      {
+        event: {
+          type: 'outbox_finalized',
+          action: 'finalize_pending',
+          reference: 'outbox-retryable',
+          outcome: 'failure',
+          reason: 'temporary failure'
+        },
+        process: { name: 'worker-observability' },
+        transaction: { id: 'file-retryable' },
+        error: {
+          type: 'outbox_publish_failure',
+          message: 'temporary failure'
+        }
+      },
+      'Outbox entry finalized as PENDING; attempt=1'
     )
     expect(mocks.loggerInfo).toHaveBeenCalledWith(
-      expect.objectContaining({ event: expect.objectContaining({ type: 'outbox_finalized', status: 'FAILED' }) }),
-      'Outbox entry finalized as FAILED'
+      {
+        event: {
+          type: 'outbox_finalized',
+          action: 'finalize_failed',
+          reference: 'outbox-terminal',
+          outcome: 'failure',
+          reason: 'terminal_failure'
+        },
+        process: { name: 'worker-observability' },
+        transaction: { id: 'file-terminal' },
+        error: {
+          type: 'outbox_publish_failure',
+          code: 'terminal_failure',
+          message: 'terminal_failure'
+        }
+      },
+      'Outbox entry finalized as FAILED; attempt=2'
     )
     expect(mocks.loggerError).toHaveBeenCalledWith(
-      expect.objectContaining({
-        event: expect.objectContaining({
+      {
+        event: {
           type: 'outbox_terminal_failure_imminent',
-          entryId: 'file-terminal',
-          attempts: 2,
+          action: 'finalize_failed',
+          reference: 'outbox-terminal',
+          outcome: 'failure',
           reason: 'terminal_failure'
-        })
-      }),
-      'Outbox entry will reach FAILED after this attempt'
+        },
+        process: { name: 'worker-observability' },
+        transaction: { id: 'file-terminal' },
+        error: {
+          type: 'outbox_publish_failure',
+          code: 'terminal_failure',
+          message: 'terminal_failure'
+        }
+      },
+      'Outbox entry will reach FAILED after this attempt; attempt=2'
     )
   })
 
@@ -145,7 +184,21 @@ describe('publishPendingMessages observability', () => {
     expect(mocks.logTerminal).not.toHaveBeenCalled()
     expect(mocks.loggerError).not.toHaveBeenCalled()
     expect(mocks.loggerWarn).toHaveBeenCalledWith(
-      expect.objectContaining({ event: expect.objectContaining({ type: 'outbox_finalization_rejected' }) }),
+      {
+        event: {
+          type: 'outbox_finalization_rejected',
+          action: 'finalize_claim',
+          reference: 'outbox-expired',
+          outcome: 'failure',
+          reason: 'claim_expired_or_ownership_lost'
+        },
+        process: { name: 'worker-observability' },
+        transaction: { id: 'file-expired' },
+        error: {
+          type: 'outbox_claim_ownership_error',
+          message: 'claim_expired_or_ownership_lost'
+        }
+      },
       'Outbox entry could not be finalized by this worker'
     )
   })

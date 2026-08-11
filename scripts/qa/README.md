@@ -67,22 +67,62 @@ docker compose -f compose.yaml -f compose.override.yaml -f compose.qa.yaml logs 
 1. Record the deployed version, CPU, memory and current instance count.
 2. Deploy the implementation and use **Edit** in the CDP Portal to set the object processor to at least two instances.
 3. Confirm from deployment information and logs that two distinct instances are running.
-4. Obtain an authorised `mongosh` connection using the team's approved method.
-5. Set `OUTBOX_QA_RECORD_COUNT` to more than twice the environment's `MONGO_OUTBOX_QUERY_LIMIT`; use at least `250` when the limit is `100`.
-6. Run `scripts/qa/outbox-concurrency.mongosh.js` against the `fcp-sfd-object-processor` database and record the printed test-run identifier.
+4. Open the service's **Terminal** tab in CDP Portal and launch a backend terminal for the environment.
+5. Upload `scripts/qa/outbox-concurrency.mongosh.js` using the terminal's **Files** tab.
+6. Set the record count to more than twice the environment's `MONGO_OUTBOX_QUERY_LIMIT`; use the script default of `250` when the limit is `100`.
+7. Run `mongosh`, which automatically authenticates the terminal to the service database.
+8. From the `mongosh` prompt, run `load('outbox-concurrency.mongosh.js')` and record the printed test-run identifier.
 
-The script does not require CDP Terminal, MongoDB Compass or any other specific execution environment. CDP Terminal may be used only if it provides the required `mongosh` access and permissions.
+The script does not depend on CDP Terminal and may instead be run through another approved `mongosh` connection. Do not put credentials or an environment connection string in the script.
+
+## CDP ECS log fields
+
+CDP retains a restricted subset of the Elastic Common Schema. Outbox logs use the following retained fields; unsupported custom fields are removed during ingestion.
+
+| Information | ECS field |
+| --- | --- |
+| Event name | `event.type` |
+| Operation or state transition | `event.action` |
+| Outbox MongoDB `_id` | `event.reference` |
+| Outcome | `event.outcome` |
+| Claim creation time | `event.created` |
+| Claim lease duration in nanoseconds | `event.duration` |
+| Failure or rejection reason | `event.reason` |
+| Worker identifier | `process.name` |
+| Stable file/message identifier | `transaction.id` |
+| Error classification | `error.type` |
+| Error code | `error.code` |
+| Error description | `error.message` |
+| Attempt count and other details without a suitable ECS field | `message` |
+
+CDP also supplies `host.hostname`, `ecs_task_arn` and `container_id`. Use these fields as supporting evidence that the workers ran in distinct deployed instances.
+
+Useful OpenSearch DQL filters are:
+
+```text
+event.type:"outbox_claimed"
+event.type:"outbox_finalized" AND event.action:"finalize_sent"
+event.type:"outbox_finalized" AND (event.action:"finalize_pending" OR event.action:"finalize_failed")
+event.type:"outbox_claim_reclaimed"
+event.type:"outbox_finalization_rejected"
+event.type:"outbox_publish_result_unmatched"
+event.type:"outbox_terminal_failure_imminent" OR event.type:"outbox_terminal_failure"
+```
+
+Add `event.reference`, `event.action`, `event.outcome`, `process.name`, `transaction.id`, `host.hostname`, `ecs_task_arn` and `container_id` as columns in OpenSearch Discover.
 
 ## Inspect the result
 
-The script prints inspection queries containing the exact test-run identifier. Run them in the same database. Also inspect structured application logs for that test period.
+The script prints inspection queries containing the exact test-run identifier. Run them in the same database. Use the matching outbox documents' `_id` values to find their application logs through `event.reference`.
 
 Verify that:
 
-- at least two distinct worker identifiers claim records from the test run;
+- at least two distinct `process.name` worker identifiers claim records from the test run;
+- `host.hostname`, `ecs_task_arn` or `container_id` confirms that those workers ran in distinct service instances;
 - no record has overlapping valid claim ownership;
 - non-expired claims are not taken by another worker;
-- finalisation is performed only by the current claim owner;
+- claim and finalisation events correlate through `event.reference` and retain the same `transaction.id`;
+- finalisation is performed only by the current `process.name` claim owner;
 - successfully published records reach `SENT`;
 - no record remains indefinitely in `PROCESSING`.
 
@@ -90,7 +130,7 @@ If practical, stop or redeploy one instance after it claims records. After the l
 
 Compose scheduling does not guarantee that both local workers receive records. The default volume makes participation likely, but the worker IDs in the logs are the evidence. Repeat with a larger record count if only one worker participates.
 
-Capture the instance count, worker identifiers, test-run identifier, relevant structured logs and final MongoDB status counts as evidence.
+Confirm that the required ECS fields are present in the `cdp-logs*` index after ingestion. Capture the instance count, worker identifiers, runtime instance fields, test-run identifier, relevant claim/finalisation logs and final MongoDB status counts as evidence.
 
 ## Clean up
 
