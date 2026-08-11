@@ -1,7 +1,34 @@
-import { describe, test, expect } from 'vitest'
-import { callbackPayloadSchema } from '../../../../../src/api/v1/callback/schema.js'
-import { fileUploadSchema } from '../../../../../src/api/v1/schemas/file-upload-schema.js'
-import { mockScanAndUploadResponse } from '../../../../mocks/cdp-uploader.js'
+import { describe, test, expect, vi } from 'vitest'
+
+// Module-level config.get calls in file-upload-schema.js and uploader-common.js
+// require mocking before import to ensure text/plain is always in the allowed list.
+const { mockConfigGet } = vi.hoisted(() => ({
+  mockConfigGet: vi.fn().mockImplementation((key) => {
+    if (key === 'cdpUploaderMimeTypes') {
+      return [
+        'image/png', 'image/jpeg', 'image/gif', 'image/tiff', 'image/jfif',
+        'application/pdf', 'application/msword',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'application/vnd.ms-excel', 'application/vnd.ms-excel.sheet.macroEnabled.12',
+        'application/vnd.ms-word.document.macroEnabled.12',
+        'application/x-cfb', 'application/vnd.oasis.opendocument.text',
+        'text/plain'
+      ]
+    }
+    if (key === 'cdpUploaderDocumentTypes') return ['CS_Agreement_Evidence', 'CS_Application_Evidence']
+    return null
+  })
+}))
+
+vi.mock('../../../../../src/config/index.js', () => ({
+  config: { get: mockConfigGet }
+}))
+
+const { callbackPayloadSchema } = await import('../../../../../src/api/v1/callback/schema.js')
+const { fileUploadSchema } = await import('../../../../../src/api/v1/schemas/file-upload-schema.js')
+const { mockScanAndUploadResponse } = await import('../../../../mocks/cdp-uploader.js')
 
 describe('callback contract validation (fileStatus variants)', () => {
   const base = structuredClone(mockScanAndUploadResponse)
