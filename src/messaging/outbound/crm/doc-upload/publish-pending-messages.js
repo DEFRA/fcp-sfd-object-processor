@@ -61,174 +61,176 @@ const mapPublishResultsToEntries = (batch, results) => {
 const buildEntryError = (entry, failedResults) => {
   const entryId = getEntryId(entry)
   const failure = failedResults.find(result => result.Id === entryId)
-  if (!failure) return publishFailureMessage{
-    return failure.Message || failure.Code || publishFailureMessage
+  if (!failure) {
+    return publishFailureMessage
+  }
+  return failure.Message || failure.Code || publishFailureMessage
+}
+
+const finalizeEntries = async (session, entries, deliveryStatus, failedResults = []) => {
+  const finalized = []
+  const rejected = []
+
+  for (const entry of entries) {
+    const error = deliveryStatus === FAILED ? buildEntryError(entry, failedResults) : null
+    const result = await finalizeClaimedOutboxEntries(
+      session,
+      [entry._id],
+      outboxWorkerId,
+      deliveryStatus,
+      error
+    )
+
+    if (result.matchedCount === 1) {
+      finalized.push(entry)
+    } else {
+      rejected.push(entry)
+    }
   }
 
-  const finalizeEntries = async (session, entries, deliveryStatus, failedResults = []) => {
-    const finalized = []
-    const rejected = []
+  return { finalized, rejected }
+}
 
-    for (const entry of entries) {
-      const error = deliveryStatus === FAILED ? buildEntryError(entry, failedResults) : null
-      const result = await finalizeClaimedOutboxEntries(
-        session,
-        [entry._id],
-        outboxWorkerId,
-        deliveryStatus,
-        error
-      )
-
-      if (result.matchedCount === 1) {
-        finalized.push(entry)
-      } else {
-        rejected.push(entry)
+const logRejectedFinalizations = (entries) => {
+  entries.forEach(entry => {
+    logger.warn({
+      event: {
+        type: 'outbox_finalization_rejected',
+        action: 'finalize_claim',
+        reference: entry._id?.toString(),
+        outcome: 'failure',
+        reason: 'claim_expired_or_ownership_lost'
+      },
+      process: { name: outboxWorkerId },
+      transaction: { id: getEntryId(entry) },
+      error: {
+        type: 'outbox_claim_ownership_error',
+        message: 'claim_expired_or_ownership_lost'
       }
+    }, 'Outbox entry could not be finalized by this worker')
+  })
+}
+
+const logFinalizations = (entries, status, failedResults = []) => {
+  entries.forEach(entry => {
+    const attempts = (entry.attempts || 0) + 1
+    const failureDetails = status === SENT ? null : getFailureDetails(entry, failedResults)
+    logger.info({
+      event: {
+        type: 'outbox_finalized',
+        action: `finalize_${status.toLowerCase()}`,
+        reference: entry._id?.toString(),
+        outcome: status === SENT ? 'success' : 'failure',
+        ...(failureDetails && { reason: failureDetails.reason })
+      },
+      process: { name: outboxWorkerId },
+      transaction: { id: getEntryId(entry) },
+      ...(failureDetails && { error: failureDetails.error })
+    }, `Outbox entry finalized as ${status}; attempt=${attempts}`)
+  })
+}
+
+const logTerminalFailures = (entries, failedResults) => {
+  entries.forEach(entry => {
+    const attempts = (entry.attempts || 0) + 1
+    const failureDetails = getFailureDetails(entry, failedResults)
+
+    logger.error({
+      event: {
+        type: 'outbox_terminal_failure_imminent',
+        action: 'finalize_failed',
+        reference: entry._id?.toString(),
+        outcome: 'failure',
+        reason: failureDetails.reason
+      },
+      process: { name: outboxWorkerId },
+      transaction: { id: getEntryId(entry) },
+      error: failureDetails.error
+    }, `Outbox entry will reach PERMANENT_FAILURE after this attempt; attempt=${attempts}`)
+  })
+}
+
+const publishPendingMessages = async () => {
+  const session = client.startSession()
+
+  try {
+    const pendingMessages = await claimProcessableOutboxEntries(outboxWorkerId)
+
+    if (!pendingMessages.length) {
+      logger.info('No pending outbox messages to process.')
+      return
     }
 
-    return { finalized, rejected }
-  }
-
-  const logRejectedFinalizations = (entries) => {
-    entries.forEach(entry => {
-      logger.warn({
-        event: {
-          type: 'outbox_finalization_rejected',
-          action: 'finalize_claim',
-          reference: entry._id?.toString(),
-          outcome: 'failure',
-          reason: 'claim_expired_or_ownership_lost'
-        },
-        process: { name: outboxWorkerId },
-        transaction: { id: getEntryId(entry) },
-        error: {
-          type: 'outbox_claim_ownership_error',
-          message: 'claim_expired_or_ownership_lost'
-        }
-      }, 'Outbox entry could not be finalized by this worker')
-    })
-  }
-
-  const logFinalizations = (entries, status, failedResults = []) => {
-    entries.forEach(entry => {
-      const attempts = (entry.attempts || 0) + 1
-      const failureDetails = status === SENT ? null : getFailureDetails(entry, failedResults)
+    pendingMessages.forEach(entry => {
+      const claimDurationMs = new Date(entry.claimedUntil).getTime() - new Date(entry.claimedAt).getTime()
       logger.info({
         event: {
-          type: 'outbox_finalized',
-          action: `finalize_${status.toLowerCase()}`,
+          type: 'outbox_claimed',
+          action: 'claim',
           reference: entry._id?.toString(),
-          outcome: status === SENT ? 'success' : 'failure',
-          ...(failureDetails && { reason: failureDetails.reason })
+          outcome: 'success',
+          created: entry.claimedAt,
+          duration: Math.max(0, claimDurationMs) * millisecondsToNanoseconds
         },
-        process: { name: outboxWorkerId },
-        transaction: { id: getEntryId(entry) },
-        ...(failureDetails && { error: failureDetails.error })
-      }, `Outbox entry finalized as ${status}; attempt=${attempts}`)
+        process: { name: entry.claimedBy },
+        transaction: { id: getEntryId(entry) }
+      }, `Outbox entry claimed for processing; attempt=${(entry.attempts || 0) + 1}`)
     })
-  }
 
-  const logTerminalFailures = (entries, failedResults) => {
-    entries.forEach(entry => {
-      const attempts = (entry.attempts || 0) + 1
-      const failureDetails = getFailureDetails(entry, failedResults)
+    logger.info(`Processing ${pendingMessages.length} outbox message(s).`)
 
-      logger.error({
-        event: {
-          type: 'outbox_terminal_failure_imminent',
-          action: 'finalize_failed',
-          reference: entry._id?.toString(),
-          outcome: 'failure',
-          reason: failureDetails.reason
-        },
-        process: { name: outboxWorkerId },
-        transaction: { id: getEntryId(entry) },
-        error: failureDetails.error
-      }, `Outbox entry will reach PERMANENT_FAILURE after this attempt; attempt=${attempts}`)
-    })
-  }
+    for (let i = 0; i < pendingMessages.length; i += BATCH_SIZE) {
+      const batch = pendingMessages.slice(i, i + BATCH_SIZE)
+      const { Successful, Failed } = await publishDocumentUploadMessageBatch(batch)
+      const successfulEntries = mapPublishResultsToEntries(batch, Successful)
+      const failedEntries = mapPublishResultsToEntries(batch, Failed)
+      let finalizedSuccessful = []
+      let finalizedFailed = []
+      let rejected = []
 
-  const publishPendingMessages = async () => {
-    const session = client.startSession()
+      await session.withTransaction(async () => {
+        const successfulResult = await finalizeEntries(session, successfulEntries, SENT)
+        const failedResult = await finalizeEntries(session, failedEntries, FAILED, Failed)
 
-    try {
-      const pendingMessages = await claimProcessableOutboxEntries(outboxWorkerId)
+        finalizedSuccessful = successfulResult.finalized
+        finalizedFailed = failedResult.finalized
+        rejected = [...successfulResult.rejected, ...failedResult.rejected]
 
-      if (!pendingMessages.length) {
-        logger.info('No pending outbox messages to process.')
-        return
-      }
-
-      pendingMessages.forEach(entry => {
-        const claimDurationMs = new Date(entry.claimedUntil).getTime() - new Date(entry.claimedAt).getTime()
-        logger.info({
-          event: {
-            type: 'outbox_claimed',
-            action: 'claim',
-            reference: entry._id?.toString(),
-            outcome: 'success',
-            created: entry.claimedAt,
-            duration: Math.max(0, claimDurationMs) * millisecondsToNanoseconds
-          },
-          process: { name: entry.claimedBy },
-          transaction: { id: getEntryId(entry) }
-        }, `Outbox entry claimed for processing; attempt=${(entry.attempts || 0) + 1}`)
+        if (finalizedSuccessful.length > 0) {
+          await bulkUpdatePublishedAtDate(session, finalizedSuccessful.map(getEntryId))
+        }
       })
 
-      logger.info(`Processing ${pendingMessages.length} outbox message(s).`)
+      logFinalizations(finalizedSuccessful, SENT)
+      logRejectedFinalizations(rejected)
 
-      for (let i = 0; i < pendingMessages.length; i += BATCH_SIZE) {
-        const batch = pendingMessages.slice(i, i + BATCH_SIZE)
-        const { Successful, Failed } = await publishDocumentUploadMessageBatch(batch)
-        const successfulEntries = mapPublishResultsToEntries(batch, Successful)
-        const failedEntries = mapPublishResultsToEntries(batch, Failed)
-        let finalizedSuccessful = []
-        let finalizedFailed = []
-        let rejected = []
+      if (finalizedFailed.length > 0) {
+        const maxAttempts = config.get('messaging.outboxMaxAttempts')
+        const terminalEntries = finalizedFailed.filter(entry => ((entry.attempts || 0) + 1) >= maxAttempts)
+        const retryableEntries = finalizedFailed.filter(entry => ((entry.attempts || 0) + 1) < maxAttempts)
 
-        await session.withTransaction(async () => {
-          const successfulResult = await finalizeEntries(session, successfulEntries, SENT)
-          const failedResult = await finalizeEntries(session, failedEntries, FAILED, Failed)
+        logFinalizations(retryableEntries, PENDING, Failed)
+        logFinalizations(terminalEntries, PERMANENT_FAILURE, Failed)
+        logTerminalFailures(terminalEntries, Failed)
 
-          finalizedSuccessful = successfulResult.finalized
-          finalizedFailed = failedResult.finalized
-          rejected = [...successfulResult.rejected, ...failedResult.rejected]
-
-          if (finalizedSuccessful.length > 0) {
-            await bulkUpdatePublishedAtDate(session, finalizedSuccessful.map(getEntryId))
-          }
-        })
-
-        logFinalizations(finalizedSuccessful, SENT)
-        logRejectedFinalizations(rejected)
-
-        if (finalizedFailed.length > 0) {
-          const maxAttempts = config.get('messaging.outboxMaxAttempts')
-          const terminalEntries = finalizedFailed.filter(entry => ((entry.attempts || 0) + 1) >= maxAttempts)
-          const retryableEntries = finalizedFailed.filter(entry => ((entry.attempts || 0) + 1) < maxAttempts)
-
-          logFinalizations(retryableEntries, PENDING, Failed)
-          logFinalizations(terminalEntries, PERMANENT_FAILURE, Failed)
-          logTerminalFailures(terminalEntries, Failed)
-
-          await logTerminalFailuresIfAny(
-            config.get('mongo.collections.outbox'),
-            finalizedFailed.map(getEntryId),
-            maxAttempts,
-            null,
-            publishFailureMessage,
-            outboxWorkerId
-          )
-        }
-
-        logger.info(`Outbox processing complete. Total: ${finalizedSuccessful.length} sent, ${finalizedFailed.length} failed, ${rejected.length} rejected`)
+        await logTerminalFailuresIfAny(
+          config.get('mongo.collections.outbox'),
+          finalizedFailed.map(getEntryId),
+          maxAttempts,
+          null,
+          publishFailureMessage,
+          outboxWorkerId
+        )
       }
-    } catch (error) {
-      logger.error(error, 'Error publishing pending outbox messages')
-      throw error
-    } finally {
-      await session.endSession()
-    }
-  }
 
-  export { publishPendingMessages }
+      logger.info(`Outbox processing complete. Total: ${finalizedSuccessful.length} sent, ${finalizedFailed.length} failed, ${rejected.length} rejected`)
+    }
+  } catch (error) {
+    logger.error(error, 'Error publishing pending outbox messages')
+    throw error
+  } finally {
+    await session.endSession()
+  }
+}
+
+export { publishPendingMessages }
