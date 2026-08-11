@@ -9,7 +9,7 @@ const logger = createLogger()
 const outboxCollection = 'mongo.collections.outbox'
 const outboxMaxAttemptsConfig = 'messaging.outboxMaxAttempts'
 
-const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsVal, sess, errMsg) => {
+const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsVal, sess, errMsg, workerId) => {
   const terminalFilter = {
     'payload.file.fileId': { $in: fileIdsArr },
     status: PERMANENT_FAILURE,
@@ -40,13 +40,18 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
     logger.error({
       event: {
         type: 'outbox_terminal_failure',
+        action: 'terminal_failure',
         reference: doc._id?.toString(),
         outcome: 'failure',
-        entryId,
-        attempts,
         reason
+      },
+      ...(workerId && { process: { name: workerId } }),
+      ...(entryId && { transaction: { id: entryId } }),
+      error: {
+        type: 'outbox_terminal_failure',
+        message: reason
       }
-    }, 'Outbox entry reached PERMANENT_FAILURE after max attempts')
+    }, `Outbox entry reached PERMANENT_FAILURE after max attempts; attempt=${attempts}`)
   })
 
   // Promise.allSettled fires audit events concurrently and never rejects, so an
@@ -129,15 +134,21 @@ const claimProcessableOutboxEntries = async (instanceId, now = new Date()) => {
     }
 
     if (entry.status === PROCESSING) {
+      const previousOwner = entry.claimedBy || 'unknown'
+      const previousExpiry = entry.claimedUntil?.toISOString?.() || String(entry.claimedUntil)
+      const reason = `expired_claim previousOwner=${previousOwner} previousClaimedUntil=${previousExpiry}`
       logger.warn({
         event: {
           type: 'outbox_claim_reclaimed',
+          action: 'reclaim_expired_claim',
           reference: entry._id?.toString(),
-          previousClaimedBy: entry.claimedBy,
-          previousClaimedUntil: entry.claimedUntil,
-          claimedBy: instanceId,
-          claimedUntil
-        }
+          outcome: 'success',
+          created: now,
+          duration: leaseTimeoutMs * 1000000,
+          reason
+        },
+        process: { name: instanceId },
+        ...(entry.payload?.file?.fileId && { transaction: { id: entry.payload.file.fileId } })
       }, 'Reclaimed expired outbox claim')
     }
 

@@ -13,8 +13,24 @@ import { outboxWorkerId } from '../../outbox-worker-id.js'
 
 const logger = createLogger()
 const publishFailureMessage = 'Failed to send message'
+const millisecondsToNanoseconds = 1000000
 
 const getEntryId = (entry) => entry?.payload?.file?.fileId || entry?.messageId
+
+const getFailureDetails = (entry, failedResults) => {
+  const entryId = getEntryId(entry)
+  const failure = failedResults.find(result => result.Id === entryId) || {}
+  const reason = failure.Message || failure.Code || 'failed_to_publish'
+
+  return {
+    reason,
+    error: {
+      type: 'outbox_publish_failure',
+      ...(failure.Code && { code: failure.Code }),
+      message: reason
+    }
+  }
+}
 
 const mapPublishResultsToEntries = (batch, results) => {
   const entriesById = new Map(batch.map(entry => [getEntryId(entry), entry]))
@@ -22,12 +38,18 @@ const mapPublishResultsToEntries = (batch, results) => {
   return results.flatMap(result => {
     const entry = entriesById.get(result.Id)
     if (!entry) {
+      const reason = 'publish_result_did_not_match_claimed_entry'
       logger.warn({
         event: {
           type: 'outbox_publish_result_unmatched',
+          action: 'match_publish_result',
           outcome: 'failure',
-          entryId: result.Id,
-          reason: 'publish_result_did_not_match_claimed_entry'
+          reason
+        },
+        transaction: { id: result.Id },
+        error: {
+          type: 'outbox_publish_result_unmatched',
+          message: reason
         }
       }, 'SNS publish result did not match a claimed outbox entry')
       return []
@@ -64,48 +86,57 @@ const logRejectedFinalizations = (entries) => {
     logger.warn({
       event: {
         type: 'outbox_finalization_rejected',
+        action: 'finalize_claim',
         reference: entry._id?.toString(),
         outcome: 'failure',
-        entryId: getEntryId(entry),
-        claimedBy: outboxWorkerId,
         reason: 'claim_expired_or_ownership_lost'
+      },
+      process: { name: outboxWorkerId },
+      transaction: { id: getEntryId(entry) },
+      error: {
+        type: 'outbox_claim_ownership_error',
+        message: 'claim_expired_or_ownership_lost'
       }
     }, 'Outbox entry could not be finalized by this worker')
   })
 }
 
-const logFinalizations = (entries, status) => {
+const logFinalizations = (entries, status, failedResults = []) => {
   entries.forEach(entry => {
+    const attempts = (entry.attempts || 0) + 1
+    const failureDetails = status === SENT ? null : getFailureDetails(entry, failedResults)
     logger.info({
       event: {
         type: 'outbox_finalized',
+        action: `finalize_${status.toLowerCase()}`,
         reference: entry._id?.toString(),
         outcome: status === SENT ? 'success' : 'failure',
-        entryId: getEntryId(entry),
-        claimedBy: outboxWorkerId,
-        status,
-        attempts: (entry.attempts || 0) + 1
-      }
-    }, `Outbox entry finalized as ${status}`)
+        ...(failureDetails && { reason: failureDetails.reason })
+      },
+      process: { name: outboxWorkerId },
+      transaction: { id: getEntryId(entry) },
+      ...(failureDetails && { error: failureDetails.error })
+    }, `Outbox entry finalized as ${status}; attempt=${attempts}`)
   })
 }
 
 const logTerminalFailures = (entries, failedResults) => {
   entries.forEach(entry => {
-    const entryId = getEntryId(entry) || null
-    const failedInfo = failedResults.find(failure => failure.Id === entryId) || {}
-    const reason = failedInfo.Message || failedInfo.Code || 'failed_to_publish'
+    const attempts = (entry.attempts || 0) + 1
+    const failureDetails = getFailureDetails(entry, failedResults)
 
     logger.error({
       event: {
         type: 'outbox_terminal_failure_imminent',
+        action: 'finalize_failed',
         reference: entry._id?.toString(),
         outcome: 'failure',
-        entryId,
-        attempts: (entry.attempts || 0) + 1,
-        reason
-      }
-    }, 'Outbox entry will reach PERMANENT_FAILURE after this attempt')
+        reason: failureDetails.reason
+      },
+      process: { name: outboxWorkerId },
+      transaction: { id: getEntryId(entry) },
+      error: failureDetails.error
+    }, `Outbox entry will reach PERMANENT_FAILURE after this attempt; attempt=${attempts}`)
   })
 }
 
@@ -121,17 +152,19 @@ const publishPendingMessages = async () => {
     }
 
     pendingMessages.forEach(entry => {
+      const claimDurationMs = new Date(entry.claimedUntil).getTime() - new Date(entry.claimedAt).getTime()
       logger.info({
         event: {
           type: 'outbox_claimed',
+          action: 'claim',
           reference: entry._id?.toString(),
           outcome: 'success',
-          entryId: getEntryId(entry),
-          claimedBy: entry.claimedBy,
-          claimedAt: entry.claimedAt,
-          claimedUntil: entry.claimedUntil
-        }
-      }, 'Outbox entry claimed for processing')
+          created: entry.claimedAt,
+          duration: Math.max(0, claimDurationMs) * millisecondsToNanoseconds
+        },
+        process: { name: entry.claimedBy },
+        transaction: { id: getEntryId(entry) }
+      }, `Outbox entry claimed for processing; attempt=${(entry.attempts || 0) + 1}`)
     })
 
     logger.info(`Processing ${pendingMessages.length} outbox message(s).`)
@@ -166,8 +199,8 @@ const publishPendingMessages = async () => {
         const terminalEntries = finalizedFailed.filter(entry => ((entry.attempts || 0) + 1) >= maxAttempts)
         const retryableEntries = finalizedFailed.filter(entry => ((entry.attempts || 0) + 1) < maxAttempts)
 
-        logFinalizations(retryableEntries, PENDING)
-        logFinalizations(terminalEntries, PERMANENT_FAILURE)
+        logFinalizations(retryableEntries, PENDING, Failed)
+        logFinalizations(terminalEntries, PERMANENT_FAILURE, Failed)
         logTerminalFailures(terminalEntries, Failed)
 
         await logTerminalFailuresIfAny(
@@ -175,7 +208,8 @@ const publishPendingMessages = async () => {
           finalizedFailed.map(getEntryId),
           maxAttempts,
           null,
-          publishFailureMessage
+          publishFailureMessage,
+          outboxWorkerId
         )
       }
 
