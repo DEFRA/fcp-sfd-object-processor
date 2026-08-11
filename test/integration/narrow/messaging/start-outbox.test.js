@@ -236,7 +236,7 @@ describe('Outbox message processing', () => {
       expect(msg.status).toBe(PERMANENT_FAILURE)
       expect(msg.attempts).toBe(1)
       expect(msg.lastAttemptedAt).toBeInstanceOf(Date)
-      expect(msg.error).toBe('Failed to send message')
+      expect(msg.error).toBe('SNS publish failed')
     })
 
     // Assert: Verify metadata entries still have publishedAt as null
@@ -673,5 +673,50 @@ describe('Outbox message processing', () => {
     // Assert: metadata still has publishedAt null
     const meta = await db.collection(metadataCollection).findOne({ _id: metadataId })
     expect(meta.messaging.publishedAt).toBeNull()
+  })
+
+  test('PERMANENT_FAILURE record retains the final SNS error code and message', async () => {
+    const metadataId = ObjectId.createFromHexString('507f1f77bcf86cd799439020')
+    await db.collection(metadataCollection).insertOne({
+      _id: metadataId,
+      metadata: mockPendingMessages[0].payload.metadata,
+      file: { fileId: 'file-perm-fail', filename: 'perm.pdf', fileStatus: 'complete' },
+      s3: { key: 's3-key-perm', bucket: 'test-bucket' },
+      messaging: { publishedAt: null, correlationId: 'perm-fail-correlation-id' }
+    })
+
+    const testMessage = {
+      messageId: metadataId,
+      payload: {
+        metadata: mockPendingMessages[0].payload.metadata,
+        file: { fileId: 'file-perm-fail', filename: 'perm.pdf' },
+        messaging: { publishedAt: null, correlationId: 'perm-fail-correlation-id' }
+      },
+      status: PENDING,
+      attempts: 0,
+      createdAt: new Date()
+    }
+    const { insertedId } = await db.collection(outboxCollection).insertOne(testMessage)
+
+    const originalMaxAttempts = config.get('messaging.outboxMaxAttempts')
+    config.set('messaging.outboxMaxAttempts', 1)
+
+    publishBatch.mockResolvedValueOnce({
+      Successful: [],
+      Failed: [{
+        Id: 'file-perm-fail',
+        Code: 'KMSAccessDenied',
+        Message: 'The ciphertext refers to a customer master key that does not exist',
+        SenderFault: false
+      }]
+    })
+
+    await publishPendingMessages()
+
+    config.set('messaging.outboxMaxAttempts', originalMaxAttempts)
+
+    const stored = await db.collection(outboxCollection).findOne({ _id: insertedId })
+    expect(stored.status).toBe(PERMANENT_FAILURE)
+    expect(stored.error).toBe('The ciphertext refers to a customer master key that does not exist')
   })
 })

@@ -58,11 +58,19 @@ const mapPublishResultsToEntries = (batch, results) => {
   })
 }
 
-const finalizeEntries = async (session, entries, deliveryStatus, error = null) => {
+const buildEntryError = (entry, failedResults) => {
+  const entryId = getEntryId(entry)
+  const failure = failedResults.find(result => result.Id === entryId)
+  if (!failure) return publishFailureMessage
+  return failure.Message || failure.Code || publishFailureMessage
+}
+
+const finalizeEntries = async (session, entries, deliveryStatus, failedResults = []) => {
   const finalized = []
   const rejected = []
 
   for (const entry of entries) {
+    const error = deliveryStatus === FAILED ? buildEntryError(entry, failedResults) : null
     const result = await finalizeClaimedOutboxEntries(
       session,
       [entry._id],
@@ -180,7 +188,7 @@ const publishPendingMessages = async () => {
 
       await session.withTransaction(async () => {
         const successfulResult = await finalizeEntries(session, successfulEntries, SENT)
-        const failedResult = await finalizeEntries(session, failedEntries, FAILED, publishFailureMessage)
+        const failedResult = await finalizeEntries(session, failedEntries, FAILED, Failed)
 
         finalizedSuccessful = successfulResult.finalized
         finalizedFailed = failedResult.finalized
