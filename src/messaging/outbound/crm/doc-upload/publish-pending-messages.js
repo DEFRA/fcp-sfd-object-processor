@@ -233,4 +233,4 @@ const publishPendingMessages = async () => {
   }
 }
 
-export { publishPendingMessages }
+export { publishPendingMessages, buildEntryError }

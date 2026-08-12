@@ -52,7 +52,7 @@ vi.mock('../../../../../src/logging/logger.js', () => ({
   })
 }))
 
-const { publishPendingMessages } = await import('../../../../../src/messaging/outbound/crm/doc-upload/publish-pending-messages.js')
+const { publishPendingMessages, buildEntryError } = await import('../../../../../src/messaging/outbound/crm/doc-upload/publish-pending-messages.js')
 
 const buildEntry = (id, attempts) => ({
   _id: `outbox-${id}`,
@@ -369,5 +369,31 @@ describe('publishPendingMessages observability', () => {
     expect(mocks.loggerInfo).toHaveBeenCalledWith(
       'Outbox processing complete. Total: 1 sent, 0 failed, 0 rejected'
     )
+  })
+})
+
+describe('buildEntryError', () => {
+  test('returns the failure Message when present', () => {
+    const entry = { payload: { file: { fileId: 'file-1' } } }
+    const result = buildEntryError(entry, [{ Id: 'file-1', Message: 'sns error' }])
+    expect(result).toBe('sns error')
+  })
+
+  test('falls back to failure Code when Message is absent', () => {
+    const entry = { payload: { file: { fileId: 'file-1' } } }
+    const result = buildEntryError(entry, [{ Id: 'file-1', Code: 'ThrottlingException' }])
+    expect(result).toBe('ThrottlingException')
+  })
+
+  test('falls back to default message when failure has no Message or Code', () => {
+    const entry = { payload: { file: { fileId: 'file-1' } } }
+    const result = buildEntryError(entry, [{ Id: 'file-1' }])
+    expect(result).toBe('Failed to send message')
+  })
+
+  test('returns default message when no matching failure is found', () => {
+    const entry = { payload: { file: { fileId: 'file-1' } } }
+    const result = buildEntryError(entry, [{ Id: 'file-other', Message: 'unrelated' }])
+    expect(result).toBe('Failed to send message')
   })
 })
