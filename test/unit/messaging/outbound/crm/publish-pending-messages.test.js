@@ -202,4 +202,172 @@ describe('publishPendingMessages observability', () => {
       'Outbox entry could not be finalized by this worker'
     )
   })
+
+  test('returns early and logs when there are no pending messages', async () => {
+    mocks.claim.mockResolvedValue([])
+
+    await publishPendingMessages()
+
+    expect(mocks.loggerInfo).toHaveBeenCalledWith('No pending outbox messages to process.')
+    expect(mocks.publishBatch).not.toHaveBeenCalled()
+  })
+
+  test('finalizes successful entries and calls bulkUpdatePublishedAtDate', async () => {
+    const entry = buildEntry('success', 0)
+    mocks.claim.mockResolvedValue([entry])
+    mocks.publishBatch.mockResolvedValue({
+      Successful: [{ Id: 'file-success' }],
+      Failed: []
+    })
+
+    await publishPendingMessages()
+
+    expect(mocks.updatePublishedAt).toHaveBeenCalledWith(expect.anything(), ['file-success'])
+    expect(mocks.loggerInfo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: expect.objectContaining({
+          type: 'outbox_finalized',
+          action: 'finalize_sent',
+          outcome: 'success'
+        })
+      }),
+      'Outbox entry finalized as SENT; attempt=1'
+    )
+  })
+
+  test('does not call bulkUpdatePublishedAtDate when no successful entries', async () => {
+    const entry = buildEntry('fail-only', 0)
+    mocks.claim.mockResolvedValue([entry])
+    mocks.publishBatch.mockResolvedValue({
+      Successful: [],
+      Failed: [{ Id: 'file-fail-only', Message: 'some error' }]
+    })
+
+    await publishPendingMessages()
+
+    expect(mocks.updatePublishedAt).not.toHaveBeenCalled()
+  })
+
+  test('warns when a publish result Id does not match any claimed entry', async () => {
+    const entry = buildEntry('known', 0)
+    mocks.claim.mockResolvedValue([entry])
+    mocks.publishBatch.mockResolvedValue({
+      Successful: [{ Id: 'file-unknown' }],
+      Failed: []
+    })
+
+    await publishPendingMessages()
+
+    expect(mocks.loggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: expect.objectContaining({
+          type: 'outbox_publish_result_unmatched',
+          outcome: 'failure'
+        }),
+        transaction: { id: 'file-unknown' }
+      }),
+      'SNS publish result did not match a claimed outbox entry'
+    )
+  })
+
+  test('uses entry.messageId when payload.file.fileId is absent', async () => {
+    const entry = {
+      _id: 'outbox-msg',
+      messageId: 'msg-id-123',
+      attempts: 0,
+      claimedBy: 'worker-observability',
+      claimedAt: new Date('2026-08-07T10:00:00.000Z'),
+      claimedUntil: new Date('2026-08-07T10:05:00.000Z')
+    }
+    mocks.claim.mockResolvedValue([entry])
+    mocks.publishBatch.mockResolvedValue({
+      Successful: [{ Id: 'msg-id-123' }],
+      Failed: []
+    })
+
+    await publishPendingMessages()
+
+    expect(mocks.updatePublishedAt).toHaveBeenCalledWith(expect.anything(), ['msg-id-123'])
+  })
+
+  test('clamps negative claim duration to zero nanoseconds', async () => {
+    const entry = {
+      ...buildEntry('neg-dur', 0),
+      claimedAt: new Date('2026-08-07T10:05:00.000Z'),
+      claimedUntil: new Date('2026-08-07T10:00:00.000Z')
+    }
+    mocks.claim.mockResolvedValue([entry])
+    mocks.publishBatch.mockResolvedValue({ Successful: [], Failed: [] })
+
+    await publishPendingMessages()
+
+    expect(mocks.loggerInfo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: expect.objectContaining({ duration: 0 })
+      }),
+      'Outbox entry claimed for processing; attempt=1'
+    )
+  })
+
+  test('uses failed_to_publish fallback when failure entry has no Message or Code', async () => {
+    const entry = buildEntry('no-detail', 1)
+    mocks.claim.mockResolvedValue([entry])
+    mocks.publishBatch.mockResolvedValue({
+      Successful: [],
+      Failed: [{ Id: 'file-no-detail' }]
+    })
+
+    await publishPendingMessages()
+
+    expect(mocks.loggerInfo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: expect.objectContaining({ reason: 'failed_to_publish' }),
+        error: expect.objectContaining({ message: 'failed_to_publish' })
+      }),
+      expect.stringContaining('PERMANENT_FAILURE')
+    )
+  })
+
+  test('calls logTerminalFailuresIfAny with correct args for terminal failures', async () => {
+    const terminal = buildEntry('terminal-audit', 1)
+    mocks.claim.mockResolvedValue([terminal])
+    mocks.publishBatch.mockResolvedValue({
+      Successful: [],
+      Failed: [{ Id: 'file-terminal-audit', Message: 'permanent error' }]
+    })
+
+    await publishPendingMessages()
+
+    expect(mocks.logTerminal).toHaveBeenCalledWith(
+      'outbox',
+      ['file-terminal-audit'],
+      2,
+      null,
+      'Failed to send message',
+      'worker-observability'
+    )
+  })
+
+  test('logs error and rethrows when an unexpected error occurs', async () => {
+    const boom = new Error('db exploded')
+    mocks.claim.mockRejectedValue(boom)
+
+    await expect(publishPendingMessages()).rejects.toThrow('db exploded')
+    expect(mocks.loggerError).toHaveBeenCalledWith(boom, 'Error publishing pending outbox messages')
+  })
+
+  test('logs processing summary after each batch', async () => {
+    const entry = buildEntry('summary', 0)
+    mocks.claim.mockResolvedValue([entry])
+    mocks.publishBatch.mockResolvedValue({
+      Successful: [{ Id: 'file-summary' }],
+      Failed: []
+    })
+
+    await publishPendingMessages()
+
+    expect(mocks.loggerInfo).toHaveBeenCalledWith(
+      'Outbox processing complete. Total: 1 sent, 0 failed, 0 rejected'
+    )
+  })
 })
