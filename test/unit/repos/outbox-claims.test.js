@@ -90,7 +90,7 @@ describe('outbox claims', () => {
     const expiredClaim = {
       _id: { toString: () => 'entry-1' },
       status: 'PROCESSING',
-      payload: { file: { fileId: 'file-1' } },
+      payload: { file: { fileId: 'file-1' }, messaging: { correlationId: 'correlation-1' } },
       claimedBy: 'worker-old',
       claimedUntil: new Date('2026-08-07T09:59:00.000Z')
     }
@@ -113,10 +113,9 @@ describe('outbox claims', () => {
           duration: 300000000000,
           reason: 'expired_claim previousOwner=worker-old previousClaimedUntil=2026-08-07T09:59:00.000Z'
         },
-        process: { name: 'worker-new' },
-        transaction: { id: 'file-1' }
+        process: { name: 'worker-new' }
       },
-      'Reclaimed expired outbox claim'
+      'Reclaimed expired outbox claim; entryId=file-1'
     )
   })
 

@@ -199,7 +199,7 @@ describe('logTerminalFailuresIfAny', () => {
           message: 'terminal_failure'
         }
       },
-      'Outbox entry reached FAILED after max attempts; attempt=2'
+      'Outbox entry reached FAILED after max attempts; entryId=null; attempt=2'
     )
   })
 
@@ -219,13 +219,12 @@ describe('logTerminalFailuresIfAny', () => {
           reason: 'publish error'
         },
         process: { name: 'worker-1' },
-        transaction: { id: 'f1' },
         error: {
           type: 'outbox_terminal_failure',
           message: 'publish error'
         }
       },
-      'Outbox entry reached FAILED after max attempts; attempt=2'
+      'Outbox entry reached FAILED after max attempts; entryId=f1; attempt=2'
     )
   })
 
