@@ -36,7 +36,8 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
   terminalDocs.forEach(doc => {
     const entryId = doc.payload?.file?.fileId || null
     const attempts = doc.attempts
-    const reason = errMsg || 'terminal_failure'
+    const failure = doc.error || {}
+    const reason = failure.message || errMsg || 'terminal_failure'
     logger.error({
       event: {
         type: 'outbox_terminal_failure',
@@ -49,6 +50,8 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
       ...(entryId && { transaction: { id: entryId } }),
       error: {
         type: 'outbox_terminal_failure',
+        ...(entryId && { id: entryId }),
+        ...(failure.code && { code: failure.code }),
         message: reason
       }
     }, `Outbox entry reached PERMANENT_FAILURE after max attempts; attempt=${attempts}`)
@@ -59,13 +62,14 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
   await Promise.allSettled(terminalDocs.map(doc => {
     const entryId = doc.payload?.file?.fileId || null
     const attempts = doc.attempts
-    const reason = errMsg || 'terminal_failure'
+    const failure = doc.error || {}
+    const reason = failure.message || errMsg || 'terminal_failure'
     return sendAuditEvent({
       correlationid: doc.payload?.messaging?.correlationId,
       audit: {
         entities: [{ entity: 'document', action: 'failed', entityid: entryId ?? doc._id?.toString() ?? '' }],
         status: 'failure',
-        details: { reason, attempts }
+        details: { reason, ...(failure.code && { code: failure.code }), attempts }
       }
     })
   }))
