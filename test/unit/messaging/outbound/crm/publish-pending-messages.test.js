@@ -373,27 +373,33 @@ describe('publishPendingMessages observability', () => {
 })
 
 describe('buildEntryError', () => {
-  test('returns the failure Message when present', () => {
+  test('returns message and code when both are present', () => {
     const entry = { payload: { file: { fileId: 'file-1' } } }
-    const result = buildEntryError(entry, [{ Id: 'file-1', Message: 'sns error' }])
-    expect(result).toBe('sns error')
+    const result = buildEntryError(entry, [{ Id: 'file-1', Code: 'KMSAccessDenied', Message: 'KMS key denied' }])
+    expect(result).toEqual({ code: 'KMSAccessDenied', message: 'KMS key denied' })
   })
 
-  test('falls back to failure Code when Message is absent', () => {
+  test('returns code as message when only Code is present', () => {
     const entry = { payload: { file: { fileId: 'file-1' } } }
     const result = buildEntryError(entry, [{ Id: 'file-1', Code: 'ThrottlingException' }])
-    expect(result).toBe('ThrottlingException')
+    expect(result).toEqual({ code: 'ThrottlingException', message: 'ThrottlingException' })
   })
 
-  test('falls back to default message when failure has no Message or Code', () => {
+  test('returns message without code when only Message is present', () => {
+    const entry = { payload: { file: { fileId: 'file-1' } } }
+    const result = buildEntryError(entry, [{ Id: 'file-1', Message: 'sns error' }])
+    expect(result).toEqual({ message: 'sns error' })
+  })
+
+  test('returns default message when failure has neither Message nor Code', () => {
     const entry = { payload: { file: { fileId: 'file-1' } } }
     const result = buildEntryError(entry, [{ Id: 'file-1' }])
-    expect(result).toBe('Failed to send message')
+    expect(result).toEqual({ message: 'Failed to send message' })
   })
 
   test('returns default message when no matching failure is found', () => {
     const entry = { payload: { file: { fileId: 'file-1' } } }
     const result = buildEntryError(entry, [{ Id: 'file-other', Message: 'unrelated' }])
-    expect(result).toBe('Failed to send message')
+    expect(result).toEqual({ message: 'Failed to send message' })
   })
 })
