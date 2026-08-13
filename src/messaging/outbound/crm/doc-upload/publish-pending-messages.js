@@ -42,6 +42,7 @@ const mapPublishResultsToEntries = (batch, results) => {
     const entry = entriesById.get(result.Id)
     if (!entry) {
       const reason = 'publish_result_did_not_match_claimed_entry'
+      // No matching outbox entry means no journey correlationId is available for this line.
       logger.warn({
         event: {
           type: 'outbox_publish_result_unmatched',
