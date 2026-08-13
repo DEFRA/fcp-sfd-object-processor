@@ -77,23 +77,25 @@ The script does not depend on CDP Terminal and may instead be run through anothe
 
 ## CDP ECS log fields
 
-CDP retains a restricted subset of the Elastic Common Schema. Outbox logs use the following retained fields; unsupported custom fields are removed during ingestion.
+CDP retains a restricted subset of the Elastic Common Schema. In the CDP schema, `/` denotes a nested field while `.` is part of a literal flattened key. Outbox logs use the following retained fields; unsupported custom fields are removed during ingestion.
 
 | Information | ECS field |
 | --- | --- |
-| Event name | `event.type` |
-| Operation or state transition | `event.action` |
-| Outbox MongoDB `_id` | `event.reference` |
-| Outcome | `event.outcome` |
-| Claim creation time | `event.created` |
-| Claim lease duration in nanoseconds | `event.duration` |
-| Failure or rejection reason | `event.reason` |
-| Worker identifier | `process.name` |
-| Stable file/message identifier | `transaction.id` |
-| Error classification | `error.type` |
-| Error code | `error.code` |
-| Error description | `error.message` |
+| Event name | `event/type` |
+| Operation or state transition | `event/action` |
+| Outbox MongoDB `_id` | `event/reference` |
+| Outcome | `event/outcome` |
+| Claim creation time | `event/created` |
+| Claim lease duration in nanoseconds | `event/duration` |
+| Failure or rejection reason | `event/reason` |
+| Worker identifier | `process/name` |
+| Shared journey correlation ID | `transaction.id` |
+| Error classification | `error/type` |
+| Error code | `error/code` |
+| Error description | `error/message` |
 | Attempt count and other details without a suitable ECS field | `message` |
+
+Nested schema fields are emitted as objects, for example `{ event: { reference: value } }`. The journey ID is emitted using the literal flattened key `{ 'transaction.id': correlationId }`. File/message identifiers remain available in each per-entry log message.
 
 CDP also supplies `host.hostname`, `ecs_task_arn` and `container_id`. Use these fields as supporting evidence that the workers ran in distinct deployed instances.
 
@@ -111,6 +113,12 @@ event.type:"outbox_terminal_failure_imminent" OR event.type:"outbox_terminal_fai
 
 Add `event.reference`, `event.action`, `event.outcome`, `process.name`, `transaction.id`, `host.hostname`, `ecs_task_arn` and `container_id` as columns in OpenSearch Discover.
 
+To inspect one journey across the object processor and downstream services, filter on:
+
+```text
+transaction.id:"<correlationId>"
+```
+
 ## Inspect the result
 
 The script prints inspection queries containing the exact test-run identifier. Run them in the same database. Use the matching outbox documents' `_id` values to find their application logs through `event.reference`.
@@ -121,7 +129,9 @@ Verify that:
 - `host.hostname`, `ecs_task_arn` or `container_id` confirms that those workers ran in distinct service instances;
 - no record has overlapping valid claim ownership;
 - non-expired claims are not taken by another worker;
-- claim and finalisation events correlate through `event.reference` and retain the same `transaction.id`;
+- claim and finalisation events correlate through `event.reference` and carry the journey's `transaction.id`;
+- per-entry messages retain the stable file/message identifier;
+- batch summary logs do not carry `transaction.id` because a batch may span multiple journeys;
 - finalisation is performed only by the current `process.name` claim owner;
 - successfully published records reach `SENT`;
 - no record remains indefinitely in `PROCESSING`.

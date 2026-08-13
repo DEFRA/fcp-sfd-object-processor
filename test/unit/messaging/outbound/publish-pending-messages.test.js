@@ -58,7 +58,7 @@ const { publishPendingMessages } = await import('../../../../src/messaging/outbo
 const buildEntry = (id, attempts = 0) => ({
   _id: `outbox-${id}`,
   messageId: `metadata-${id}`,
-  payload: { file: { fileId: `file-${id}` } },
+  payload: { file: { fileId: `file-${id}` }, messaging: { correlationId: `correlation-${id}` } },
   status: 'PROCESSING',
   attempts,
   claimedBy: 'worker-1',
@@ -170,13 +170,12 @@ describe('publishPendingMessages', () => {
           reason: 'claim_expired_or_ownership_lost'
         },
         process: { name: 'worker-1' },
-        transaction: { id: 'file-rejected' },
         error: {
           type: 'outbox_claim_ownership_error',
           message: 'claim_expired_or_ownership_lost'
         }
       },
-      'Outbox entry could not be finalized by this worker'
+      'Outbox entry could not be finalized by this worker; entryId=file-rejected'
     )
   })
 
@@ -198,13 +197,12 @@ describe('publishPendingMessages', () => {
           outcome: 'failure',
           reason: 'publish_result_did_not_match_claimed_entry'
         },
-        transaction: { id: 'file-unknown' },
         error: {
           type: 'outbox_publish_result_unmatched',
           message: 'publish_result_did_not_match_claimed_entry'
         }
       },
-      'SNS publish result did not match a claimed outbox entry'
+      'SNS publish result did not match a claimed outbox entry; entryId=file-unknown'
     )
   })
 
