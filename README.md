@@ -241,7 +241,7 @@ Most integration tests use dedicated test collection names and rely on the same 
 
 ## Logging
 
-This service uses [Pino](https://getpino.io/) with [Elastic Common Schema (ECS)](https://www.elastic.co/guide/en/ecs/current/index.html) formatting. **All structured log fields must be nested under `event.*` or `error.*`** — flat top-level fields are not visible on the platform.
+This service uses [Pino](https://getpino.io/) with [Elastic Common Schema (ECS)](https://www.elastic.co/guide/en/ecs/current/index.html) formatting. Structured log fields must use the nested fields allowed by CDP's streamlined ECS schema, such as `event.*`, `error.*`, and `cdp-uploader.*`. Unsupported or incorrectly flattened fields are not visible on the platform.
 
 ### Approved `event.*` fields
 
@@ -307,15 +307,77 @@ When logging error context, nest fields under `error` alongside the `event` obje
 | `error.stack_trace` | keyword | Full stack trace |
 | `error.type` | keyword | Error class name (e.g. `ValidationError`, `TypeError`, `Error`) |
 
+### Callback validation failure logs
+
+When a request to `POST /api/v1/callback` fails Joi payload validation, the service logs a `callback_validation_failure` event before persisting the validation failure. File IDs use CDP's supported `cdp-uploader/fileIds` field; they must not be added to the `event` object.
+
+An ingested log has the following relevant fields (the logging framework and CDP ingestion pipeline add further standard fields):
+
+```json
+{
+  "cdp-uploader": {
+    "fileIds": ["aaaaaaaa-bbbb-4ccc-dddd-eeeeeeeeeeee"]
+  },
+  "event": {
+    "type": "callback_validation_failure",
+    "action": "post",
+    "category": "/api/v1/callback",
+    "outcome": "failure",
+    "reference": "TEST-FLS1-121"
+  },
+  "error": {
+    "code": null,
+    "message": "Validation failed",
+    "stack_trace": "ValidationError: ...",
+    "type": "ValidationError"
+  }
+}
+```
+
+The following request deliberately omits the required `uploadStatus` property. It retains otherwise recognisable metadata and a file ID so that the structured log fields can be checked:
+
+```bash
+curl --include --request POST 'http://localhost:3004/api/v1/callback' \
+  --header 'content-type: application/json' \
+  --data '{
+    "metadata": {
+      "sbi": 105000000,
+      "uosr": "TEST-FLS1-121"
+    },
+    "form": {
+      "supporting-document": {
+        "fileId": "aaaaaaaa-bbbb-4ccc-dddd-eeeeeeeeeeee"
+      }
+    },
+    "numberOfRejectedFiles": 0
+  }'
+```
+
+The validation failure is intentionally persisted and the endpoint continues to return `201 Created`:
+
+```json
+{
+  "message": "Validation failure persisted"
+}
+```
+
+After deploying to CDP, select the service's `cdp-logs*` index in OpenSearch Discover and search for:
+
+```text
+event.type: "callback_validation_failure"
+```
+
+Confirm that `cdp-uploader.fileIds` is present, `event.fileIds` is absent, and the entry has not been routed to `broken_logs*`. See the [CDP logging documentation](https://portal.cdp-int.defra.cloud/documentation/how-to/logging.md#logging) for the enforced field schema and ingestion behaviour.
+
 ### Log builder utilities
 
-Reusable structured log builders live in [`src/utils/`](src/utils/) and must use only approved ECS fields nested under `event` or `error`. Examples of the pattern:
+Reusable structured log builders live in [`src/utils/`](src/utils/) and must use only fields approved by CDP's streamlined ECS schema. Examples of the pattern:
 
 - [`build-uploader-status-log.js`](src/utils/build-uploader-status-log.js) — `event.*` fields for outbound CDP Uploader requests
 - [`build-callback-validation-failure-log.js`](src/utils/build-callback-validation-failure-log.js) — combined `event.*` + `error.*` for callback validation failures
 - [`build-auth-failure-log.js`](src/utils/build-auth-failure-log.js) — authentication failure context
 
-> **Rule:** Any new log builder must follow this pattern. Do not use flat top-level fields — they are not visible on the platform.
+> **Rule:** Any new log builder must follow this pattern. Use correctly nested CDP fields rather than flattened keys — incorrectly structured fields are not visible on the platform.
 
 ## Tests
 

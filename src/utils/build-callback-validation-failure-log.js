@@ -2,19 +2,21 @@ import { extractFileIdsFromPayload } from '../mappers/status.js'
 
 /**
  * Builds the structured log context for a Joi schema validation failure on the callback endpoint.
- * Uses approved ECS event.* and error.* fields only.
+ * Uses CDP's approved cdp-uploader.*, event.* and error.* fields.
  * @param {object} request - Hapi request object
  * @param {Error} err - Joi validation error
  */
 export const buildCallbackValidationFailureLog = (request, err) => {
   return {
+    'cdp-uploader': {
+      fileIds: extractFileIdsFromPayload(request.payload)
+    },
     event: {
       type: 'callback_validation_failure',
       action: request.method,
       category: request.path,
       outcome: 'failure',
-      reference: request.payload?.metadata?.uosr,
-      fileIds: extractFileIdsFromPayload(request.payload)
+      reference: request.payload?.metadata?.uosr
     },
     error: {
       code: err.statusCode ?? err.code ?? null,

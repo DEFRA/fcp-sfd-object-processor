@@ -52,6 +52,7 @@ vi.mock('../../../../../src/utils/build-callback-validation-failure-log.js', () 
 
 const { uploadCallback } = await import('../../../../../src/api/v1/callback/index.js')
 const { persistMetadataWithOutbox, persistValidationFailureStatus } = await import('../../../../../src/services/metadata-service.js')
+const { buildCallbackValidationFailureLog } = await import('../../../../../src/utils/build-callback-validation-failure-log.js')
 
 const buildMockRequest = (overrides = {}) => ({
   payload: {
@@ -208,7 +209,8 @@ describe('callback handler — event 5 (document/failed on Joi validation failur
 
     await uploadCallback.options.validate.failAction(request, h, mockErr)
 
-    expect(mockLogger.error).toHaveBeenCalled()
+    expect(buildCallbackValidationFailureLog).toHaveBeenCalledWith(request, mockErr)
+    expect(mockLogger.error).toHaveBeenCalledWith({}, 'Validation failed')
   })
 
   test('persists validation failure status in failAction', async () => {
