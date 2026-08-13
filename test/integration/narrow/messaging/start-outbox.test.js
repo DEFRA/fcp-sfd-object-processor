@@ -236,7 +236,7 @@ describe('Outbox message processing', () => {
       expect(msg.status).toBe(PERMANENT_FAILURE)
       expect(msg.attempts).toBe(1)
       expect(msg.lastAttemptedAt).toBeInstanceOf(Date)
-      expect(msg.error).toEqual({ code: 'InternalError', message: 'SNS publish failed' })
+      expect(msg.error).toEqual({ type: 'outbox_publish_failure', code: 'InternalError', message: 'SNS publish failed' })
     })
 
     // Assert: Verify metadata entries still have publishedAt as null
@@ -717,6 +717,6 @@ describe('Outbox message processing', () => {
 
     const stored = await db.collection(outboxCollection).findOne({ _id: insertedId })
     expect(stored.status).toBe(PERMANENT_FAILURE)
-    expect(stored.error).toEqual({ code: 'KMSAccessDenied', message: 'The ciphertext refers to a customer master key that does not exist' })
+    expect(stored.error).toEqual({ type: 'outbox_publish_failure', code: 'KMSAccessDenied', message: 'The ciphertext refers to a customer master key that does not exist' })
   })
 })

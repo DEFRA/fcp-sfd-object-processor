@@ -59,14 +59,7 @@ const mapPublishResultsToEntries = (batch, results) => {
 }
 
 const buildEntryError = (entry, failedResults) => {
-  const failure = failedResults.find(result => result.Id === getEntryId(entry))
-  if (!failure) {
-    return { message: publishFailureMessage }
-  }
-  return {
-    ...(failure.Code && { code: failure.Code }),
-    message: failure.Message || failure.Code || publishFailureMessage
-  }
+  return getFailureDetails(entry, failedResults).error
 }
 
 const finalizeEntries = async (session, entries, deliveryStatus, failedResults = []) => {

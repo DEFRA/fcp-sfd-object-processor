@@ -108,7 +108,7 @@ describe('publishPendingMessages', () => {
       ['outbox-failure'],
       'worker-1',
       FAILED,
-      { message: 'SNS unavailable' }
+      { type: 'outbox_publish_failure', message: 'SNS unavailable' }
     )
     expect(mocks.updatePublishedAt).toHaveBeenCalledWith(session, ['file-success'])
     expect(mocks.logTerminal).toHaveBeenCalledWith(

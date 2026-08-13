@@ -376,30 +376,30 @@ describe('buildEntryError', () => {
   test('returns message and code when both are present', () => {
     const entry = { payload: { file: { fileId: 'file-1' } } }
     const result = buildEntryError(entry, [{ Id: 'file-1', Code: 'KMSAccessDenied', Message: 'KMS key denied' }])
-    expect(result).toEqual({ code: 'KMSAccessDenied', message: 'KMS key denied' })
+    expect(result).toEqual({ type: 'outbox_publish_failure', code: 'KMSAccessDenied', message: 'KMS key denied' })
   })
 
   test('returns code as message when only Code is present', () => {
     const entry = { payload: { file: { fileId: 'file-1' } } }
     const result = buildEntryError(entry, [{ Id: 'file-1', Code: 'ThrottlingException' }])
-    expect(result).toEqual({ code: 'ThrottlingException', message: 'ThrottlingException' })
+    expect(result).toEqual({ type: 'outbox_publish_failure', code: 'ThrottlingException', message: 'ThrottlingException' })
   })
 
   test('returns message without code when only Message is present', () => {
     const entry = { payload: { file: { fileId: 'file-1' } } }
     const result = buildEntryError(entry, [{ Id: 'file-1', Message: 'sns error' }])
-    expect(result).toEqual({ message: 'sns error' })
+    expect(result).toEqual({ type: 'outbox_publish_failure', message: 'sns error' })
   })
 
   test('returns default message when failure has neither Message nor Code', () => {
     const entry = { payload: { file: { fileId: 'file-1' } } }
     const result = buildEntryError(entry, [{ Id: 'file-1' }])
-    expect(result).toEqual({ message: 'Failed to send message' })
+    expect(result).toEqual({ type: 'outbox_publish_failure', message: 'failed_to_publish' })
   })
 
   test('returns default message when no matching failure is found', () => {
     const entry = { payload: { file: { fileId: 'file-1' } } }
     const result = buildEntryError(entry, [{ Id: 'file-other', Message: 'unrelated' }])
-    expect(result).toEqual({ message: 'Failed to send message' })
+    expect(result).toEqual({ type: 'outbox_publish_failure', message: 'failed_to_publish' })
   })
 })
