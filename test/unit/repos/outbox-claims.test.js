@@ -53,7 +53,6 @@ describe('outbox claims', () => {
     expect(findOneAndUpdate).toHaveBeenCalledTimes(2)
     expect(findOneAndUpdate).toHaveBeenCalledWith({
       attempts: { $lt: 3 },
-      status: { $nin: ['PERMANENT_FAILURE'] },
       $or: [
         { status: 'PENDING' },
         { status: 'PROCESSING', claimedUntil: { $lt: now } }

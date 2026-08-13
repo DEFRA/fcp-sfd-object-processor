@@ -111,7 +111,6 @@ const claimProcessableOutboxEntries = async (instanceId, now = new Date()) => {
 
   const filter = {
     attempts: { $lt: maxAttempts },
-    status: { $nin: [PERMANENT_FAILURE] },
     $or: [
       { status: PENDING },
       { status: PROCESSING, claimedUntil: { $lt: now } }
