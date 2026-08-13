@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { DELIVERY_OUTCOME } from '../../../../src/constants/outbox.js'
 
 const mocks = vi.hoisted(() => ({
   collection: vi.fn(),
@@ -130,7 +131,7 @@ describe('outbox claims', () => {
       session,
       ['entry-1', 'entry-2'],
       'worker-1',
-      'SENT',
+      DELIVERY_OUTCOME.SUCCEEDED,
       null,
       now
     )
@@ -157,7 +158,7 @@ describe('outbox claims', () => {
       null,
       ['entry-1'],
       'worker-1',
-      'FAILED',
+      DELIVERY_OUTCOME.FAILED,
       'SNS unavailable',
       now
     )
@@ -194,12 +195,12 @@ describe('outbox claims', () => {
     const updateMany = vi.fn().mockResolvedValue({ acknowledged: true, matchedCount: 0 })
     mocks.collection.mockReturnValue({ updateMany })
 
-    const result = await finalizeClaimedOutboxEntries(null, ['entry-1'], 'worker-1', 'FAILED', null, now)
+    const result = await finalizeClaimedOutboxEntries(null, ['entry-1'], 'worker-1', DELIVERY_OUTCOME.FAILED, null, now)
 
     expect(result).toEqual({ acknowledged: true, matchedCount: 0 })
   })
 
-  test('rejects an unsupported delivery status', async () => {
+  test('rejects an unsupported delivery outcome', async () => {
     mocks.collection.mockReturnValue({ updateMany: vi.fn() })
 
     await expect(finalizeClaimedOutboxEntries(
@@ -207,7 +208,7 @@ describe('outbox claims', () => {
       ['entry-1'],
       'worker-1',
       'PROCESSING'
-    )).rejects.toThrow('Unsupported outbox delivery status: PROCESSING')
+    )).rejects.toThrow('Unsupported delivery outcome: PROCESSING')
   })
 
   test('throws when finalization is not acknowledged', async () => {
@@ -219,7 +220,7 @@ describe('outbox claims', () => {
       null,
       ['entry-1'],
       'worker-1',
-      'SENT'
+      DELIVERY_OUTCOME.SUCCEEDED
     )).rejects.toThrow('Failed to finalize claimed outbox entries')
   })
 })

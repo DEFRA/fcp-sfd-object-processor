@@ -2,7 +2,7 @@ import { ObjectId } from 'mongodb'
 import { vi, describe, test, expect, beforeAll, afterEach, afterAll, beforeEach } from 'vitest'
 import { config } from '../../../../src/config/index.js'
 import { db } from '../../../../src/data/db.js'
-import { PENDING, SENT, FAILED, PERMANENT_FAILURE } from '../../../../src/constants/outbox.js'
+import { PENDING, SENT, PERMANENT_FAILURE } from '../../../../src/constants/outbox.js'
 import { publishPendingMessages } from '../../../../src/messaging/outbound/crm/doc-upload/publish-pending-messages.js'
 import { mockPendingMessages } from '../../../mocks/outbox.js'
 import { publishBatch } from '../../../../src/messaging/sns/publish-batch.js'
@@ -253,8 +253,8 @@ describe('Outbox message processing', () => {
     expect(publishBatch).toHaveBeenCalledTimes(1)
   })
 
-  test('should process PENDING messages without retrying terminal FAILED messages', async () => {
-    // Arrange: Create a terminal FAILED entry alongside a PENDING entry
+  test('should process PENDING messages without retrying terminal entries', async () => {
+    // Arrange: Create a terminal PERMANENT_FAILURE entry alongside a PENDING entry
     const metadataId1 = ObjectId.createFromHexString('507f1f77bcf86cd799439015')
     const metadataId2 = ObjectId.createFromHexString('507f1f77bcf86cd799439016')
 
@@ -287,7 +287,7 @@ describe('Outbox message processing', () => {
           file: { fileId: 'file-1', filename: 'test1.pdf' },
           messaging: { publishedAt: null, correlationId: 'mock-correlation-id' }
         },
-        status: FAILED,
+        status: PERMANENT_FAILURE,
         attempts: 1,
         createdAt: new Date()
       },
@@ -320,7 +320,7 @@ describe('Outbox message processing', () => {
     // Act: Run publishPendingMessages
     await publishPendingMessages()
 
-    // Assert: FAILED remains terminal and PENDING is processed
+    // Assert: PERMANENT_FAILURE remains terminal and PENDING is processed
     const updatedMessages = await db.collection(outboxCollection)
       .find({ _id: { $in: insertedIds } })
       .toArray()
@@ -328,7 +328,7 @@ describe('Outbox message processing', () => {
     expect(updatedMessages).toHaveLength(2)
     const failedMessage = updatedMessages.find(message => message._id.equals(insertedIds[0]))
     const sentMessage = updatedMessages.find(message => message._id.equals(insertedIds[1]))
-    expect(failedMessage.status).toBe(FAILED)
+    expect(failedMessage.status).toBe(PERMANENT_FAILURE)
     expect(failedMessage.attempts).toBe(1)
     expect(failedMessage.lastAttemptedAt).toBeUndefined()
     expect(sentMessage.status).toBe(SENT)
@@ -462,12 +462,12 @@ describe('Outbox message processing', () => {
     expect(publishBatch).toHaveBeenCalledTimes(1)
   })
 
-  test('should respect query limit while excluding terminal FAILED messages', async () => {
+  test('should respect query limit while excluding terminal PERMANENT_FAILURE messages', async () => {
     // Arrange: Set query limit to 3
     const originalQueryLimit = config.get('mongo.outboxQueryLimit')
     config.set('mongo.outboxQueryLimit', 3)
 
-    // Create metadata and outbox entries - 3 PENDING + 3 terminal FAILED
+    // Create metadata and outbox entries - 3 PENDING + 3 terminal PERMANENT_FAILURE
     const metadataIds = [
       ObjectId.createFromHexString('507f1f77bcf86cd799439018'),
       ObjectId.createFromHexString('507f1f77bcf86cd799439019'),
@@ -488,7 +488,7 @@ describe('Outbox message processing', () => {
 
     await db.collection(metadataCollection).insertMany(metadataEntries)
 
-    // Create outbox entries: first 3 are PENDING, last 3 are FAILED
+    // Create outbox entries: first 3 are PENDING, last 3 are PERMANENT_FAILURE
     const testMessages = metadataIds.map((id, index) => ({
       messageId: id,
       payload: {
@@ -496,7 +496,7 @@ describe('Outbox message processing', () => {
         file: { fileId: `file-${index}`, filename: `test${index}.pdf` },
         messaging: { publishedAt: null, correlationId: 'mock-correlation-id' }
       },
-      status: index < 3 ? PENDING : FAILED,
+      status: index < 3 ? PENDING : PERMANENT_FAILURE,
       attempts: index < 3 ? 0 : 1,
       createdAt: new Date()
     }))
@@ -527,7 +527,7 @@ describe('Outbox message processing', () => {
 
     // Assert: Remaining 3 messages should still be in their original state
     const unprocessedMessages = await db.collection(outboxCollection)
-      .find({ status: { $in: [PENDING, FAILED] }, attempts: { $lte: 1 } })
+      .find({ status: { $in: [PENDING, PERMANENT_FAILURE] }, attempts: { $lte: 1 } })
       .toArray()
 
     expect(unprocessedMessages).toHaveLength(3)
@@ -539,7 +539,7 @@ describe('Outbox message processing', () => {
     config.set('mongo.outboxQueryLimit', originalQueryLimit)
   })
 
-  test('should NOT reprocess exhausted FAILED entries (attempts >= maxAttempts)', async () => {
+  test('should NOT reprocess exhausted PERMANENT_FAILURE entries (attempts >= maxAttempts)', async () => {
     // Arrange: create a metadata + outbox entry that is already exhausted
     const metadataId = ObjectId.createFromHexString('507f1f77bcf86cd79943901f')
 
@@ -564,7 +564,7 @@ describe('Outbox message processing', () => {
         file: { fileId: 'file-exhausted', filename: 'exhausted.pdf' },
         messaging: { publishedAt: null, correlationId: 'exhausted-correlation-id' }
       },
-      status: FAILED,
+      status: PERMANENT_FAILURE,
       attempts: 5,
       createdAt: new Date()
     }
@@ -578,10 +578,10 @@ describe('Outbox message processing', () => {
     // Assert: publishBatch should NOT have been called because there are no processable messages
     expect(publishBatch).toHaveBeenCalledTimes(0)
 
-    // Assert: the exhausted entry remains unchanged (still FAILED and same attempts)
+    // Assert: the exhausted entry remains unchanged (still PERMANENT_FAILURE and same attempts)
     const stored = await db.collection(outboxCollection).findOne({ _id: insertedId })
     expect(stored).toBeTruthy()
-    expect(stored.status).toBe(FAILED)
+    expect(stored.status).toBe(PERMANENT_FAILURE)
     expect(stored.attempts).toBe(5)
     // lastAttemptedAt should not have been set/updated
     expect(stored.lastAttemptedAt).toBeUndefined()

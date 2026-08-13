@@ -1,5 +1,5 @@
 import { config } from '../config/index.js'
-import { PENDING, PROCESSING, FAILED, PERMANENT_FAILURE, SENT } from '../constants/outbox.js'
+import { PENDING, PROCESSING, DELIVERY_OUTCOME, PERMANENT_FAILURE, SENT } from '../constants/outbox.js'
 import { db } from '../data/db.js'
 import { createLogger } from '../logging/logger.js'
 import { sendAuditEvent } from '../messaging/outbound/audit/send-audit-event.js'
@@ -191,7 +191,7 @@ const finalizeClaimedOutboxEntries = async (
   session,
   entryIds,
   instanceId,
-  deliveryStatus,
+  deliveryOutcome,
   error = null,
   now = new Date()
 ) => {
@@ -205,7 +205,7 @@ const finalizeClaimedOutboxEntries = async (
   }
   const options = session ? { session } : {}
 
-  if (deliveryStatus === SENT) {
+  if (deliveryOutcome === DELIVERY_OUTCOME.SUCCEEDED) {
     const updateResult = await db.collection(collection).updateMany(filter, {
       $set: {
         status: SENT,
@@ -225,7 +225,7 @@ const finalizeClaimedOutboxEntries = async (
     }
 
     return updateResult
-  } else if (deliveryStatus === FAILED) {
+  } else if (deliveryOutcome === DELIVERY_OUTCOME.FAILED) {
     // Use updateMany with aggregation pipeline to compute terminal status per doc
     const updateResult = await db.collection(collection).updateMany(
       filter,
@@ -239,7 +239,7 @@ const finalizeClaimedOutboxEntries = async (
 
     return updateResult
   } else {
-    throw new Error(`Unsupported outbox delivery status: ${deliveryStatus}`)
+    throw new Error(`Unsupported delivery outcome: ${deliveryOutcome}`)
   }
 }
 

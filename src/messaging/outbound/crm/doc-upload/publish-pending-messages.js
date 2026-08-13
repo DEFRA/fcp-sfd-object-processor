@@ -7,7 +7,7 @@ import {
 } from '../../../../repos/outbox.js'
 import { bulkUpdatePublishedAtDate } from '../../../../repos/metadata.js'
 import { publishDocumentUploadMessageBatch } from './publish-document-upload-message-batch.js'
-import { PENDING, SENT, FAILED, PERMANENT_FAILURE, BATCH_SIZE } from '../../../../constants/outbox.js'
+import { PENDING, SENT, DELIVERY_OUTCOME, PERMANENT_FAILURE, BATCH_SIZE } from '../../../../constants/outbox.js'
 import { client } from '../../../../data/db.js'
 import { outboxWorkerId } from '../../outbox-worker-id.js'
 
@@ -62,17 +62,17 @@ const buildEntryError = (entry, failedResults) => {
   return getFailureDetails(entry, failedResults).error
 }
 
-const finalizeEntries = async (session, entries, deliveryStatus, failedResults = []) => {
+const finalizeEntries = async (session, entries, deliveryOutcome, failedResults = []) => {
   const finalized = []
   const rejected = []
 
   for (const entry of entries) {
-    const error = deliveryStatus === FAILED ? buildEntryError(entry, failedResults) : null
+    const error = deliveryOutcome === DELIVERY_OUTCOME.FAILED ? buildEntryError(entry, failedResults) : null
     const result = await finalizeClaimedOutboxEntries(
       session,
       [entry._id],
       outboxWorkerId,
-      deliveryStatus,
+      deliveryOutcome,
       error
     )
 
@@ -184,8 +184,8 @@ const publishPendingMessages = async () => {
       let rejected = []
 
       await session.withTransaction(async () => {
-        const successfulResult = await finalizeEntries(session, successfulEntries, SENT)
-        const failedResult = await finalizeEntries(session, failedEntries, FAILED, Failed)
+        const successfulResult = await finalizeEntries(session, successfulEntries, DELIVERY_OUTCOME.SUCCEEDED)
+        const failedResult = await finalizeEntries(session, failedEntries, DELIVERY_OUTCOME.FAILED, Failed)
 
         finalizedSuccessful = successfulResult.finalized
         finalizedFailed = failedResult.finalized

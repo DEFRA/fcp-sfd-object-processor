@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
-import { FAILED, SENT } from '../../../../src/constants/outbox.js'
+import { DELIVERY_OUTCOME } from '../../../../src/constants/outbox.js'
 
 const mocks = vi.hoisted(() => ({
   claim: vi.fn(),
@@ -102,7 +102,7 @@ describe('publishPendingMessages', () => {
       session,
       ['outbox-success'],
       'worker-1',
-      SENT,
+      DELIVERY_OUTCOME.SUCCEEDED,
       null
     )
     expect(mocks.finalize).toHaveBeenNthCalledWith(
@@ -110,7 +110,7 @@ describe('publishPendingMessages', () => {
       session,
       ['outbox-failure'],
       'worker-1',
-      FAILED,
+      DELIVERY_OUTCOME.FAILED,
       { type: 'outbox_publish_failure', message: 'SNS unavailable' }
     )
     expect(mocks.updatePublishedAt).toHaveBeenCalledWith(session, ['file-success'])

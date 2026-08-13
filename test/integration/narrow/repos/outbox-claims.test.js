@@ -7,7 +7,7 @@ import {
   claimProcessableOutboxEntries,
   finalizeClaimedOutboxEntries
 } from '../../../../src/repos/outbox.js'
-import { FAILED, PENDING, PROCESSING, PERMANENT_FAILURE, SENT } from '../../../../src/constants/outbox.js'
+import { DELIVERY_OUTCOME, PENDING, PROCESSING, PERMANENT_FAILURE } from '../../../../src/constants/outbox.js'
 
 const originalCollectionName = config.get('mongo.collections.outbox')
 const collectionName = `${originalCollectionName}-claims-integration`
@@ -111,7 +111,7 @@ describe('outbox claim repository concurrency', () => {
       null,
       [insertedId],
       'worker-old',
-      SENT,
+      DELIVERY_OUTCOME.SUCCEEDED,
       null,
       new Date('2026-08-07T10:00:01.000Z')
     )
@@ -119,7 +119,7 @@ describe('outbox claim repository concurrency', () => {
       null,
       [insertedId],
       'worker-new',
-      SENT,
+      DELIVERY_OUTCOME.SUCCEEDED,
       null,
       new Date('2026-08-07T10:00:01.000Z')
     )
@@ -143,7 +143,7 @@ describe('outbox claim repository concurrency', () => {
       null,
       [insertedId],
       'worker-1',
-      SENT,
+      DELIVERY_OUTCOME.SUCCEEDED,
       null,
       new Date('2026-08-07T10:00:00.000Z')
     )
@@ -180,7 +180,7 @@ describe('outbox claim repository concurrency', () => {
       null,
       Object.values(insertedIds),
       'worker-1',
-      FAILED,
+      DELIVERY_OUTCOME.FAILED,
       'SNS unavailable',
       new Date('2026-08-07T10:01:00.000Z')
     )
