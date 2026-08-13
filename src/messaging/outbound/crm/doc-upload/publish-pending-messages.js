@@ -77,7 +77,7 @@ const finalizeEntries = async (session, entries, deliveryStatus, failedResults =
     )
 
     if (result.matchedCount === 1) {
-      finalized.push(entry)
+      finalized.push({ ...entry, status: result.status })
     } else {
       rejected.push(entry)
     }
@@ -201,8 +201,8 @@ const publishPendingMessages = async () => {
 
       if (finalizedFailed.length > 0) {
         const maxAttempts = config.get('messaging.outboxMaxAttempts')
-        const terminalEntries = finalizedFailed.filter(entry => ((entry.attempts || 0) + 1) >= maxAttempts)
-        const retryableEntries = finalizedFailed.filter(entry => ((entry.attempts || 0) + 1) < maxAttempts)
+        const terminalEntries = finalizedFailed.filter(entry => entry.status === PERMANENT_FAILURE)
+        const retryableEntries = finalizedFailed.filter(entry => entry.status !== PERMANENT_FAILURE)
 
         logFinalizations(retryableEntries, PENDING, Failed)
         logFinalizations(terminalEntries, PERMANENT_FAILURE, Failed)

@@ -70,7 +70,7 @@ describe('publishPendingMessages observability', () => {
       withTransaction: vi.fn(async callback => callback()),
       endSession: vi.fn()
     })
-    mocks.finalize.mockResolvedValue({ acknowledged: true, matchedCount: 1 })
+    mocks.finalize.mockResolvedValue({ acknowledged: true, matchedCount: 1, status: 'SENT' })
     mocks.logTerminal.mockResolvedValue(undefined)
   })
 
@@ -109,6 +109,9 @@ describe('publishPendingMessages observability', () => {
         { Id: 'file-terminal', Code: 'terminal_failure' }
       ]
     })
+    mocks.finalize
+      .mockResolvedValueOnce({ acknowledged: true, matchedCount: 1, status: 'PENDING' })
+      .mockResolvedValueOnce({ acknowledged: true, matchedCount: 1, status: 'PERMANENT_FAILURE' })
 
     await publishPendingMessages()
 
@@ -316,6 +319,7 @@ describe('publishPendingMessages observability', () => {
       Successful: [],
       Failed: [{ Id: 'file-no-detail' }]
     })
+    mocks.finalize.mockResolvedValue({ acknowledged: true, matchedCount: 1, status: 'PERMANENT_FAILURE' })
 
     await publishPendingMessages()
 
@@ -335,6 +339,7 @@ describe('publishPendingMessages observability', () => {
       Successful: [],
       Failed: [{ Id: 'file-terminal-audit', Message: 'permanent error' }]
     })
+    mocks.finalize.mockResolvedValue({ acknowledged: true, matchedCount: 1, status: 'PERMANENT_FAILURE' })
 
     await publishPendingMessages()
 

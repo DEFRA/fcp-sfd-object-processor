@@ -150,10 +150,10 @@ describe('outbox claims', () => {
 
   test('finalizes failed attempts with retry and terminal status pipeline', async () => {
     const now = new Date('2026-08-07T10:00:00.000Z')
-    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
+    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true, matchedCount: 1 })
     mocks.collection.mockReturnValue({ updateMany })
 
-    await finalizeClaimedOutboxEntries(
+    const result = await finalizeClaimedOutboxEntries(
       null,
       ['entry-1'],
       'worker-1',
@@ -162,25 +162,41 @@ describe('outbox claims', () => {
       now
     )
 
-    expect(updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      status: 'PROCESSING',
-      claimedBy: 'worker-1',
-      claimedUntil: { $gt: now }
-    }), [
+    expect(updateMany).toHaveBeenCalledWith(
       {
-        $set: {
-          attempts: { $add: [{ $ifNull: ['$attempts', 0] }, 1] },
-          lastAttemptedAt: now,
-          error: 'SNS unavailable'
-        }
+        _id: { $in: ['entry-1'] },
+        status: 'PROCESSING',
+        claimedBy: 'worker-1',
+        claimedUntil: { $gt: now }
       },
-      {
-        $set: {
-          status: { $cond: [{ $gte: ['$attempts', 3] }, 'PERMANENT_FAILURE', 'PENDING'] }
-        }
-      },
-      { $unset: ['claimedAt', 'claimedUntil', 'claimedBy'] }
-    ], {})
+      [
+        {
+          $set: {
+            attempts: { $add: [{ $ifNull: ['$attempts', 0] }, 1] },
+            lastAttemptedAt: now,
+            error: 'SNS unavailable'
+          }
+        },
+        {
+          $set: {
+            status: { $cond: [{ $gte: ['$attempts', 3] }, 'PERMANENT_FAILURE', 'PENDING'] }
+          }
+        },
+        { $unset: ['claimedAt', 'claimedUntil', 'claimedBy'] }
+      ],
+      {}
+    )
+    expect(result).toEqual({ acknowledged: true, matchedCount: 1 })
+  })
+
+  test('returns matchedCount 0 when FAILED entry claim has expired', async () => {
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true, matchedCount: 0 })
+    mocks.collection.mockReturnValue({ updateMany })
+
+    const result = await finalizeClaimedOutboxEntries(null, ['entry-1'], 'worker-1', 'FAILED', null, now)
+
+    expect(result).toEqual({ acknowledged: true, matchedCount: 0 })
   })
 
   test('rejects an unsupported delivery status', async () => {

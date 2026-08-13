@@ -205,10 +205,8 @@ const finalizeClaimedOutboxEntries = async (
   }
   const options = session ? { session } : {}
 
-  let updateResult
-
   if (deliveryStatus === SENT) {
-    updateResult = await db.collection(collection).updateMany(filter, {
+    const updateResult = await db.collection(collection).updateMany(filter, {
       $set: {
         status: SENT,
         lastAttemptedAt: now
@@ -221,21 +219,28 @@ const finalizeClaimedOutboxEntries = async (
         error: ''
       }
     }, options)
+
+    if (!updateResult.acknowledged) {
+      throw new Error('Failed to finalize claimed outbox entries')
+    }
+
+    return updateResult
   } else if (deliveryStatus === FAILED) {
-    updateResult = await db.collection(collection).updateMany(
+    // Use updateMany with aggregation pipeline to compute terminal status per doc
+    const updateResult = await db.collection(collection).updateMany(
       filter,
       buildClaimedFailurePipeline(maxAttempts, error, now),
       options
     )
+
+    if (!updateResult.acknowledged) {
+      throw new Error('Failed to finalize claimed outbox entries')
+    }
+
+    return updateResult
   } else {
     throw new Error(`Unsupported outbox delivery status: ${deliveryStatus}`)
   }
-
-  if (!updateResult.acknowledged) {
-    throw new Error('Failed to finalize claimed outbox entries')
-  }
-
-  return updateResult
 }
 
 export {

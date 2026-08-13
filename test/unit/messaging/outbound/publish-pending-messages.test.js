@@ -76,7 +76,7 @@ describe('publishPendingMessages', () => {
       endSession: vi.fn()
     }
     mocks.startSession.mockReturnValue(session)
-    mocks.finalize.mockResolvedValue({ acknowledged: true, matchedCount: 1 })
+    mocks.finalize.mockResolvedValue({ acknowledged: true, matchedCount: 1, status: 'SENT' })
     mocks.logTerminal.mockResolvedValue(undefined)
     mocks.updatePublishedAt.mockResolvedValue({ acknowledged: true })
     mocks.publishBatch.mockResolvedValue({ Successful: [], Failed: [] })
@@ -90,6 +90,9 @@ describe('publishPendingMessages', () => {
       Successful: [{ Id: 'file-success' }],
       Failed: [{ Id: 'file-failure', Message: 'SNS unavailable' }]
     })
+    mocks.finalize
+      .mockResolvedValueOnce({ acknowledged: true, matchedCount: 1, status: 'SENT' })
+      .mockResolvedValueOnce({ acknowledged: true, matchedCount: 1, status: 'PERMANENT_FAILURE' })
 
     await publishPendingMessages()
 
@@ -154,8 +157,8 @@ describe('publishPendingMessages', () => {
       Failed: []
     })
     mocks.finalize
-      .mockResolvedValueOnce({ acknowledged: true, matchedCount: 1 })
-      .mockResolvedValueOnce({ acknowledged: true, matchedCount: 0 })
+      .mockResolvedValueOnce({ acknowledged: true, matchedCount: 1, status: 'SENT' })
+      .mockResolvedValueOnce({ acknowledged: true, matchedCount: 0, status: undefined })
 
     await publishPendingMessages()
 
