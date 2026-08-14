@@ -20,13 +20,15 @@ describe('buildCallbackValidationFailureLog', () => {
     const log = buildCallbackValidationFailureLog(mockRequest, err)
 
     expect(log).toEqual({
+      'cdp-uploader': {
+        fileIds: ['unknown']
+      },
       event: {
         type: 'callback_validation_failure',
         action: 'post',
         category: '/api/v1/callback',
         outcome: 'failure',
-        reference: 'sub-123',
-        fileIds: ['unknown']
+        reference: 'sub-123'
       },
       error: {
         code: null,
@@ -49,22 +51,23 @@ describe('buildCallbackValidationFailureLog', () => {
       }
     }
     const log = buildCallbackValidationFailureLog(request, err)
-    expect(log.event.fileIds).toEqual([
+    expect(log['cdp-uploader'].fileIds).toEqual([
       'aaaaaaaa-bbbb-4ccc-dddd-eeeeeeeeeeee',
       'ffffffff-0000-4111-2222-333333333333'
     ])
+    expect(log.event.fileIds).toBeUndefined()
   })
 
   test('falls back to ["unknown"] when form is absent from payload', () => {
     const request = { ...mockRequest, payload: { metadata: { uosr: 'sub-123' } } }
     const log = buildCallbackValidationFailureLog(request, err)
-    expect(log.event.fileIds).toEqual(['unknown'])
+    expect(log['cdp-uploader'].fileIds).toEqual(['unknown'])
   })
 
   test('falls back to ["unknown"] when payload is null', () => {
     const request = { ...mockRequest, payload: null }
     const log = buildCallbackValidationFailureLog(request, err)
-    expect(log.event.fileIds).toEqual(['unknown'])
+    expect(log['cdp-uploader'].fileIds).toEqual(['unknown'])
   })
 
   test('uses uosr from payload as event.reference', () => {
