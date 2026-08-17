@@ -23,7 +23,9 @@ export function applyFileStatusConditionals (schema) {
         checksumSha256: Joi.required(),
         contentLength: Joi.number().integer().min(1).required(),
         hasError: Joi.forbidden(),
-        errorMessage: Joi.forbidden()
+        errorMessage: Joi.forbidden(),
+        errorCode: Joi.forbidden(),
+        errorParams: Joi.forbidden()
       })
     })
     .when(Joi.object({ fileStatus: Joi.valid('rejected').required() }).unknown(), {
@@ -40,9 +42,10 @@ export function applyFileStatusConditionals (schema) {
  * Canonical CDP Uploader file-upload contract.
  *
  * fileStatus: 'complete' | 'rejected' | 'pending'
- * - complete: must have s3Key, s3Bucket, checksumSha256, contentLength > 0; must NOT have hasError/errorMessage
+ * - complete: must have s3Key, s3Bucket, checksumSha256, contentLength > 0; must NOT have hasError/errorMessage/errorCode/errorParams
  * - rejected: must have hasError=true and non-empty errorMessage; must NOT have s3Key/s3Bucket;
- *             detectedContentType and checksumSha256 are allowed (CDP Uploader includes them)
+ *             detectedContentType and checksumSha256 are allowed (CDP Uploader includes them);
+ *             errorCode/errorParams are optional (CDP Uploader additive change, not yet present in every environment)
  * - pending: minimal constraints (fileId, filename, contentType, detectedContentType allowed)
  *
  * Exported as `fileUploadSchema` for reuse by callback, status, and initiate endpoints.
@@ -108,6 +111,11 @@ const fileUploadBaseSchema = Joi.object({
   hasError: Joi.boolean().example(schemaConsts.HAS_ERROR_EXAMPLE).label('hasError'),
 
   errorMessage: Joi.string().min(1).max(ERROR_MESSAGE_MAX_LENGTH).example(schemaConsts.ERROR_MESSAGE_EXAMPLE).label('errorMessage'),
+
+  // Stable lookup key for localisation; not validated against a fixed enum since cdp-uploader owns the list
+  errorCode: Joi.string().min(1).max(100).description('Stable error code for localisation (e.g. FILE_TOO_LARGE, WRONG_TYPE)').label('errorCode'),
+
+  errorParams: Joi.object().description('Additional parameters for the error code (e.g. { maxFileSize: 10000000 })').label('errorParams'),
 
   checksumSha256: Joi.string()
     .pattern(base64Pattern)

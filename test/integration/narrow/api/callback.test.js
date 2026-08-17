@@ -222,6 +222,41 @@ describe('POST to the /api/v1/callback route', async () => {
       expect(statusRecord.errors).toBeInstanceOf(Array)
     })
 
+    test('should persist validation-failure status for rejected file with errorCode/errorParams (no metadata)', async () => {
+      const payload = JSON.parse(JSON.stringify(mockScanAndUploadResponseSingleFile))
+      const rejectedWithErrorCode = {
+        fileId: '550e8400-e29b-41d4-a716-446655440003',
+        filename: 'large-file.pdf',
+        contentType: 'application/pdf',
+        fileStatus: 'rejected',
+        hasError: true,
+        errorMessage: 'The selected file must be smaller than 10 MB',
+        errorCode: 'FILE_TOO_LARGE',
+        errorParams: { maxFileSize: 10000000 }
+      }
+      payload.form = { 'rejected-file': rejectedWithErrorCode }
+      payload.metadata = { ...payload.metadata, submissionId: `rejected-error-code-${Date.now()}` }
+
+      const beforeMetadataCount = await db.collection(metadataCollection).countDocuments()
+      const beforeOutboxCount = await db.collection(outboxCollection).countDocuments()
+      const beforeStatusCount = await db.collection(statusCollection).countDocuments()
+
+      const response = await server.inject({ method: 'POST', url: '/api/v1/callback', payload })
+
+      const afterMetadataCount = await db.collection(metadataCollection).countDocuments()
+      const afterOutboxCount = await db.collection(outboxCollection).countDocuments()
+      const afterStatusCount = await db.collection(statusCollection).countDocuments()
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+      expect(afterMetadataCount - beforeMetadataCount).toBe(0)
+      expect(afterOutboxCount - beforeOutboxCount).toBe(0)
+      expect(afterStatusCount - beforeStatusCount).toBe(1)
+
+      const statusRecord = await db.collection(statusCollection).findOne({ fileId: rejectedWithErrorCode.fileId })
+      expect(statusRecord).toBeDefined()
+      expect(statusRecord.validated).toBe(false)
+    })
+
     test('should return 201 for rejected file missing errorMessage', async () => {
       const payload = JSON.parse(JSON.stringify(mockScanAndUploadResponseSingleFile))
       const minimalRejectedMissingError = {

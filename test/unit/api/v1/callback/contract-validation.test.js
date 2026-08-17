@@ -57,6 +57,51 @@ describe('callback contract validation (fileStatus variants)', () => {
     expect(hasErrorMessageRef).toBe(true)
   })
 
+  test('REJECTED file with errorCode passes validation', () => {
+    const payload = { ...base }
+    const file = { ...payload.form['a-file-upload-field'], fileStatus: 'rejected', hasError: true, errorMessage: 'The selected file must be smaller than 10 MB', errorCode: 'FILE_TOO_LARGE' }
+    delete file.s3Key
+    delete file.s3Bucket
+    payload.form = { 'rejected-file': file }
+
+    const { error } = callbackPayloadSchema.validate(payload)
+    expect(error).toBeUndefined()
+  })
+
+  test('REJECTED file with errorCode and errorParams passes validation', () => {
+    const payload = { ...base }
+    const file = { ...payload.form['a-file-upload-field'], fileStatus: 'rejected', hasError: true, errorMessage: 'The selected file must be smaller than 10 MB', errorCode: 'FILE_TOO_LARGE', errorParams: { maxFileSize: 10000000 } }
+    delete file.s3Key
+    delete file.s3Bucket
+    payload.form = { 'rejected-file': file }
+
+    const { error } = callbackPayloadSchema.validate(payload)
+    expect(error).toBeUndefined()
+  })
+
+  test('REJECTED file without errorCode/errorParams still passes validation (backwards compatible)', () => {
+    const payload = { ...base }
+    const file = { ...payload.form['a-file-upload-field'], fileStatus: 'rejected', hasError: true, errorMessage: 'File contains virus' }
+    delete file.s3Key
+    delete file.s3Bucket
+    payload.form = { 'rejected-file': file }
+
+    const { error } = callbackPayloadSchema.validate(payload)
+    expect(error).toBeUndefined()
+  })
+
+  test('REJECTED file with non-object errorParams fails validation', () => {
+    const payload = { ...base }
+    const file = { ...payload.form['a-file-upload-field'], fileStatus: 'rejected', hasError: true, errorMessage: 'The selected file must be smaller than 10 MB', errorCode: 'FILE_TOO_LARGE', errorParams: 'not-an-object' }
+    delete file.s3Key
+    delete file.s3Bucket
+    payload.form = { 'rejected-file': file }
+
+    const { error } = callbackPayloadSchema.validate(payload)
+    expect(error).toBeDefined()
+    expect(error.details.some(d => d.path.join('.').includes('errorParams'))).toBe(true)
+  })
+
   test('COMPLETE text/plain file with no detectedContentType passes validation (CDP Uploader cannot detect MIME type from magic bytes for plain text)', () => {
     const payload = { ...base }
     const file = {
@@ -252,6 +297,40 @@ describe('fileUploadSchema Joi edge cases', () => {
       checksumSha256: 'abc=',
       contentLength: 1024,
       hasError: false
+    }
+    const result = fileUploadSchema.validate(file)
+    expect(result.error).toBeDefined()
+  })
+
+  test('should reject COMPLETE file with errorCode present', () => {
+    const file = {
+      fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+      filename: 'test.pdf',
+      contentType: 'application/pdf',
+      detectedContentType: 'application/pdf',
+      fileStatus: 'complete',
+      s3Key: 'key',
+      s3Bucket: 'bucket',
+      checksumSha256: 'abc=',
+      contentLength: 1024,
+      errorCode: 'FILE_TOO_LARGE'
+    }
+    const result = fileUploadSchema.validate(file)
+    expect(result.error).toBeDefined()
+  })
+
+  test('should reject COMPLETE file with errorParams present', () => {
+    const file = {
+      fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+      filename: 'test.pdf',
+      contentType: 'application/pdf',
+      detectedContentType: 'application/pdf',
+      fileStatus: 'complete',
+      s3Key: 'key',
+      s3Bucket: 'bucket',
+      checksumSha256: 'abc=',
+      contentLength: 1024,
+      errorParams: { maxFileSize: 10000000 }
     }
     const result = fileUploadSchema.validate(file)
     expect(result.error).toBeDefined()
