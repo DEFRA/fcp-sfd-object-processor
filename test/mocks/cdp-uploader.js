@@ -6,7 +6,7 @@
  *
  * This is the INPUT format to our service.
  */
-import { baseMetadata, baseFileUpload1, baseFileUpload2, alternateMetadata } from './base-data.js'
+import { baseMetadata, baseFileUpload1, baseFileUpload2, alternateMetadata, baseFileUploadRejected } from './base-data.js'
 
 // Mock of the full response from the CDP Uploader scanAndUpload endpoint
 // NOTE: The form object can contain both file upload objects and plain text fields
@@ -41,6 +41,16 @@ export const mockScanAndUploadResponseSingleFile = {
     'text-field': 'some text value'
   },
   numberOfRejectedFiles: 0
+}
+
+// Callback containing a rejected file with errorCode/errorParams (CDP Uploader 2026-07-30 change)
+export const mockScanAndUploadResponseRejected = {
+  uploadStatus: 'ready',
+  metadata: baseMetadata,
+  form: {
+    'rejected-file': baseFileUploadRejected
+  },
+  numberOfRejectedFiles: 1
 }
 
 // Legacy export - kept for backward compatibility but deprecated

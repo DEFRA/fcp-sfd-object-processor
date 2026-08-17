@@ -81,6 +81,18 @@ export const baseFileUpload4 = {
   s3Bucket: 'dev-fcp-sfd-object-processor-bucket-c63f2'
 }
 
+// Rejected file upload including CDP Uploader's errorCode/errorParams (2026-07-30 change)
+export const baseFileUploadRejected = {
+  fileId: '550e8400-e29b-41d4-a716-446655440000',
+  filename: 'large-file.pdf',
+  contentType: 'application/pdf',
+  fileStatus: 'rejected',
+  hasError: true,
+  errorMessage: 'The selected file must be smaller than 10 MB',
+  errorCode: 'FILE_TOO_LARGE',
+  errorParams: { maxFileSize: 10000000 }
+}
+
 /**
  * Helper functions to create formatted data structures
  */
