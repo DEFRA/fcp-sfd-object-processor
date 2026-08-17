@@ -95,7 +95,20 @@ describe('outbox claim repository concurrency', () => {
     expect(claimed).toEqual([])
   })
 
-  test('reclaims an expired entry and prevents the previous owner finalizing it', async () => {
+  test('does not claim a PERMANENT_FAILURE entry when attempts are below the limit', async () => {
+    const testRunId = `${testRunPrefix}${randomUUID()}`
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    config.set('messaging.outboxMaxAttempts', 10)
+    await db.collection(collectionName).insertOne(
+      buildEntry(testRunId, { status: PERMANENT_FAILURE, attempts: 1 })
+    )
+
+    const claimed = await claimProcessableOutboxEntries('worker-1', now)
+
+    expect(claimed).toEqual([])
+  })
+
+  test('allows a new worker to reclaim a stale PROCESSING entry and only the new owner can finalize it', async () => {
     const testRunId = `${testRunPrefix}${randomUUID()}`
     const reclaimTime = new Date('2026-08-07T10:00:00.000Z')
     const { insertedId } = await db.collection(collectionName).insertOne(buildEntry(testRunId, {

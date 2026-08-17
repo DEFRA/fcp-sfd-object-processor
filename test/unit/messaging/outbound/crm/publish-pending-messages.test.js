@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { DELIVERY_OUTCOME } from '../../../../../src/constants/outbox.js'
 
 const mocks = vi.hoisted(() => ({
   claim: vi.fn(),
@@ -181,6 +182,13 @@ describe('publishPendingMessages observability', () => {
         }
       },
       'Outbox entry will reach PERMANENT_FAILURE after this attempt; entryId=file-terminal; attempt=2'
+    )
+    expect(mocks.finalize).toHaveBeenCalledWith(
+      expect.anything(),
+      ['outbox-terminal'],
+      expect.any(String),
+      DELIVERY_OUTCOME.FAILED,
+      { type: 'outbox_publish_failure', code: 'terminal_failure', message: 'terminal_failure' }
     )
   })
 
