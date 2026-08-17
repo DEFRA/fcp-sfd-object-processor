@@ -199,7 +199,7 @@ describe('logTerminalFailuresIfAny', () => {
           message: 'terminal_failure'
         }
       },
-      'Outbox entry reached PERMANENT_FAILURE after max attempts; attempt=2'
+      'Outbox entry reached PERMANENT_FAILURE after max attempts; entryId=null; attempt=2'
     )
   })
 
@@ -219,14 +219,13 @@ describe('logTerminalFailuresIfAny', () => {
           reason: 'publish error'
         },
         process: { name: 'worker-1' },
-        transaction: { id: 'f1' },
         error: {
           type: 'outbox_terminal_failure',
           id: 'f1',
           message: 'publish error'
         }
       },
-      'Outbox entry reached PERMANENT_FAILURE after max attempts; attempt=2'
+      'Outbox entry reached PERMANENT_FAILURE after max attempts; entryId=f1; attempt=2'
     )
   })
 
@@ -251,7 +250,6 @@ describe('logTerminalFailuresIfAny', () => {
           reason: 'KMS key denied'
         },
         process: { name: 'worker-1' },
-        transaction: { id: 'file-kms' },
         error: {
           type: 'outbox_terminal_failure',
           id: 'file-kms',
@@ -259,7 +257,7 @@ describe('logTerminalFailuresIfAny', () => {
           message: 'KMS key denied'
         }
       },
-      'Outbox entry reached PERMANENT_FAILURE after max attempts; attempt=2'
+      'Outbox entry reached PERMANENT_FAILURE after max attempts; entryId=file-kms; attempt=2'
     )
     expect(mockSendAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -10,12 +10,15 @@ import { publishDocumentUploadMessageBatch } from './publish-document-upload-mes
 import { PENDING, SENT, DELIVERY_OUTCOME, PERMANENT_FAILURE, BATCH_SIZE } from '../../../../constants/outbox.js'
 import { client } from '../../../../data/db.js'
 import { outboxWorkerId } from '../../outbox-worker-id.js'
+import { runWithCorrelationId } from '../../../../logging/correlation-id-store.js'
 
 const logger = createLogger()
 const publishFailureMessage = 'Failed to send message'
 const millisecondsToNanoseconds = 1000000
 
 const getEntryId = (entry) => entry?.payload?.file?.fileId || entry?.messageId
+const runWithEntryCorrelationId = (entry, fn) =>
+  runWithCorrelationId(entry?.payload?.messaging?.correlationId, fn)
 
 const getFailureDetails = (entry, failedResults) => {
   const entryId = getEntryId(entry)
@@ -39,6 +42,7 @@ const mapPublishResultsToEntries = (batch, results) => {
     const entry = entriesById.get(result.Id)
     if (!entry) {
       const reason = 'publish_result_did_not_match_claimed_entry'
+      // No matching outbox entry means no journey correlationId is available for this line.
       logger.warn({
         event: {
           type: 'outbox_publish_result_unmatched',
@@ -46,12 +50,11 @@ const mapPublishResultsToEntries = (batch, results) => {
           outcome: 'failure',
           reason
         },
-        transaction: { id: result.Id },
         error: {
           type: 'outbox_publish_result_unmatched',
           message: reason
         }
-      }, 'SNS publish result did not match a claimed outbox entry')
+      }, `SNS publish result did not match a claimed outbox entry; entryId=${result.Id}`)
       return []
     }
     return [entry]
@@ -88,7 +91,7 @@ const finalizeEntries = async (session, entries, deliveryOutcome, failedResults 
 
 const logRejectedFinalizations = (entries) => {
   entries.forEach(entry => {
-    logger.warn({
+    runWithEntryCorrelationId(entry, () => logger.warn({
       event: {
         type: 'outbox_finalization_rejected',
         action: 'finalize_claim',
@@ -97,12 +100,11 @@ const logRejectedFinalizations = (entries) => {
         reason: 'claim_expired_or_ownership_lost'
       },
       process: { name: outboxWorkerId },
-      transaction: { id: getEntryId(entry) },
       error: {
         type: 'outbox_claim_ownership_error',
         message: 'claim_expired_or_ownership_lost'
       }
-    }, 'Outbox entry could not be finalized by this worker')
+    }, `Outbox entry could not be finalized by this worker; entryId=${getEntryId(entry)}`))
   })
 }
 
@@ -110,7 +112,7 @@ const logFinalizations = (entries, status, failedResults = []) => {
   entries.forEach(entry => {
     const attempts = (entry.attempts || 0) + 1
     const failureDetails = status === SENT ? null : getFailureDetails(entry, failedResults)
-    logger.info({
+    runWithEntryCorrelationId(entry, () => logger.info({
       event: {
         type: 'outbox_finalized',
         action: `finalize_${status.toLowerCase()}`,
@@ -119,9 +121,8 @@ const logFinalizations = (entries, status, failedResults = []) => {
         ...(failureDetails && { reason: failureDetails.reason })
       },
       process: { name: outboxWorkerId },
-      transaction: { id: getEntryId(entry) },
       ...(failureDetails && { error: failureDetails.error })
-    }, `Outbox entry finalized as ${status}; attempt=${attempts}`)
+    }, `Outbox entry finalized as ${status}; entryId=${getEntryId(entry)}; attempt=${attempts}`))
   })
 }
 
@@ -130,7 +131,7 @@ const logTerminalFailures = (entries, failedResults) => {
     const attempts = (entry.attempts || 0) + 1
     const failureDetails = getFailureDetails(entry, failedResults)
 
-    logger.error({
+    runWithEntryCorrelationId(entry, () => logger.error({
       event: {
         type: 'outbox_terminal_failure_imminent',
         action: 'finalize_failed',
@@ -139,9 +140,8 @@ const logTerminalFailures = (entries, failedResults) => {
         reason: failureDetails.reason
       },
       process: { name: outboxWorkerId },
-      transaction: { id: getEntryId(entry) },
       error: failureDetails.error
-    }, `Outbox entry will reach PERMANENT_FAILURE after this attempt; attempt=${attempts}`)
+    }, `Outbox entry will reach PERMANENT_FAILURE after this attempt; entryId=${getEntryId(entry)}; attempt=${attempts}`))
   })
 }
 
@@ -151,6 +151,7 @@ const publishPendingMessages = async () => {
   try {
     const pendingMessages = await claimProcessableOutboxEntries(outboxWorkerId)
 
+    // Poll and batch summaries can span multiple journeys, so they intentionally have no transaction.id.
     if (!pendingMessages.length) {
       logger.info('No pending outbox messages to process.')
       return
@@ -158,7 +159,7 @@ const publishPendingMessages = async () => {
 
     pendingMessages.forEach(entry => {
       const claimDurationMs = new Date(entry.claimedUntil).getTime() - new Date(entry.claimedAt).getTime()
-      logger.info({
+      runWithEntryCorrelationId(entry, () => logger.info({
         event: {
           type: 'outbox_claimed',
           action: 'claim',
@@ -167,9 +168,8 @@ const publishPendingMessages = async () => {
           created: entry.claimedAt,
           duration: Math.max(0, claimDurationMs) * millisecondsToNanoseconds
         },
-        process: { name: entry.claimedBy },
-        transaction: { id: getEntryId(entry) }
-      }, `Outbox entry claimed for processing; attempt=${(entry.attempts || 0) + 1}`)
+        process: { name: entry.claimedBy }
+      }, `Outbox entry claimed for processing; entryId=${getEntryId(entry)}; attempt=${(entry.attempts || 0) + 1}`))
     })
 
     logger.info(`Processing ${pendingMessages.length} outbox message(s).`)

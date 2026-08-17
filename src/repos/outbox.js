@@ -3,6 +3,7 @@ import { PENDING, PROCESSING, DELIVERY_OUTCOME, PERMANENT_FAILURE, SENT } from '
 import { db } from '../data/db.js'
 import { createLogger } from '../logging/logger.js'
 import { sendAuditEvent } from '../messaging/outbound/audit/send-audit-event.js'
+import { runWithCorrelationId } from '../logging/correlation-id-store.js'
 
 const logger = createLogger()
 
@@ -38,7 +39,7 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
     const attempts = doc.attempts
     const failure = doc.error || {}
     const reason = failure.message || errMsg || 'terminal_failure'
-    logger.error({
+    runWithCorrelationId(doc.payload?.messaging?.correlationId, () => logger.error({
       event: {
         type: 'outbox_terminal_failure',
         action: 'terminal_failure',
@@ -47,32 +48,34 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
         reason
       },
       ...(workerId && { process: { name: workerId } }),
-      ...(entryId && { transaction: { id: entryId } }),
       error: {
         type: 'outbox_terminal_failure',
         ...(entryId && { id: entryId }),
         ...(failure.code && { code: failure.code }),
         message: reason
       }
-    }, `Outbox entry reached PERMANENT_FAILURE after max attempts; attempt=${attempts}`)
+    }, `Outbox entry reached PERMANENT_FAILURE after max attempts; entryId=${entryId}; attempt=${attempts}`))
   })
 
   // Promise.allSettled fires audit events concurrently and never rejects, so an
   // audit publish failure can't abort the outbox poller's remaining batches.
-  await Promise.allSettled(terminalDocs.map(doc => {
-    const entryId = doc.payload?.file?.fileId || null
-    const attempts = doc.attempts
-    const failure = doc.error || {}
-    const reason = failure.message || errMsg || 'terminal_failure'
-    return sendAuditEvent({
-      correlationid: doc.payload?.messaging?.correlationId,
-      audit: {
-        entities: [{ entity: 'document', action: 'failed', entityid: entryId ?? doc._id?.toString() ?? '' }],
-        status: 'failure',
-        details: { reason, ...(failure.code && { code: failure.code }), attempts }
-      }
-    })
-  }))
+  await Promise.allSettled(terminalDocs.map(doc => runWithCorrelationId(
+    doc.payload?.messaging?.correlationId,
+    () => {
+      const entryId = doc.payload?.file?.fileId || null
+      const attempts = doc.attempts
+      const failure = doc.error || {}
+      const reason = failure.message || errMsg || 'terminal_failure'
+      return sendAuditEvent({
+        correlationid: doc.payload?.messaging?.correlationId,
+        audit: {
+          entities: [{ entity: 'document', action: 'failed', entityid: entryId ?? doc._id?.toString() ?? '' }],
+          status: 'failure',
+          details: { reason, ...(failure.code && { code: failure.code }), attempts }
+        }
+      })
+    }
+  )))
 }
 
 const createOutboxEntries = async (ids, documents, session) => {
@@ -140,7 +143,7 @@ const claimProcessableOutboxEntries = async (instanceId, now = new Date()) => {
       const previousOwner = entry.claimedBy || 'unknown'
       const previousExpiry = entry.claimedUntil?.toISOString?.() || String(entry.claimedUntil)
       const reason = `expired_claim previousOwner=${previousOwner} previousClaimedUntil=${previousExpiry}`
-      logger.warn({
+      runWithCorrelationId(entry.payload?.messaging?.correlationId, () => logger.warn({
         event: {
           type: 'outbox_claim_reclaimed',
           action: 'reclaim_expired_claim',
@@ -150,9 +153,8 @@ const claimProcessableOutboxEntries = async (instanceId, now = new Date()) => {
           duration: leaseTimeoutMs * 1000000,
           reason
         },
-        process: { name: instanceId },
-        ...(entry.payload?.file?.fileId && { transaction: { id: entry.payload.file.fileId } })
-      }, 'Reclaimed expired outbox claim')
+        process: { name: instanceId }
+      }, `Reclaimed expired outbox claim; entryId=${entry.payload?.file?.fileId || entry.messageId}`))
     }
 
     claimedEntries.push({

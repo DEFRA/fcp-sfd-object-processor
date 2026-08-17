@@ -9,7 +9,8 @@ const mocks = vi.hoisted(() => ({
   startSession: vi.fn(),
   loggerInfo: vi.fn(),
   loggerWarn: vi.fn(),
-  loggerError: vi.fn()
+  loggerError: vi.fn(),
+  runWithCorrelationId: vi.fn((_correlationId, fn) => fn())
 }))
 
 vi.mock('../../../../../src/repos/outbox.js', () => ({
@@ -52,11 +53,21 @@ vi.mock('../../../../../src/logging/logger.js', () => ({
   })
 }))
 
-const { publishPendingMessages, buildEntryError } = await import('../../../../../src/messaging/outbound/crm/doc-upload/publish-pending-messages.js')
+vi.mock('../../../../../src/logging/correlation-id-store.js', () => ({
+  runWithCorrelationId: mocks.runWithCorrelationId
+}))
+
+const {
+  publishPendingMessages,
+  buildEntryError
+} = await import('../../../../../src/messaging/outbound/crm/doc-upload/publish-pending-messages.js')
 
 const buildEntry = (id, attempts) => ({
   _id: `outbox-${id}`,
-  payload: { file: { fileId: `file-${id}` } },
+  payload: {
+    file: { fileId: `file-${id}` },
+    messaging: { correlationId: `correlation-${id}` }
+  },
   attempts,
   claimedBy: 'worker-observability',
   claimedAt: new Date('2026-08-07T10:00:00.000Z'),
@@ -91,10 +102,13 @@ describe('publishPendingMessages observability', () => {
           created: entry.claimedAt,
           duration: 300000000000
         },
-        process: { name: 'worker-observability' },
-        transaction: { id: 'file-claimed' }
+        process: { name: 'worker-observability' }
       },
-      'Outbox entry claimed for processing; attempt=1'
+      'Outbox entry claimed for processing; entryId=file-claimed; attempt=1'
+    )
+    expect(mocks.runWithCorrelationId).toHaveBeenCalledWith(
+      'correlation-claimed',
+      expect.any(Function)
     )
   })
 
@@ -125,13 +139,12 @@ describe('publishPendingMessages observability', () => {
           reason: 'temporary failure'
         },
         process: { name: 'worker-observability' },
-        transaction: { id: 'file-retryable' },
         error: {
           type: 'outbox_publish_failure',
           message: 'temporary failure'
         }
       },
-      'Outbox entry finalized as PENDING; attempt=1'
+      'Outbox entry finalized as PENDING; entryId=file-retryable; attempt=1'
     )
     expect(mocks.loggerInfo).toHaveBeenCalledWith(
       {
@@ -143,14 +156,13 @@ describe('publishPendingMessages observability', () => {
           reason: 'terminal_failure'
         },
         process: { name: 'worker-observability' },
-        transaction: { id: 'file-terminal' },
         error: {
           type: 'outbox_publish_failure',
           code: 'terminal_failure',
           message: 'terminal_failure'
         }
       },
-      'Outbox entry finalized as PERMANENT_FAILURE; attempt=2'
+      'Outbox entry finalized as PERMANENT_FAILURE; entryId=file-terminal; attempt=2'
     )
     expect(mocks.loggerError).toHaveBeenCalledWith(
       {
@@ -162,14 +174,13 @@ describe('publishPendingMessages observability', () => {
           reason: 'terminal_failure'
         },
         process: { name: 'worker-observability' },
-        transaction: { id: 'file-terminal' },
         error: {
           type: 'outbox_publish_failure',
           code: 'terminal_failure',
           message: 'terminal_failure'
         }
       },
-      'Outbox entry will reach PERMANENT_FAILURE after this attempt; attempt=2'
+      'Outbox entry will reach PERMANENT_FAILURE after this attempt; entryId=file-terminal; attempt=2'
     )
   })
 
@@ -196,13 +207,12 @@ describe('publishPendingMessages observability', () => {
           reason: 'claim_expired_or_ownership_lost'
         },
         process: { name: 'worker-observability' },
-        transaction: { id: 'file-expired' },
         error: {
           type: 'outbox_claim_ownership_error',
           message: 'claim_expired_or_ownership_lost'
         }
       },
-      'Outbox entry could not be finalized by this worker'
+      'Outbox entry could not be finalized by this worker; entryId=file-expired'
     )
   })
 
@@ -234,7 +244,7 @@ describe('publishPendingMessages observability', () => {
           outcome: 'success'
         })
       }),
-      'Outbox entry finalized as SENT; attempt=1'
+      'Outbox entry finalized as SENT; entryId=file-success; attempt=1'
     )
   })
 
@@ -267,9 +277,11 @@ describe('publishPendingMessages observability', () => {
           type: 'outbox_publish_result_unmatched',
           outcome: 'failure'
         }),
-        transaction: { id: 'file-unknown' }
+        error: expect.objectContaining({
+          type: 'outbox_publish_result_unmatched'
+        })
       }),
-      'SNS publish result did not match a claimed outbox entry'
+      'SNS publish result did not match a claimed outbox entry; entryId=file-unknown'
     )
   })
 
@@ -308,8 +320,20 @@ describe('publishPendingMessages observability', () => {
       expect.objectContaining({
         event: expect.objectContaining({ duration: 0 })
       }),
-      'Outbox entry claimed for processing; attempt=1'
+      'Outbox entry claimed for processing; entryId=file-neg-dur; attempt=1'
     )
+  })
+
+  test('uses a separate correlation context for each entry in the same batch', async () => {
+    const first = buildEntry('first', 0)
+    const second = buildEntry('second', 0)
+    mocks.claim.mockResolvedValue([first, second])
+    mocks.publishBatch.mockResolvedValue({ Successful: [], Failed: [] })
+
+    await publishPendingMessages()
+
+    expect(mocks.runWithCorrelationId).toHaveBeenCalledWith('correlation-first', expect.any(Function))
+    expect(mocks.runWithCorrelationId).toHaveBeenCalledWith('correlation-second', expect.any(Function))
   })
 
   test('uses failed_to_publish fallback when failure entry has no Message or Code', async () => {
