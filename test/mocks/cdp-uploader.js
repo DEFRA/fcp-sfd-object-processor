@@ -43,7 +43,7 @@ export const mockScanAndUploadResponseSingleFile = {
   numberOfRejectedFiles: 0
 }
 
-// Callback containing a rejected file with errorCode/errorParams (CDP Uploader 2026-07-30 change)
+// Callback containing a rejected file with errorCode/errorParams
 export const mockScanAndUploadResponseRejected = {
   uploadStatus: 'ready',
   metadata: baseMetadata,

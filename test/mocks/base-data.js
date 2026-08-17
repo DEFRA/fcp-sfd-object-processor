@@ -81,7 +81,7 @@ export const baseFileUpload4 = {
   s3Bucket: 'dev-fcp-sfd-object-processor-bucket-c63f2'
 }
 
-// Rejected file upload including CDP Uploader's errorCode/errorParams (2026-07-30 change)
+// Rejected file upload including CDP Uploader's errorCode/errorParams
 export const baseFileUploadRejected = {
   fileId: '550e8400-e29b-41d4-a716-446655440000',
   filename: 'large-file.pdf',

@@ -247,7 +247,6 @@ describe('POST to the /api/v1/callback route', async () => {
       const afterOutboxCount = await db.collection(outboxCollection).countDocuments()
       const afterStatusCount = await db.collection(statusCollection).countDocuments()
 
-      // Proves errorCode/errorParams no longer trip Joi's .strict() unknown-key rejection
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
       expect(afterMetadataCount - beforeMetadataCount).toBe(0)
       expect(afterOutboxCount - beforeOutboxCount).toBe(0)
