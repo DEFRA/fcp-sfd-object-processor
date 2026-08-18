@@ -172,7 +172,7 @@ const claimProcessableOutboxEntries = async (instanceId, now = new Date()) => {
 
 const buildClaimedFailurePipeline = (maxAttempts, error, now) => ([
   {
-    // attempts is already incremented at claim time, so only update status/error here.
+    // attempts is already incremented at claim time, so this stage records only the attempt time and error.
     $set: {
       lastAttemptedAt: now,
       ...(error && { error })
