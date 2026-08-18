@@ -126,7 +126,8 @@ const claimProcessableOutboxEntries = async (instanceId, now = new Date()) => {
       claimedAt: now,
       claimedUntil,
       claimedBy: instanceId
-    }
+    },
+    $inc: { attempts: 1 }
   }
 
   for (let index = 0; index < queryLimit; index++) {
@@ -171,8 +172,8 @@ const claimProcessableOutboxEntries = async (instanceId, now = new Date()) => {
 
 const buildClaimedFailurePipeline = (maxAttempts, error, now) => ([
   {
+    // attempts is already incremented at claim time, so only update status/error here.
     $set: {
-      attempts: { $add: [{ $ifNull: ['$attempts', 0] }, 1] },
       lastAttemptedAt: now,
       ...(error && { error })
     }
@@ -213,7 +214,6 @@ const finalizeClaimedOutboxEntries = async (
         status: SENT,
         lastAttemptedAt: now
       },
-      $inc: { attempts: 1 },
       $unset: {
         claimedAt: '',
         claimedUntil: '',

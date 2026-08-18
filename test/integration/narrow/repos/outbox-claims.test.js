@@ -108,6 +108,20 @@ describe('outbox claim repository concurrency', () => {
     expect(claimed).toEqual([])
   })
 
+  test('increments attempts in the database at claim time, before finalization', async () => {
+    const testRunId = `${testRunPrefix}${randomUUID()}`
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    const { insertedId } = await db.collection(collectionName).insertOne(
+      buildEntry(testRunId, { attempts: 1 })
+    )
+
+    const claimed = await claimProcessableOutboxEntries('worker-1', now)
+
+    expect(claimed).toHaveLength(1)
+    const persisted = await db.collection(collectionName).findOne({ _id: insertedId })
+    expect(persisted.attempts).toBe(2)
+  })
+
   test('allows a new worker to reclaim a stale PROCESSING entry and only the new owner can finalize it', async () => {
     const testRunId = `${testRunPrefix}${randomUUID()}`
     const reclaimTime = new Date('2026-08-07T10:00:00.000Z')
@@ -175,14 +189,14 @@ describe('outbox claim repository concurrency', () => {
     const { insertedIds } = await db.collection(collectionName).insertMany([
       buildEntry(testRunId, {
         status: PROCESSING,
-        attempts: 0,
+        attempts: 1,
         claimedBy: 'worker-1',
         claimedAt: now,
         claimedUntil
       }),
       buildEntry(testRunId, {
         status: PROCESSING,
-        attempts: 2,
+        attempts: 3,
         claimedBy: 'worker-1',
         claimedAt: now,
         claimedUntil

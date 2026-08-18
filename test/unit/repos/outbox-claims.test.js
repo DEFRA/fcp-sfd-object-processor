@@ -64,7 +64,8 @@ describe('outbox claims', () => {
         claimedAt: now,
         claimedUntil,
         claimedBy: 'worker-1'
-      }
+      },
+      $inc: { attempts: 1 }
     }, {
       sort: { createdAt: 1 },
       returnDocument: 'before'
@@ -158,7 +159,6 @@ describe('outbox claims', () => {
       claimedUntil: { $gt: now }
     }, {
       $set: { status: 'SENT', lastAttemptedAt: now },
-      $inc: { attempts: 1 },
       $unset: { claimedAt: '', claimedUntil: '', claimedBy: '', error: '' }
     }, { session })
     expect(result.matchedCount).toBe(2)
@@ -188,7 +188,6 @@ describe('outbox claims', () => {
       [
         {
           $set: {
-            attempts: { $add: [{ $ifNull: ['$attempts', 0] }, 1] },
             lastAttemptedAt: now,
             error: 'SNS unavailable'
           }
