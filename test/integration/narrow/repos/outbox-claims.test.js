@@ -108,7 +108,7 @@ describe('outbox claim repository concurrency', () => {
     expect(claimed).toEqual([])
   })
 
-  test('increments attempts in the database at claim time, before finalization', async () => {
+  test('increments attempts in the database at claim time', async () => {
     const testRunId = `${testRunPrefix}${randomUUID()}`
     const now = new Date('2026-08-07T10:00:00.000Z')
     const { insertedId } = await db.collection(collectionName).insertOne(
