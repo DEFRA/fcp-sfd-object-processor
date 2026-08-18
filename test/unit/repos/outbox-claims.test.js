@@ -87,6 +87,22 @@ describe('outbox claims', () => {
     expect(findOneAndUpdate).toHaveBeenCalledTimes(2)
   })
 
+  test('does not reclaim a PERMANENT_FAILURE entry even when attempts are below the limit', async () => {
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    const permanentFailureDoc = { status: 'PERMANENT_FAILURE', attempts: 1 }
+    // Mirrors Mongo's own filter matching so this proves the $or on status - not attempts - excludes the doc.
+    const findOneAndUpdate = vi.fn().mockImplementation((filter) => {
+      const matchesStatus = filter.$or.some(condition => condition.status === permanentFailureDoc.status)
+      const matchesAttempts = permanentFailureDoc.attempts < filter.attempts.$lt
+      return Promise.resolve(matchesStatus && matchesAttempts ? permanentFailureDoc : null)
+    })
+    mocks.collection.mockReturnValue({ findOneAndUpdate })
+
+    const result = await claimProcessableOutboxEntries('worker-1', now)
+
+    expect(result).toEqual([])
+  })
+
   test('logs when an expired processing claim is reclaimed', async () => {
     const expiredClaim = {
       _id: { toString: () => 'entry-1' },
