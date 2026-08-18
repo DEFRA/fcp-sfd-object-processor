@@ -41,6 +41,11 @@ let statusCollection
 
 beforeAll(async () => {
   // set a new collection for each integration test to avoid db clashes between tests
+  // Ensure text/plain is in the allowed MIME types before file-upload-schema.js is first imported
+  const currentMimeTypes = config.get('cdpUploaderMimeTypes')
+  if (!currentMimeTypes.includes('text/plain')) {
+    config.set('cdpUploaderMimeTypes', [...currentMimeTypes, 'text/plain'])
+  }
   ; ({ createServer } = await import('../../../../src/api'))
   vi.restoreAllMocks()
   originalMetadataCollection = config.get('mongo.collections.uploadMetadata')

@@ -1,5 +1,5 @@
 import { config } from '../config/index.js'
-import { PENDING, PROCESSING, FAILED, SENT } from '../constants/outbox.js'
+import { PENDING, PROCESSING, DELIVERY_OUTCOME, PERMANENT_FAILURE, SENT } from '../constants/outbox.js'
 import { db } from '../data/db.js'
 import { createLogger } from '../logging/logger.js'
 import { sendAuditEvent } from '../messaging/outbound/audit/send-audit-event.js'
@@ -13,7 +13,7 @@ const outboxMaxAttemptsConfig = 'messaging.outboxMaxAttempts'
 const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsVal, sess, errMsg, workerId) => {
   const terminalFilter = {
     'payload.file.fileId': { $in: fileIdsArr },
-    status: FAILED,
+    status: PERMANENT_FAILURE,
     attempts: { $gte: maxAttemptsVal }
   }
 
@@ -37,7 +37,8 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
   terminalDocs.forEach(doc => {
     const entryId = doc.payload?.file?.fileId || null
     const attempts = doc.attempts
-    const reason = errMsg || 'terminal_failure'
+    const failure = doc.error || {}
+    const reason = failure.message || errMsg || 'terminal_failure'
     runWithCorrelationId(doc.payload?.messaging?.correlationId, () => logger.error({
       event: {
         type: 'outbox_terminal_failure',
@@ -49,9 +50,11 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
       ...(workerId && { process: { name: workerId } }),
       error: {
         type: 'outbox_terminal_failure',
+        ...(entryId && { id: entryId }),
+        ...(failure.code && { code: failure.code }),
         message: reason
       }
-    }, `Outbox entry reached FAILED after max attempts; entryId=${entryId}; attempt=${attempts}`))
+    }, `Outbox entry reached PERMANENT_FAILURE after max attempts; entryId=${entryId}; attempt=${attempts}`))
   })
 
   // Promise.allSettled fires audit events concurrently and never rejects, so an
@@ -61,13 +64,14 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
     () => {
       const entryId = doc.payload?.file?.fileId || null
       const attempts = doc.attempts
-      const reason = errMsg || 'terminal_failure'
+      const failure = doc.error || {}
+      const reason = failure.message || errMsg || 'terminal_failure'
       return sendAuditEvent({
         correlationid: doc.payload?.messaging?.correlationId,
         audit: {
           entities: [{ entity: 'document', action: 'failed', entityid: entryId ?? doc._id?.toString() ?? '' }],
           status: 'failure',
-          details: { reason, attempts }
+          details: { reason, ...(failure.code && { code: failure.code }), attempts }
         }
       })
     }
@@ -176,7 +180,7 @@ const buildClaimedFailurePipeline = (maxAttempts, error, now) => ([
   {
     $set: {
       status: {
-        $cond: [{ $gte: ['$attempts', maxAttempts] }, FAILED, PENDING]
+        $cond: [{ $gte: ['$attempts', maxAttempts] }, PERMANENT_FAILURE, PENDING]
       }
     }
   },
@@ -189,7 +193,7 @@ const finalizeClaimedOutboxEntries = async (
   session,
   entryIds,
   instanceId,
-  deliveryStatus,
+  deliveryOutcome,
   error = null,
   now = new Date()
 ) => {
@@ -203,10 +207,8 @@ const finalizeClaimedOutboxEntries = async (
   }
   const options = session ? { session } : {}
 
-  let updateResult
-
-  if (deliveryStatus === SENT) {
-    updateResult = await db.collection(collection).updateMany(filter, {
+  if (deliveryOutcome === DELIVERY_OUTCOME.SUCCEEDED) {
+    const updateResult = await db.collection(collection).updateMany(filter, {
       $set: {
         status: SENT,
         lastAttemptedAt: now
@@ -219,21 +221,28 @@ const finalizeClaimedOutboxEntries = async (
         error: ''
       }
     }, options)
-  } else if (deliveryStatus === FAILED) {
-    updateResult = await db.collection(collection).updateMany(
+
+    if (!updateResult.acknowledged) {
+      throw new Error('Failed to finalize claimed outbox entries')
+    }
+
+    return updateResult
+  } else if (deliveryOutcome === DELIVERY_OUTCOME.FAILED) {
+    // Use updateMany with aggregation pipeline to compute terminal status per doc
+    const updateResult = await db.collection(collection).updateMany(
       filter,
       buildClaimedFailurePipeline(maxAttempts, error, now),
       options
     )
+
+    if (!updateResult.acknowledged) {
+      throw new Error('Failed to finalize claimed outbox entries')
+    }
+
+    return updateResult
   } else {
-    throw new Error(`Unsupported outbox delivery status: ${deliveryStatus}`)
+    throw new Error(`Unsupported delivery outcome: ${deliveryOutcome}`)
   }
-
-  if (!updateResult.acknowledged) {
-    throw new Error('Failed to finalize claimed outbox entries')
-  }
-
-  return updateResult
 }
 
 export {

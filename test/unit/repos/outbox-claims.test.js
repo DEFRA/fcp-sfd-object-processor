@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { DELIVERY_OUTCOME } from '../../../../src/constants/outbox.js'
 
 const mocks = vi.hoisted(() => ({
   collection: vi.fn(),
@@ -86,6 +87,22 @@ describe('outbox claims', () => {
     expect(findOneAndUpdate).toHaveBeenCalledTimes(2)
   })
 
+  test('does not reclaim a PERMANENT_FAILURE entry even when attempts are below the limit', async () => {
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    const permanentFailureDoc = { status: 'PERMANENT_FAILURE', attempts: 1 }
+    // Mirrors Mongo's own filter matching so this proves the $or on status - not attempts - excludes the doc.
+    const findOneAndUpdate = vi.fn().mockImplementation((filter) => {
+      const matchesStatus = filter.$or.some(condition => condition.status === permanentFailureDoc.status)
+      const matchesAttempts = permanentFailureDoc.attempts < filter.attempts.$lt
+      return Promise.resolve(matchesStatus && matchesAttempts ? permanentFailureDoc : null)
+    })
+    mocks.collection.mockReturnValue({ findOneAndUpdate })
+
+    const result = await claimProcessableOutboxEntries('worker-1', now)
+
+    expect(result).toEqual([])
+  })
+
   test('logs when an expired processing claim is reclaimed', async () => {
     const expiredClaim = {
       _id: { toString: () => 'entry-1' },
@@ -129,7 +146,7 @@ describe('outbox claims', () => {
       session,
       ['entry-1', 'entry-2'],
       'worker-1',
-      'SENT',
+      DELIVERY_OUTCOME.SUCCEEDED,
       null,
       now
     )
@@ -149,40 +166,56 @@ describe('outbox claims', () => {
 
   test('finalizes failed attempts with retry and terminal status pipeline', async () => {
     const now = new Date('2026-08-07T10:00:00.000Z')
-    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true })
+    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true, matchedCount: 1 })
     mocks.collection.mockReturnValue({ updateMany })
 
-    await finalizeClaimedOutboxEntries(
+    const result = await finalizeClaimedOutboxEntries(
       null,
       ['entry-1'],
       'worker-1',
-      'FAILED',
+      DELIVERY_OUTCOME.FAILED,
       'SNS unavailable',
       now
     )
 
-    expect(updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      status: 'PROCESSING',
-      claimedBy: 'worker-1',
-      claimedUntil: { $gt: now }
-    }), [
+    expect(updateMany).toHaveBeenCalledWith(
       {
-        $set: {
-          attempts: { $add: [{ $ifNull: ['$attempts', 0] }, 1] },
-          lastAttemptedAt: now,
-          error: 'SNS unavailable'
-        }
+        _id: { $in: ['entry-1'] },
+        status: 'PROCESSING',
+        claimedBy: 'worker-1',
+        claimedUntil: { $gt: now }
       },
-      {
-        $set: {
-          status: { $cond: [{ $gte: ['$attempts', 3] }, 'FAILED', 'PENDING'] }
-        }
-      },
-      { $unset: ['claimedAt', 'claimedUntil', 'claimedBy'] }
-    ], {})
+      [
+        {
+          $set: {
+            attempts: { $add: [{ $ifNull: ['$attempts', 0] }, 1] },
+            lastAttemptedAt: now,
+            error: 'SNS unavailable'
+          }
+        },
+        {
+          $set: {
+            status: { $cond: [{ $gte: ['$attempts', 3] }, 'PERMANENT_FAILURE', 'PENDING'] }
+          }
+        },
+        { $unset: ['claimedAt', 'claimedUntil', 'claimedBy'] }
+      ],
+      {}
+    )
+    expect(result).toEqual({ acknowledged: true, matchedCount: 1 })
   })
 
-  test('rejects an unsupported delivery status', async () => {
+  test('returns matchedCount 0 when FAILED entry claim has expired', async () => {
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true, matchedCount: 0 })
+    mocks.collection.mockReturnValue({ updateMany })
+
+    const result = await finalizeClaimedOutboxEntries(null, ['entry-1'], 'worker-1', DELIVERY_OUTCOME.FAILED, null, now)
+
+    expect(result).toEqual({ acknowledged: true, matchedCount: 0 })
+  })
+
+  test('rejects an unsupported delivery outcome', async () => {
     mocks.collection.mockReturnValue({ updateMany: vi.fn() })
 
     await expect(finalizeClaimedOutboxEntries(
@@ -190,7 +223,7 @@ describe('outbox claims', () => {
       ['entry-1'],
       'worker-1',
       'PROCESSING'
-    )).rejects.toThrow('Unsupported outbox delivery status: PROCESSING')
+    )).rejects.toThrow('Unsupported delivery outcome: PROCESSING')
   })
 
   test('throws when finalization is not acknowledged', async () => {
@@ -202,7 +235,7 @@ describe('outbox claims', () => {
       null,
       ['entry-1'],
       'worker-1',
-      'SENT'
+      DELIVERY_OUTCOME.SUCCEEDED
     )).rejects.toThrow('Failed to finalize claimed outbox entries')
   })
 })

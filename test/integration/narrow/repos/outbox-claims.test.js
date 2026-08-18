@@ -7,7 +7,7 @@ import {
   claimProcessableOutboxEntries,
   finalizeClaimedOutboxEntries
 } from '../../../../src/repos/outbox.js'
-import { FAILED, PENDING, PROCESSING, SENT } from '../../../../src/constants/outbox.js'
+import { DELIVERY_OUTCOME, PENDING, PROCESSING, PERMANENT_FAILURE } from '../../../../src/constants/outbox.js'
 
 const originalCollectionName = config.get('mongo.collections.outbox')
 const collectionName = `${originalCollectionName}-claims-integration`
@@ -87,7 +87,7 @@ describe('outbox claim repository concurrency', () => {
         claimedAt: new Date('2026-08-07T09:59:00.000Z'),
         claimedUntil: new Date('2026-08-07T10:01:00.000Z')
       }),
-      buildEntry(testRunId, { status: FAILED, attempts: 3 })
+      buildEntry(testRunId, { status: PERMANENT_FAILURE, attempts: 3 })
     ])
 
     const claimed = await claimProcessableOutboxEntries('worker-2', now)
@@ -95,7 +95,20 @@ describe('outbox claim repository concurrency', () => {
     expect(claimed).toEqual([])
   })
 
-  test('reclaims an expired entry and prevents the previous owner finalizing it', async () => {
+  test('does not claim a PERMANENT_FAILURE entry when attempts are below the limit', async () => {
+    const testRunId = `${testRunPrefix}${randomUUID()}`
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    config.set('messaging.outboxMaxAttempts', 10)
+    await db.collection(collectionName).insertOne(
+      buildEntry(testRunId, { status: PERMANENT_FAILURE, attempts: 1 })
+    )
+
+    const claimed = await claimProcessableOutboxEntries('worker-1', now)
+
+    expect(claimed).toEqual([])
+  })
+
+  test('allows a new worker to reclaim a stale PROCESSING entry and only the new owner can finalize it', async () => {
     const testRunId = `${testRunPrefix}${randomUUID()}`
     const reclaimTime = new Date('2026-08-07T10:00:00.000Z')
     const { insertedId } = await db.collection(collectionName).insertOne(buildEntry(testRunId, {
@@ -111,7 +124,7 @@ describe('outbox claim repository concurrency', () => {
       null,
       [insertedId],
       'worker-old',
-      SENT,
+      DELIVERY_OUTCOME.SUCCEEDED,
       null,
       new Date('2026-08-07T10:00:01.000Z')
     )
@@ -119,7 +132,7 @@ describe('outbox claim repository concurrency', () => {
       null,
       [insertedId],
       'worker-new',
-      SENT,
+      DELIVERY_OUTCOME.SUCCEEDED,
       null,
       new Date('2026-08-07T10:00:01.000Z')
     )
@@ -143,7 +156,7 @@ describe('outbox claim repository concurrency', () => {
       null,
       [insertedId],
       'worker-1',
-      SENT,
+      DELIVERY_OUTCOME.SUCCEEDED,
       null,
       new Date('2026-08-07T10:00:00.000Z')
     )
@@ -180,7 +193,7 @@ describe('outbox claim repository concurrency', () => {
       null,
       Object.values(insertedIds),
       'worker-1',
-      FAILED,
+      DELIVERY_OUTCOME.FAILED,
       'SNS unavailable',
       new Date('2026-08-07T10:01:00.000Z')
     )
@@ -191,7 +204,7 @@ describe('outbox claim repository concurrency', () => {
 
     expect(result.matchedCount).toBe(2)
     expect(entries[0]).toMatchObject({ status: PENDING, attempts: 1, error: 'SNS unavailable' })
-    expect(entries[1]).toMatchObject({ status: FAILED, attempts: 3, error: 'SNS unavailable' })
+    expect(entries[1]).toMatchObject({ status: PERMANENT_FAILURE, attempts: 3, error: 'SNS unavailable' })
     expect(entries[0]).not.toHaveProperty('claimedBy')
     expect(entries[1]).not.toHaveProperty('claimedBy')
   })

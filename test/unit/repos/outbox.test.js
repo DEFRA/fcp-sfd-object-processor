@@ -199,7 +199,7 @@ describe('logTerminalFailuresIfAny', () => {
           message: 'terminal_failure'
         }
       },
-      'Outbox entry reached FAILED after max attempts; entryId=null; attempt=2'
+      'Outbox entry reached PERMANENT_FAILURE after max attempts; entryId=null; attempt=2'
     )
   })
 
@@ -221,10 +221,70 @@ describe('logTerminalFailuresIfAny', () => {
         process: { name: 'worker-1' },
         error: {
           type: 'outbox_terminal_failure',
+          id: 'f1',
           message: 'publish error'
         }
       },
-      'Outbox entry reached FAILED after max attempts; entryId=f1; attempt=2'
+      'Outbox entry reached PERMANENT_FAILURE after max attempts; entryId=f1; attempt=2'
+    )
+  })
+
+  test('uses doc.error.message as reason and includes error.code when doc.error is set', async () => {
+    const doc = {
+      _id: { toString: () => 'outbox-kms' },
+      payload: { file: { fileId: 'file-kms' } },
+      attempts: 2,
+      error: { code: 'KMSAccessDenied', message: 'KMS key denied' }
+    }
+    db.collection.mockReturnValue(buildCollectionMock([doc]))
+
+    await logTerminalFailuresIfAny('outbox', ['file-kms'], 2, null, 'Failed to send message', 'worker-1')
+
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      {
+        event: {
+          type: 'outbox_terminal_failure',
+          action: 'terminal_failure',
+          reference: 'outbox-kms',
+          outcome: 'failure',
+          reason: 'KMS key denied'
+        },
+        process: { name: 'worker-1' },
+        error: {
+          type: 'outbox_terminal_failure',
+          id: 'file-kms',
+          code: 'KMSAccessDenied',
+          message: 'KMS key denied'
+        }
+      },
+      'Outbox entry reached PERMANENT_FAILURE after max attempts; entryId=file-kms; attempt=2'
+    )
+    expect(mockSendAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        audit: expect.objectContaining({
+          details: { reason: 'KMS key denied', code: 'KMSAccessDenied', attempts: 2 }
+        })
+      })
+    )
+  })
+
+  test('audit event details omit code when doc.error has no code', async () => {
+    const doc = {
+      _id: { toString: () => 'outbox-plain' },
+      payload: { file: { fileId: 'file-plain' } },
+      attempts: 2,
+      error: { message: 'throttled' }
+    }
+    db.collection.mockReturnValue(buildCollectionMock([doc]))
+
+    await logTerminalFailuresIfAny('outbox', ['file-plain'], 2, null, 'Failed to send message', 'worker-1')
+
+    expect(mockSendAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        audit: expect.objectContaining({
+          details: { reason: 'throttled', attempts: 2 }
+        })
+      })
     )
   })
 

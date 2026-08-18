@@ -142,7 +142,7 @@ export const serverConfig = {
     outboxMaxAttempts: {
       doc: 'Maximum number of delivery attempts for an outbox entry',
       format: 'int',
-      default: 5,
+      default: 3,
       env: 'OUTBOX_MAX_ATTEMPTS'
     },
     outboxClaimLeaseMs: {

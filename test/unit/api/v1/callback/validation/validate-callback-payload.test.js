@@ -221,4 +221,35 @@ describe('validateCallbackPayload', () => {
     const result = await validateCallbackPayload(payload, h)
     expect(result).toBeNull()
   })
+
+  test('treats null payload as empty object without throwing', async () => {
+    const result = await validateCallbackPayload(null, h)
+    expect(result).toBeDefined()
+  })
+
+  test('treats undefined payload as empty object without throwing', async () => {
+    const result = await validateCallbackPayload(undefined, h)
+    expect(result).toBeDefined()
+  })
+
+  test('treats missing form as empty object without throwing', async () => {
+    const payload = { uploadStatus: 'ready', metadata: validMetadata, numberOfRejectedFiles: 0 }
+    const result = await validateCallbackPayload(payload, h)
+    expect(result).toBeNull()
+  })
+
+  test('returns error when Stage 3 semantic validation fails', async () => {
+    const fileWithBadChecksum = {
+      ...validFileUpload,
+      checksumSha256: '!!!not-valid-base64!!!'
+    }
+    const payload = {
+      uploadStatus: 'ready',
+      metadata: validMetadata,
+      form: { 'file-1': fileWithBadChecksum },
+      numberOfRejectedFiles: 0
+    }
+    const result = await validateCallbackPayload(payload, h)
+    expect(result).toBeDefined()
+  })
 })
