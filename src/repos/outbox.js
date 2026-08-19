@@ -159,6 +159,7 @@ const claimProcessableOutboxEntries = async (instanceId, now = new Date()) => {
     claimedEntries.push({
       ...entry,
       status: PROCESSING,
+      attempts: (entry.attempts || 0) + 1,
       claimedAt: now,
       claimedUntil,
       claimedBy: instanceId
