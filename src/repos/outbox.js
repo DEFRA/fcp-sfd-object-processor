@@ -17,12 +17,10 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
     attempts: { $gte: maxAttemptsVal }
   }
 
-  // Only query for terminal docs when there is a possibility of any
-  // reaching terminal state after the increment. Check for any entries
-  // with attempts >= maxAttempts - 1; if none, skip the heavier query.
+  // Skip the heavier terminal query when no entry has exhausted its attempts.
   const potentialTerminalFilter = {
     'payload.file.fileId': { $in: fileIdsArr },
-    attempts: { $gte: Math.max(0, maxAttemptsVal - 1) }
+    attempts: { $gte: maxAttemptsVal }
   }
 
   const potentialCount = await db.collection(collectionName).countDocuments(potentialTerminalFilter, { session: sess })
