@@ -110,7 +110,7 @@ const logRejectedFinalizations = (entries) => {
 
 const logFinalizations = (entries, status, failedResults = []) => {
   entries.forEach(entry => {
-    const attempts = (entry.attempts || 0) + 1
+    const attempts = entry.attempts
     const failureDetails = status === SENT ? null : getFailureDetails(entry, failedResults)
     runWithEntryCorrelationId(entry, () => logger.info({
       event: {
@@ -128,7 +128,7 @@ const logFinalizations = (entries, status, failedResults = []) => {
 
 const logTerminalFailures = (entries, failedResults) => {
   entries.forEach(entry => {
-    const attempts = (entry.attempts || 0) + 1
+    const attempts = entry.attempts
     const failureDetails = getFailureDetails(entry, failedResults)
 
     runWithEntryCorrelationId(entry, () => logger.error({
@@ -169,7 +169,7 @@ const publishPendingMessages = async () => {
           duration: Math.max(0, claimDurationMs) * millisecondsToNanoseconds
         },
         process: { name: entry.claimedBy }
-      }, `Outbox entry claimed for processing; entryId=${getEntryId(entry)}; attempt=${(entry.attempts || 0) + 1}`))
+      }, `Outbox entry claimed for processing; entryId=${getEntryId(entry)}; attempt=${entry.attempts}`))
     })
 
     logger.info(`Processing ${pendingMessages.length} outbox message(s).`)

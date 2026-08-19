@@ -87,7 +87,7 @@ describe('publishPendingMessages observability', () => {
   })
 
   test('logs every claimed entry using CDP-supported ECS fields', async () => {
-    const entry = buildEntry('claimed', 0)
+    const entry = buildEntry('claimed', 1)
     mocks.claim.mockResolvedValue([entry])
     mocks.publishBatch.mockResolvedValue({ Successful: [], Failed: [] })
 
@@ -114,8 +114,8 @@ describe('publishPendingMessages observability', () => {
   })
 
   test('logs retryable and terminal failure finalizations separately', async () => {
-    const retryable = buildEntry('retryable', 0)
-    const terminal = buildEntry('terminal', 1)
+    const retryable = buildEntry('retryable', 1)
+    const terminal = buildEntry('terminal', 2)
     mocks.claim.mockResolvedValue([retryable, terminal])
     mocks.publishBatch.mockResolvedValue({
       Successful: [],
@@ -234,7 +234,7 @@ describe('publishPendingMessages observability', () => {
   })
 
   test('finalizes successful entries and calls bulkUpdatePublishedAtDate', async () => {
-    const entry = buildEntry('success', 0)
+    const entry = buildEntry('success', 1)
     mocks.claim.mockResolvedValue([entry])
     mocks.publishBatch.mockResolvedValue({
       Successful: [{ Id: 'file-success' }],
@@ -257,7 +257,7 @@ describe('publishPendingMessages observability', () => {
   })
 
   test('does not call bulkUpdatePublishedAtDate when no successful entries', async () => {
-    const entry = buildEntry('fail-only', 0)
+    const entry = buildEntry('fail-only', 1)
     mocks.claim.mockResolvedValue([entry])
     mocks.publishBatch.mockResolvedValue({
       Successful: [],
@@ -270,7 +270,7 @@ describe('publishPendingMessages observability', () => {
   })
 
   test('warns when a publish result Id does not match any claimed entry', async () => {
-    const entry = buildEntry('known', 0)
+    const entry = buildEntry('known', 1)
     mocks.claim.mockResolvedValue([entry])
     mocks.publishBatch.mockResolvedValue({
       Successful: [{ Id: 'file-unknown' }],
@@ -315,7 +315,7 @@ describe('publishPendingMessages observability', () => {
 
   test('clamps negative claim duration to zero nanoseconds', async () => {
     const entry = {
-      ...buildEntry('neg-dur', 0),
+      ...buildEntry('neg-dur', 1),
       claimedAt: new Date('2026-08-07T10:05:00.000Z'),
       claimedUntil: new Date('2026-08-07T10:00:00.000Z')
     }
@@ -333,8 +333,8 @@ describe('publishPendingMessages observability', () => {
   })
 
   test('uses a separate correlation context for each entry in the same batch', async () => {
-    const first = buildEntry('first', 0)
-    const second = buildEntry('second', 0)
+    const first = buildEntry('first', 1)
+    const second = buildEntry('second', 1)
     mocks.claim.mockResolvedValue([first, second])
     mocks.publishBatch.mockResolvedValue({ Successful: [], Failed: [] })
 
@@ -394,7 +394,7 @@ describe('publishPendingMessages observability', () => {
   })
 
   test('logs processing summary after each batch', async () => {
-    const entry = buildEntry('summary', 0)
+    const entry = buildEntry('summary', 1)
     mocks.claim.mockResolvedValue([entry])
     mocks.publishBatch.mockResolvedValue({
       Successful: [{ Id: 'file-summary' }],

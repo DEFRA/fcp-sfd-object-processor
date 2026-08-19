@@ -62,19 +62,24 @@ describe('outbox claim repository concurrency', () => {
       }))
     )
 
-    const [workerOneEntries, workerTwoEntries] = await Promise.all([
-      claimProcessableOutboxEntries('worker-1'),
-      claimProcessableOutboxEntries('worker-2')
-    ])
+    const claimedById = new Map()
+    // A single poll doesn't guarantee a fair split between concurrent workers (connection
+    // pool checkout order can starve one side); the invariant under test is that claims
+    // never overlap, so keep polling both workers until every entry is claimed.
+    for (let round = 0; round < 10 && claimedById.size < 20; round++) {
+      const [workerOneEntries, workerTwoEntries] = await Promise.all([
+        claimProcessableOutboxEntries('worker-1'),
+        claimProcessableOutboxEntries('worker-2')
+      ])
 
-    const workerOneIds = new Set(workerOneEntries.map(entry => entry._id.toString()))
-    const workerTwoIds = new Set(workerTwoEntries.map(entry => entry._id.toString()))
-    const overlap = [...workerOneIds].filter(id => workerTwoIds.has(id))
+      for (const entry of [...workerOneEntries, ...workerTwoEntries]) {
+        const id = entry._id.toString()
+        expect(claimedById.has(id)).toBe(false)
+        claimedById.set(id, entry.claimedBy)
+      }
+    }
 
-    expect(workerOneEntries).toHaveLength(10)
-    expect(workerTwoEntries).toHaveLength(10)
-    expect(overlap).toEqual([])
-    expect(new Set([...workerOneIds, ...workerTwoIds]).size).toBe(20)
+    expect(claimedById.size).toBe(20)
   })
 
   test('does not claim active processing or terminal failed entries', async () => {
@@ -108,6 +113,41 @@ describe('outbox claim repository concurrency', () => {
     expect(claimed).toEqual([])
   })
 
+  test('increments attempts in the database at claim time', async () => {
+    const testRunId = `${testRunPrefix}${randomUUID()}`
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    const { insertedId } = await db.collection(collectionName).insertOne(
+      buildEntry(testRunId, { attempts: 1 })
+    )
+
+    const claimed = await claimProcessableOutboxEntries('worker-1', now)
+
+    expect(claimed).toHaveLength(1)
+    const persisted = await db.collection(collectionName).findOne({ _id: insertedId })
+    expect(persisted.attempts).toBe(2)
+  })
+
+  test('excludes an entry from future claims once a reclaim pushes attempts to the limit', async () => {
+    const testRunId = `${testRunPrefix}${randomUUID()}`
+    config.set('messaging.outboxMaxAttempts', 2)
+    const { insertedId } = await db.collection(collectionName).insertOne(buildEntry(testRunId, {
+      status: PROCESSING,
+      attempts: 1,
+      claimedBy: 'worker-old',
+      claimedAt: new Date('2026-08-07T09:50:00.000Z'),
+      claimedUntil: new Date('2026-08-07T09:55:00.000Z')
+    }))
+
+    // Simulates a crashed worker: the stale claim is reclaimed, incrementing attempts to the limit.
+    const reclaimed = await claimProcessableOutboxEntries('worker-new', new Date('2026-08-07T10:00:00.000Z'))
+    expect(reclaimed).toHaveLength(1)
+    expect((await db.collection(collectionName).findOne({ _id: insertedId })).attempts).toBe(2)
+
+    const subsequentClaim = await claimProcessableOutboxEntries('worker-newer', new Date('2026-08-07T10:10:00.000Z'))
+
+    expect(subsequentClaim).toEqual([])
+  })
+
   test('allows a new worker to reclaim a stale PROCESSING entry and only the new owner can finalize it', async () => {
     const testRunId = `${testRunPrefix}${randomUUID()}`
     const reclaimTime = new Date('2026-08-07T10:00:00.000Z')
@@ -120,6 +160,9 @@ describe('outbox claim repository concurrency', () => {
 
     config.set('mongo.outboxQueryLimit', 1)
     const reclaimed = await claimProcessableOutboxEntries('worker-new', reclaimTime)
+    // A crashed worker never finalizes, so the reclaim's increment is the only record of that attempt.
+    expect((await db.collection(collectionName).findOne({ _id: insertedId })).attempts).toBe(1)
+
     const staleResult = await finalizeClaimedOutboxEntries(
       null,
       [insertedId],
@@ -141,6 +184,8 @@ describe('outbox claim repository concurrency', () => {
     expect(reclaimed[0]).toMatchObject({ _id: insertedId, claimedBy: 'worker-new', status: PROCESSING })
     expect(staleResult.matchedCount).toBe(0)
     expect(ownerResult.matchedCount).toBe(1)
+    // Finalizing SUCCEEDED must not increment attempts again on top of the claim-time increment.
+    expect((await db.collection(collectionName).findOne({ _id: insertedId })).attempts).toBe(1)
   })
 
   test('does not allow an owner to finalize its own expired claim', async () => {
@@ -175,14 +220,14 @@ describe('outbox claim repository concurrency', () => {
     const { insertedIds } = await db.collection(collectionName).insertMany([
       buildEntry(testRunId, {
         status: PROCESSING,
-        attempts: 0,
+        attempts: 1,
         claimedBy: 'worker-1',
         claimedAt: now,
         claimedUntil
       }),
       buildEntry(testRunId, {
         status: PROCESSING,
-        attempts: 2,
+        attempts: 3,
         claimedBy: 'worker-1',
         claimedAt: now,
         claimedUntil
