@@ -109,7 +109,7 @@ describe('auth plugin register', () => {
       method: 'GET',
       info: { remoteAddress: '1.2.3.4' },
       headers: { 'user-agent': 'ua' },
-      auth: { artifacts: { decoded: { payload: { groups: ['g1'], client_id: 'cid' } } } },
+      auth: { artifacts: { decoded: { payload: { groups: ['g1'], client_id: 'cid', iss: 'https://sts.windows.net/tenant/' } } } },
       response: { isBoom: true, output: { statusCode: 401, payload: { message: 'unauth' } }, message: 'unauth' }
     }
 
@@ -118,9 +118,18 @@ describe('auth plugin register', () => {
     expect(res).toBe(h.continue)
     expect(mockLogger.warn).toHaveBeenCalled()
     const warnArg = mockLogger.warn.mock.calls[0][0]
-    expect(warnArg).toMatchObject({ msg: 'Authentication failed', path: '/x', method: 'GET', sourceIp: '1.2.3.4' })
-    expect(warnArg.tokenGroups).toEqual(['g1'])
-    expect(warnArg.tokenClientId).toBe('cid')
+    expect(warnArg).toMatchObject({
+      event: {
+        type: 'auth_failure',
+        action: 'GET',
+        category: '/x',
+        outcome: 'failure',
+        kind: 401
+      },
+      client: { address: '1.2.3.4' },
+      user_agent: { original: 'ua' }
+    })
+    expect(warnArg.event.reason).toBe('unauth | groups=g1 | clientId=cid | issuer=https://sts.windows.net/tenant/')
   })
 })
 
@@ -355,7 +364,7 @@ describe('auth plugin', () => {
       expect(result).toBe(mockH.continue)
     })
 
-    test('should log tokenGroups and undefined tokenClientId for an Entra 401', async () => {
+    test('should log event.reason including groups and issuer for an Entra 401', async () => {
       await auth.plugin.register(mockServer)
 
       const extensionHandler = mockServer.ext.mock.calls[0][1]
@@ -372,7 +381,7 @@ describe('auth plugin', () => {
         auth: {
           artifacts: {
             decoded: {
-              payload: { groups: ['group-1', 'group-2'] }
+              payload: { groups: ['group-1', 'group-2'], iss: 'https://sts.windows.net/tenant-a/' }
             }
           }
         }
@@ -383,13 +392,14 @@ describe('auth plugin', () => {
 
       expect(mockWarn).toHaveBeenCalledWith(
         expect.objectContaining({
-          tokenGroups: ['group-1', 'group-2'],
-          tokenClientId: undefined
+          event: expect.objectContaining({
+            reason: 'Unauthorized | groups=group-1,group-2 | issuer=https://sts.windows.net/tenant-a/'
+          })
         })
       )
     })
 
-    test('should log tokenClientId and undefined tokenGroups for a Cognito 401', async () => {
+    test('should log event.reason including clientId for a Cognito 401', async () => {
       await auth.plugin.register(mockServer)
 
       const extensionHandler = mockServer.ext.mock.calls[0][1]
@@ -417,13 +427,14 @@ describe('auth plugin', () => {
 
       expect(mockWarn).toHaveBeenCalledWith(
         expect.objectContaining({
-          tokenClientId: 'cognito-client-1',
-          tokenGroups: undefined
+          event: expect.objectContaining({
+            reason: 'Unauthorized | clientId=cognito-client-1'
+          })
         })
       )
     })
 
-    test('should log undefined tokenGroups and tokenClientId when no token is decoded', async () => {
+    test('should log event.reason with only the boom message when no token is decoded', async () => {
       await auth.plugin.register(mockServer)
 
       const extensionHandler = mockServer.ext.mock.calls[0][1]
@@ -445,8 +456,9 @@ describe('auth plugin', () => {
 
       expect(mockWarn).toHaveBeenCalledWith(
         expect.objectContaining({
-          tokenGroups: undefined,
-          tokenClientId: undefined
+          event: expect.objectContaining({
+            reason: 'Unauthorized'
+          })
         })
       )
     })
@@ -557,7 +569,7 @@ describe('auth plugin', () => {
         await extensionHandler(request, { continue: Symbol('continue') })
 
         expect(mockWarn).toHaveBeenCalledWith(
-          expect.objectContaining({ reason: 'payload-message' })
+          expect.objectContaining({ event: expect.objectContaining({ reason: 'payload-message' }) })
         )
         expect(mockSendAuditEvent).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -577,7 +589,7 @@ describe('auth plugin', () => {
         await extensionHandler(request, { continue: Symbol('continue') })
 
         expect(mockWarn).toHaveBeenCalledWith(
-          expect.objectContaining({ reason: 'payload-message' })
+          expect.objectContaining({ event: expect.objectContaining({ reason: 'payload-message' }) })
         )
         expect(mockSendAuditEvent).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -597,7 +609,7 @@ describe('auth plugin', () => {
         await extensionHandler(request, { continue: Symbol('continue') })
 
         expect(mockWarn).toHaveBeenCalledWith(
-          expect.objectContaining({ reason: 'authentication_failed' })
+          expect.objectContaining({ event: expect.objectContaining({ reason: 'authentication_failed' }) })
         )
         expect(mockSendAuditEvent).toHaveBeenCalledWith(
           expect.objectContaining({
