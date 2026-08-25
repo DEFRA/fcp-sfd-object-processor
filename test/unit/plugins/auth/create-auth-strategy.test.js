@@ -38,7 +38,7 @@ describe('createAuthStrategy', () => {
 
     strategyOptions = createAuthStrategy({
       strategyName: 'test-strategy',
-      jwksUri: 'https://example.com/.well-known/jwks.json',
+      jwksUris: 'https://example.com/.well-known/jwks.json',
       verify: { aud: false, sub: false, iss: ['https://example.com'], nbf: true, exp: true },
       getAllowedList: () => ['allowed-value-1', 'allowed-value-2'],
       checkAllowed: mockCheckAllowed,
@@ -51,8 +51,24 @@ describe('createAuthStrategy', () => {
 
   // Returned options shape
   describe('returned options shape', () => {
-    test('should set keys.uri from jwksUri', () => {
-      expect(strategyOptions.keys.uri).toBe('https://example.com/.well-known/jwks.json')
+    test('should normalise a single jwksUris string into a one-element keys array', () => {
+      expect(strategyOptions.keys).toEqual([{ uri: 'https://example.com/.well-known/jwks.json' }])
+    })
+
+    test('should build one keys entry per URI when jwksUris is an array', () => {
+      const options = createAuthStrategy({
+        strategyName: 'test-strategy',
+        jwksUris: ['https://tenant-a.example.com/keys', 'https://tenant-b.example.com/keys'],
+        verify: {},
+        getAllowedList: () => [],
+        checkAllowed: mockCheckAllowed,
+        emptyListMessage: 'No authorized values configured',
+        unauthorisedMessage: 'Token is not authorized'
+      })
+      expect(options.keys).toEqual([
+        { uri: 'https://tenant-a.example.com/keys' },
+        { uri: 'https://tenant-b.example.com/keys' }
+      ])
     })
 
     test('should pass verify config through unchanged', () => {
@@ -67,6 +83,28 @@ describe('createAuthStrategy', () => {
 
     test('should expose a validate function', () => {
       expect(strategyOptions.validate).toBeInstanceOf(Function)
+    })
+  })
+
+  // getAllowedList receives the decoded payload
+  describe('getAllowedList payload passthrough', () => {
+    test('should call getAllowedList with the decoded payload', async () => {
+      const getAllowedList = vi.fn().mockReturnValue(['allowed-value-1'])
+      const options = createAuthStrategy({
+        strategyName: 'test-strategy',
+        jwksUris: 'https://example.com/.well-known/jwks.json',
+        verify: {},
+        getAllowedList,
+        checkAllowed: mockCheckAllowed,
+        emptyListMessage: 'No authorized values configured',
+        unauthorisedMessage: 'Token is not authorized'
+      })
+      mockCheckAllowed.mockReturnValue({ allowed: true, failureContext: {} })
+      const payload = { typ: 'JWT', sub: 'user-1', iss: 'https://tenant-b.example.com' }
+
+      await options.validate({ decoded: { payload } }, mockRequest, {})
+
+      expect(getAllowedList).toHaveBeenCalledWith(payload)
     })
   })
 
@@ -120,7 +158,7 @@ describe('createAuthStrategy', () => {
     beforeEach(() => {
       strategyOptions = createAuthStrategy({
         strategyName: 'test-strategy',
-        jwksUri: 'https://example.com/.well-known/jwks.json',
+        jwksUris: 'https://example.com/.well-known/jwks.json',
         verify: {},
         getAllowedList: () => [],
         checkAllowed: mockCheckAllowed,

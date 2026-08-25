@@ -9,10 +9,15 @@ const logger = createLogger()
  * with shared token-type validation, allowed-list enforcement, and credentials building.
  *
  * @param {object} opts
- * @param {string}   opts.strategyName      - Strategy name used in log context (e.g. 'entra', 'cognito')
- * @param {string}   opts.jwksUri           - JWKS endpoint URI for public key retrieval
+ * @param {string}          opts.strategyName  - Strategy name used in log context (e.g. 'entra', 'cognito')
+ * @param {string|string[]} opts.jwksUris      - One or more JWKS endpoint URIs for public key retrieval.
+ *                                               A single string is accepted for backward compatibility and is
+ *                                               normalised to a one-element array.
  * @param {object}   opts.verify            - Hapi JWT verify config (iss, aud, sub, nbf, exp…)
- * @param {Function} opts.getAllowedList     - Zero-arg function; returns the allowed values array (lazy, called per request)
+ * @param {Function} opts.getAllowedList     - `(payload) => string[]`; returns the allowed values array for this
+ *                                             token (lazy, called per request). Receives the decoded payload so a
+ *                                             multi-tenant strategy can resolve tenant-specific values from claims
+ *                                             such as `iss`. Strategies with a single fixed list may ignore the arg.
  * @param {Function} opts.checkAllowed      - `(payload, allowedList) => { allowed: boolean, failureContext: object }`
  * @param {string}   opts.emptyListMessage     - Error message when the allowed list is unconfigured
  * @param {string}   opts.unauthorisedMessage  - Error message when the token is not in the allowed list
@@ -20,17 +25,17 @@ const logger = createLogger()
  */
 export function createAuthStrategy ({
   strategyName,
-  jwksUri,
+  jwksUris,
   verify,
   getAllowedList,
   checkAllowed,
   emptyListMessage,
   unauthorisedMessage
 }) {
+  const uris = Array.isArray(jwksUris) ? jwksUris : [jwksUris]
+
   return {
-    keys: {
-      uri: jwksUri
-    },
+    keys: uris.map((uri) => ({ uri })),
     verify,
     validate: async (artifacts, request, _h) => {
       const { payload } = artifacts.decoded
@@ -41,7 +46,7 @@ export function createAuthStrategy ({
         return { isValid: false, errorMessage }
       }
 
-      const allowedList = getAllowedList()
+      const allowedList = getAllowedList(payload)
 
       if (allowedList.length === 0) {
         logger.warn(buildAuthFailureLog(emptyListMessage, request, { strategy: strategyName }))
