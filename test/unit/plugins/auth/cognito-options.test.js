@@ -37,7 +37,7 @@ describe('getCognitoAuthOptions', () => {
   describe('options shape', () => {
     test('should build JWKS keys URI from user pool ID and derived region', () => {
       const options = getCognitoAuthOptions()
-      expect(options.keys.uri).toBe('https://cognito-idp.eu-west-2.amazonaws.com/eu-west-2_testPoolId/.well-known/jwks.json')
+      expect(options.keys).toEqual([{ uri: 'https://cognito-idp.eu-west-2.amazonaws.com/eu-west-2_testPoolId/.well-known/jwks.json' }])
     })
 
     test('should set issuer from derived region and user pool ID', () => {
@@ -67,7 +67,7 @@ describe('getCognitoAuthOptions', () => {
 
       const { getCognitoAuthOptions: freshOptions } = await import('../../../../src/plugins/auth/cognito-options.js')
       const options = freshOptions()
-      expect(options.keys.uri).toBe('https://cognito-idp.us-east-1.amazonaws.com/us-east-1_AbCdEfGhI/.well-known/jwks.json')
+      expect(options.keys).toEqual([{ uri: 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_AbCdEfGhI/.well-known/jwks.json' }])
       expect(options.verify.iss).toEqual(['https://cognito-idp.us-east-1.amazonaws.com/us-east-1_AbCdEfGhI'])
     })
   })

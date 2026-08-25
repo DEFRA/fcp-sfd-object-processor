@@ -19,7 +19,7 @@ export function getCognitoAuthOptions () {
 
   return createAuthStrategy({
     strategyName: AUTH_STRATEGY_NAMES.COGNITO,
-    jwksUri: `${issuer}/.well-known/jwks.json`,
+    jwksUris: `${issuer}/.well-known/jwks.json`,
     verify: {
       aud: false, // Cognito uses client_id claim rather than aud for client identification
       sub: false,
@@ -27,6 +27,8 @@ export function getCognitoAuthOptions () {
       nbf: true,
       exp: true
     },
+    // Cognito has a single fixed list of allowed client IDs; it does not need the token
+    // payload to resolve it, unlike the multi-tenant Entra strategy.
     getAllowedList: () => config.get('auth.cognito.clientIds') || [],
     checkAllowed: (payload, clientIds) => {
       const tokenClientId = payload.client_id

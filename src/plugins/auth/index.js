@@ -25,15 +25,21 @@ export const auth = {
 
       if (entraEnabled) {
         const tenants = config.get('auth.entra.tenants')
-        // Register one strategy per tenant; use the same strategyName used in
-        // the auth options (which includes the tenant id) so logs and Hapi
-        // strategy names align for easier debugging.
-        tenants.forEach((tenantConfig, idx) => {
-          const options = getEntraAuthOptions(tenantConfig)
-          const strategyName = options.strategyName || `entra-${idx}`
-          server.auth.strategy(strategyName, 'jwt', options)
-          strategies.push(strategyName)
-        })
+        // A single strategy is registered covering every configured tenant, rather than one
+        // strategy per tenant. Registering per-tenant strategies would appear to give hapi a
+        // fallback across tenants via its multi-strategy loop, but that loop only advances past
+        // a strategy that rejects with a *missing*-credentials error; a substantive failure such
+        // as an issuer mismatch throws immediately and no later strategy is ever tried. Because
+        // Entra serves identical signing keys across tenants, a token for tenant B is not turned
+        // away as "missing" by tenant A's strategy — it is rejected outright with a misleading
+        // "iss value not allowed" error, and the strategy that would have accepted it is never
+        // reached. See .github/debugging/fcp-sfd-object-processor-entra-401-iss-mismatch.md.
+        // Only register the strategy when at least one tenant is configured: an empty
+        // `verify.iss` is rejected by @hapi/jwt's own schema and would fail server startup.
+        if (tenants.length > 0) {
+          server.auth.strategy(AUTH_STRATEGY_NAMES.ENTRA, 'jwt', getEntraAuthOptions(tenants))
+          strategies.push(AUTH_STRATEGY_NAMES.ENTRA)
+        }
       }
 
       if (cognitoEnabled) {
@@ -42,7 +48,15 @@ export const auth = {
       }
 
       // All routes will require authentication unless explicitly set to `auth: false`.
-      // When both strategies are enabled, Hapi tries each in order; the first to succeed wins.
+      // Entra and Cognito use disjoint JWKS key sets (different `kid`s), so hapi's
+      // isMissing-based fallback between the two strategies works correctly: a token
+      // presented to the wrong strategy finds no matching signing key and is treated as
+      // "missing" rather than substantively rejected, letting hapi try the other strategy.
+      // This is not true *within* Entra when multiple tenants share signing keys, which is
+      // why Entra tenants are combined into a single strategy above rather than one each.
+      if (strategies.length === 0) {
+        return
+      }
       server.auth.default(strategies.length === 1 ? strategies[0] : { strategies })
 
       // Additional logging for authentication failures for when a request is rejected
