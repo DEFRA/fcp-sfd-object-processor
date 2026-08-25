@@ -1,13 +1,13 @@
 import { config } from '../../config/index.js'
-import { AUTH_STRATEGY_NAMES } from '../../constants/auth.js'
-import { createAuthStrategy } from './create-auth-strategy.js'
+import { AUTH_PROVIDER_NAMES } from '../../constants/auth.js'
 
 /**
- * Builds Hapi JWT strategy options for AWS Cognito authentication.
- * Validates tokens against the Cognito User Pool JWKS endpoint and checks client ID membership.
- * Uses OAuth2 client-credentials flow for machine-to-machine access.
+ * Builds the Cognito provider descriptor consumed by `createAuthStrategy`. Validates tokens against
+ * the Cognito User Pool JWKS endpoint and checks client ID membership. Used by the OAuth2
+ * client-credentials flow for machine-to-machine access.
+ * @returns {import('./create-auth-strategy.js').AuthProvider}
  */
-export function getCognitoAuthOptions () {
+export function getCognitoAuthProvider () {
   const userPoolId = config.get('auth.cognito.userPoolId')
 
   if (!userPoolId) {
@@ -17,18 +17,12 @@ export function getCognitoAuthOptions () {
   const region = userPoolId.split('_')[0]
   const issuer = `https://cognito-idp.${region}.amazonaws.com/${userPoolId}`
 
-  return createAuthStrategy({
-    strategyName: AUTH_STRATEGY_NAMES.COGNITO,
-    jwksUris: `${issuer}/.well-known/jwks.json`,
-    verify: {
-      aud: false, // Cognito uses client_id claim rather than aud for client identification
-      sub: false,
-      iss: [issuer],
-      nbf: true,
-      exp: true
-    },
+  return {
+    name: AUTH_PROVIDER_NAMES.COGNITO,
+    jwksUris: [`${issuer}/.well-known/jwks.json`],
+    issuers: [issuer],
     // Cognito has a single fixed list of allowed client IDs; it does not need the token
-    // payload to resolve it, unlike the multi-tenant Entra strategy.
+    // payload to resolve it, unlike the multi-tenant Entra provider.
     getAllowedList: () => config.get('auth.cognito.clientIds') || [],
     checkAllowed: (payload, clientIds) => {
       const tokenClientId = payload.client_id
@@ -37,5 +31,5 @@ export function getCognitoAuthOptions () {
     },
     emptyListMessage: 'No authorized Cognito client IDs configured',
     unauthorisedMessage: 'Token client_id is not in the list of authorized Cognito client IDs'
-  })
+  }
 }
