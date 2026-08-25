@@ -11,12 +11,33 @@ vi.mock('../../../../src/logging/logger.js', () => ({
   createLogger: vi.fn().mockReturnValue(mockLogger)
 }))
 
+const { ENTRA_PROVIDER, COGNITO_PROVIDER } = vi.hoisted(() => ({
+  ENTRA_PROVIDER: {
+    name: 'entra',
+    jwksUris: ['https://login.microsoftonline.com/tenant/discovery/v2.0/keys'],
+    issuers: ['https://sts.windows.net/tenant/'],
+    getAllowedList: () => ['group-1'],
+    checkAllowed: () => ({ allowed: true, failureContext: {} }),
+    emptyListMessage: 'No authorized security groups configured',
+    unauthorisedMessage: 'Token does not belong to an authorized Security Group'
+  },
+  COGNITO_PROVIDER: {
+    name: 'cognito',
+    jwksUris: ['https://cognito-idp.eu-west-2.amazonaws.com/pool/.well-known/jwks.json'],
+    issuers: ['https://cognito-idp.eu-west-2.amazonaws.com/pool'],
+    getAllowedList: () => ['client-1'],
+    checkAllowed: () => ({ allowed: true, failureContext: {} }),
+    emptyListMessage: 'No authorized Cognito client IDs configured',
+    unauthorisedMessage: 'Token client_id is not in the list of authorized Cognito client IDs'
+  }
+}))
+
 vi.mock('../../../../src/plugins/auth/entra-options.js', () => ({
-  getEntraAuthOptions: vi.fn().mockReturnValue({})
+  getEntraAuthProvider: vi.fn().mockReturnValue(ENTRA_PROVIDER)
 }))
 
 vi.mock('../../../../src/plugins/auth/cognito-options.js', () => ({
-  getCognitoAuthOptions: vi.fn().mockReturnValue({})
+  getCognitoAuthProvider: vi.fn().mockReturnValue(COGNITO_PROVIDER)
 }))
 
 const { mockSendAuditEvent } = vi.hoisted(() => ({
@@ -54,7 +75,7 @@ describe('auth plugin register', () => {
     expect(server.auth.default).not.toHaveBeenCalled()
   })
 
-  test('registers a single entra strategy covering all configured tenants', async () => {
+  test('registers a single bearer strategy covering all configured tenants', async () => {
     mockConfigGet = vi.fn((key) => {
       switch (key) {
         case 'auth.entra.enabled': return true
@@ -68,8 +89,8 @@ describe('auth plugin register', () => {
     await auth.plugin.register(server)
 
     expect(server.auth.strategy).toHaveBeenCalledTimes(1)
-    expect(server.auth.strategy).toHaveBeenCalledWith('entra', 'jwt', expect.any(Object))
-    expect(server.auth.default).toHaveBeenCalledWith('entra')
+    expect(server.auth.strategy).toHaveBeenCalledWith('bearer', 'jwt', expect.any(Object))
+    expect(server.auth.default).toHaveBeenCalledWith('bearer')
   })
 
   test('does not register an entra strategy when entra is enabled but no tenants are configured', async () => {
@@ -90,7 +111,7 @@ describe('auth plugin register', () => {
     expect(server.ext).not.toHaveBeenCalled()
   })
 
-  test('registers cognito strategy when enabled', async () => {
+  test('registers the bearer strategy when cognito is enabled', async () => {
     mockConfigGet = vi.fn((key) => {
       switch (key) {
         case 'auth.entra.enabled': return false
@@ -102,8 +123,8 @@ describe('auth plugin register', () => {
     const { auth } = await import('../../../../src/plugins/auth/index.js')
     await auth.plugin.register(server)
 
-    expect(server.auth.strategy).toHaveBeenCalledWith('cognito', 'jwt', expect.any(Object))
-    expect(server.auth.default).toHaveBeenCalledWith('cognito')
+    expect(server.auth.strategy).toHaveBeenCalledWith('bearer', 'jwt', expect.any(Object))
+    expect(server.auth.default).toHaveBeenCalledWith('bearer')
   })
 
   test('onPreResponse logs when unauthorized', async () => {
@@ -195,14 +216,14 @@ describe('auth plugin', () => {
 
   // Entra strategy registration
   describe('entra strategy registration', () => {
-    test('should register entra strategy when entra is enabled', async () => {
+    test('should register the bearer strategy when entra is enabled', async () => {
       await auth.plugin.register(mockServer)
-      expect(mockServer.auth.strategy).toHaveBeenCalledWith('entra', 'jwt', expect.any(Object))
+      expect(mockServer.auth.strategy).toHaveBeenCalledWith('bearer', 'jwt', expect.any(Object))
     })
 
-    test('should set default to entra strategy when only entra is enabled', async () => {
+    test('should set the bearer strategy as the default when only entra is enabled', async () => {
       await auth.plugin.register(mockServer)
-      expect(mockServer.auth.default).toHaveBeenCalledWith('entra')
+      expect(mockServer.auth.default).toHaveBeenCalledWith('bearer')
     })
 
     test('should register onPreResponse extension when entra is enabled', async () => {
@@ -245,12 +266,12 @@ describe('auth plugin', () => {
 
     test('should register cognito strategy when cognito is enabled', async () => {
       await auth.plugin.register(mockServer)
-      expect(mockServer.auth.strategy).toHaveBeenCalledWith('cognito', 'jwt', expect.any(Object))
+      expect(mockServer.auth.strategy).toHaveBeenCalledWith('bearer', 'jwt', expect.any(Object))
     })
 
-    test('should set default to cognito strategy when only cognito is enabled', async () => {
+    test('should set the bearer strategy as the default when only cognito is enabled', async () => {
       await auth.plugin.register(mockServer)
-      expect(mockServer.auth.default).toHaveBeenCalledWith('cognito')
+      expect(mockServer.auth.default).toHaveBeenCalledWith('bearer')
     })
 
     test('should register onPreResponse extension when cognito is enabled', async () => {
@@ -261,55 +282,60 @@ describe('auth plugin', () => {
 
   // Dual-auth configuration — both strategies enabled simultaneously
   describe('dual-auth configuration', () => {
-    test('should set default to both strategies when entra and cognito are both enabled', async () => {
+    const dualConfig = (key) => {
+      switch (key) {
+        case 'auth.entra.enabled': return true
+        case 'auth.entra.tenants': return [{ tenantId: 'test-tenant-id', allowedGroupIds: ['group-1'] }]
+        case 'auth.cognito.enabled': return true
+        case 'auth.cognito.userPoolId': return 'eu-west-2_testPoolId'
+        case 'auth.cognito.clientIds': return ['client-1']
+        default: return null
+      }
+    }
+
+    test('should register one bearer strategy covering both providers', async () => {
       vi.resetModules()
-      mockConfigGet.mockImplementation((key) => {
-        switch (key) {
-          case 'auth.entra.enabled': return true
-          case 'auth.entra.tenants': return [{ tenantId: 'test-tenant-id', allowedGroupIds: ['group-1'] }]
-          case 'auth.cognito.enabled': return true
-          case 'auth.cognito.userPoolId': return 'eu-west-2_testPoolId'
-          case 'auth.cognito.clientIds': return ['client-1']
-          default: return null
-        }
-      })
+      mockConfigGet.mockImplementation(dualConfig)
 
       const { auth: dualAuth } = await import('../../../../src/plugins/auth/index.js')
       const newMockServer = { auth: { strategy: vi.fn(), default: vi.fn() }, ext: vi.fn() }
 
       await dualAuth.plugin.register(newMockServer)
 
-      expect(newMockServer.auth.strategy).toHaveBeenCalledWith('entra', 'jwt', expect.any(Object))
-      expect(newMockServer.auth.strategy).toHaveBeenCalledWith('cognito', 'jwt', expect.any(Object))
-      expect(newMockServer.auth.default).toHaveBeenCalledWith({ strategies: ['entra', 'cognito'] })
+      expect(newMockServer.auth.strategy).toHaveBeenCalledTimes(1)
+      expect(newMockServer.auth.strategy).toHaveBeenCalledWith('bearer', 'jwt', expect.any(Object))
+      expect(newMockServer.auth.default).toHaveBeenCalledWith('bearer')
     })
 
-    test('should register strategies in order entra then cognito', async () => {
+    test('should never hand hapi a list of strategies to fall through', async () => {
       vi.resetModules()
-      mockConfigGet.mockImplementation((key) => {
-        switch (key) {
-          case 'auth.entra.enabled': return true
-          case 'auth.entra.tenants': return [{ tenantId: 'test-tenant-id', allowedGroupIds: ['group-1'] }]
-          case 'auth.cognito.enabled': return true
-          case 'auth.cognito.userPoolId': return 'eu-west-2_testPoolId'
-          case 'auth.cognito.clientIds': return ['client-1']
-          default: return null
-        }
-      })
+      mockConfigGet.mockImplementation(dualConfig)
 
       const { auth: dualAuth } = await import('../../../../src/plugins/auth/index.js')
-      const callOrder = []
-      const newMockServer = {
-        auth: {
-          strategy: vi.fn().mockImplementation((name) => callOrder.push(`strategy:${name}`)),
-          default: vi.fn().mockImplementation(() => callOrder.push('default'))
-        },
-        ext: vi.fn()
-      }
+      const newMockServer = { auth: { strategy: vi.fn(), default: vi.fn() }, ext: vi.fn() }
 
       await dualAuth.plugin.register(newMockServer)
 
-      expect(callOrder).toEqual(['strategy:entra', 'strategy:cognito', 'default'])
+      expect(newMockServer.auth.default).not.toHaveBeenCalledWith(
+        expect.objectContaining({ strategies: expect.anything() })
+      )
+    })
+
+    test('should accept both providers\' issuers and JWKS URIs on the single strategy', async () => {
+      vi.resetModules()
+      mockConfigGet.mockImplementation(dualConfig)
+
+      const { auth: dualAuth } = await import('../../../../src/plugins/auth/index.js')
+      const newMockServer = { auth: { strategy: vi.fn(), default: vi.fn() }, ext: vi.fn() }
+
+      await dualAuth.plugin.register(newMockServer)
+
+      const [, , options] = newMockServer.auth.strategy.mock.calls[0]
+      expect(options.verify.iss).toEqual([...ENTRA_PROVIDER.issuers, ...COGNITO_PROVIDER.issuers])
+      expect(options.keys).toEqual([
+        { uri: ENTRA_PROVIDER.jwksUris[0] },
+        { uri: COGNITO_PROVIDER.jwksUris[0] }
+      ])
     })
 
     test('should not register any strategies when both are disabled', async () => {
