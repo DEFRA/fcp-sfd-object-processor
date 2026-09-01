@@ -78,9 +78,25 @@ describe('buildDocumentUploadMessageBatch', () => {
       expect(result[0].data.correlationId).toBe(mockPendingMessages[0].payload.messaging.correlationId)
     })
 
-    test('should set data.filesInSubmission to the batch size', () => {
+    test('should carry filesInSubmission from the messaging envelope to data', () => {
       expect(result[0].data.filesInSubmission).toBe(1)
       expect(result[0].data.filesInSubmission).toBeGreaterThan(0)
+    })
+
+    test('should leave filesInSubmission undefined for legacy documents without the field', () => {
+      const legacyPendingMessage = {
+        ...mockPendingMessages[0],
+        payload: {
+          ...mockPendingMessages[0].payload,
+          messaging: {
+            ...mockPendingMessages[0].payload.messaging,
+            filesInSubmission: undefined
+          }
+        }
+      }
+
+      const legacyResult = buildDocumentUploadMessageBatch([legacyPendingMessage])
+      expect(legacyResult[0].data.filesInSubmission).toBeUndefined()
     })
   })
 
