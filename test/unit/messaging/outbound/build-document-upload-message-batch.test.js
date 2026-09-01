@@ -80,7 +80,6 @@ describe('buildDocumentUploadMessageBatch', () => {
 
     test('should carry filesInSubmission from the messaging envelope to data', () => {
       expect(result[0].data.filesInSubmission).toBe(1)
-      expect(result[0].data.filesInSubmission).toBeGreaterThan(0)
     })
 
     test('should leave filesInSubmission undefined for legacy documents without the field', () => {
