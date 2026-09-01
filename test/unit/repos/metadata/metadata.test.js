@@ -114,9 +114,9 @@ describe('Metadata Repository', () => {
         expect(formattedMetadata[0].messaging.correlationId).toBe(formattedMetadata[1].messaging.correlationId)
       })
 
-      test('each object should carry the same filesInSubmission count for the upload batch', () => {
-        expect(formattedMetadata[0].messaging.filesInSubmission).toBe(2)
-        expect(formattedMetadata[1].messaging.filesInSubmission).toBe(2)
+      test('each object should carry the same filesInBatch count for the upload batch', () => {
+        expect(formattedMetadata[0].messaging.filesInBatch).toBe(2)
+        expect(formattedMetadata[1].messaging.filesInBatch).toBe(2)
       })
     })
 

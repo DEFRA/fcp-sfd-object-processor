@@ -50,7 +50,7 @@ const formatInboundMetadata = (payload) => {
 
   // ensure that all files uploaded together are grouped via the same correlationId
   const correlationId = randomUUID()
-  const filesInSubmission = filteredFormData.length
+  const filesInBatch = filteredFormData.length
 
   return filteredFormData.map((formUpload) => {
     return {
@@ -73,7 +73,7 @@ const formatInboundMetadata = (payload) => {
       messaging: {
         publishedAt: null,
         correlationId,
-        filesInSubmission
+        filesInBatch
       }
     }
   })
