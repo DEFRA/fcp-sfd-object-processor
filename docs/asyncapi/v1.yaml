@@ -152,7 +152,7 @@ components:
 
     filesInSubmission:
       type: integer
-      description: Total number of uploaded files included in the same callback submission batch
+      description: Number of files accepted in the callback that produced this event. All events sharing the same correlationId carry the same value. It records what was accepted at upload time and is not a guarantee that this many events will be delivered; an individual file's event may fail permanently.
       minimum: 1
       example: 2
 
