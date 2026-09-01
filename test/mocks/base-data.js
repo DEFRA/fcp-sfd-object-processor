@@ -119,9 +119,10 @@ export const createRawSubdocument = (fileUpload, uploadStatus = 'ready', numberO
 })
 
 // Create messaging envelope for documents
-export const createMessagingEnvelope = (correlationId = randomUUID(), publishedAt = null) => ({
+export const createMessagingEnvelope = (correlationId = randomUUID(), publishedAt = null, filesInSubmission = 1) => ({
   correlationId,
-  publishedAt
+  publishedAt,
+  filesInSubmission
 })
 
 // Create a complete formatted document (internal storage format)
@@ -130,7 +131,8 @@ export const createFormattedDocument = (metadata, fileUpload, options = {}) => {
     uploadStatus = 'ready',
     numberOfRejectedFiles = 0,
     correlationId = randomUUID(),
-    publishedAt = null
+    publishedAt = null,
+    filesInSubmission = 1
   } = options
 
   return {
@@ -138,6 +140,6 @@ export const createFormattedDocument = (metadata, fileUpload, options = {}) => {
     file: createFileSubdocument(fileUpload),
     raw: createRawSubdocument(fileUpload, uploadStatus, numberOfRejectedFiles),
     s3: createS3Subdocument(fileUpload),
-    messaging: createMessagingEnvelope(correlationId, publishedAt)
+    messaging: createMessagingEnvelope(correlationId, publishedAt, filesInSubmission)
   }
 }

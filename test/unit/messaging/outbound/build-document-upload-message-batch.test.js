@@ -77,6 +77,11 @@ describe('buildDocumentUploadMessageBatch', () => {
       expect(result[0].data.correlationId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
       expect(result[0].data.correlationId).toBe(mockPendingMessages[0].payload.messaging.correlationId)
     })
+
+    test('should set data.filesInSubmission to the batch size', () => {
+      expect(result[0].data.filesInSubmission).toBe(1)
+      expect(result[0].data.filesInSubmission).toBeGreaterThan(0)
+    })
   })
 
   describe('data.crm property', () => {

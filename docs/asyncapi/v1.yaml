@@ -63,6 +63,7 @@ components:
               - crn
               - crm
               - correlationId
+              - filesInSubmission
               - file
               - sbi
               - sourceSystem
@@ -74,6 +75,8 @@ components:
                 $ref: "#/components/schemas/crm"
               correlationId:
                 $ref: "#/components/schemas/correlationId"
+              filesInSubmission:
+                $ref: "#/components/schemas/filesInSubmission"
               file:
                 $ref: "#/components/schemas/file"
               sbi:
@@ -147,6 +150,12 @@ components:
           $ref: "#/components/schemas/contentType"
         url:
           $ref: "#/components/schemas/url"
+
+    filesInSubmission:
+      type: integer
+      description: Total number of uploaded files included in the same callback submission batch
+      minimum: 1
+      example: 2
 
     fileId:
       type: string
