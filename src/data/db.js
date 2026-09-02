@@ -39,8 +39,9 @@ const createIndexes = async () => {
 
   const outboxCollectionRef = db.collection(outboxCollection)
   const configuredOutboxSentTtlSeconds = config.get('messaging.outboxSentTtlSeconds')
-  const outboxSentTtlIndex = (await outboxCollectionRef.indexes())
-    .find(({ name }) => name === 'outbox_sent_ttl_idx')
+  // indexes() rejects with 'ns does not exist' when the collection hasn't been created yet.
+  const existingOutboxIndexes = await outboxCollectionRef.indexes().catch(() => [])
+  const outboxSentTtlIndex = existingOutboxIndexes.find(({ name }) => name === 'outbox_sent_ttl_idx')
 
   if (outboxSentTtlIndex && outboxSentTtlIndex.expireAfterSeconds !== configuredOutboxSentTtlSeconds) {
     await outboxCollectionRef.dropIndex('outbox_sent_ttl_idx')

@@ -127,6 +127,26 @@ describe('data/db createIndexes', () => {
     ])
   })
 
+  test('creates the outbox sent TTL index when the collection does not exist yet', async () => {
+    mocks.indexes.mockRejectedValue(new Error('ns does not exist: test-db.outbox'))
+
+    await import('../../../src/data/db.js')
+
+    expect(mocks.dropIndex).not.toHaveBeenCalled()
+    expect(mocks.createIndexes).toHaveBeenLastCalledWith([
+      { key: { status: 1, createdAt: 1 }, name: 'outbox_status_createdAt_idx' },
+      { key: { status: 1, claimedUntil: 1 }, name: 'outbox_status_claimedUntil_idx' },
+      { key: { status: 1, attempts: 1 }, name: 'outbox_status_attempts_idx' },
+      { key: { 'payload.file.fileId': 1 }, name: 'outbox_payload_fileId_idx' },
+      {
+        key: { lastAttemptedAt: 1 },
+        name: 'outbox_sent_ttl_idx',
+        expireAfterSeconds: 604800,
+        partialFilterExpression: { status: 'SENT' }
+      }
+    ])
+  })
+
   test('exports the connected client and db instance', async () => {
     const mockDbInstance = { collection: mocks.collection }
     const mockClientInstance = { db: mocks.db }
