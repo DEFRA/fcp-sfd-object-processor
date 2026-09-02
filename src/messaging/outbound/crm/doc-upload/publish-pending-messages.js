@@ -14,9 +14,18 @@ import { runWithCorrelationId } from '../../../../logging/correlation-id-store.j
 
 const logger = createLogger()
 const publishFailureMessage = 'Failed to send message'
+const outboxMaxAttemptsConfig = 'messaging.outboxMaxAttempts'
 const millisecondsToNanoseconds = 1000000
 
 const getEntryId = (entry) => entry?.payload?.file?.fileId || entry?.messageId
+
+// Mirrors the status buildClaimedFailurePipeline computes in the database. The
+// driver's UpdateResult reports only counts, so the status has to be derived
+// here from the same attempt count the pipeline evaluated. attempts is set at
+// claim time and no other worker can change it while this claim is held.
+const resolveFailedStatus = (attempts, maxAttempts) =>
+  attempts >= maxAttempts ? PERMANENT_FAILURE : PENDING
+
 const runWithEntryCorrelationId = (entry, fn) =>
   runWithCorrelationId(entry?.payload?.messaging?.correlationId, fn)
 
@@ -66,6 +75,7 @@ const buildEntryError = (entry, failedResults) => {
 }
 
 const finalizeEntries = async (session, entries, deliveryOutcome, failedResults = []) => {
+  const maxAttempts = config.get(outboxMaxAttemptsConfig)
   const finalized = []
   const rejected = []
 
@@ -80,7 +90,10 @@ const finalizeEntries = async (session, entries, deliveryOutcome, failedResults 
     )
 
     if (result.matchedCount === 1) {
-      finalized.push({ ...entry, status: result.status })
+      const status = deliveryOutcome === DELIVERY_OUTCOME.SUCCEEDED
+        ? SENT
+        : resolveFailedStatus(entry.attempts, maxAttempts)
+      finalized.push({ ...entry, status })
     } else {
       rejected.push(entry)
     }
@@ -200,7 +213,7 @@ const publishPendingMessages = async () => {
       logRejectedFinalizations(rejected)
 
       if (finalizedFailed.length > 0) {
-        const maxAttempts = config.get('messaging.outboxMaxAttempts')
+        const maxAttempts = config.get(outboxMaxAttemptsConfig)
         const terminalEntries = finalizedFailed.filter(entry => entry.status === PERMANENT_FAILURE)
         const retryableEntries = finalizedFailed.filter(entry => entry.status !== PERMANENT_FAILURE)
 
