@@ -13,7 +13,7 @@ const getS3ReferenceByFileId = async (fileId) => {
   const document = await db.collection(collection)
     .findOne(
       { 'file.fileId': fileId },
-      { projection: { s3: 1 } }) // only return the s3Data
+      { projection: { s3: 1, 'metadata.sbi': 1 } }) // return s3 plus SBI for read-audit attribution
 
   if (document === null) {
     throw new NotFoundError(noDocumentsFoundError)
@@ -84,7 +84,7 @@ const getMetadataBySbi = async (sbi) => {
 
   const documents = await db.collection(collection)
     .find({ 'metadata.sbi': sbi })
-    .project({ metadata: 1, file: 1 }) // only return the metadata and file keys
+    .project({ metadata: 1, file: 1, 'messaging.correlationId': 1 }) // include event correlation key for downstream matching
     .toArray()
 
   if (documents.length === 0) {

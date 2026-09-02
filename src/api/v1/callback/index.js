@@ -53,7 +53,7 @@ export const uploadCallback = {
           correlationid: request?.headers?.[tracingHeader],
           audit: {
             entities: [{ entity: 'document', action: 'failed', entityid: fileId }],
-            accounts: { sbi: String(request.payload?.metadata?.sbi ?? '') },
+            ...(request.payload?.metadata?.sbi !== undefined && request.payload?.metadata?.sbi !== null && { accounts: { sbi: String(request.payload.metadata.sbi) } }),
             status: 'failure',
             details: { reason: 'payload_validation_failure' }
           }
@@ -92,7 +92,7 @@ export const uploadCallback = {
           correlationid: request?.headers?.[tracingHeader],
           audit: {
             entities: [{ entity: 'document', action: 'created', entityid: fileId }],
-            accounts: { sbi: String(request.payload.metadata.sbi) },
+            ...(request.payload?.metadata?.sbi !== undefined && request.payload?.metadata?.sbi !== null && { accounts: { sbi: String(request.payload.metadata.sbi) } }),
             status: 'success',
             details: { reason: 'callback_successful' }
           }
@@ -111,7 +111,7 @@ export const uploadCallback = {
           correlationid: request?.headers?.[tracingHeader],
           audit: {
             entities: [{ entity: 'document', action: 'failed', entityid: fileId }],
-            accounts: { sbi: String(request.payload?.metadata?.sbi ?? '') },
+            ...(request.payload?.metadata?.sbi !== undefined && request.payload?.metadata?.sbi !== null && { accounts: { sbi: String(request.payload.metadata.sbi) } }),
             status: 'failure',
             details: { reason: 'callback_processing_failure' }
           }

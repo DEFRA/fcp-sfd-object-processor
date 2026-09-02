@@ -18,18 +18,20 @@ import {
 } from './base-data.js'
 
 // Shared correlation ID for documents in the same submission
-const defaultCorrelationId = '123e4567-e89b-12d3-a456-426655440000'
+const defaultCorrelationId = '550e8400-e29b-41d4-a716-446655440000'
 
 // Simplified metadata response (metadata + file only) - used by metadata endpoint tests
 // This is what's typically returned by the /api/v1/metadata/sbi/{sbi} endpoint
 export const mockMetadataResponse = [
   {
     metadata: baseMetadata,
-    file: createFileSubdocument(baseFileUpload1)
+    file: createFileSubdocument(baseFileUpload1),
+    messaging: { correlationId: defaultCorrelationId }
   },
   {
     metadata: baseMetadata,
-    file: createFileSubdocument(baseFileUpload2)
+    file: createFileSubdocument(baseFileUpload2),
+    messaging: { correlationId: defaultCorrelationId }
   }
 ]
 
@@ -44,11 +46,13 @@ export const mockFormattedDocuments = [
 export const mockMetadataResponseAlt = [
   {
     metadata: alternateMetadata,
-    file: createFileSubdocument(baseFileUpload3)
+    file: createFileSubdocument(baseFileUpload3),
+    messaging: { correlationId: defaultCorrelationId }
   },
   {
     metadata: alternateMetadata,
-    file: createFileSubdocument(baseFileUpload4)
+    file: createFileSubdocument(baseFileUpload4),
+    messaging: { correlationId: defaultCorrelationId }
   }
 ]
 

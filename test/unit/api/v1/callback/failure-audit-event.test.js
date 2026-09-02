@@ -119,7 +119,7 @@ describe('callback handler — event 4 (document/failed on processing error)', (
     )
   })
 
-  test('uses empty string sbi when metadata.sbi is absent', async () => {
+  test('omits accounts when metadata.sbi is absent', async () => {
     persistMetadataWithOutbox.mockRejectedValueOnce(new Error('DB failure'))
 
     const request = buildMockRequest({ payload: { metadata: {}, form: { file1: { fileId: 'f1' } }, uploadStatus: 'ready', numberOfRejectedFiles: 0 } })
@@ -129,8 +129,8 @@ describe('callback handler — event 4 (document/failed on processing error)', (
 
     expect(mockSendAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
-        audit: expect.objectContaining({
-          accounts: { sbi: '' }
+        audit: expect.not.objectContaining({
+          accounts: expect.anything()
         })
       }),
       request
@@ -261,7 +261,7 @@ describe('callback handler — event 5 (document/failed on Joi validation failur
     )
   })
 
-  test('uses empty string sbi when metadata.sbi is absent in failAction', async () => {
+  test('omits accounts when metadata.sbi is absent in failAction', async () => {
     const mockErr = new Error('Validation failed')
     const request = buildMockRequest({ payload: { metadata: {}, form: { file1: { fileId: 'f1' } }, uploadStatus: 'ready', numberOfRejectedFiles: 0 } })
     const h = buildMockH()
@@ -270,8 +270,8 @@ describe('callback handler — event 5 (document/failed on Joi validation failur
 
     expect(mockSendAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
-        audit: expect.objectContaining({
-          accounts: { sbi: '' }
+        audit: expect.not.objectContaining({
+          accounts: expect.anything()
         })
       }),
       request

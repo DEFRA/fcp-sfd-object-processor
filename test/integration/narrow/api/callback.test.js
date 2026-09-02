@@ -966,4 +966,34 @@ describe('POST /api/v1/callback — audit event schema validation', async () => 
       expect(event.audit.details.reason).toBe('payload_validation_failure')
     })
   })
+
+  test('still emits schema-valid document/failed events when metadata.sbi is missing', async () => {
+    capturedAuditEvents.length = 0
+
+    const invalidPayload = {
+      ...mockScanAndUploadResponse,
+      metadata: {
+        ...mockScanAndUploadResponse.metadata
+      },
+      unknownField: 'should-fail'
+    }
+    delete invalidPayload.metadata.sbi
+
+    const response = await auditServer.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: invalidPayload
+    })
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+    expect(capturedAuditEvents.length).toBeGreaterThan(0)
+    capturedAuditEvents.forEach(event => {
+      assertValidAuditEvent(event)
+      expect(event.audit.entities[0].entity).toBe('document')
+      expect(event.audit.entities[0].action).toBe('failed')
+      expect(event.audit.status).toBe('failure')
+      expect(event.audit.details.reason).toBe('payload_validation_failure')
+      expect(event.audit.accounts).toBeUndefined()
+    })
+  })
 })

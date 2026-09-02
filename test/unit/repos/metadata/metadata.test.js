@@ -246,7 +246,7 @@ describe('getS3ReferenceByFileId', () => {
   })
 
   test('returns s3 projection when document exists', async () => {
-    const document = { s3: { key: 'k', bucket: 'b' } }
+    const document = { s3: { key: 'k', bucket: 'b' }, metadata: { sbi: 105000000 } }
     queryCollection.findOne.mockResolvedValue(document)
 
     const result = await getS3ReferenceByFileId('file-1')
@@ -254,7 +254,7 @@ describe('getS3ReferenceByFileId', () => {
     expect(result).toEqual(document)
     expect(queryCollection.findOne).toHaveBeenCalledWith(
       { 'file.fileId': 'file-1' },
-      { projection: { s3: 1 } }
+      { projection: { s3: 1, 'metadata.sbi': 1 } }
     )
   })
 
@@ -304,7 +304,7 @@ describe('getMetadataBySbi', () => {
   })
 
   test('returns documents when sbi matches', async () => {
-    const documents = [{ metadata: { sbi: '123' }, file: { fileId: 'f1' } }]
+    const documents = [{ metadata: { sbi: '123' }, file: { fileId: 'f1' }, messaging: { correlationId: '123e4567-e89b-12d3-a456-426655440000' } }]
     const toArray = vi.fn().mockResolvedValue(documents)
     const project = vi.fn().mockReturnValue({ toArray })
     queryCollection.find.mockReturnValue({ project })
@@ -313,6 +313,7 @@ describe('getMetadataBySbi', () => {
 
     expect(result).toEqual(documents)
     expect(queryCollection.find).toHaveBeenCalledWith({ 'metadata.sbi': '123' })
+    expect(project).toHaveBeenCalledWith({ metadata: 1, file: 1, 'messaging.correlationId': 1 })
   })
 
   test('throws NotFoundError when no documents match', async () => {

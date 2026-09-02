@@ -61,6 +61,7 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
     doc.payload?.messaging?.correlationId,
     () => {
       const entryId = doc.payload?.file?.fileId || null
+      const sbi = doc.payload?.metadata?.sbi
       const attempts = doc.attempts
       const failure = doc.error || {}
       const reason = failure.message || errMsg || 'terminal_failure'
@@ -68,6 +69,7 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
         correlationid: doc.payload?.messaging?.correlationId,
         audit: {
           entities: [{ entity: 'document', action: 'failed', entityid: entryId ?? doc._id?.toString() ?? '' }],
+          ...(sbi !== undefined && sbi !== null && { accounts: { sbi: String(sbi) } }),
           status: 'failure',
           details: { reason, ...(failure.code && { code: failure.code }), attempts }
         }

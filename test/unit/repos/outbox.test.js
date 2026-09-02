@@ -163,6 +163,44 @@ describe('logTerminalFailuresIfAny', () => {
     )
   })
 
+  test('includes accounts.sbi when terminal doc payload contains metadata.sbi', async () => {
+    const doc = {
+      _id: { toString: () => 'outbox-doc-id' },
+      payload: {
+        file: { fileId: 'file-id-1' },
+        metadata: { sbi: 105000000 },
+        messaging: { correlationId: 'corr-123' }
+      },
+      attempts: 2
+    }
+    db.collection.mockReturnValue(buildCollectionMock([doc]))
+
+    await logTerminalFailuresIfAny('outbox', ['file-id-1'], 2, null, 'error')
+
+    expect(mockSendAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        audit: expect.objectContaining({
+          accounts: { sbi: '105000000' }
+        })
+      })
+    )
+  })
+
+  test('omits accounts when terminal doc payload has no metadata.sbi', async () => {
+    const doc = buildTerminalDoc('file-id-1', 2, 'outbox-doc-id', 'corr-123')
+    db.collection.mockReturnValue(buildCollectionMock([doc]))
+
+    await logTerminalFailuresIfAny('outbox', ['file-id-1'], 2, null, 'error')
+
+    expect(mockSendAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        audit: expect.not.objectContaining({
+          accounts: expect.anything()
+        })
+      })
+    )
+  })
+
   test('uses empty string as entityid when both payload.file.fileId and _id are absent', async () => {
     const doc = { _id: null, payload: {}, attempts: 2 }
     db.collection.mockReturnValue(buildCollectionMock([doc]))

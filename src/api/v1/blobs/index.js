@@ -33,7 +33,8 @@ export const blobRoute = {
     try {
       const { fileId } = request.params
 
-      const { s3: s3Reference } = await getS3ReferenceByFileId(fileId)
+      const { s3: s3Reference, metadata } = await getS3ReferenceByFileId(fileId)
+      const sbi = metadata?.sbi
 
       const { url } = await generatePresignedUrl(s3Reference)
 
@@ -43,6 +44,7 @@ export const blobRoute = {
         correlationid: request?.headers?.[tracingHeader],
         audit: {
           entities: [{ entity: 'document', action: 'read', entityid: fileId }],
+          ...(sbi !== undefined && sbi !== null && { accounts: { sbi: String(sbi) } }),
           status: 'success',
           details: {}
         }

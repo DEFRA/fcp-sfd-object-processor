@@ -101,6 +101,20 @@ describe('GET to the /api/v1/metadata/sbi route', () => {
       }])
     })
 
+    test('should include messaging.correlationId in each returned record', async () => {
+      await db.collection(collection).insertMany(mockMetadataResponse)
+
+      const sbi = 105000000
+      const response = await server.inject({
+        method: 'GET',
+        url: `/api/v1/metadata/sbi/${sbi}`
+      })
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+      expect(response.result.data[0].messaging?.correlationId).toBeDefined()
+      expect(response.result.data[1].messaging?.correlationId).toBeDefined()
+    })
+
     test('should return null and 404 status when no documents found', async () => {
       await db.collection(collection).insertMany(mockMetadataResponse)
 

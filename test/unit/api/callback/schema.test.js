@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'vitest'
 import { callbackPayloadSchema } from '../../../../src/api/v1/callback/schema.js'
+import { schemaConsts } from '../../../../src/constants/schemas.js'
 import { mockScanAndUploadResponse } from '../../../mocks/cdp-uploader.js'
 
 describe('callbackPayloadSchema validation', () => {
@@ -139,6 +140,40 @@ describe('callbackPayloadSchema validation', () => {
   })
 
   describe('Metadata validation', () => {
+    test('accepts SBI and CRN at agreed lower bounds', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        metadata: { ...validPayload.metadata, sbi: schemaConsts.SBI_MIN, crn: schemaConsts.CRN_MIN }
+      })
+      expect(error).toBeUndefined()
+    })
+
+    test('rejects SBI one below agreed lower bound', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        metadata: { ...validPayload.metadata, sbi: schemaConsts.SBI_MIN - 1 }
+      })
+      expect(error).toBeDefined()
+      expect(error.details.some(d => d.path.includes('sbi') && d.type === 'number.min')).toBe(true)
+    })
+
+    test('rejects CRN one below agreed lower bound', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        metadata: { ...validPayload.metadata, crn: schemaConsts.CRN_MIN - 1 }
+      })
+      expect(error).toBeDefined()
+      expect(error.details.some(d => d.path.includes('crn') && d.type === 'number.min')).toBe(true)
+    })
+
+    test('accepts SBI and CRN at upper bounds', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        metadata: { ...validPayload.metadata, sbi: 999999999, crn: 9999999999 }
+      })
+      expect(error).toBeUndefined()
+    })
+
     test('missing sbi fails validation', () => {
       const { sbi, ...metadata } = validPayload.metadata
       const { error } = callbackPayloadSchema.validate({

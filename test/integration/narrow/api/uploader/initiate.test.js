@@ -2,6 +2,7 @@ import { constants as httpConstants } from 'node:http2'
 import { vi, describe, test, expect, beforeAll, afterAll, afterEach } from 'vitest'
 
 import { config } from '../../../../../src/config/index.js'
+import { schemaConsts } from '../../../../../src/constants/schemas.js'
 import { createServer } from '../../../../../src/api'
 
 const { mockHttpClient, mockInsertSession } = vi.hoisted(() => ({
@@ -64,6 +65,24 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
   await server.initialize()
 
   describe('with a valid payload and successful CDP Uploader response', () => {
+    test('should accept agreed lower-bound SBI and CRN values', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        json: async () => mockCdpUploaderResponse
+      })
+
+      const response = await server.inject({
+        method: 'POST',
+        url: '/api/v1/uploader/initiate',
+        payload: {
+          ...mockValidPayload,
+          metadata: { ...mockValidPayload.metadata, sbi: schemaConsts.SBI_MIN, crn: schemaConsts.CRN_MIN }
+        }
+      })
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+    })
+
     test('should return 200 with rewritten URLs', async () => {
       mockHttpClient.mockResolvedValue({
         ok: true,
@@ -145,6 +164,36 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
   })
 
   describe('with an invalid payload', () => {
+    test('should return 400 when SBI is one below agreed lower bound', async () => {
+      const response = await server.inject({
+        method: 'POST',
+        url: '/api/v1/uploader/initiate',
+        payload: {
+          ...mockValidPayload,
+          metadata: { ...mockValidPayload.metadata, sbi: schemaConsts.SBI_MIN - 1 }
+        }
+      })
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
+      expect(response.result.message).toContain('sbi')
+      expect(mockHttpClient).not.toHaveBeenCalled()
+    })
+
+    test('should return 400 when CRN is one below agreed lower bound', async () => {
+      const response = await server.inject({
+        method: 'POST',
+        url: '/api/v1/uploader/initiate',
+        payload: {
+          ...mockValidPayload,
+          metadata: { ...mockValidPayload.metadata, crn: schemaConsts.CRN_MIN - 1 }
+        }
+      })
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
+      expect(response.result.message).toContain('crn')
+      expect(mockHttpClient).not.toHaveBeenCalled()
+    })
+
     test('should return 400 for invalid metadata.type without calling CDP Uploader', async () => {
       const response = await server.inject({
         method: 'POST',
