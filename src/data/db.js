@@ -37,7 +37,16 @@ const createIndexes = async () => {
     { key: { timestamp: -1 }, name: 'sessions_timestamp_idx' }
   ])
 
-  await db.collection(outboxCollection).createIndexes([
+  const outboxCollectionRef = db.collection(outboxCollection)
+  const configuredOutboxSentTtlSeconds = config.get('messaging.outboxSentTtlSeconds')
+  const outboxSentTtlIndex = (await outboxCollectionRef.indexes())
+    .find(({ name }) => name === 'outbox_sent_ttl_idx')
+
+  if (outboxSentTtlIndex && outboxSentTtlIndex.expireAfterSeconds !== configuredOutboxSentTtlSeconds) {
+    await outboxCollectionRef.dropIndex('outbox_sent_ttl_idx')
+  }
+
+  await outboxCollectionRef.createIndexes([
     { key: { status: 1, createdAt: 1 }, name: 'outbox_status_createdAt_idx' },
     { key: { status: 1, claimedUntil: 1 }, name: 'outbox_status_claimedUntil_idx' },
     { key: { status: 1, attempts: 1 }, name: 'outbox_status_attempts_idx' },
@@ -46,7 +55,7 @@ const createIndexes = async () => {
       // Only SENT entries expire; lastAttemptedAt records the successful delivery time.
       key: { lastAttemptedAt: 1 },
       name: 'outbox_sent_ttl_idx',
-      expireAfterSeconds: config.get('messaging.outboxSentTtlSeconds'),
+      expireAfterSeconds: configuredOutboxSentTtlSeconds,
       partialFilterExpression: { status: 'SENT' }
     }
   ])

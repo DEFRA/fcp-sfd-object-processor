@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   db: vi.fn(),
   collection: vi.fn(),
   createIndexes: vi.fn(),
+  indexes: vi.fn(),
+  dropIndex: vi.fn(),
   configGet: vi.fn(),
   loggerInfo: vi.fn(),
   createSecureContext: vi.fn()
@@ -53,7 +55,12 @@ describe('data/db createIndexes', () => {
       }
     })
 
-    mocks.collection.mockReturnValue({ createIndexes: mocks.createIndexes })
+    mocks.indexes.mockResolvedValue([])
+    mocks.collection.mockReturnValue({
+      createIndexes: mocks.createIndexes,
+      indexes: mocks.indexes,
+      dropIndex: mocks.dropIndex
+    })
     mocks.db.mockReturnValue({ collection: mocks.collection })
     mocks.connect.mockResolvedValue({ db: mocks.db })
   })
@@ -98,6 +105,26 @@ describe('data/db createIndexes', () => {
 
     expect(mocks.loggerInfo).toHaveBeenCalledWith('MongoDB indexes created')
     expect(mocks.loggerInfo).toHaveBeenCalledWith('Connected to MongoDB')
+  })
+
+  test('drops and recreates the outbox sent TTL index when the configured TTL changes', async () => {
+    mocks.indexes.mockResolvedValue([{ name: 'outbox_sent_ttl_idx', expireAfterSeconds: 86400 }])
+
+    await import('../../../src/data/db.js')
+
+    expect(mocks.dropIndex).toHaveBeenCalledWith('outbox_sent_ttl_idx')
+    expect(mocks.createIndexes).toHaveBeenLastCalledWith([
+      { key: { status: 1, createdAt: 1 }, name: 'outbox_status_createdAt_idx' },
+      { key: { status: 1, claimedUntil: 1 }, name: 'outbox_status_claimedUntil_idx' },
+      { key: { status: 1, attempts: 1 }, name: 'outbox_status_attempts_idx' },
+      { key: { 'payload.file.fileId': 1 }, name: 'outbox_payload_fileId_idx' },
+      {
+        key: { lastAttemptedAt: 1 },
+        name: 'outbox_sent_ttl_idx',
+        expireAfterSeconds: 604800,
+        partialFilterExpression: { status: 'SENT' }
+      }
+    ])
   })
 
   test('exports the connected client and db instance', async () => {
