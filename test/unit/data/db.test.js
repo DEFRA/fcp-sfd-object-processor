@@ -95,5 +95,44 @@ describe('data/db createIndexes', () => {
         partialFilterExpression: { status: 'SENT' }
       }
     ])
+
+    expect(mocks.loggerInfo).toHaveBeenCalledWith('MongoDB indexes created')
+    expect(mocks.loggerInfo).toHaveBeenCalledWith('Connected to MongoDB')
+  })
+
+  test('exports the connected client and db instance', async () => {
+    const mockDbInstance = { collection: mocks.collection }
+    const mockClientInstance = { db: mocks.db }
+    mocks.db.mockReturnValue(mockDbInstance)
+    mocks.connect.mockResolvedValue(mockClientInstance)
+
+    const { db, client } = await import('../../../src/data/db.js')
+
+    expect(client).toBe(mockClientInstance)
+    expect(db).toBe(mockDbInstance)
+  })
+
+  test('passes a secure context when createSecureContext returns one', async () => {
+    const secureContext = { context: true }
+    mocks.createSecureContext.mockReturnValue(secureContext)
+
+    await import('../../../src/data/db.js')
+
+    expect(mocks.connect).toHaveBeenCalledWith('mongodb://localhost:27017', {
+      retryWrites: false,
+      readPreference: 'primary',
+      secureContext
+    })
+  })
+
+  test('omits secureContext when createSecureContext returns undefined', async () => {
+    mocks.createSecureContext.mockReturnValue(undefined)
+
+    await import('../../../src/data/db.js')
+
+    expect(mocks.connect).toHaveBeenCalledWith('mongodb://localhost:27017', {
+      retryWrites: false,
+      readPreference: 'primary'
+    })
   })
 })
