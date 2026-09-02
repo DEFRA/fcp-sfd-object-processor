@@ -1,4 +1,4 @@
-import { convict } from 'convict'
+import convict from 'convict'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
 import { serverConfig } from '../../../src/config/server.js'
@@ -73,3 +73,4 @@ describe('outbox sent TTL configuration', () => {
 
     expect(() => config.validate({ allowed: 'strict' })).toThrow()
   })
+})
