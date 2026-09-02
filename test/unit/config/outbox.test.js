@@ -65,4 +65,11 @@ describe('outbox sent TTL configuration', () => {
 
     expect(() => config.validate({ allowed: 'strict' })).toThrow()
   })
-})
+
+  test('rejects a negative TTL', () => {
+    vi.stubEnv('OUTBOX_SENT_TTL_SECONDS', '-1')
+
+    const config = createConfig()
+
+    expect(() => config.validate({ allowed: 'strict' })).toThrow()
+  })
