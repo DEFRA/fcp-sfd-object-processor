@@ -30,6 +30,7 @@ export const buildDocumentUploadMessageBatch = (pendingMessages) => {
           title
         },
         correlationId: messaging.correlationId,
+        filesInBatch: messaging.filesInBatch,
         file: {
           fileId: file.fileId,
           fileName: file.filename,

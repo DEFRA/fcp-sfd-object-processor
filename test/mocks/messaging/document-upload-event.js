@@ -22,6 +22,7 @@ export const mockDocumentUploadedEvent = {
       title: 'Proof of purchase - Samuel F Armer - 12-12-2025'
     },
     correlationId: '123e4567-e89b-12d3-a456-426655440000',
+    filesInBatch: 1,
     file: {
       fileId: '123e4567-e89b-12d3-a456-426655440001',
       fileName: 'receipt.pdf',

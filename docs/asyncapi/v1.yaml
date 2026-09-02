@@ -74,6 +74,8 @@ components:
                 $ref: "#/components/schemas/crm"
               correlationId:
                 $ref: "#/components/schemas/correlationId"
+              filesInBatch:
+                $ref: "#/components/schemas/filesInBatch"
               file:
                 $ref: "#/components/schemas/file"
               sbi:
@@ -147,6 +149,12 @@ components:
           $ref: "#/components/schemas/contentType"
         url:
           $ref: "#/components/schemas/url"
+
+    filesInBatch:
+      type: integer
+      description: Number of files accepted in the callback/batch that produced this event. All events sharing the same correlationId carry the same value. It records what was accepted at upload time and is not a guarantee that this many events will be delivered; an individual file's event may fail permanently.
+      minimum: 1
+      example: 2
 
     fileId:
       type: string

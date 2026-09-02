@@ -77,6 +77,26 @@ describe('buildDocumentUploadMessageBatch', () => {
       expect(result[0].data.correlationId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
       expect(result[0].data.correlationId).toBe(mockPendingMessages[0].payload.messaging.correlationId)
     })
+
+    test('should carry filesInBatch from the messaging envelope to data', () => {
+      expect(result[0].data.filesInBatch).toBe(1)
+    })
+
+    test('should leave filesInBatch undefined for legacy documents without the field', () => {
+      const legacyPendingMessage = {
+        ...mockPendingMessages[0],
+        payload: {
+          ...mockPendingMessages[0].payload,
+          messaging: {
+            ...mockPendingMessages[0].payload.messaging,
+            filesInBatch: undefined
+          }
+        }
+      }
+
+      const legacyResult = buildDocumentUploadMessageBatch([legacyPendingMessage])
+      expect(legacyResult[0].data.filesInBatch).toBeUndefined()
+    })
   })
 
   describe('data.crm property', () => {
