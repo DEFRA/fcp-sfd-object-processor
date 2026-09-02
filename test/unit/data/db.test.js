@@ -48,6 +48,7 @@ describe('data/db createIndexes', () => {
         case 'mongo.collections.uploadMetadata': return 'uploadMetadata'
         case 'mongo.collections.sessions': return 'sessions'
         case 'mongo.collections.outbox': return 'outbox'
+        case 'messaging.outboxSentTtlSeconds': return 604800
         default: return undefined
       }
     })
@@ -86,7 +87,13 @@ describe('data/db createIndexes', () => {
       { key: { status: 1, createdAt: 1 }, name: 'outbox_status_createdAt_idx' },
       { key: { status: 1, claimedUntil: 1 }, name: 'outbox_status_claimedUntil_idx' },
       { key: { status: 1, attempts: 1 }, name: 'outbox_status_attempts_idx' },
-      { key: { 'payload.file.fileId': 1 }, name: 'outbox_payload_fileId_idx' }
+      { key: { 'payload.file.fileId': 1 }, name: 'outbox_payload_fileId_idx' },
+      {
+        key: { lastAttemptedAt: 1 },
+        name: 'outbox_sent_ttl_idx',
+        expireAfterSeconds: 604800,
+        partialFilterExpression: { status: 'SENT' }
+      }
     ])
   })
 })

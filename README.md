@@ -232,6 +232,7 @@ Current key indexes include:
    - `{"status": 1, "claimedUntil": 1}` (`outbox_status_claimedUntil_idx`)
    - `{"status": 1, "attempts": 1}` (`outbox_status_attempts_idx`)
    - `{"payload.file.fileId": 1}` (`outbox_payload_fileId_idx`)
+   - TTL `{"lastAttemptedAt": 1}` (`outbox_sent_ttl_idx`), partial on `status: "SENT"`, expiring after `messaging.outboxSentTtlSeconds` (`OUTBOX_SENT_TTL_SECONDS`, default 604800s / 7 days)
 
 The service uses MongoDB `createIndexes`, which is idempotent and safe to run repeatedly across restarts and deployments.
 
@@ -256,6 +257,23 @@ This service uses [Pino](https://getpino.io/) with [Elastic Common Schema (ECS)]
 | `event.kind` | text | High-level type — use for HTTP status code |
 | `event.duration` | long | Round-trip time in **nanoseconds** (`ms × 1,000,000`) |
 | `event.severity` | long | Custom severity level (0–10) |
+
+## Monitoring & Alerting
+
+### Permanent outbox delivery failures
+
+When an outbox entry exhausts `messaging.outboxMaxAttempts` retries, it is marked `PERMANENT_FAILURE` and a structured error log is emitted from [`src/repos/outbox.js`](./src/repos/outbox.js) with `event.type: outbox_terminal_failure`. This is the signal to alert on.
+
+Relevant fields on that log line:
+
+| Field | Meaning |
+|---|---|
+| `event.type` | `outbox_terminal_failure` |
+| `event.reference` | Outbox entry ID (`_id`) |
+| `error.id` | File ID (`payload.file.fileId`) — the message identifier |
+| `error.code` | Failure code, if available |
+| `error.message` / `event.reason` | Final error reason |
+| Log message | Includes `entryId` and `attempt` count, e.g. `Outbox entry reached PERMANENT_FAILURE after max attempts; entryId=...; attempt=...` |
 
 ## HTTP Retry
 

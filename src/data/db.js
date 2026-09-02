@@ -41,7 +41,14 @@ const createIndexes = async () => {
     { key: { status: 1, createdAt: 1 }, name: 'outbox_status_createdAt_idx' },
     { key: { status: 1, claimedUntil: 1 }, name: 'outbox_status_claimedUntil_idx' },
     { key: { status: 1, attempts: 1 }, name: 'outbox_status_attempts_idx' },
-    { key: { 'payload.file.fileId': 1 }, name: 'outbox_payload_fileId_idx' }
+    { key: { 'payload.file.fileId': 1 }, name: 'outbox_payload_fileId_idx' },
+    {
+      // Only SENT entries expire; lastAttemptedAt records the successful delivery time.
+      key: { lastAttemptedAt: 1 },
+      name: 'outbox_sent_ttl_idx',
+      expireAfterSeconds: config.get('messaging.outboxSentTtlSeconds'),
+      partialFilterExpression: { status: 'SENT' }
+    }
   ])
 
   logger.info('MongoDB indexes created')

@@ -35,3 +35,34 @@ describe('outbox configuration', () => {
     expect(() => config.validate({ allowed: 'strict' })).toThrow()
   })
 })
+
+describe('outbox sent TTL configuration', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  test('uses a seven day TTL by default', () => {
+    vi.stubEnv('OUTBOX_SENT_TTL_SECONDS', undefined)
+
+    const config = createConfig()
+
+    expect(config.get('messaging.outboxSentTtlSeconds')).toBe(604800)
+  })
+
+  test('reads the TTL from the environment', () => {
+    vi.stubEnv('OUTBOX_SENT_TTL_SECONDS', '86400')
+
+    const config = createConfig()
+    config.validate({ allowed: 'strict' })
+
+    expect(config.get('messaging.outboxSentTtlSeconds')).toBe(86400)
+  })
+
+  test('rejects a non-integer TTL', () => {
+    vi.stubEnv('OUTBOX_SENT_TTL_SECONDS', 'invalid')
+
+    const config = createConfig()
+
+    expect(() => config.validate({ allowed: 'strict' })).toThrow()
+  })
+})
