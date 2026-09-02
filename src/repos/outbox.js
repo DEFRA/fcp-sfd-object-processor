@@ -178,6 +178,8 @@ const buildClaimedFailurePipeline = (maxAttempts, error, now) => ([
     }
   },
   {
+    // resolveFailedStatus in publish-pending-messages.js applies the same
+    // threshold so the caller can label the entry it just finalized. Change both.
     $set: {
       status: {
         $cond: [{ $gte: ['$attempts', maxAttempts] }, PERMANENT_FAILURE, PENDING]

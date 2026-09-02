@@ -82,7 +82,7 @@ describe('publishPendingMessages observability', () => {
       withTransaction: vi.fn(async callback => callback()),
       endSession: vi.fn()
     })
-    mocks.finalize.mockResolvedValue({ acknowledged: true, matchedCount: 1, status: 'SENT' })
+    mocks.finalize.mockResolvedValue({ acknowledged: true, matchedCount: 1 })
     mocks.logTerminal.mockResolvedValue(undefined)
   })
 
@@ -125,8 +125,8 @@ describe('publishPendingMessages observability', () => {
       ]
     })
     mocks.finalize
-      .mockResolvedValueOnce({ acknowledged: true, matchedCount: 1, status: 'PENDING' })
-      .mockResolvedValueOnce({ acknowledged: true, matchedCount: 1, status: 'PERMANENT_FAILURE' })
+      .mockResolvedValueOnce({ acknowledged: true, matchedCount: 1 })
+      .mockResolvedValueOnce({ acknowledged: true, matchedCount: 1 })
 
     await publishPendingMessages()
 
@@ -345,13 +345,13 @@ describe('publishPendingMessages observability', () => {
   })
 
   test('uses failed_to_publish fallback when failure entry has no Message or Code', async () => {
-    const entry = buildEntry('no-detail', 1)
+    const entry = buildEntry('no-detail', 2)
     mocks.claim.mockResolvedValue([entry])
     mocks.publishBatch.mockResolvedValue({
       Successful: [],
       Failed: [{ Id: 'file-no-detail' }]
     })
-    mocks.finalize.mockResolvedValue({ acknowledged: true, matchedCount: 1, status: 'PERMANENT_FAILURE' })
+    mocks.finalize.mockResolvedValue({ acknowledged: true, matchedCount: 1 })
 
     await publishPendingMessages()
 
@@ -365,13 +365,13 @@ describe('publishPendingMessages observability', () => {
   })
 
   test('calls logTerminalFailuresIfAny with correct args for terminal failures', async () => {
-    const terminal = buildEntry('terminal-audit', 1)
+    const terminal = buildEntry('terminal-audit', 2)
     mocks.claim.mockResolvedValue([terminal])
     mocks.publishBatch.mockResolvedValue({
       Successful: [],
       Failed: [{ Id: 'file-terminal-audit', Message: 'permanent error' }]
     })
-    mocks.finalize.mockResolvedValue({ acknowledged: true, matchedCount: 1, status: 'PERMANENT_FAILURE' })
+    mocks.finalize.mockResolvedValue({ acknowledged: true, matchedCount: 1 })
 
     await publishPendingMessages()
 
