@@ -153,7 +153,7 @@ export const serverConfig = {
     },
     outboxSentTtlSeconds: {
       doc: 'Lifetime in seconds of a successfully delivered (SENT) outbox record before it is automatically deleted via a MongoDB TTL index',
-      format: 'int',
+      format: 'nat',
       default: 604800,
       env: 'OUTBOX_SENT_TTL_SECONDS'
     }
