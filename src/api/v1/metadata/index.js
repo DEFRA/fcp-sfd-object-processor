@@ -31,7 +31,6 @@ export const metadataRoute = {
       // Convert sbi from URL param string to integer for database query
       const sbi = Number.parseInt(request.params.sbi, 10)
       const documents = await getMetadataBySbi(sbi)
-      const publicDocuments = documents.map(({ messaging: _messaging, ...document }) => document)
 
       // Promise.allSettled fires audit events concurrently and never rejects,
       // so a broker/network failure can't turn this successful read into a 500.
@@ -45,7 +44,7 @@ export const metadataRoute = {
         }
       }, request)))
 
-      return h.response({ data: publicDocuments }).code(httpConstants.HTTP_STATUS_OK)
+      return h.response({ data: documents }).code(httpConstants.HTTP_STATUS_OK)
     } catch (err) {
       if (err instanceof NotFoundError) {
         return Boom.notFound(err)

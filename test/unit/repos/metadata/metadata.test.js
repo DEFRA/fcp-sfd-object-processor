@@ -313,7 +313,7 @@ describe('getMetadataBySbi', () => {
 
     expect(result).toEqual(documents)
     expect(queryCollection.find).toHaveBeenCalledWith({ 'metadata.sbi': '123' })
-    expect(project).toHaveBeenCalledWith({ metadata: 1, file: 1, 'messaging.correlationId': 1 })
+    expect(project).toHaveBeenCalledWith({ metadata: 1, file: 1 })
   })
 
   test('throws NotFoundError when no documents match', async () => {

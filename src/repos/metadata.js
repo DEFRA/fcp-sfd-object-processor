@@ -84,7 +84,7 @@ const getMetadataBySbi = async (sbi) => {
 
   const documents = await db.collection(collection)
     .find({ 'metadata.sbi': sbi })
-    .project({ metadata: 1, file: 1, 'messaging.correlationId': 1 }) // include event correlation key for downstream matching
+    .project({ metadata: 1, file: 1 })
     .toArray()
 
   if (documents.length === 0) {
