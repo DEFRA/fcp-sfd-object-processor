@@ -27,7 +27,6 @@ export const loggerOptions = {
   },
   level: logConfig.level,
   ...formatters[logConfig.format],
-  nesting: true,
   mixin: () => {
     const mixinValues = {}
     const traceId = getTraceId()
@@ -36,7 +35,7 @@ export const loggerOptions = {
     }
     const correlationId = getCorrelationId()
     if (correlationId) {
-      mixinValues['transaction.id'] = correlationId
+      mixinValues.transaction = { id: correlationId }
     }
     return mixinValues
   }

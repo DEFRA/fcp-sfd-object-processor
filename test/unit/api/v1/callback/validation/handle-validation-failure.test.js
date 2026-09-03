@@ -37,7 +37,7 @@ describe('handleValidationFailure', () => {
 
     await handleValidationFailure(payload, error, undefined, mockH)
 
-    expect(persistValidationFailureStatus).toHaveBeenCalledWith(payload, error)
+    expect(persistValidationFailureStatus).toHaveBeenCalledWith(payload, error, undefined)
   })
 
   test('returns 201 response via Hapi response toolkit', async () => {
@@ -58,7 +58,16 @@ describe('handleValidationFailure', () => {
     // Should not throw
     await handleValidationFailure(payload, error, file, mockH)
 
-    expect(persistValidationFailureStatus).toHaveBeenCalledWith(payload, error)
+    expect(persistValidationFailureStatus).toHaveBeenCalledWith(payload, error, undefined)
+  })
+
+  test('threads journeyId through to persistValidationFailureStatus when provided', async () => {
+    const payload = { uploadStatus: 'ready' }
+    const error = new Error('test error')
+
+    await handleValidationFailure(payload, error, undefined, mockH, 'journey-123')
+
+    expect(persistValidationFailureStatus).toHaveBeenCalledWith(payload, error, 'journey-123')
   })
 
   test('does not throw when file is undefined', async () => {

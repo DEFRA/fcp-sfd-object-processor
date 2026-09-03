@@ -239,6 +239,13 @@ The steps to upload a file are as follows:
 
 CDP Uploader calls `POST /api/v1/callback` in the background once scanning completes. That is what persists the metadata and queues the outbox entries, so a file is not retrievable through the endpoints below until the callback has landed.
 
+The `uploader/initiate` response also includes a `journeyId` — a single identifier minted for
+the whole upload journey. It is appended to the callback URL registered with the CDP Uploader,
+so every log line and audit event produced when the CDP Uploader calls back can be correlated
+with the original request. Once the CDP Uploader has called back, the same `journeyId` can be
+used to poll `GET /api/v1/status/{journeyId}` for the outcome, without needing to wait for any
+further response from the service.
+
 ### Retrieve metadata
 
 Metadata relating to a given SBI (Single Business Identifier) can be retrieved by providing the SBI in question. In this case, from the previous examples this would be `105000000`.

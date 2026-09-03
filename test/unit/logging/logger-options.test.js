@@ -60,12 +60,20 @@ describe('logging/logger-options', () => {
     expect(loggerOptions.mixin()).toEqual({ trace: { id: 'abc-123' } })
   })
 
-  test('mixin returns flattened transaction id when correlationId is present', async () => {
+  test('mixin returns nested transaction id when correlationId is present', async () => {
     mocks.getCorrelationId.mockReturnValue('corr-123')
 
     const { loggerOptions } = await import('../../../src/logging/logger-options.js')
 
-    expect(loggerOptions.mixin()).toEqual({ 'transaction.id': 'corr-123' })
+    expect(loggerOptions.mixin()).toEqual({ transaction: { id: 'corr-123' } })
+  })
+
+  test('mixin does not emit a flattened "transaction.id" key', async () => {
+    mocks.getCorrelationId.mockReturnValue('corr-123')
+
+    const { loggerOptions } = await import('../../../src/logging/logger-options.js')
+
+    expect(Object.keys(loggerOptions.mixin())).not.toContain('transaction.id')
   })
 
   test('mixin returns trace and transaction IDs when both are present', async () => {
@@ -76,7 +84,7 @@ describe('logging/logger-options', () => {
 
     expect(loggerOptions.mixin()).toEqual({
       trace: { id: 'trace-1' },
-      'transaction.id': 'correlation-1'
+      transaction: { id: 'correlation-1' }
     })
   })
 

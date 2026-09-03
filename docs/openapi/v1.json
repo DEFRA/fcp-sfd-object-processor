@@ -823,6 +823,18 @@
               }
             }
           },
+          "journeyId": {
+            "type": "string",
+            "description": "Correlation identifier for this upload journey. Use with GET /api/v1/status/{journeyId} to check the outcome of the callback once the upload completes.",
+            "example": "550e8400-e29b-41d4-a716-446655440000",
+            "x-format": {
+              "guid": {
+                "version": [
+                  "uuidv4"
+                ]
+              }
+            }
+          },
           "uploadUrl": {
             "type": "string",
             "description": "URL to upload files to",
@@ -836,6 +848,7 @@
         },
         "required": [
           "uploadId",
+          "journeyId",
           "uploadUrl",
           "statusUrl"
         ]

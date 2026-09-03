@@ -19,15 +19,17 @@ const isFileEntry = (val) =>
  *
  * @param {Object} payload - The request payload
  * @param {Object} h - Hapi response toolkit
+ * @param {string} [journeyId] - The journey ID resolved for this callback request, used to
+ *   correlate any persisted validation failure status with the originating upload.
  * @returns {Object|null} - Returns error response if validation fails, null if successful
  */
-export async function validateCallbackPayload (payload, h) {
+export async function validateCallbackPayload (payload, h, journeyId) {
   const requestPayload = payload || {}
 
   // Stage 1: Contract validation — uploadStatus must be 'ready'
   if (requestPayload.uploadStatus !== 'ready') {
     await metricsCounter('callback_unexpected_status')
-    return handleValidationFailure(requestPayload, new Error(`uploadStatus must be 'ready' but was '${requestPayload.uploadStatus}'`), undefined, h)
+    return handleValidationFailure(requestPayload, new Error(`uploadStatus must be 'ready' but was '${requestPayload.uploadStatus}'`), undefined, h, journeyId)
   }
 
   // Observability: numberOfRejectedFiles mismatch check (lenient — warn only)
@@ -45,7 +47,7 @@ export async function validateCallbackPayload (payload, h) {
           action: 'callback_validation',
           category: 'observability',
           outcome: 'mismatch',
-          reference: requestPayload.metadata?.uosr,
+          reference: journeyId,
           expected: declaredRejectedCount,
           actual: actualRejectedCount
         }
@@ -59,14 +61,14 @@ export async function validateCallbackPayload (payload, h) {
   for (const fileVal of flattenFormValues(form)) {
     if (isFileEntry(fileVal) && fileVal.fileStatus !== 'complete') {
       await metricsCounter('callback_unexpected_status')
-      return handleValidationFailure(requestPayload, new Error(`fileStatus must be 'complete' but was '${fileVal.fileStatus}'`), fileVal, h)
+      return handleValidationFailure(requestPayload, new Error(`fileStatus must be 'complete' but was '${fileVal.fileStatus}'`), fileVal, h, journeyId)
     }
   }
 
   // Stage 3: Post-Joi semantic validation for each file upload
   const validation = validateFormFiles(form)
   if (!validation.isValid) {
-    return handleValidationFailure(requestPayload, new Error(validation.error), validation.file, h)
+    return handleValidationFailure(requestPayload, new Error(validation.error), validation.file, h, journeyId)
   }
 
   return null

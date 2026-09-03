@@ -5,8 +5,9 @@ import { extractFileIdsFromPayload } from '../mappers/status.js'
  * Uses CDP's approved cdp-uploader.*, event.* and error.* fields.
  * @param {object} request - Hapi request object
  * @param {Error} err - Joi validation error
+ * @param {string} journeyId - Resolved journey correlation id for this callback (no PII)
  */
-export const buildCallbackValidationFailureLog = (request, err) => {
+export const buildCallbackValidationFailureLog = (request, err, journeyId) => {
   return {
     'cdp-uploader': {
       fileIds: extractFileIdsFromPayload(request.payload)
@@ -16,7 +17,7 @@ export const buildCallbackValidationFailureLog = (request, err) => {
       action: request.method,
       category: request.path,
       outcome: 'failure',
-      reference: request.payload?.metadata?.uosr
+      reference: journeyId
     },
     error: {
       code: err.statusCode ?? err.code ?? null,
@@ -31,14 +32,15 @@ export const buildCallbackValidationFailureLog = (request, err) => {
  * Uses approved ECS event.* and error.* fields only.
  * @param {object} request - Hapi request object
  * @param {Error} persistError - Error thrown by the persist operation
+ * @param {string} journeyId - Resolved journey correlation id for this callback (no PII)
  */
-export const buildCallbackPersistFailureLog = (request, persistError) => ({
+export const buildCallbackPersistFailureLog = (request, persistError, journeyId) => ({
   event: {
     type: 'callback_validation_persist_failure',
     action: request.method,
     category: request.path,
     outcome: 'failure',
-    reference: request.payload?.metadata?.uosr
+    reference: journeyId
   },
   error: {
     code: persistError.statusCode ?? persistError.code ?? null,

@@ -41,7 +41,10 @@ const getMetadataByFileId = async (fileId) => {
 // creates subdocuments to organise data
 // normalises grouped arrays to indexed field names and filters to file uploads
 
-const formatInboundMetadata = (payload) => {
+// correlationId defaults to a fresh UUID so every existing call site keeps its current
+// behaviour; callers on the callback path pass the journeyId resolved for this upload so
+// the persisted messaging.correlationId matches the id minted at initiate (see FLS1-175).
+const formatInboundMetadata = (payload, correlationId = randomUUID()) => {
   const { metadata, uploadStatus, numberOfRejectedFiles } = payload
 
   // Re-key grouped arrays first, then remove anything without a fileId
@@ -49,7 +52,6 @@ const formatInboundMetadata = (payload) => {
   const filteredFormData = Object.values(normalisedForm ?? {}).filter(data => typeof data === 'object' && data?.fileId)
 
   // ensure that all files uploaded together are grouped via the same correlationId
-  const correlationId = randomUUID()
   const filesInBatch = filteredFormData.length
 
   return filteredFormData.map((formUpload) => {
