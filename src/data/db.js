@@ -1,6 +1,7 @@
 import { MongoClient } from 'mongodb'
 import { createSecureContext } from '../api/common/helpers/secure-context/secure-context.js'
 import { config } from '../config/index.js'
+import { SENT } from '../constants/outbox.js'
 
 import { createLogger } from '../logging/logger.js'
 
@@ -67,7 +68,7 @@ const createIndexes = async () => {
       key: { lastAttemptedAt: 1 },
       name: 'outbox_sent_ttl_idx',
       expireAfterSeconds: configuredOutboxSentTtlSeconds,
-      partialFilterExpression: { status: 'SENT' }
+      partialFilterExpression: { status: SENT }
     }
   ])
 
