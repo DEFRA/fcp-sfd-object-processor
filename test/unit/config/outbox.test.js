@@ -2,6 +2,9 @@ import convict from 'convict'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
 import { serverConfig } from '../../../src/config/server.js'
+import { ttlSeconds } from '../../../src/config/formats/ttl-seconds.js'
+
+convict.addFormat(ttlSeconds)
 
 const createConfig = () => convict({ messaging: serverConfig.messaging })
 
@@ -33,5 +36,69 @@ describe('outbox configuration', () => {
     const config = createConfig()
 
     expect(() => config.validate({ allowed: 'strict' })).toThrow()
+  })
+})
+
+describe('outbox sent TTL configuration', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  test('uses a seven day TTL by default', () => {
+    vi.stubEnv('OUTBOX_SENT_TTL_SECONDS', undefined)
+
+    const config = createConfig()
+
+    expect(config.get('messaging.outboxSentTtlSeconds')).toBe(604800)
+  })
+
+  test('reads the TTL from the environment', () => {
+    vi.stubEnv('OUTBOX_SENT_TTL_SECONDS', '86400')
+
+    const config = createConfig()
+    config.validate({ allowed: 'strict' })
+
+    expect(config.get('messaging.outboxSentTtlSeconds')).toBe(86400)
+  })
+
+  test('rejects a non-integer TTL', () => {
+    vi.stubEnv('OUTBOX_SENT_TTL_SECONDS', 'invalid')
+
+    const config = createConfig()
+
+    expect(() => config.validate({ allowed: 'strict' })).toThrow()
+  })
+
+  test('rejects a negative TTL', () => {
+    vi.stubEnv('OUTBOX_SENT_TTL_SECONDS', '-1')
+
+    const config = createConfig()
+
+    expect(() => config.validate({ allowed: 'strict' })).toThrow()
+  })
+
+  test('rejects a zero TTL', () => {
+    vi.stubEnv('OUTBOX_SENT_TTL_SECONDS', '0')
+
+    const config = createConfig()
+
+    expect(() => config.validate({ allowed: 'strict' })).toThrow()
+  })
+
+  test('rejects a TTL below the 60 second minimum', () => {
+    vi.stubEnv('OUTBOX_SENT_TTL_SECONDS', '59')
+
+    const config = createConfig()
+
+    expect(() => config.validate({ allowed: 'strict' })).toThrow()
+  })
+
+  test('accepts a TTL at the 60 second minimum', () => {
+    vi.stubEnv('OUTBOX_SENT_TTL_SECONDS', '60')
+
+    const config = createConfig()
+    config.validate({ allowed: 'strict' })
+
+    expect(config.get('messaging.outboxSentTtlSeconds')).toBe(60)
   })
 })

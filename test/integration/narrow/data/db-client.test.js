@@ -1,5 +1,5 @@
-import { describe, test, expect } from 'vitest'
-import { db } from '../../../../src/data/db.js'
+import { afterEach, describe, test, expect } from 'vitest'
+import { db, createIndexes } from '../../../../src/data/db.js'
 import { config } from '../../../../src/config/index.js'
 
 describe('Create Mongo client', () => {
@@ -53,5 +53,45 @@ describe('Create Mongo client', () => {
     expect(indexNames).toContain('outbox_status_claimedUntil_idx')
     expect(indexNames).toContain('outbox_status_attempts_idx')
     expect(indexNames).toContain('outbox_payload_fileId_idx')
+    expect(indexNames).toContain('outbox_sent_ttl_idx')
+  })
+
+  test('outbox sent TTL index is configured for SENT entries only', async () => {
+    const collectionName = config.get('mongo.collections.outbox')
+    const indexes = await db.collection(collectionName).indexes()
+    const ttlIndex = indexes.find(index => index.name === 'outbox_sent_ttl_idx')
+
+    expect(ttlIndex.expireAfterSeconds).toBe(config.get('messaging.outboxSentTtlSeconds'))
+    expect(ttlIndex.partialFilterExpression).toEqual({ status: 'SENT' })
+  })
+
+  describe('outbox sent TTL index reconciliation', () => {
+    const testCollectionName = 'db-client-ttl-reconciliation-test'
+    let originalOutboxCollection
+    let originalOutboxSentTtlSeconds
+
+    afterEach(async () => {
+      await db.collection(testCollectionName).drop().catch(() => { })
+      config.set('mongo.collections.outbox', originalOutboxCollection)
+      config.set('messaging.outboxSentTtlSeconds', originalOutboxSentTtlSeconds)
+    })
+
+    test('updates expireAfterSeconds in place via collMod when only the TTL changes', async () => {
+      originalOutboxCollection = config.get('mongo.collections.outbox')
+      originalOutboxSentTtlSeconds = config.get('messaging.outboxSentTtlSeconds')
+
+      config.set('mongo.collections.outbox', testCollectionName)
+      config.set('messaging.outboxSentTtlSeconds', 86400)
+      await createIndexes()
+
+      config.set('messaging.outboxSentTtlSeconds', 604800)
+      await createIndexes()
+
+      const indexes = await db.collection(testCollectionName).indexes()
+      const ttlIndex = indexes.find(index => index.name === 'outbox_sent_ttl_idx')
+
+      expect(ttlIndex.expireAfterSeconds).toBe(604800)
+      expect(ttlIndex.partialFilterExpression).toEqual({ status: 'SENT' })
+    })
   })
 })
