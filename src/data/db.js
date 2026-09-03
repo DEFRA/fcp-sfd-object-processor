@@ -83,6 +83,8 @@ const createIndexes = async () => {
           reason: `expireAfterSeconds ${outboxSentTtlIndex.expireAfterSeconds} -> ${configuredOutboxSentTtlSeconds}`
         }
       }, 'Updated outbox sent TTL index retention')
+    } else {
+      // Index spec and TTL already match configuration; nothing to reconcile.
     }
   }
 
