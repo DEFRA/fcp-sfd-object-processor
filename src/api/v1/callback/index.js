@@ -8,20 +8,13 @@ import { persistMetadataWithOutbox, persistValidationFailureStatus } from '../..
 import { metricsCounter } from '../../common/helpers/metrics.js'
 import { validateCallbackPayload } from './validation/validate-callback-payload.js'
 import { buildCallbackValidationFailureLog, buildCallbackPersistFailureLog } from '../../../utils/build-callback-validation-failure-log.js'
+import { buildAuditAccounts } from '../../../utils/build-audit-accounts.js'
 import { sendAuditEvent } from '../../../messaging/outbound/audit/send-audit-event.js'
 import { extractFileIdsFromPayload } from '../../../mappers/status.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
 const tracingHeader = config.get('tracing.header')
-
-const buildAuditAccounts = (sbi) => {
-  if (sbi === undefined || sbi === null) {
-    return {}
-  }
-
-  return { accounts: { sbi: String(sbi) } }
-}
 
 /**
  * Hapi route definition for the CDP Uploader callback endpoint.

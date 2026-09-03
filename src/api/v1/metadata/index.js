@@ -6,6 +6,7 @@ import { metadataParamSchema, metadataResponseSchema } from './schemas/index.js'
 import { NotFoundError } from '../../../errors/not-found-error.js'
 import { config } from '../../../config/index.js'
 import { sendAuditEvent } from '../../../messaging/outbound/audit/send-audit-event.js'
+import { buildAuditAccounts } from '../../../utils/build-audit-accounts.js'
 
 const baseUrl = config.get('baseUrl.v1')
 const tracingHeader = config.get('tracing.header')
@@ -38,7 +39,7 @@ export const metadataRoute = {
         correlationid: request?.headers?.[tracingHeader],
         audit: {
           entities: [{ entity: 'document', action: 'read', entityid: doc.file.fileId }],
-          accounts: { sbi: String(sbi) },
+          ...buildAuditAccounts(sbi),
           status: 'success',
           details: {}
         }

@@ -95,6 +95,27 @@ describe('blob handler — event 3 (document/read)', () => {
     )
   })
 
+  test('omits accounts when lookup metadata.sbi is null', async () => {
+    getS3ReferenceByFileId.mockResolvedValueOnce({
+      s3: { key: 'some-key', bucket: 'some-bucket' },
+      metadata: { sbi: null }
+    })
+
+    const request = buildMockRequest('test-file-id')
+    const h = buildMockH()
+
+    await blobRoute.handler(request, h)
+
+    expect(mockPublishAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        audit: expect.not.objectContaining({
+          accounts: expect.anything()
+        })
+      }),
+      request
+    )
+  })
+
   test('does not include presigned URL in audit event', async () => {
     const request = buildMockRequest()
     const h = buildMockH()

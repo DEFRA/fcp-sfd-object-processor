@@ -201,6 +201,29 @@ describe('logTerminalFailuresIfAny', () => {
     )
   })
 
+  test('omits accounts when terminal doc payload metadata.sbi is null', async () => {
+    const doc = {
+      _id: { toString: () => 'outbox-doc-id' },
+      payload: {
+        file: { fileId: 'file-id-1' },
+        metadata: { sbi: null },
+        messaging: { correlationId: 'corr-123' }
+      },
+      attempts: 2
+    }
+    db.collection.mockReturnValue(buildCollectionMock([doc]))
+
+    await logTerminalFailuresIfAny('outbox', ['file-id-1'], 2, null, 'error')
+
+    expect(mockSendAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        audit: expect.not.objectContaining({
+          accounts: expect.anything()
+        })
+      })
+    )
+  })
+
   test('uses empty string as entityid when both payload.file.fileId and _id are absent', async () => {
     const doc = { _id: null, payload: {}, attempts: 2 }
     db.collection.mockReturnValue(buildCollectionMock([doc]))

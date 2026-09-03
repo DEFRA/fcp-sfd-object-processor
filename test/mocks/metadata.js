@@ -18,7 +18,7 @@ import {
 } from './base-data.js'
 
 // Shared correlation ID for documents in the same submission
-const defaultCorrelationId = '550e8400-e29b-41d4-a716-446655440000'
+const defaultCorrelationId = '2a0d9cfe-6a34-4b34-98fb-9b79c73f4d11'
 
 // Simplified metadata response (metadata + file only) - used by metadata endpoint tests
 // This is what's typically returned by the /api/v1/metadata/sbi/{sbi} endpoint

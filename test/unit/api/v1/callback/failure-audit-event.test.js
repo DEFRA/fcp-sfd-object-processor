@@ -137,6 +137,24 @@ describe('callback handler — event 4 (document/failed on processing error)', (
     )
   })
 
+  test('omits accounts when metadata.sbi is null', async () => {
+    persistMetadataWithOutbox.mockRejectedValueOnce(new Error('DB failure'))
+
+    const request = buildMockRequest({ payload: { metadata: { sbi: null }, form: { file1: { fileId: 'f1' } }, uploadStatus: 'ready', numberOfRejectedFiles: 0 } })
+    const h = buildMockH()
+
+    await uploadCallback.options.handler(request, h)
+
+    expect(mockSendAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        audit: expect.not.objectContaining({
+          accounts: expect.anything()
+        })
+      }),
+      request
+    )
+  })
+
   test('Boom.internal is still returned after emitting audit event', async () => {
     persistMetadataWithOutbox.mockRejectedValueOnce(new Error('DB failure'))
 
@@ -264,6 +282,23 @@ describe('callback handler — event 5 (document/failed on Joi validation failur
   test('omits accounts when metadata.sbi is absent in failAction', async () => {
     const mockErr = new Error('Validation failed')
     const request = buildMockRequest({ payload: { metadata: {}, form: { file1: { fileId: 'f1' } }, uploadStatus: 'ready', numberOfRejectedFiles: 0 } })
+    const h = buildMockH()
+
+    await uploadCallback.options.validate.failAction(request, h, mockErr)
+
+    expect(mockSendAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        audit: expect.not.objectContaining({
+          accounts: expect.anything()
+        })
+      }),
+      request
+    )
+  })
+
+  test('omits accounts when metadata.sbi is null in failAction', async () => {
+    const mockErr = new Error('Validation failed')
+    const request = buildMockRequest({ payload: { metadata: { sbi: null }, form: { file1: { fileId: 'f1' } }, uploadStatus: 'ready', numberOfRejectedFiles: 0 } })
     const h = buildMockH()
 
     await uploadCallback.options.validate.failAction(request, h, mockErr)

@@ -4,6 +4,7 @@ import { db } from '../data/db.js'
 import { createLogger } from '../logging/logger.js'
 import { sendAuditEvent } from '../messaging/outbound/audit/send-audit-event.js'
 import { runWithCorrelationId } from '../logging/correlation-id-store.js'
+import { buildAuditAccounts } from '../utils/build-audit-accounts.js'
 
 const logger = createLogger()
 
@@ -69,7 +70,7 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
         correlationid: doc.payload?.messaging?.correlationId,
         audit: {
           entities: [{ entity: 'document', action: 'failed', entityid: entryId ?? doc._id?.toString() ?? '' }],
-          ...(sbi !== undefined && sbi !== null && { accounts: { sbi: String(sbi) } }),
+          ...buildAuditAccounts(sbi),
           status: 'failure',
           details: { reason, ...(failure.code && { code: failure.code }), attempts }
         }

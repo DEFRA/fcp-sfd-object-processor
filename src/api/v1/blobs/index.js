@@ -9,6 +9,7 @@ import { config } from '../../../config/index.js'
 import { createLogger } from '../../../logging/logger.js'
 import { blobResponseSchema } from './schemas/responses.js'
 import { sendAuditEvent } from '../../../messaging/outbound/audit/send-audit-event.js'
+import { buildAuditAccounts } from '../../../utils/build-audit-accounts.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -44,7 +45,7 @@ export const blobRoute = {
         correlationid: request?.headers?.[tracingHeader],
         audit: {
           entities: [{ entity: 'document', action: 'read', entityid: fileId }],
-          ...(sbi !== undefined && sbi !== null && { accounts: { sbi: String(sbi) } }),
+          ...buildAuditAccounts(sbi),
           status: 'success',
           details: {}
         }
