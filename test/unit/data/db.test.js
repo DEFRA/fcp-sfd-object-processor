@@ -131,7 +131,9 @@ describe('data/db createIndexes', () => {
   })
 
   test('creates the outbox sent TTL index when the collection does not exist yet', async () => {
-    mocks.indexes.mockRejectedValue(new Error('ns does not exist: test-db.outbox'))
+    const notFoundError = new Error('ns does not exist: test-db.outbox')
+    notFoundError.codeName = 'NamespaceNotFound'
+    mocks.indexes.mockRejectedValue(notFoundError)
 
     await import('../../../src/data/db.js')
 
@@ -155,6 +157,15 @@ describe('data/db createIndexes', () => {
 
     await import('../../../src/data/db.js')
 
+    expect(mocks.command).not.toHaveBeenCalled()
+  })
+
+  test('rethrows unexpected errors from indexes() instead of treating them as no indexes', async () => {
+    const authError = new Error('not authorized on test-db to execute command')
+    authError.codeName = 'Unauthorized'
+    mocks.indexes.mockRejectedValue(authError)
+
+    await expect(import('../../../src/data/db.js')).rejects.toThrow(authError)
     expect(mocks.command).not.toHaveBeenCalled()
   })
 
