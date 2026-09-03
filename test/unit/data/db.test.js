@@ -125,6 +125,14 @@ describe('data/db createIndexes', () => {
       index: { name: 'outbox_sent_ttl_idx', expireAfterSeconds: 604800 }
     })
     expect(mocks.dropIndex).not.toHaveBeenCalled()
+    expect(mocks.loggerInfo).toHaveBeenCalledWith({
+      event: {
+        type: 'outbox_ttl_index_updated',
+        action: 'collmod_index',
+        outcome: 'success',
+        reason: 'expireAfterSeconds 86400 -> 604800'
+      }
+    }, 'Updated outbox sent TTL index retention')
     expect(mocks.createIndexes).toHaveBeenLastCalledWith([
       { key: { status: 1, createdAt: 1 }, name: 'outbox_status_createdAt_idx' },
       { key: { status: 1, claimedUntil: 1 }, name: 'outbox_status_claimedUntil_idx' },
@@ -187,6 +195,14 @@ describe('data/db createIndexes', () => {
 
     expect(mocks.dropIndex).toHaveBeenCalledWith('outbox_sent_ttl_idx')
     expect(mocks.command).not.toHaveBeenCalled()
+    expect(mocks.loggerInfo).toHaveBeenCalledWith({
+      event: {
+        type: 'outbox_ttl_index_updated',
+        action: 'drop_index',
+        outcome: 'success',
+        reason: 'outbox_sent_ttl_idx key or partialFilterExpression no longer matches configuration'
+      }
+    }, 'Dropped outbox sent TTL index for recreation')
     expect(mocks.createIndexes).toHaveBeenLastCalledWith([
       { key: { status: 1, createdAt: 1 }, name: 'outbox_status_createdAt_idx' },
       { key: { status: 1, claimedUntil: 1 }, name: 'outbox_status_claimedUntil_idx' },

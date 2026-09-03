@@ -57,6 +57,14 @@ const createIndexes = async () => {
       // Only expireAfterSeconds can be changed in place via collMod; any other
       // change to the key or partial filter requires a drop and recreate.
       await outboxCollectionRef.dropIndex('outbox_sent_ttl_idx')
+      logger.info({
+        event: {
+          type: 'outbox_ttl_index_updated',
+          action: 'drop_index',
+          outcome: 'success',
+          reason: 'outbox_sent_ttl_idx key or partialFilterExpression no longer matches configuration'
+        }
+      }, 'Dropped outbox sent TTL index for recreation')
     } else if (outboxSentTtlIndex.expireAfterSeconds !== configuredOutboxSentTtlSeconds) {
       // collMod updates expireAfterSeconds in place; unlike drop+recreate it is safe
       // for concurrent instances to run and never leaves the collection without the index.
@@ -64,6 +72,14 @@ const createIndexes = async () => {
         collMod: outboxCollection,
         index: { name: 'outbox_sent_ttl_idx', expireAfterSeconds: configuredOutboxSentTtlSeconds }
       })
+      logger.info({
+        event: {
+          type: 'outbox_ttl_index_updated',
+          action: 'collmod_index',
+          outcome: 'success',
+          reason: `expireAfterSeconds ${outboxSentTtlIndex.expireAfterSeconds} -> ${configuredOutboxSentTtlSeconds}`
+        }
+      }, 'Updated outbox sent TTL index retention')
     }
   }
 
