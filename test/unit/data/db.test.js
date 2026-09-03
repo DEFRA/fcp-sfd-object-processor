@@ -217,6 +217,20 @@ describe('data/db createIndexes', () => {
     ])
   })
 
+  test('drops and recreates the outbox sent TTL index when a non-TTL index shares its name', async () => {
+    mocks.indexes.mockResolvedValue([{
+      name: 'outbox_sent_ttl_idx',
+      key: { lastAttemptedAt: 1 },
+      partialFilterExpression: { status: 'SENT' }
+      // no expireAfterSeconds: this is not actually a TTL index
+    }])
+
+    await import('../../../src/data/db.js')
+
+    expect(mocks.dropIndex).toHaveBeenCalledWith('outbox_sent_ttl_idx')
+    expect(mocks.command).not.toHaveBeenCalled()
+  })
+
   test('rethrows unexpected errors from indexes() instead of treating them as no indexes', async () => {
     const authError = new Error('not authorized on test-db to execute command')
     authError.code = 13

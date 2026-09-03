@@ -51,7 +51,8 @@ const createIndexes = async () => {
 
   if (outboxSentTtlIndex) {
     const specMatches = outboxSentTtlIndex.key?.lastAttemptedAt === 1 &&
-      outboxSentTtlIndex.partialFilterExpression?.status === SENT
+      outboxSentTtlIndex.partialFilterExpression?.status === SENT &&
+      typeof outboxSentTtlIndex.expireAfterSeconds === 'number'
 
     if (!specMatches) {
       // Only expireAfterSeconds can be changed in place via collMod; any other
@@ -104,4 +105,4 @@ await createIndexes()
 
 logger.info('Connected to MongoDB')
 
-export { db, client }
+export { db, client, createIndexes }
