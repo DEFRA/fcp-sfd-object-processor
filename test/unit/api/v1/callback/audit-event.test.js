@@ -37,6 +37,10 @@ vi.mock('../../../../../src/services/metadata-service.js', () => ({
   persistValidationFailureStatus: vi.fn()
 }))
 
+vi.mock('../../../../../src/services/journey-correlation-service.js', () => ({
+  resolveJourneyId: vi.fn().mockResolvedValue({ journeyId: 'test-correlation-id', source: 'session' })
+}))
+
 vi.mock('../../../../../src/api/common/helpers/metrics.js', () => ({
   metricsCounter: vi.fn()
 }))

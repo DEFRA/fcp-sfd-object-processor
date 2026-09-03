@@ -114,6 +114,20 @@ describe('Metadata Repository', () => {
         expect(formattedMetadata[0].messaging.correlationId).toBe(formattedMetadata[1].messaging.correlationId)
       })
 
+      test('each object should have a generated UUID correlationId when none is supplied', () => {
+        expect(formattedMetadata[0].messaging.correlationId).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+        )
+      })
+
+      test('uses the supplied correlationId for every document in the batch when provided', () => {
+        const suppliedCorrelationId = '550e8400-e29b-41d4-a716-446655440000'
+        const formatted = formatInboundMetadata(mockScanAndUploadResponse, suppliedCorrelationId)
+
+        expect(formatted[0].messaging.correlationId).toBe(suppliedCorrelationId)
+        expect(formatted[1].messaging.correlationId).toBe(suppliedCorrelationId)
+      })
+
       test('each object should carry the same filesInBatch count for the upload batch', () => {
         expect(formattedMetadata[0].messaging.filesInBatch).toBe(2)
         expect(formattedMetadata[1].messaging.filesInBatch).toBe(2)

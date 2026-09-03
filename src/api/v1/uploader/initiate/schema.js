@@ -30,6 +30,11 @@ const initiateSuccessSchema = Joi.object({
       .required()
       .description('Unique identifier for the upload session')
       .example('9fcaabe5-77ec-44db-8356-3a6e8dc51b13'),
+    journeyId: Joi.string()
+      .guid({ version: ['uuidv4'] })
+      .required()
+      .description('Correlation identifier for this upload journey. Use with GET /api/v1/status/{journeyId} to check the outcome of the callback once the upload completes.')
+      .example('550e8400-e29b-41d4-a716-446655440000'),
     uploadUrl: Joi.string()
       .required()
       .description('URL to upload files to')

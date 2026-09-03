@@ -39,7 +39,7 @@ describe('numberOfRejectedFiles mismatch check', () => {
       form: { 'good-file': baseFileUpload1, 'text-field': 'some text' }
     }
 
-    await validateCallbackPayload(payload, mockH)
+    await validateCallbackPayload(payload, mockH, 'journey-abc')
 
     expect(mockLogger.warn).not.toHaveBeenCalled()
     expect(metricsModule.metricsCounter).not.toHaveBeenCalledWith('op.callback.rejected_files_mismatch')
@@ -53,7 +53,7 @@ describe('numberOfRejectedFiles mismatch check', () => {
       form: { 'bad-file': rejectedFile, 'text-field': 'some text' }
     }
 
-    await validateCallbackPayload(payload, mockH)
+    await validateCallbackPayload(payload, mockH, 'journey-abc')
 
     expect(mockLogger.warn).toHaveBeenCalledWith(
       {
@@ -62,7 +62,7 @@ describe('numberOfRejectedFiles mismatch check', () => {
           action: 'callback_validation',
           category: 'observability',
           outcome: 'mismatch',
-          reference: baseMetadata.uosr,
+          reference: 'journey-abc',
           expected: 0,
           actual: 1
         }
@@ -70,6 +70,21 @@ describe('numberOfRejectedFiles mismatch check', () => {
       'numberOfRejectedFiles mismatch: declared=0, actual=1'
     )
     expect(metricsModule.metricsCounter).toHaveBeenCalledWith('op.callback.rejected_files_mismatch')
+  })
+
+  test('reference does not contain the CRN (uosr) when journeyId is not supplied', async () => {
+    const payload = {
+      uploadStatus: 'ready',
+      metadata: baseMetadata,
+      numberOfRejectedFiles: 0,
+      form: { 'bad-file': rejectedFile }
+    }
+
+    await validateCallbackPayload(payload, mockH)
+
+    const [loggedPayload] = mockLogger.warn.mock.calls[0]
+    expect(loggedPayload.event.reference).not.toBe(baseMetadata.uosr)
+    expect(loggedPayload.event.reference).toBeUndefined()
   })
 
   test('mismatch (declared=2, actual=1) logs warning with correct expected/actual values', async () => {

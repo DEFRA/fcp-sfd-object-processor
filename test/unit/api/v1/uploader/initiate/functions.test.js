@@ -83,6 +83,74 @@ describe('Uploader Initiate Functions', () => {
       expect(mockConfigGet).toHaveBeenCalledWith('cdpUploaderMaxFileSize')
     })
 
+    test('appends journeyId as a query parameter to a bare callback URL', () => {
+      const clientPayload = {
+        redirect: '/upload-complete',
+        metadata: { sbi: 123456789 }
+      }
+
+      const result = buildCdpUploaderPayload(clientPayload, '550e8400-e29b-41d4-a716-446655440000')
+
+      expect(result.callback).toBe('http://localhost:3000/api/v1/callback?journeyId=550e8400-e29b-41d4-a716-446655440000')
+    })
+
+    test('merges journeyId into a callback URL that already has a query string', () => {
+      mockConfigGet.mockImplementation((key) => {
+        switch (key) {
+          case 'cdpUploaderS3Bucket': return 'test-bucket'
+          case 'cdpUploaderS3Path': return 'uploads/'
+          case 'cdpUploaderCallbackUrl': return 'http://localhost:3000/api/v1/callback?env=test'
+          case 'cdpUploaderMimeTypes': return ['application/pdf', 'image/jpeg']
+          case 'cdpUploaderMaxFileSize': return 10485760
+          default: return null
+        }
+      })
+
+      const clientPayload = {
+        redirect: '/upload-complete',
+        metadata: { sbi: 123456789 }
+      }
+
+      const result = buildCdpUploaderPayload(clientPayload, '550e8400-e29b-41d4-a716-446655440000')
+      const callbackUrl = new URL(result.callback)
+
+      expect(callbackUrl.searchParams.get('env')).toBe('test')
+      expect(callbackUrl.searchParams.get('journeyId')).toBe('550e8400-e29b-41d4-a716-446655440000')
+    })
+
+    test('leaves the callback URL unchanged when no journeyId is supplied', () => {
+      const clientPayload = {
+        redirect: '/upload-complete',
+        metadata: { sbi: 123456789 }
+      }
+
+      const result = buildCdpUploaderPayload(clientPayload)
+
+      expect(result.callback).toBe('http://localhost:3000/api/v1/callback')
+    })
+
+    test('falls back to naive concatenation when the callback URL config is not a valid absolute URL', () => {
+      mockConfigGet.mockImplementation((key) => {
+        switch (key) {
+          case 'cdpUploaderS3Bucket': return 'test-bucket'
+          case 'cdpUploaderS3Path': return 'uploads/'
+          case 'cdpUploaderCallbackUrl': return '/relative/callback'
+          case 'cdpUploaderMimeTypes': return ['application/pdf', 'image/jpeg']
+          case 'cdpUploaderMaxFileSize': return 10485760
+          default: return null
+        }
+      })
+
+      const clientPayload = {
+        redirect: '/upload-complete',
+        metadata: { sbi: 123456789 }
+      }
+
+      const result = buildCdpUploaderPayload(clientPayload, '550e8400-e29b-41d4-a716-446655440000')
+
+      expect(result.callback).toBe('/relative/callback?journeyId=550e8400-e29b-41d4-a716-446655440000')
+    })
+
     test('should preserve all metadata fields from client payload', () => {
       const clientPayload = {
         redirect: '/complete',

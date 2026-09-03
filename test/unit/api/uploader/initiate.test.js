@@ -44,12 +44,18 @@ describe('uploader initiate handler', () => {
   let mockHttpClient
   let TimeoutError
 
+  const mockJourneyId = '550e8400-e29b-41d4-a716-446655440000'
+
   beforeEach(async () => {
     vi.resetModules()
 
     mockLogger = { info: vi.fn(), error: vi.fn(), warn: vi.fn() }
     mockMetricsCounter = vi.fn().mockResolvedValue(undefined)
     mockHttpClient = vi.fn()
+
+    vi.doMock('node:crypto', () => ({
+      randomUUID: vi.fn().mockReturnValue(mockJourneyId)
+    }))
 
     vi.doMock('../../../../src/config/index.js', () => ({
       config: {
@@ -161,6 +167,7 @@ describe('uploader initiate handler', () => {
       expect(mockH.response).toHaveBeenCalledWith({
         data: {
           uploadId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+          journeyId: mockJourneyId,
           uploadUrl: 'http://cdp-uploader:7337/upload-and-scan/9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
           statusUrl: '/api/v1/uploader/status/9fcaabe5-77ec-44db-8356-3a6e8dc51b13'
         }
@@ -169,7 +176,7 @@ describe('uploader initiate handler', () => {
       expect(mockCode).toHaveBeenCalledWith(httpConstants.HTTP_STATUS_OK)
     })
 
-    test('sends correct payload to CDP Uploader', async () => {
+    test('sends correct payload to CDP Uploader with journeyId appended to the callback URL', async () => {
       mockHttpClient.mockResolvedValue({
         ok: true,
         json: async () => mockCdpUploaderResponse
@@ -182,10 +189,27 @@ describe('uploader initiate handler', () => {
         redirect: mockValidPayload.redirect,
         s3Bucket: 'test-bucket',
         s3Path: 'uploads',
-        callback: 'http://localhost:3004/api/v1/callback',
+        callback: `http://localhost:3004/api/v1/callback?journeyId=${mockJourneyId}`,
         mimeTypes: ['application/pdf', 'image/jpeg'],
         maxFileSize: 10485760,
         metadata: mockValidPayload.metadata
+      })
+    })
+
+    test('persists the session with the minted journeyId', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        json: async () => mockCdpUploaderResponse
+      })
+
+      await uploaderInitiateRoute.options.handler(mockRequest, mockH)
+
+      const { insertSession } = await import('../../../../src/repos/sessions.js')
+      expect(insertSession).toHaveBeenCalledWith({
+        uploadId: mockCdpUploaderResponse.uploadId,
+        journeyId: mockJourneyId,
+        metadata: mockValidPayload.metadata,
+        timestamp: expect.any(Date)
       })
     })
 

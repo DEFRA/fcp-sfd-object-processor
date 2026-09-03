@@ -89,7 +89,21 @@ describe('Metadata Service', () => {
 
       await persistMetadataWithOutbox(rawDocuments)
 
-      expect(formatInboundMetadata).toHaveBeenCalledWith(rawDocuments)
+      expect(formatInboundMetadata).toHaveBeenCalledWith(rawDocuments, undefined)
+    })
+
+    test('should pass a supplied correlationId through to formatInboundMetadata', async () => {
+      formatInboundMetadata.mockReturnValue(formattedDocuments)
+      insertStatus.mockResolvedValue({ acknowledged: true, insertedIds: {} })
+      persistMetadata.mockResolvedValue({ insertedIds: {} })
+
+      mockSession.withTransaction.mockImplementation(async (callback) => {
+        return await callback()
+      })
+
+      await persistMetadataWithOutbox(rawDocuments, '550e8400-e29b-41d4-a716-446655440000')
+
+      expect(formatInboundMetadata).toHaveBeenCalledWith(rawDocuments, '550e8400-e29b-41d4-a716-446655440000')
     })
 
     test('should call persistMetadata with formatted documents and session', async () => {
@@ -382,6 +396,45 @@ describe('Metadata Service', () => {
       expect(uniqueCorrelationIds[0]).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
       )
+    })
+
+    test('should use a supplied correlationId instead of generating one', async () => {
+      const validationError = {
+        details: [
+          {
+            path: ['metadata', 'crn'],
+            type: 'any.required',
+            context: { value: undefined }
+          }
+        ]
+      }
+      const suppliedCorrelationId = '550e8400-e29b-41d4-a716-446655440000'
+
+      insertStatus.mockResolvedValue({ acknowledged: true, insertedCount: 2 })
+
+      await persistValidationFailureStatus(rawDocuments[0], validationError, suppliedCorrelationId)
+
+      const statusDocuments = insertStatus.mock.calls[0][0]
+      const correlationIds = statusDocuments.map(doc => doc.correlationId)
+
+      expect(new Set(correlationIds)).toEqual(new Set([suppliedCorrelationId]))
+    })
+
+    test('logs and rethrows when insertStatus rejects', async () => {
+      const validationError = {
+        details: [
+          {
+            path: ['metadata', 'crn'],
+            type: 'any.required',
+            context: { value: undefined }
+          }
+        ]
+      }
+      const dbError = new Error('insert failed')
+
+      insertStatus.mockRejectedValue(dbError)
+
+      await expect(persistValidationFailureStatus(rawDocuments[0], validationError)).rejects.toThrow('insert failed')
     })
   })
 

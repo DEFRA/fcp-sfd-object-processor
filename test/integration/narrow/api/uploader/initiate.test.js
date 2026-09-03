@@ -78,11 +78,14 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
       expect(response.result.data.uploadId).toBe('9fcaabe5-77ec-44db-8356-3a6e8dc51b13')
+      expect(response.result.data.journeyId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      )
       expect(response.result.data.uploadUrl).toBe(`${config.get('uploaderUrl')}/upload-and-scan/9fcaabe5-77ec-44db-8356-3a6e8dc51b13`)
       expect(response.result.data.statusUrl).toBe('/api/v1/uploader/status/9fcaabe5-77ec-44db-8356-3a6e8dc51b13')
     })
 
-    test('should call insertSession with uploadId, metadata and timestamp', async () => {
+    test('should call insertSession with uploadId, journeyId, metadata and timestamp', async () => {
       mockHttpClient.mockResolvedValue({
         ok: true,
         json: async () => mockCdpUploaderResponse
@@ -97,6 +100,7 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
 
       expect(mockInsertSession).toHaveBeenCalledWith({
         uploadId: mockCdpUploaderResponse.uploadId,
+        journeyId: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
         metadata: mockValidPayload.metadata,
         timestamp: expect.any(Date)
       })
@@ -139,7 +143,7 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
       expect(body.redirect).toBe(mockValidPayload.redirect)
       expect(body.s3Bucket).toBe(config.get('cdpUploaderS3Bucket'))
       expect(body.s3Path).toBe(config.get('cdpUploaderS3Path'))
-      expect(body.callback).toBe(config.get('cdpUploaderCallbackUrl'))
+      expect(body.callback).toMatch(new RegExp(`^${config.get('cdpUploaderCallbackUrl').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\?journeyId=`))
       expect(body.metadata).toEqual(mockValidPayload.metadata)
     })
   })

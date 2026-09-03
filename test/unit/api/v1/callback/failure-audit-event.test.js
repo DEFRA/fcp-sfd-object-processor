@@ -37,6 +37,10 @@ vi.mock('../../../../../src/services/metadata-service.js', () => ({
   persistValidationFailureStatus: vi.fn()
 }))
 
+vi.mock('../../../../../src/services/journey-correlation-service.js', () => ({
+  resolveJourneyId: vi.fn().mockResolvedValue({ journeyId: 'test-correlation-id', source: 'session' })
+}))
+
 vi.mock('../../../../../src/api/common/helpers/metrics.js', () => ({
   metricsCounter: vi.fn()
 }))
@@ -209,7 +213,7 @@ describe('callback handler — event 5 (document/failed on Joi validation failur
 
     await uploadCallback.options.validate.failAction(request, h, mockErr)
 
-    expect(buildCallbackValidationFailureLog).toHaveBeenCalledWith(request, mockErr)
+    expect(buildCallbackValidationFailureLog).toHaveBeenCalledWith(request, mockErr, 'test-correlation-id')
     expect(mockLogger.error).toHaveBeenCalledWith({}, 'Validation failed')
   })
 
@@ -220,7 +224,7 @@ describe('callback handler — event 5 (document/failed on Joi validation failur
 
     await uploadCallback.options.validate.failAction(request, h, mockErr)
 
-    expect(persistValidationFailureStatus).toHaveBeenCalledWith(request.payload, mockErr)
+    expect(persistValidationFailureStatus).toHaveBeenCalledWith(request.payload, mockErr, 'test-correlation-id')
   })
 
   test('emits document/failed per payload fileId in failAction', async () => {

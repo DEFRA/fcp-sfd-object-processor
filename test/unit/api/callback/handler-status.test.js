@@ -9,6 +9,9 @@ import * as validateCallbackModule from '../../../../src/api/v1/callback/validat
 
 vi.mock('../../../../src/services/metadata-service.js')
 vi.mock('../../../../src/api/common/helpers/metrics.js', () => ({ metricsCounter: vi.fn() }))
+vi.mock('../../../../src/services/journey-correlation-service.js', () => ({
+  resolveJourneyId: vi.fn().mockResolvedValue({ journeyId: 'test-correlation-id', source: 'session' })
+}))
 
 const buildMockH = () => ({
   response: (body) => ({
@@ -34,7 +37,7 @@ describe('callback handler status enforcement', () => {
 
     const result = await uploadCallback.options.handler({ payload }, buildMockH())
 
-    expect(metadataService.persistValidationFailureStatus).toHaveBeenCalledWith(payload, expect.any(Error))
+    expect(metadataService.persistValidationFailureStatus).toHaveBeenCalledWith(payload, expect.any(Error), 'test-correlation-id')
     expect(result.status).toBe(201)
     expect(result.body).toBeDefined()
   })
@@ -46,7 +49,7 @@ describe('callback handler status enforcement', () => {
 
     const result = await uploadCallback.options.handler({ payload }, buildMockH())
 
-    expect(metadataService.persistMetadataWithOutbox).toHaveBeenCalledWith(payload)
+    expect(metadataService.persistMetadataWithOutbox).toHaveBeenCalledWith(payload, 'test-correlation-id')
     expect(result.status).toBe(201)
     expect(result.body).toEqual({
       message: 'Metadata created',
@@ -64,7 +67,7 @@ describe('callback handler status enforcement', () => {
 
     const result = await uploadCallback.options.handler({ payload }, buildMockH())
 
-    expect(metadataService.persistValidationFailureStatus).toHaveBeenCalledWith(payload, expect.any(Error))
+    expect(metadataService.persistValidationFailureStatus).toHaveBeenCalledWith(payload, expect.any(Error), 'test-correlation-id')
     expect(metadataService.persistMetadataWithOutbox).not.toHaveBeenCalled()
     expect(result.status).toBe(201)
     // Rejected files should trigger unexpected-status metric since fileStatus !== 'complete'
@@ -82,7 +85,7 @@ describe('callback handler status enforcement', () => {
 
     const result = await uploadCallback.options.handler({ payload }, buildMockH())
 
-    expect(metadataService.persistMetadataWithOutbox).toHaveBeenCalledWith(payload)
+    expect(metadataService.persistMetadataWithOutbox).toHaveBeenCalledWith(payload, 'test-correlation-id')
     expect(result.status).toBe(200)
     expect(result.body).toEqual({
       message: 'Duplicate callback ignored',
@@ -110,7 +113,7 @@ describe('callback handler status enforcement', () => {
 
     const result = await uploadCallback.options.handler({ payload: groupedPayload }, buildMockH())
 
-    expect(metadataService.persistMetadataWithOutbox).toHaveBeenCalledWith(groupedPayload)
+    expect(metadataService.persistMetadataWithOutbox).toHaveBeenCalledWith(groupedPayload, 'test-correlation-id')
     expect(result.status).toBe(200)
     expect(result.body).toEqual({
       message: 'Duplicate callback ignored',
@@ -167,7 +170,7 @@ describe('uploadCallback validate.failAction', () => {
 
     const result = await uploadCallback.options.validate.failAction(request, h, validationError)
 
-    expect(metadataService.persistValidationFailureStatus).toHaveBeenCalledWith(request.payload, validationError)
+    expect(metadataService.persistValidationFailureStatus).toHaveBeenCalledWith(request.payload, validationError, 'test-correlation-id')
     expect(metricsModule.metricsCounter).toHaveBeenCalledWith('callback_validation_failures')
     expect(h.response).toHaveBeenCalledWith({ message: 'Validation failure persisted' })
     expect(mockTakeover).toHaveBeenCalled()
