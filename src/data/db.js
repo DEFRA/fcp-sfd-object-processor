@@ -44,7 +44,12 @@ const createIndexes = async () => {
   const outboxSentTtlIndex = existingOutboxIndexes.find(({ name }) => name === 'outbox_sent_ttl_idx')
 
   if (outboxSentTtlIndex && outboxSentTtlIndex.expireAfterSeconds !== configuredOutboxSentTtlSeconds) {
-    await outboxCollectionRef.dropIndex('outbox_sent_ttl_idx')
+    // collMod updates expireAfterSeconds in place; unlike drop+recreate it is safe
+    // for concurrent instances to run and never leaves the collection without the index.
+    await db.command({
+      collMod: outboxCollection,
+      index: { name: 'outbox_sent_ttl_idx', expireAfterSeconds: configuredOutboxSentTtlSeconds }
+    })
   }
 
   await outboxCollectionRef.createIndexes([
