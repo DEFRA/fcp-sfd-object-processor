@@ -40,9 +40,9 @@ const createIndexes = async () => {
 
   const outboxCollectionRef = db.collection(outboxCollection)
   const configuredOutboxSentTtlSeconds = config.get('messaging.outboxSentTtlSeconds')
-  // indexes() rejects with NamespaceNotFound when the collection hasn't been created yet.
+  // indexes() rejects with code 26 (NamespaceNotFound) when the collection hasn't been created yet.
   const existingOutboxIndexes = await outboxCollectionRef.indexes().catch((error) => {
-    if (error.codeName === 'NamespaceNotFound') {
+    if (error.code === 26) {
       return []
     }
     throw error
