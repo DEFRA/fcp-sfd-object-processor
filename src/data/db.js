@@ -49,13 +49,22 @@ const createIndexes = async () => {
   })
   const outboxSentTtlIndex = existingOutboxIndexes.find(({ name }) => name === 'outbox_sent_ttl_idx')
 
-  if (outboxSentTtlIndex && outboxSentTtlIndex.expireAfterSeconds !== configuredOutboxSentTtlSeconds) {
-    // collMod updates expireAfterSeconds in place; unlike drop+recreate it is safe
-    // for concurrent instances to run and never leaves the collection without the index.
-    await db.command({
-      collMod: outboxCollection,
-      index: { name: 'outbox_sent_ttl_idx', expireAfterSeconds: configuredOutboxSentTtlSeconds }
-    })
+  if (outboxSentTtlIndex) {
+    const specMatches = outboxSentTtlIndex.key?.lastAttemptedAt === 1 &&
+      outboxSentTtlIndex.partialFilterExpression?.status === SENT
+
+    if (!specMatches) {
+      // Only expireAfterSeconds can be changed in place via collMod; any other
+      // change to the key or partial filter requires a drop and recreate.
+      await outboxCollectionRef.dropIndex('outbox_sent_ttl_idx')
+    } else if (outboxSentTtlIndex.expireAfterSeconds !== configuredOutboxSentTtlSeconds) {
+      // collMod updates expireAfterSeconds in place; unlike drop+recreate it is safe
+      // for concurrent instances to run and never leaves the collection without the index.
+      await db.command({
+        collMod: outboxCollection,
+        index: { name: 'outbox_sent_ttl_idx', expireAfterSeconds: configuredOutboxSentTtlSeconds }
+      })
+    }
   }
 
   await outboxCollectionRef.createIndexes([

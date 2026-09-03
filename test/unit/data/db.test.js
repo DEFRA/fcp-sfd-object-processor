@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   createIndexes: vi.fn(),
   indexes: vi.fn(),
   command: vi.fn(),
+  dropIndex: vi.fn(),
   configGet: vi.fn(),
   loggerInfo: vi.fn(),
   createSecureContext: vi.fn()
@@ -57,9 +58,11 @@ describe('data/db createIndexes', () => {
 
     mocks.indexes.mockResolvedValue([])
     mocks.command.mockResolvedValue({ ok: 1 })
+    mocks.dropIndex.mockResolvedValue({ ok: 1 })
     mocks.collection.mockReturnValue({
       createIndexes: mocks.createIndexes,
-      indexes: mocks.indexes
+      indexes: mocks.indexes,
+      dropIndex: mocks.dropIndex
     })
     mocks.db.mockReturnValue({ collection: mocks.collection, command: mocks.command })
     mocks.connect.mockResolvedValue({ db: mocks.db })
@@ -108,7 +111,12 @@ describe('data/db createIndexes', () => {
   })
 
   test('uses collMod to update the outbox sent TTL index in place when the configured TTL changes', async () => {
-    mocks.indexes.mockResolvedValue([{ name: 'outbox_sent_ttl_idx', expireAfterSeconds: 86400 }])
+    mocks.indexes.mockResolvedValue([{
+      name: 'outbox_sent_ttl_idx',
+      key: { lastAttemptedAt: 1 },
+      partialFilterExpression: { status: 'SENT' },
+      expireAfterSeconds: 86400
+    }])
 
     await import('../../../src/data/db.js')
 
@@ -116,6 +124,7 @@ describe('data/db createIndexes', () => {
       collMod: 'outbox',
       index: { name: 'outbox_sent_ttl_idx', expireAfterSeconds: 604800 }
     })
+    expect(mocks.dropIndex).not.toHaveBeenCalled()
     expect(mocks.createIndexes).toHaveBeenLastCalledWith([
       { key: { status: 1, createdAt: 1 }, name: 'outbox_status_createdAt_idx' },
       { key: { status: 1, claimedUntil: 1 }, name: 'outbox_status_claimedUntil_idx' },
@@ -153,11 +162,43 @@ describe('data/db createIndexes', () => {
   })
 
   test('does not call collMod when the outbox sent TTL index already matches configuration', async () => {
-    mocks.indexes.mockResolvedValue([{ name: 'outbox_sent_ttl_idx', expireAfterSeconds: 604800 }])
+    mocks.indexes.mockResolvedValue([{
+      name: 'outbox_sent_ttl_idx',
+      key: { lastAttemptedAt: 1 },
+      partialFilterExpression: { status: 'SENT' },
+      expireAfterSeconds: 604800
+    }])
 
     await import('../../../src/data/db.js')
 
     expect(mocks.command).not.toHaveBeenCalled()
+    expect(mocks.dropIndex).not.toHaveBeenCalled()
+  })
+
+  test('drops and recreates the outbox sent TTL index when its key or partial filter no longer matches', async () => {
+    mocks.indexes.mockResolvedValue([{
+      name: 'outbox_sent_ttl_idx',
+      key: { createdAt: 1 },
+      partialFilterExpression: { status: 'SENT' },
+      expireAfterSeconds: 604800
+    }])
+
+    await import('../../../src/data/db.js')
+
+    expect(mocks.dropIndex).toHaveBeenCalledWith('outbox_sent_ttl_idx')
+    expect(mocks.command).not.toHaveBeenCalled()
+    expect(mocks.createIndexes).toHaveBeenLastCalledWith([
+      { key: { status: 1, createdAt: 1 }, name: 'outbox_status_createdAt_idx' },
+      { key: { status: 1, claimedUntil: 1 }, name: 'outbox_status_claimedUntil_idx' },
+      { key: { status: 1, attempts: 1 }, name: 'outbox_status_attempts_idx' },
+      { key: { 'payload.file.fileId': 1 }, name: 'outbox_payload_fileId_idx' },
+      {
+        key: { lastAttemptedAt: 1 },
+        name: 'outbox_sent_ttl_idx',
+        expireAfterSeconds: 604800,
+        partialFilterExpression: { status: 'SENT' }
+      }
+    ])
   })
 
   test('rethrows unexpected errors from indexes() instead of treating them as no indexes', async () => {
