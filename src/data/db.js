@@ -7,6 +7,8 @@ import { createLogger } from '../logging/logger.js'
 
 const logger = createLogger()
 
+const OUTBOX_SENT_TTL_INDEX_NAME = 'outbox_sent_ttl_idx'
+
 const client = await MongoClient.connect(config.get('mongo.uri'), {
   retryWrites: false,
   readPreference: config.get('mongo.readPreference'),
@@ -47,7 +49,7 @@ const createIndexes = async () => {
     }
     throw error
   })
-  const outboxSentTtlIndex = existingOutboxIndexes.find(({ name }) => name === 'outbox_sent_ttl_idx')
+  const outboxSentTtlIndex = existingOutboxIndexes.find(({ name }) => name === OUTBOX_SENT_TTL_INDEX_NAME)
 
   if (outboxSentTtlIndex) {
     const specMatches = outboxSentTtlIndex.key?.lastAttemptedAt === 1 &&
@@ -57,7 +59,7 @@ const createIndexes = async () => {
     if (!specMatches) {
       // Only expireAfterSeconds can be changed in place via collMod; any other
       // change to the key or partial filter requires a drop and recreate.
-      await outboxCollectionRef.dropIndex('outbox_sent_ttl_idx')
+      await outboxCollectionRef.dropIndex(OUTBOX_SENT_TTL_INDEX_NAME)
       logger.info({
         event: {
           type: 'outbox_ttl_index_updated',
@@ -71,7 +73,7 @@ const createIndexes = async () => {
       // for concurrent instances to run and never leaves the collection without the index.
       await db.command({
         collMod: outboxCollection,
-        index: { name: 'outbox_sent_ttl_idx', expireAfterSeconds: configuredOutboxSentTtlSeconds }
+        index: { name: OUTBOX_SENT_TTL_INDEX_NAME, expireAfterSeconds: configuredOutboxSentTtlSeconds }
       })
       logger.info({
         event: {
@@ -92,7 +94,7 @@ const createIndexes = async () => {
     {
       // Only SENT entries expire; lastAttemptedAt records the successful delivery time.
       key: { lastAttemptedAt: 1 },
-      name: 'outbox_sent_ttl_idx',
+      name: OUTBOX_SENT_TTL_INDEX_NAME,
       expireAfterSeconds: configuredOutboxSentTtlSeconds,
       partialFilterExpression: { status: SENT }
     }
