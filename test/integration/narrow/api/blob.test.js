@@ -1,4 +1,5 @@
 import { constants as httpConstants } from 'node:http2'
+import { ObjectId } from 'mongodb'
 import { vi, describe, test, expect, beforeAll, beforeEach, afterAll } from 'vitest'
 
 import { db } from '../../../../src/data/db.js'
@@ -170,13 +171,17 @@ describe('GET /api/v1/blob/{fileId} — audit event schema validation', async ()
 
     const documentWithoutSbi = {
       ...mockFormattedMetadata,
+      _id: new ObjectId(),
+      file: {
+        ...mockFormattedMetadata.file,
+        fileId: crypto.randomUUID()
+      },
       metadata: {
         ...mockFormattedMetadata.metadata
       }
     }
     delete documentWithoutSbi.metadata.sbi
 
-    await db.collection(collection).deleteMany({})
     await db.collection(collection).insertOne(documentWithoutSbi)
 
     await auditServer.inject({

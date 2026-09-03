@@ -169,7 +169,7 @@ describe('callbackPayloadSchema validation', () => {
     test('accepts SBI and CRN at upper bounds', () => {
       const { error } = callbackPayloadSchema.validate({
         ...validPayload,
-        metadata: { ...validPayload.metadata, sbi: 999999999, crn: 9999999999 }
+        metadata: { ...validPayload.metadata, sbi: schemaConsts.SBI_MAX, crn: schemaConsts.CRN_MAX }
       })
       expect(error).toBeUndefined()
     })
