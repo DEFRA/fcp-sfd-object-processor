@@ -234,7 +234,7 @@ Current key indexes include:
    - `{"payload.file.fileId": 1}` (`outbox_payload_fileId_idx`)
    - TTL `{"lastAttemptedAt": 1}` (`outbox_sent_ttl_idx`), partial on `status: "SENT"`, expiring after `messaging.outboxSentTtlSeconds` (`OUTBOX_SENT_TTL_SECONDS`, default 604800s / 7 days)
 
-The service uses MongoDB `createIndexes`, which is idempotent and safe to run repeatedly when index definitions are unchanged; if you change `OUTBOX_SENT_TTL_SECONDS` after deployment, drop and recreate the `outbox_sent_ttl_idx` TTL index to avoid an IndexOptionsConflict error on startup.
+The service uses MongoDB `createIndexes`, which is idempotent and safe to run repeatedly across restarts and deployments. If `OUTBOX_SENT_TTL_SECONDS` changes, the service detects the mismatch on startup and updates `outbox_sent_ttl_idx` in place via `collMod`, so no manual index maintenance is required.
 
 ### Test collections
 
