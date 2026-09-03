@@ -9,6 +9,7 @@ import { config } from '../../../config/index.js'
 import { createLogger } from '../../../logging/logger.js'
 import { blobResponseSchema } from './schemas/responses.js'
 import { sendAuditEvent } from '../../../messaging/outbound/audit/send-audit-event.js'
+import { buildAuditAccounts } from '../../../utils/build-audit-accounts.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -33,7 +34,8 @@ export const blobRoute = {
     try {
       const { fileId } = request.params
 
-      const { s3: s3Reference } = await getS3ReferenceByFileId(fileId)
+      const { s3: s3Reference, metadata } = await getS3ReferenceByFileId(fileId)
+      const sbi = metadata?.sbi
 
       const { url } = await generatePresignedUrl(s3Reference)
 
@@ -43,6 +45,7 @@ export const blobRoute = {
         correlationid: request?.headers?.[tracingHeader],
         audit: {
           entities: [{ entity: 'document', action: 'read', entityid: fileId }],
+          ...buildAuditAccounts(sbi),
           status: 'success',
           details: {}
         }

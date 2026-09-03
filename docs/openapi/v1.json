@@ -194,16 +194,6 @@
       "Model1": {
         "type": "object",
         "properties": {
-          "correlationId": {
-            "type": "string",
-            "x-format": {
-              "guid": {
-                "version": [
-                  "uuidv4"
-                ]
-              }
-            }
-          },
           "sbi": {
             "type": "integer",
             "nullable": true,
@@ -695,13 +685,6 @@
           "message": {
             "type": "string",
             "example": "Duplicate callback ignored"
-          },
-          "correlationId": {
-            "type": "string",
-            "example": "550e8400-e29b-41d4-a716-446655440000",
-            "x-format": {
-              "guid": true
-            }
           }
         }
       },

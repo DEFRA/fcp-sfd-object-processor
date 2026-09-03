@@ -8,6 +8,7 @@ import { persistMetadataWithOutbox, persistValidationFailureStatus } from '../..
 import { metricsCounter } from '../../common/helpers/metrics.js'
 import { validateCallbackPayload } from './validation/validate-callback-payload.js'
 import { buildCallbackValidationFailureLog, buildCallbackPersistFailureLog } from '../../../utils/build-callback-validation-failure-log.js'
+import { buildAuditAccounts } from '../../../utils/build-audit-accounts.js'
 import { sendAuditEvent } from '../../../messaging/outbound/audit/send-audit-event.js'
 import { extractFileIdsFromPayload } from '../../../mappers/status.js'
 
@@ -53,7 +54,7 @@ export const uploadCallback = {
           correlationid: request?.headers?.[tracingHeader],
           audit: {
             entities: [{ entity: 'document', action: 'failed', entityid: fileId }],
-            accounts: { sbi: String(request.payload?.metadata?.sbi ?? '') },
+            ...buildAuditAccounts(request.payload?.metadata?.sbi),
             status: 'failure',
             details: { reason: 'payload_validation_failure' }
           }
@@ -81,8 +82,7 @@ export const uploadCallback = {
 
         if (result.duplicate) {
           return h.response({
-            message: 'Duplicate callback ignored',
-            correlationId: result.correlationId
+            message: 'Duplicate callback ignored'
           }).code(httpConstants.HTTP_STATUS_OK)
         }
 
@@ -92,7 +92,7 @@ export const uploadCallback = {
           correlationid: request?.headers?.[tracingHeader],
           audit: {
             entities: [{ entity: 'document', action: 'created', entityid: fileId }],
-            accounts: { sbi: String(request.payload.metadata.sbi) },
+            ...buildAuditAccounts(request.payload?.metadata?.sbi),
             status: 'success',
             details: { reason: 'callback_successful' }
           }
@@ -111,7 +111,7 @@ export const uploadCallback = {
           correlationid: request?.headers?.[tracingHeader],
           audit: {
             entities: [{ entity: 'document', action: 'failed', entityid: fileId }],
-            accounts: { sbi: String(request.payload?.metadata?.sbi ?? '') },
+            ...buildAuditAccounts(request.payload?.metadata?.sbi),
             status: 'failure',
             details: { reason: 'callback_processing_failure' }
           }
