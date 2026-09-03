@@ -2,6 +2,9 @@ import convict from 'convict'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
 import { serverConfig } from '../../../src/config/server.js'
+import { ttlSeconds } from '../../../src/config/formats/ttl-seconds.js'
+
+convict.addFormat(ttlSeconds)
 
 const createConfig = () => convict({ messaging: serverConfig.messaging })
 
