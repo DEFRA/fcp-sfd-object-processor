@@ -73,4 +73,29 @@ describe('outbox sent TTL configuration', () => {
 
     expect(() => config.validate({ allowed: 'strict' })).toThrow()
   })
+
+  test('rejects a zero TTL', () => {
+    vi.stubEnv('OUTBOX_SENT_TTL_SECONDS', '0')
+
+    const config = createConfig()
+
+    expect(() => config.validate({ allowed: 'strict' })).toThrow()
+  })
+
+  test('rejects a TTL below the 60 second minimum', () => {
+    vi.stubEnv('OUTBOX_SENT_TTL_SECONDS', '59')
+
+    const config = createConfig()
+
+    expect(() => config.validate({ allowed: 'strict' })).toThrow()
+  })
+
+  test('accepts a TTL at the 60 second minimum', () => {
+    vi.stubEnv('OUTBOX_SENT_TTL_SECONDS', '60')
+
+    const config = createConfig()
+    config.validate({ allowed: 'strict' })
+
+    expect(config.get('messaging.outboxSentTtlSeconds')).toBe(60)
+  })
 })
