@@ -30,8 +30,9 @@ export const statusRoute = {
       const { correlationId } = request.params
 
       const statusRecords = await getStatusByCorrelationId(correlationId)
+      const publicStatusRecords = statusRecords.map(({ correlationId: _correlationId, ...record }) => record)
 
-      return h.response({ data: statusRecords }).code(httpConstants.HTTP_STATUS_OK)
+      return h.response({ data: publicStatusRecords }).code(httpConstants.HTTP_STATUS_OK)
     } catch (err) {
       return Boom.internal(err)
     }

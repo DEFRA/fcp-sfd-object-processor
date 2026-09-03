@@ -71,13 +71,12 @@ describe('callback handler status enforcement', () => {
     expect(metricsModule.metricsCounter).toHaveBeenCalledWith('callback_unexpected_status')
   })
 
-  test('duplicate callback returns 200 with existing correlationId', async () => {
+  test('duplicate callback returns 200 without exposing correlationId', async () => {
     const payload = { ...mockScanAndUploadResponse, uploadStatus: 'ready' }
-    const existingCorrelationId = '123e4567-e89b-12d3-a456-426655440000'
 
     metadataService.persistMetadataWithOutbox.mockResolvedValue({
       duplicate: true,
-      correlationId: existingCorrelationId
+      correlationId: '123e4567-e89b-12d3-a456-426655440000'
     })
 
     const result = await uploadCallback.options.handler({ payload }, buildMockH())
@@ -85,12 +84,11 @@ describe('callback handler status enforcement', () => {
     expect(metadataService.persistMetadataWithOutbox).toHaveBeenCalledWith(payload)
     expect(result.status).toBe(200)
     expect(result.body).toEqual({
-      message: 'Duplicate callback ignored',
-      correlationId: existingCorrelationId
+      message: 'Duplicate callback ignored'
     })
   })
 
-  test('duplicate callback with grouped array form returns 200 with existing correlationId and does not throw', async () => {
+  test('duplicate callback with grouped array form returns 200 without exposing correlationId and does not throw', async () => {
     const groupedPayload = {
       ...mockScanAndUploadResponse,
       uploadStatus: 'ready',
@@ -101,11 +99,10 @@ describe('callback handler status enforcement', () => {
         ]
       }
     }
-    const existingCorrelationId = '123e4567-e89b-12d3-a456-426655440000'
 
     metadataService.persistMetadataWithOutbox.mockResolvedValue({
       duplicate: true,
-      correlationId: existingCorrelationId
+      correlationId: '123e4567-e89b-12d3-a456-426655440000'
     })
 
     const result = await uploadCallback.options.handler({ payload: groupedPayload }, buildMockH())
@@ -113,8 +110,7 @@ describe('callback handler status enforcement', () => {
     expect(metadataService.persistMetadataWithOutbox).toHaveBeenCalledWith(groupedPayload)
     expect(result.status).toBe(200)
     expect(result.body).toEqual({
-      message: 'Duplicate callback ignored',
-      correlationId: existingCorrelationId
+      message: 'Duplicate callback ignored'
     })
   })
 

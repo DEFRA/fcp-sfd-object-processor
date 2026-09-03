@@ -57,8 +57,7 @@ const callbackSuccessResponseSchema = Joi.object({
 }).label('CallbackSuccessResponse')
 
 const callbackDuplicateResponseSchema = Joi.object({
-  message: Joi.string().example('Duplicate callback ignored'),
-  correlationId: Joi.string().uuid().example('550e8400-e29b-41d4-a716-446655440000')
+  message: Joi.string().example('Duplicate callback ignored')
 }).label('CallbackDuplicateResponse')
 
 // The callback endpoint has auth disabled (called by CDP Uploader) and persists

@@ -15,6 +15,14 @@ const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
 const tracingHeader = config.get('tracing.header')
 
+const buildAuditAccounts = (sbi) => {
+  if (sbi === undefined || sbi === null) {
+    return {}
+  }
+
+  return { accounts: { sbi: String(sbi) } }
+}
+
 /**
  * Hapi route definition for the CDP Uploader callback endpoint.
  *
@@ -53,7 +61,7 @@ export const uploadCallback = {
           correlationid: request?.headers?.[tracingHeader],
           audit: {
             entities: [{ entity: 'document', action: 'failed', entityid: fileId }],
-            ...(request.payload?.metadata?.sbi !== undefined && request.payload?.metadata?.sbi !== null && { accounts: { sbi: String(request.payload.metadata.sbi) } }),
+            ...buildAuditAccounts(request.payload?.metadata?.sbi),
             status: 'failure',
             details: { reason: 'payload_validation_failure' }
           }
@@ -81,8 +89,7 @@ export const uploadCallback = {
 
         if (result.duplicate) {
           return h.response({
-            message: 'Duplicate callback ignored',
-            correlationId: result.correlationId
+            message: 'Duplicate callback ignored'
           }).code(httpConstants.HTTP_STATUS_OK)
         }
 
@@ -92,7 +99,7 @@ export const uploadCallback = {
           correlationid: request?.headers?.[tracingHeader],
           audit: {
             entities: [{ entity: 'document', action: 'created', entityid: fileId }],
-            ...(request.payload?.metadata?.sbi !== undefined && request.payload?.metadata?.sbi !== null && { accounts: { sbi: String(request.payload.metadata.sbi) } }),
+            ...buildAuditAccounts(request.payload?.metadata?.sbi),
             status: 'success',
             details: { reason: 'callback_successful' }
           }
@@ -111,7 +118,7 @@ export const uploadCallback = {
           correlationid: request?.headers?.[tracingHeader],
           audit: {
             entities: [{ entity: 'document', action: 'failed', entityid: fileId }],
-            ...(request.payload?.metadata?.sbi !== undefined && request.payload?.metadata?.sbi !== null && { accounts: { sbi: String(request.payload.metadata.sbi) } }),
+            ...buildAuditAccounts(request.payload?.metadata?.sbi),
             status: 'failure',
             details: { reason: 'callback_processing_failure' }
           }

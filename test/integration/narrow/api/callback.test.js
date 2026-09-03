@@ -833,7 +833,7 @@ describe('POST to the /api/v1/callback route — idempotency', async () => {
     expect(afterOutboxCount - beforeOutboxCount).toBe(1)
   })
 
-  test('duplicate callback returns 200 with existing correlationId and creates no new records', async () => {
+  test('duplicate callback returns 200 without exposing correlationId and creates no new records', async () => {
     // Insert once
     await server.inject({
       method: 'POST',
@@ -844,14 +844,6 @@ describe('POST to the /api/v1/callback route — idempotency', async () => {
     const beforeMetadataCount = await db.collection(metadataCollection).countDocuments()
     const beforeOutboxCount = await db.collection(outboxCollection).countDocuments()
 
-    // Get the correlationId from the first insert
-    const firstDoc = await db.collection(metadataCollection).findOne(
-      { 'file.fileId': mockScanAndUploadResponseSingleFile.form['single-file'].fileId },
-      { projection: { messaging: 1 } }
-    )
-    const existingCorrelationId = firstDoc.messaging.correlationId
-
-    // Send duplicate
     const response = await server.inject({
       method: 'POST',
       url: '/api/v1/callback',
@@ -863,7 +855,7 @@ describe('POST to the /api/v1/callback route — idempotency', async () => {
 
     expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
     expect(response.result.message).toBe('Duplicate callback ignored')
-    expect(response.result.correlationId).toBe(existingCorrelationId)
+    expect(response.result).not.toHaveProperty('correlationId')
 
     // No new records created
     expect(afterMetadataCount).toBe(beforeMetadataCount)

@@ -61,14 +61,7 @@ const metadataSuccessSchema = Joi.object({
           .required()
           .description('Upload status of the file uploaded')
           .example(schemaConsts.FILE_STATUS_EXAMPLE)
-      }).required().label('FileFields').description('File information'),
-
-      messaging: Joi.object({
-        correlationId: Joi.string()
-          .guid({ version: 'uuidv4' })
-          .required()
-          .description('Correlation identifier shared by all documents from the same upload batch')
-      }).required().label('MessagingFields').description('Message tracing information')
+      }).required().label('FileFields').description('File information')
 
     }).label('MetadataDocument')
   )
