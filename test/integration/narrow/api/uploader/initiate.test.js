@@ -140,7 +140,7 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
       expect(body.s3Bucket).toBe(config.get('cdpUploaderS3Bucket'))
       expect(body.s3Path).toBe(config.get('cdpUploaderS3Path'))
       expect(body.callback).toBe(config.get('cdpUploaderCallbackUrl'))
-      expect(body.metadata).toEqual(mockValidPayload.metadata)
+      expect(body.metadata).toEqual({ ...mockValidPayload.metadata, uploadRef: expect.any(String) })
     })
   })
 

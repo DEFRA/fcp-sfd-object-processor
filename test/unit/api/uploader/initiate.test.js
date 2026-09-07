@@ -76,6 +76,10 @@ describe('uploader initiate handler', () => {
       insertSession: vi.fn().mockResolvedValue({ acknowledged: true })
     }))
 
+    vi.doMock('@defra/hapi-tracing', () => ({
+      getTraceId: vi.fn().mockReturnValue('trace-id-123')
+    }))
+
     const mod = await import('../../../../src/api/v1/uploader/initiate/index.js')
     uploaderInitiateRoute = mod.uploaderInitiateRoute
     buildCdpUploaderPayload = mod.buildCdpUploaderPayload
@@ -99,7 +103,7 @@ describe('uploader initiate handler', () => {
         callback: 'http://localhost:3004/api/v1/callback',
         mimeTypes: ['application/pdf', 'image/jpeg'],
         maxFileSize: 10485760,
-        metadata: mockValidPayload.metadata
+        metadata: { ...mockValidPayload.metadata, uploadRef: 'trace-id-123' }
       })
     })
 
@@ -111,7 +115,7 @@ describe('uploader initiate handler', () => {
 
     test('passes through metadata from client payload', () => {
       const result = buildCdpUploaderPayload(mockValidPayload)
-      expect(result.metadata).toEqual(mockValidPayload.metadata)
+      expect(result.metadata).toEqual({ ...mockValidPayload.metadata, uploadRef: 'trace-id-123' })
     })
   })
 
@@ -185,7 +189,7 @@ describe('uploader initiate handler', () => {
         callback: 'http://localhost:3004/api/v1/callback',
         mimeTypes: ['application/pdf', 'image/jpeg'],
         maxFileSize: 10485760,
-        metadata: mockValidPayload.metadata
+        metadata: { ...mockValidPayload.metadata, uploadRef: 'trace-id-123' }
       })
     })
 
