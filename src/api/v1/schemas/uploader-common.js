@@ -111,7 +111,17 @@ export const submissionFields = {
 // Base metadata schema shared between uploader initiate and callback
 export const baseMetadataSchema = Joi.object({
   ...businessIdentifierFields,
-  ...submissionFields
+  ...submissionFields,
+
+  // TODO: make required once all pre-deployment upload sessions have expired
+  uploadRef: Joi.string()
+    .guid({ version: ['uuidv4'] })
+    .optional()
+    .description('Server-generated reference linking the callback to its upload session')
+    .messages({
+      'string.guid': 'uploadRef must be a valid UUID'
+    })
+    .example(schemaConsts.UPLOAD_ID_EXAMPLE)
 }).strict()
 
 // Shared field schemas for uploader response payloads (callback and status endpoints)
