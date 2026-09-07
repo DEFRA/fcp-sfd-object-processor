@@ -37,7 +37,7 @@ vi.mock('../../../../../../src/api/common/helpers/metrics.js', () => ({
 vi.mock('../../../../../../src/http/client.js', () => ({
   httpClient: mockHttpClient,
   TimeoutError: class TimeoutError extends Error {
-    constructor(msg) { super(msg); this.name = 'TimeoutError' }
+    constructor (msg) { super(msg); this.name = 'TimeoutError' }
   },
   NetworkError: class NetworkError extends Error { },
   AbortError: class AbortError extends Error { }
@@ -79,7 +79,7 @@ const completeFile = {
 
 const validReadyResponse = {
   uploadStatus: 'ready',
-  metadata: { sbi: 105000000, crn: 1050000000 },
+  metadata: { sbi: 105000000, crn: 1050000000, uploadRef: 'a1b2c3d4-e5f6-4789-abcd-ef0123456789' },
   form: { 'file-field': completeFile },
   numberOfRejectedFiles: 0
 }
@@ -160,7 +160,9 @@ beforeEach(() => {
     }
   })
   mockHttpClient.mockReset()
-  mockGetStatusByUploadRef.mockReset().mockResolvedValue([])
+  mockGetStatusByUploadRef.mockReset().mockResolvedValue([
+    { correlationId: '550e8400-e29b-41d4-a716-446655440000', validated: true, errors: null }
+  ])
   mockGetSessionByUploadId.mockReset().mockResolvedValue(null)
 })
 

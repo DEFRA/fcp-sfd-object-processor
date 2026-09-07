@@ -8,7 +8,7 @@ const { mockHttpClient } = vi.hoisted(() => ({ mockHttpClient: vi.fn() }))
 vi.mock('../../../../../src/http/client.js', () => ({
   httpClient: mockHttpClient,
   TimeoutError: class TimeoutError extends Error {
-    constructor(msg) { super(msg); this.name = 'TimeoutError' }
+    constructor (msg) { super(msg); this.name = 'TimeoutError' }
   },
   NetworkError: class NetworkError extends Error { },
   AbortError: class AbortError extends Error { }
@@ -69,7 +69,8 @@ const validMetadata = {
   type: 'CS_Agreement_Evidence',
   reference: 'user entered reference',
   service: 'fcp-sfd-frontend',
-  uosr: '105000000_1733826312'
+  uosr: '105000000_1733826312',
+  uploadRef: 'a1b2c3d4-e5f6-4789-abcd-ef0123456789'
 }
 
 const mockReadyResponse = {
@@ -160,7 +161,7 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
   test('ready upload without numberOfRejectedFiles defaults to 0 and maps to success', async () => {
     const readyResponseWithoutRejectedCount = {
       uploadStatus: 'ready',
-      metadata: { sbi: 105000000, crn: 1050000000 },
+      metadata: { sbi: 105000000, crn: 1050000000, uploadRef: 'a1b2c3d4-e5f6-4789-abcd-ef0123456789' },
       form: { 'file-field': completeFile }
       // numberOfRejectedFiles intentionally omitted
     }
