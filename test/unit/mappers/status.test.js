@@ -228,6 +228,7 @@ describe('Status Mappers', () => {
           correlationId: '550e8400-e29b-41d4-a716-446655440000',
           sbi: 105000000,
           fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+          uploadRef: null,
           timestamp: new Date('2026-02-26T10:00:00Z'),
           validated: true,
           errors: null
@@ -236,6 +237,7 @@ describe('Status Mappers', () => {
           correlationId: '550e8400-e29b-41d4-a716-446655440000',
           sbi: 205000000,
           fileId: '3f90b889-eac7-4e98-975f-93fcef5b8554',
+          uploadRef: null,
           timestamp: new Date('2026-02-26T10:00:00Z'),
           validated: true,
           errors: null
@@ -296,6 +298,7 @@ describe('Status Mappers', () => {
           correlationId: '550e8400-e29b-41d4-a716-446655440000',
           sbi: 105000000,
           fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+          uploadRef: null,
           timestamp: new Date('2026-02-26T10:00:00Z'),
           validated: false,
           errors: [
@@ -310,6 +313,7 @@ describe('Status Mappers', () => {
           correlationId: '550e8400-e29b-41d4-a716-446655440000',
           sbi: 105000000,
           fileId: '3f90b889-eac7-4e98-975f-93fcef5b8554',
+          uploadRef: null,
           timestamp: new Date('2026-02-26T10:00:00Z'),
           validated: false,
           errors: [
@@ -336,6 +340,7 @@ describe('Status Mappers', () => {
           correlationId: '550e8400-e29b-41d4-a716-446655440000',
           sbi: 105000000,
           fileId: 'unknown',
+          uploadRef: null,
           timestamp: new Date('2026-02-26T10:00:00Z'),
           validated: false,
           errors: [
