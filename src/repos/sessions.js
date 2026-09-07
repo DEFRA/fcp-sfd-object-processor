@@ -32,4 +32,10 @@ const insertSession = async ({ uploadId, uploadRef, metadata, timestamp }) => {
   }
 }
 
-export { insertSession }
+const getSessionByUploadId = async (uploadId) => {
+  const collection = config.get(sessionsCollection)
+
+  return db.collection(collection).findOne({ uploadId })
+}
+
+export { insertSession, getSessionByUploadId }

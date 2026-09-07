@@ -15,6 +15,8 @@ import {
   buildStatusResponseLog
 } from '../../../../utils/build-uploader-status-log.js'
 import { normaliseFormFields } from '../../../../utils/normalise-form-fields.js'
+import { getStatusByUploadRef } from '../../../../repos/status.js'
+import { getSessionByUploadId } from '../../../../repos/sessions.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -104,24 +106,66 @@ export const uploaderStatusRoute = {
 
       logger.info(buildStatusResponseLog(uploadId, validatedResponse, duration), 'Upstream service status response received')
 
-      return h.response({ data: mapCdpStatus(validatedResponse) }).code(httpConstants.HTTP_STATUS_OK)
+      return h.response({ data: await mapCdpStatus(validatedResponse, uploadId) }).code(httpConstants.HTTP_STATUS_OK)
     }
   }
 }
 
-const mapCdpStatus = (cdpResponse) => {
+const isAwaitingCallbackTimedOut = async (uploadId) => {
+  const session = await getSessionByUploadId(uploadId)
+
+  if (!session?.timestamp) {
+    return undefined
+  }
+
+  const timeoutMs = config.get('uploaderStatusAwaitingCallbackTimeoutMs')
+  return Date.now() - new Date(session.timestamp).getTime() > timeoutMs
+}
+
+const mapCdpStatus = async (cdpResponse, uploadId) => {
   const { uploadStatus, numberOfRejectedFiles, form, metadata } = cdpResponse
   const { uploadRef, ...responseMetadata } = metadata ?? {}
 
   let mappedStatus
-  if (uploadStatus === 'ready') {
-    mappedStatus = numberOfRejectedFiles === 0 ? 'success' : 'failure'
-  } else {
+  let stage
+  let correlationId
+  let errors
+  let timedOut
+
+  if (uploadStatus !== 'ready') {
     mappedStatus = 'pending'
+    stage = 'scanning'
+  } else if (numberOfRejectedFiles > 0) {
+    mappedStatus = 'failure'
+    stage = 'rejected-by-scanner'
+  } else {
+    const statusRecords = uploadRef ? await getStatusByUploadRef(uploadRef) : []
+
+    if (statusRecords.length === 0) {
+      mappedStatus = 'pending'
+      stage = 'awaiting-callback'
+      timedOut = await isAwaitingCallbackTimedOut(uploadId)
+    } else {
+      correlationId = statusRecords[0].correlationId
+      const failedRecords = statusRecords.filter(record => record.validated === false)
+
+      if (failedRecords.length > 0) {
+        mappedStatus = 'failure'
+        stage = 'rejected-by-processor'
+        errors = failedRecords.flatMap(record => record.errors ?? [])
+      } else {
+        mappedStatus = 'success'
+        stage = 'accepted'
+      }
+    }
   }
 
   return {
     uploadStatus: mappedStatus,
+    stage,
+    ...(correlationId !== undefined && { correlationId }),
+    ...(errors !== undefined && { errors }),
+    ...(timedOut !== undefined && { timedOut }),
     form: normaliseFormFields(form),
     metadata: responseMetadata
   }

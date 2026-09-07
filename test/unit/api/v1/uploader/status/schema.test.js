@@ -82,6 +82,7 @@ const validReadyResponse = {
 // Mapped response — as returned by the API after status mapping
 const validMappedSuccessResponse = {
   uploadStatus: 'success',
+  stage: 'accepted',
   metadata: validMetadata,
   form: { 'file-field': completeFile }
 }
@@ -699,6 +700,7 @@ describe('uploaderStatusResponseSchema', () => {
     const { error } = successSchema.validate({
       data: {
         uploadStatus: 'failure',
+        stage: 'rejected-by-scanner',
         metadata: validMetadata,
         form: { 'file-upload-1': rejectedFile }
       }
@@ -711,6 +713,7 @@ describe('uploaderStatusResponseSchema', () => {
     const { error } = successSchema.validate({
       data: {
         uploadStatus: 'pending',
+        stage: 'scanning',
         metadata: validMetadata,
         form: {}
       }

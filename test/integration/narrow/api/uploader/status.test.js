@@ -14,6 +14,19 @@ vi.mock('../../../../../src/http/client.js', () => ({
   AbortError: class AbortError extends Error { }
 }))
 
+const { mockGetStatusByUploadRef, mockGetSessionByUploadId } = vi.hoisted(() => ({
+  mockGetStatusByUploadRef: vi.fn(),
+  mockGetSessionByUploadId: vi.fn()
+}))
+
+vi.mock('../../../../../src/repos/status.js', () => ({
+  getStatusByUploadRef: mockGetStatusByUploadRef
+}))
+
+vi.mock('../../../../../src/repos/sessions.js', () => ({
+  getSessionByUploadId: mockGetSessionByUploadId
+}))
+
 const { TimeoutError } = await import('../../../../../src/http/client.js')
 
 let server
@@ -103,6 +116,10 @@ beforeAll(async () => {
   server = await createServer()
   await server.initialize()
   vi.restoreAllMocks()
+  mockGetStatusByUploadRef.mockResolvedValue([
+    { correlationId: '550e8400-e29b-41d4-a716-446655440000', validated: true, errors: null }
+  ])
+  mockGetSessionByUploadId.mockResolvedValue(null)
 })
 
 afterAll(async () => {
@@ -112,6 +129,10 @@ afterAll(async () => {
 
 afterEach(() => {
   mockHttpClient.mockReset()
+  mockGetStatusByUploadRef.mockReset().mockResolvedValue([
+    { correlationId: '550e8400-e29b-41d4-a716-446655440000', validated: true, errors: null }
+  ])
+  mockGetSessionByUploadId.mockReset().mockResolvedValue(null)
 })
 
 // ─── Successful responses ────────────────────────────────────────────────────

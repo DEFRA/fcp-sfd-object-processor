@@ -168,7 +168,17 @@ export const mappedResponseFields = {
       'any.only': '"uploadStatus" must be one of [pending, success, failure]',
       'any.required': '"uploadStatus" is required'
     })
-    .example('success')
+    .example('success'),
+
+  stage: Joi.string()
+    .valid('scanning', 'awaiting-callback', 'accepted', 'rejected-by-scanner', 'rejected-by-processor')
+    .required()
+    .description('Fine-grained stage of the upload session, combining scanner and processor outcomes')
+    .messages({
+      'any.only': '"stage" must be one of [scanning, awaiting-callback, accepted, rejected-by-scanner, rejected-by-processor]',
+      'any.required': '"stage" is required'
+    })
+    .example('accepted')
 }
 
 // Re-export canonical file upload schema to avoid duplication and drift.

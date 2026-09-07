@@ -43,6 +43,19 @@ vi.mock('../../../../../../src/http/client.js', () => ({
   AbortError: class AbortError extends Error { }
 }))
 
+const { mockGetStatusByUploadRef, mockGetSessionByUploadId } = vi.hoisted(() => ({
+  mockGetStatusByUploadRef: vi.fn().mockResolvedValue([]),
+  mockGetSessionByUploadId: vi.fn().mockResolvedValue(null)
+}))
+
+vi.mock('../../../../../../src/repos/status.js', () => ({
+  getStatusByUploadRef: mockGetStatusByUploadRef
+}))
+
+vi.mock('../../../../../../src/repos/sessions.js', () => ({
+  getSessionByUploadId: mockGetSessionByUploadId
+}))
+
 // Import after mocks are established
 const { uploaderStatusRoute } = await import('../../../../../../src/api/v1/uploader/status/index.js')
 const { TimeoutError } = await import('../../../../../../src/http/client.js')
@@ -142,10 +155,13 @@ beforeEach(() => {
       case 'uploaderUrl': return 'http://cdp-uploader:7337'
       case 'uploaderStatusEndpoint': return '/status'
       case 'cdpUploaderTimeoutMs': return 30000
+      case 'uploaderStatusAwaitingCallbackTimeoutMs': return 300000
       default: return null
     }
   })
   mockHttpClient.mockReset()
+  mockGetStatusByUploadRef.mockReset().mockResolvedValue([])
+  mockGetSessionByUploadId.mockReset().mockResolvedValue(null)
 })
 
 // ─── Handler function tests ─────────────────────────────────────────────────
