@@ -68,7 +68,7 @@ describe('uploader initiate handler', () => {
     vi.doMock('../../../../src/http/client.js', () => ({
       httpClient: mockHttpClient,
       TimeoutError: class TimeoutError extends Error {
-        constructor (msg) { super(msg); this.name = 'TimeoutError' }
+        constructor(msg) { super(msg); this.name = 'TimeoutError' }
       }
     }))
 
