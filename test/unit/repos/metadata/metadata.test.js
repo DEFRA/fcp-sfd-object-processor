@@ -73,8 +73,8 @@ describe('Metadata Repository', () => {
       })
 
       test('each object should contain the same metadata', () => {
-        expect(formattedMetadata[0].metadata).toBe(mockScanAndUploadResponse.metadata)
-        expect(formattedMetadata[1].metadata).toBe(mockScanAndUploadResponse.metadata)
+        expect(formattedMetadata[0].metadata).toStrictEqual(mockScanAndUploadResponse.metadata)
+        expect(formattedMetadata[1].metadata).toStrictEqual(mockScanAndUploadResponse.metadata)
       })
 
       test('each object should contain the filedata in the file subdocument', () => {

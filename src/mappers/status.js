@@ -38,7 +38,7 @@ const buildValidatedStatusDocuments = (documents) => {
     correlationId: document.messaging.correlationId,
     sbi: document.metadata.sbi,
     fileId: document.file.fileId,
-    uploadRef: document.metadata.uploadRef ?? null,
+    uploadRef: document.messaging.uploadRef ?? null,
     timestamp: new Date(),
     validated: true,
     errors: null

@@ -43,6 +43,7 @@ const getMetadataByFileId = async (fileId) => {
 
 const formatInboundMetadata = (payload) => {
   const { metadata, uploadStatus, numberOfRejectedFiles } = payload
+  const { uploadRef, ...storedMetadata } = metadata ?? {}
 
   // Re-key grouped arrays first, then remove anything without a fileId
   const normalisedForm = normaliseFormFields(payload.form)
@@ -59,7 +60,7 @@ const formatInboundMetadata = (payload) => {
         numberOfRejectedFiles,
         ...formUpload
       },
-      metadata,
+      metadata: storedMetadata,
       file: {
         fileId: formUpload.fileId,
         filename: formUpload.filename,
@@ -73,7 +74,8 @@ const formatInboundMetadata = (payload) => {
       messaging: {
         publishedAt: null,
         correlationId,
-        filesInBatch
+        filesInBatch,
+        uploadRef: uploadRef ?? null
       }
     }
   })
