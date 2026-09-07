@@ -90,6 +90,7 @@ describe('data/db createIndexes', () => {
 
     expect(mocks.createIndexes).toHaveBeenNthCalledWith(3, [
       { key: { uploadId: 1 }, name: 'sessions_uploadId_idx', unique: true },
+      { key: { uploadRef: 1 }, name: 'sessions_uploadRef_idx', unique: true },
       { key: { timestamp: -1 }, name: 'sessions_timestamp_idx' }
     ])
 

@@ -37,6 +37,7 @@ const createIndexes = async () => {
 
   await db.collection(sessionsCollection).createIndexes([
     { key: { uploadId: 1 }, name: 'sessions_uploadId_idx', unique: true },
+    { key: { uploadRef: 1 }, name: 'sessions_uploadRef_idx', unique: true },
     { key: { timestamp: -1 }, name: 'sessions_timestamp_idx' }
   ])
 

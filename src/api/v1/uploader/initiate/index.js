@@ -106,15 +106,12 @@ export const uploaderInitiateRoute = {
 
       const data = rewriteResponseUrls(cdpResponse)
 
-      try {
-        await insertSession({
-          uploadId: cdpResponse.uploadId,
-          metadata: request.payload.metadata,
-          timestamp: new Date()
-        })
-      } catch (sessionErr) {
-        logger.error({ error: { message: sessionErr.message }, uploadId: cdpResponse.uploadId }, 'Failed to persist upload session record')
-      }
+      await insertSession({
+        uploadId: cdpResponse.uploadId,
+        uploadRef: payload.metadata.uploadRef,
+        metadata: request.payload.metadata,
+        timestamp: new Date()
+      })
 
       return h.response({ data }).code(httpConstants.HTTP_STATUS_OK)
     }

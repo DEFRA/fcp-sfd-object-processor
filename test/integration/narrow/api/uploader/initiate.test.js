@@ -16,7 +16,7 @@ vi.mock('../../../../../src/repos/sessions.js', () => ({
 vi.mock('../../../../../src/http/client.js', () => ({
   httpClient: mockHttpClient,
   TimeoutError: class TimeoutError extends Error {
-    constructor(msg) { super(msg); this.name = 'TimeoutError' }
+    constructor (msg) { super(msg); this.name = 'TimeoutError' }
   },
   NetworkError: class NetworkError extends Error { },
   AbortError: class AbortError extends Error { }
@@ -97,12 +97,13 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
 
       expect(mockInsertSession).toHaveBeenCalledWith({
         uploadId: mockCdpUploaderResponse.uploadId,
+        uploadRef: expect.any(String),
         metadata: mockValidPayload.metadata,
         timestamp: expect.any(Date)
       })
     })
 
-    test('should return 200 even when insertSession throws', async () => {
+    test('should return 500 when insertSession throws', async () => {
       mockHttpClient.mockResolvedValue({
         ok: true,
         json: async () => mockCdpUploaderResponse
@@ -115,8 +116,7 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
         payload: mockValidPayload
       })
 
-      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
-      expect(response.result.data.uploadId).toBe(mockCdpUploaderResponse.uploadId)
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
     })
 
     test('should forward enriched payload to CDP Uploader', async () => {
