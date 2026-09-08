@@ -250,6 +250,103 @@ describe('uploaderStatusRoute handler', () => {
       expect(data.form['document-2'].fileId).toBe('f8b1fcab-9cb7-4e98-abd4-4ea03e27df95')
     })
 
+    test('ready with a validated local record maps to success and accepted, returning correlationId', async () => {
+      mockGetStatusByUploadRef.mockResolvedValue([
+        { correlationId: '550e8400-e29b-41d4-a716-446655440000', validated: true, errors: null }
+      ])
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.uploadStatus).toBe('success')
+      expect(data.stage).toBe('accepted')
+      expect(data.correlationId).toBe('550e8400-e29b-41d4-a716-446655440000')
+      expect(data.errors).toBeUndefined()
+    })
+
+    test('ready with no local record maps to pending and awaiting-callback', async () => {
+      mockGetStatusByUploadRef.mockResolvedValue([])
+      mockGetSessionByUploadId.mockResolvedValue({ timestamp: new Date() })
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.uploadStatus).toBe('pending')
+      expect(data.stage).toBe('awaiting-callback')
+      expect(data.correlationId).toBeUndefined()
+    })
+
+    test('awaiting-callback reports timedOut true once the session exceeds the configured window', async () => {
+      mockGetStatusByUploadRef.mockResolvedValue([])
+      mockGetSessionByUploadId.mockResolvedValue({ timestamp: new Date(Date.now() - 400000) })
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.stage).toBe('awaiting-callback')
+      expect(data.timedOut).toBe(true)
+    })
+
+    test('awaiting-callback omits timedOut when no session record is found', async () => {
+      mockGetStatusByUploadRef.mockResolvedValue([])
+      mockGetSessionByUploadId.mockResolvedValue(null)
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.stage).toBe('awaiting-callback')
+      expect(data.timedOut).toBeUndefined()
+    })
+
+    test('ready with a record where validated is false maps to failure and rejected-by-processor, stripping receivedValue from errors', async () => {
+      mockGetStatusByUploadRef.mockResolvedValue([
+        {
+          correlationId: '550e8400-e29b-41d4-a716-446655440000',
+          validated: false,
+          errors: [{ field: 'metadata.crn', errorType: 'any.required', receivedValue: 'secret-user-input' }]
+        }
+      ])
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.uploadStatus).toBe('failure')
+      expect(data.stage).toBe('rejected-by-processor')
+      expect(data.correlationId).toBe('550e8400-e29b-41d4-a716-446655440000')
+      expect(data.errors).toEqual([{ field: 'metadata.crn', errorType: 'any.required' }])
+      expect(data.errors[0]).not.toHaveProperty('receivedValue')
+    })
+
     test('returns 200 with data envelope for initiated status', async () => {
       mockHttpClient.mockResolvedValue({
         ok: true,

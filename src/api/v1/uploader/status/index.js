@@ -152,7 +152,8 @@ const mapCdpStatus = async (cdpResponse, uploadId) => {
       if (failedRecords.length > 0) {
         mappedStatus = 'failure'
         stage = 'rejected-by-processor'
-        errors = failedRecords.flatMap(record => record.errors ?? [])
+        // receivedValue echoes user-submitted content and this response is browser facing
+        errors = failedRecords.flatMap(record => record.errors ?? []).map(({ receivedValue, ...error }) => error)
       } else {
         mappedStatus = 'success'
         stage = 'accepted'

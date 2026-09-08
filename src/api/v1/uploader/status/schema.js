@@ -160,8 +160,7 @@ const uploaderStatusSuccessSchema = Joi.object({
     errors: Joi.array()
       .items(Joi.object({
         field: Joi.string(),
-        errorType: Joi.string(),
-        receivedValue: Joi.string()
+        errorType: Joi.string()
       }))
       .description('Validation errors recorded for this upload, when rejected by the processor')
       .label('MappedStatusErrors'),
