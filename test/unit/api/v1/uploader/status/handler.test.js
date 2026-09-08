@@ -305,6 +305,24 @@ describe('uploaderStatusRoute handler', () => {
       expect(data.timedOut).toBe(true)
     })
 
+    test('awaiting-callback reports timedOut false when session is within the configured window', async () => {
+      mockGetStatusByUploadRef.mockResolvedValue([])
+      mockGetSessionByUploadId.mockResolvedValue({ timestamp: new Date() })
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.uploadStatus).toBe('pending')
+      expect(data.stage).toBe('awaiting-callback')
+      expect(data.timedOut).toBe(false)
+    })
+
     test('awaiting-callback omits timedOut when no session record is found', async () => {
       mockGetStatusByUploadRef.mockResolvedValue([])
       mockGetSessionByUploadId.mockResolvedValue(null)
