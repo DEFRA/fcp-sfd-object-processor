@@ -386,6 +386,36 @@
           "failure"
         ]
       },
+      "stage": {
+        "type": "string",
+        "description": "Fine-grained stage of the upload session, combining scanner and processor outcomes",
+        "example": "accepted",
+        "enum": [
+          "scanning",
+          "awaiting-callback",
+          "accepted",
+          "rejected-by-scanner",
+          "rejected-by-processor"
+        ]
+      },
+      "Model4": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "errorType": {
+            "type": "string"
+          }
+        }
+      },
+      "MappedStatusErrors": {
+        "type": "array",
+        "description": "Validation errors recorded for this upload, when rejected by the processor",
+        "items": {
+          "$ref": "#/components/schemas/Model4"
+        }
+      },
       "MappedStatusMetadata": {
         "type": "object",
         "description": "Metadata associated with the upload session"
@@ -413,6 +443,27 @@
           "uploadStatus": {
             "$ref": "#/components/schemas/uploadStatus"
           },
+          "stage": {
+            "$ref": "#/components/schemas/stage"
+          },
+          "correlationId": {
+            "type": "string",
+            "description": "Correlation id of the persisted status records for this upload, when available",
+            "x-format": {
+              "guid": {
+                "version": [
+                  "uuidv4"
+                ]
+              }
+            }
+          },
+          "errors": {
+            "$ref": "#/components/schemas/MappedStatusErrors"
+          },
+          "timedOut": {
+            "type": "boolean",
+            "description": "Whether the upload has exceeded the configured window while awaiting a callback"
+          },
           "metadata": {
             "$ref": "#/components/schemas/MappedStatusMetadata"
           },
@@ -422,6 +473,7 @@
         },
         "required": [
           "uploadStatus",
+          "stage",
           "metadata",
           "form"
         ]
@@ -629,6 +681,18 @@
             "type": "string",
             "description": "Unique Object Storage Reference combining SBI and submission ID",
             "example": "105000000_1733826312"
+          },
+          "uploadRef": {
+            "type": "string",
+            "description": "Server-generated reference linking the callback to its upload session",
+            "example": "9fcaabe5-77ec-44db-8356-3a6e8dc51b13",
+            "x-format": {
+              "guid": {
+                "version": [
+                  "uuidv4"
+                ]
+              }
+            }
           }
         },
         "required": [
