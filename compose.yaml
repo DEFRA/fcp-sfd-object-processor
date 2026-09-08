@@ -88,7 +88,7 @@ services:
       - fcp-sfd
 
   floci:
-    image: floci/floci:1.5.34
+    image: floci/floci:2.0.1
     environment:
       FLOCI_HOSTNAME: floci
       FLOCI_DEFAULT_REGION: ${AWS_REGION:-eu-west-2}
@@ -117,7 +117,7 @@ services:
       - fcp-sfd
 
   mongodb:
-    image: mongo:8.2.12
+    image: mongo:8.3.8
     command: --replSet rs0 --bind_ip_all --port 27017
     attach: false
     healthcheck:
