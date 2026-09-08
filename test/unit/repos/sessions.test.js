@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
-import { insertSession } from '../../../src/repos/sessions.js'
+import { insertSession, getSessionByJourneyId } from '../../../src/repos/sessions.js'
 import { db } from '../../../src/data/db.js'
 
 vi.mock('../../../src/data/db.js', () => ({
@@ -21,7 +21,7 @@ describe('Sessions Repository', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockCollection = { insertOne: vi.fn() }
+    mockCollection = { insertOne: vi.fn(), findOne: vi.fn() }
     db.collection.mockReturnValue(mockCollection)
   })
 
@@ -29,6 +29,7 @@ describe('Sessions Repository', () => {
     const timestamp = new Date()
     const sessionData = {
       uploadId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+      journeyId: '550e8400-e29b-41d4-a716-446655440000',
       metadata: { sbi: 105000000, type: 'CS_Agreement_Evidence' },
       timestamp
     }
@@ -55,5 +56,33 @@ describe('Sessions Repository', () => {
     await expect(
       insertSession({ uploadId: 'test-id', metadata: {}, timestamp: new Date() })
     ).rejects.toThrow('MongoNetworkError')
+  })
+
+  describe('getSessionByJourneyId', () => {
+    test('queries on journeyId and projects only uploadId and metadata', async () => {
+      const session = { uploadId: 'upload-1', metadata: { sbi: 105000000 } }
+      mockCollection.findOne.mockResolvedValue(session)
+
+      const result = await getSessionByJourneyId('550e8400-e29b-41d4-a716-446655440000')
+
+      expect(db.collection).toHaveBeenCalledWith('sessions')
+      expect(mockCollection.findOne).toHaveBeenCalledWith(
+        { journeyId: '550e8400-e29b-41d4-a716-446655440000' },
+        { projection: { uploadId: 1, metadata: 1 } }
+      )
+      expect(result).toBe(session)
+    })
+
+    test('returns null when no session matches', async () => {
+      mockCollection.findOne.mockResolvedValue(null)
+
+      await expect(getSessionByJourneyId('missing')).resolves.toBeNull()
+    })
+
+    test('propagates errors thrown by findOne', async () => {
+      mockCollection.findOne.mockRejectedValue(new Error('MongoNetworkError'))
+
+      await expect(getSessionByJourneyId('any')).rejects.toThrow('MongoNetworkError')
+    })
   })
 })
