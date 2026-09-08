@@ -10,10 +10,14 @@ const logger = createLogger()
 // long (covers IPv4 and standard IPv6, but not multi-IP strings).
 const MAX_IP_LENGTH = 20
 
+// `application` names the programme rather than the service, so that audit
+// events from every Single Front Door service can be grouped together in the
+// audit store. `component` stays as the service name, which is what tells the
+// individual services apart. See src/config/aws.js for the value itself.
 const auditPublishConfig = {
   snsClient,
   sns: { topicArn: config.get('aws.messaging.topics.auditEvents') },
-  application: config.get('serviceName'),
+  application: config.get('aws.messaging.auditApplication'),
   component: config.get('serviceName'),
   environment: config.get('cdpEnvironment'),
   version: '1.0.0',
