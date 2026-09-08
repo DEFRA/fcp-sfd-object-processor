@@ -270,7 +270,7 @@ This service publishes audit events to the shared `fcp-audit` SNS topic via `@de
 | `GET /api/v1/metadata/sbi/{sbi}` | `document` / `read` | success, one per document returned |
 | Outbox entry reaching `PERMANENT_FAILURE` | `document` / `failed` | failure |
 
-Every publish is fired through `Promise.allSettled` or an explicit `catch`, so an audit transport failure can never turn a successful request into a 500 or abort an outbox polling run. The topic ARN is set with `AUDIT_TOPIC_ARN`. See [`src/messaging/outbound/audit/send-audit-event.js`](src/messaging/outbound/audit/send-audit-event.js).
+Every publish is fired through `Promise.allSettled` or an explicit `catch`, so an audit transport failure can never turn a successful request into a 500 or abort an outbox polling run. The topic ARN is set with `AUDIT_TOPIC_ARN`. The `application` field is set with `AUDIT_APPLICATION`, defaulting to `Single Front Door`; it names the programme rather than the service so that audit events group across the estate, and it must match every other Single Front Door service. See [`src/messaging/outbound/audit/send-audit-event.js`](src/messaging/outbound/audit/send-audit-event.js).
 
 ## Local Infrastructure
 
