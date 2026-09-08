@@ -6,6 +6,7 @@ import {
   bulkUpdatePublishedAtDate,
   getS3ReferenceByFileId,
   getMetadataByFileId,
+  getPublishedAtByFileIds,
   getMetadataBySbi
 } from '../../../../src/repos/metadata.js'
 import { mockScanAndUploadResponse } from '../../../mocks/cdp-uploader.js'
@@ -291,6 +292,46 @@ describe('getMetadataByFileId', () => {
     queryCollection.findOne.mockResolvedValue(null)
 
     await expect(getMetadataByFileId('missing')).rejects.toThrow(NotFoundError)
+  })
+})
+
+describe('getPublishedAtByFileIds', () => {
+  let queryCollection
+  let mockToArray
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockToArray = vi.fn()
+    queryCollection = { find: vi.fn().mockReturnValue({ toArray: mockToArray }) }
+    db.collection.mockReturnValue(queryCollection)
+  })
+
+  test('queries by fileIds and projects only fileId and publishedAt', async () => {
+    mockToArray.mockResolvedValue([])
+
+    await getPublishedAtByFileIds(['file-1', 'file-2'])
+
+    expect(queryCollection.find).toHaveBeenCalledWith(
+      { 'file.fileId': { $in: ['file-1', 'file-2'] } },
+      { projection: { _id: 0, 'file.fileId': 1, 'messaging.publishedAt': 1 } }
+    )
+  })
+
+  test('returns the matched documents', async () => {
+    const documents = [{ file: { fileId: 'file-1' }, messaging: { publishedAt: new Date() } }]
+    mockToArray.mockResolvedValue(documents)
+
+    const result = await getPublishedAtByFileIds(['file-1'])
+
+    expect(result).toEqual(documents)
+  })
+
+  test('returns empty array when no documents match', async () => {
+    mockToArray.mockResolvedValue([])
+
+    const result = await getPublishedAtByFileIds(['missing'])
+
+    expect(result).toEqual([])
   })
 })
 

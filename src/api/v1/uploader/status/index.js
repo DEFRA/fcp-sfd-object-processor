@@ -17,6 +17,9 @@ import {
 import { normaliseFormFields } from '../../../../utils/normalise-form-fields.js'
 import { getStatusByUploadRef } from '../../../../repos/status.js'
 import { getSessionByUploadId } from '../../../../repos/sessions.js'
+import { getPublishedAtByFileIds } from '../../../../repos/metadata.js'
+import { getOutboxStatusesByFileIds } from '../../../../repos/outbox.js'
+import { PERMANENT_FAILURE } from '../../../../constants/outbox.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -122,6 +125,31 @@ const isAwaitingCallbackTimedOut = async (uploadId) => {
   return Date.now() - new Date(session.timestamp).getTime() > timeoutMs
 }
 
+// Derived purely for visibility into CRM message delivery; must never influence uploadStatus.
+const deriveDeliveryStatus = async (fileIds) => {
+  if (fileIds.length === 0) {
+    return undefined
+  }
+
+  const [outboxStatuses, publishedRecords] = await Promise.all([
+    getOutboxStatusesByFileIds(fileIds),
+    getPublishedAtByFileIds(fileIds)
+  ])
+
+  const hasPermanentFailure = outboxStatuses.some(entry => entry.status === PERMANENT_FAILURE)
+  if (hasPermanentFailure) {
+    return 'failed'
+  }
+
+  const allPublished = publishedRecords.length === fileIds.length &&
+    publishedRecords.every(record => record.messaging?.publishedAt)
+  if (allPublished) {
+    return 'delivered'
+  }
+
+  return 'queued'
+}
+
 const mapCdpStatus = async (cdpResponse, uploadId) => {
   const { uploadStatus, numberOfRejectedFiles, form, metadata } = cdpResponse
   const { uploadRef, ...responseMetadata } = metadata ?? {}
@@ -131,6 +159,7 @@ const mapCdpStatus = async (cdpResponse, uploadId) => {
   let correlationId
   let errors
   let timedOut
+  let deliveryStatus
 
   if (uploadStatus !== 'ready') {
     mappedStatus = 'pending'
@@ -157,6 +186,7 @@ const mapCdpStatus = async (cdpResponse, uploadId) => {
       } else {
         mappedStatus = 'success'
         stage = 'accepted'
+        deliveryStatus = await deriveDeliveryStatus(statusRecords.map(record => record.fileId))
       }
     }
   }
@@ -167,6 +197,7 @@ const mapCdpStatus = async (cdpResponse, uploadId) => {
     ...(correlationId !== undefined && { correlationId }),
     ...(errors !== undefined && { errors }),
     ...(timedOut !== undefined && { timedOut }),
+    ...(deliveryStatus !== undefined && { deliveryStatus }),
     form: normaliseFormFields(form),
     metadata: responseMetadata
   }

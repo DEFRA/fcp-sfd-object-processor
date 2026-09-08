@@ -246,9 +246,20 @@ const finalizeClaimedOutboxEntries = async (
   }
 }
 
+const getOutboxStatusesByFileIds = async (fileIds) => {
+  const collection = config.get(outboxCollection)
+
+  return db.collection(collection)
+    .find(
+      { 'payload.file.fileId': { $in: fileIds } },
+      { projection: { _id: 0, 'payload.file.fileId': 1, status: 1 } })
+    .toArray()
+}
+
 export {
   createOutboxEntries,
   claimProcessableOutboxEntries,
   finalizeClaimedOutboxEntries,
-  logTerminalFailuresIfAny
+  logTerminalFailuresIfAny,
+  getOutboxStatusesByFileIds
 }

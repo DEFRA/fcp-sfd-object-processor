@@ -178,7 +178,15 @@ export const mappedResponseFields = {
       'any.only': '"stage" must be one of [scanning, awaiting-callback, accepted, rejected-by-scanner, rejected-by-processor]',
       'any.required': '"stage" is required'
     })
-    .example('accepted')
+    .example('accepted'),
+
+  deliveryStatus: Joi.string()
+    .valid('queued', 'delivered', 'failed')
+    .description('CRM message delivery status for an accepted upload, derived from the outbox and never influencing uploadStatus')
+    .messages({
+      'any.only': '"deliveryStatus" must be one of [queued, delivered, failed]'
+    })
+    .example('delivered')
 }
 
 // Re-export canonical file upload schema to avoid duplication and drift.

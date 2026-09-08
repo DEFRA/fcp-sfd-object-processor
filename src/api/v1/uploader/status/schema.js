@@ -167,6 +167,7 @@ const uploaderStatusSuccessSchema = Joi.object({
     timedOut: Joi.boolean()
       .description('Whether the upload has exceeded the configured window while awaiting a callback')
       .label('MappedStatusTimedOut'),
+    deliveryStatus: mappedResponseFields.deliveryStatus,
     metadata: Joi.object()
       .required()
       .description('Metadata associated with the upload session')

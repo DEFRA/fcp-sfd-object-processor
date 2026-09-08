@@ -36,6 +36,16 @@ const getMetadataByFileId = async (fileId) => {
   return document
 }
 
+const getPublishedAtByFileIds = async (fileIds) => {
+  const collection = config.get(metadataCollection)
+
+  return db.collection(collection)
+    .find(
+      { 'file.fileId': { $in: fileIds } },
+      { projection: { _id: 0, 'file.fileId': 1, 'messaging.publishedAt': 1 } })
+    .toArray()
+}
+
 // Format the raw payload received from the CDP Uploader before saving it in the DB
 // removes any formData that is not a file upload
 // creates subdocuments to organise data
@@ -133,5 +143,6 @@ export {
   formatInboundMetadata,
   getS3ReferenceByFileId,
   getMetadataByFileId,
+  getPublishedAtByFileIds,
   bulkUpdatePublishedAtDate
 }

@@ -416,6 +416,16 @@
           "$ref": "#/components/schemas/Model4"
         }
       },
+      "deliveryStatus": {
+        "type": "string",
+        "description": "CRM message delivery status for an accepted upload, derived from the outbox and never influencing uploadStatus",
+        "example": "delivered",
+        "enum": [
+          "queued",
+          "delivered",
+          "failed"
+        ]
+      },
       "MappedStatusMetadata": {
         "type": "object",
         "description": "Metadata associated with the upload session"
@@ -463,6 +473,9 @@
           "timedOut": {
             "type": "boolean",
             "description": "Whether the upload has exceeded the configured window while awaiting a callback"
+          },
+          "deliveryStatus": {
+            "$ref": "#/components/schemas/deliveryStatus"
           },
           "metadata": {
             "$ref": "#/components/schemas/MappedStatusMetadata"
