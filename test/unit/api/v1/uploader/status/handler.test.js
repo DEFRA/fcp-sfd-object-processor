@@ -37,7 +37,7 @@ vi.mock('../../../../../../src/api/common/helpers/metrics.js', () => ({
 vi.mock('../../../../../../src/http/client.js', () => ({
   httpClient: mockHttpClient,
   TimeoutError: class TimeoutError extends Error {
-    constructor (msg) { super(msg); this.name = 'TimeoutError' }
+    constructor(msg) { super(msg); this.name = 'TimeoutError' }
   },
   NetworkError: class NetworkError extends Error { },
   AbortError: class AbortError extends Error { }
