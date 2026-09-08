@@ -27,7 +27,6 @@ export const loggerOptions = {
   },
   level: logConfig.level,
   ...formatters[logConfig.format],
-  nesting: true,
   mixin: () => {
     const mixinValues = {}
     const traceId = getTraceId()
@@ -36,7 +35,9 @@ export const loggerOptions = {
     }
     const correlationId = getCorrelationId()
     if (correlationId) {
-      mixinValues['transaction.id'] = correlationId
+      // Must be a nested object. A flat 'transaction.id' key is not indexed by the CDP
+      // ingestion pipeline, so the correlation id would not be queryable in CDP logs.
+      mixinValues.transaction = { id: correlationId }
     }
     return mixinValues
   }
