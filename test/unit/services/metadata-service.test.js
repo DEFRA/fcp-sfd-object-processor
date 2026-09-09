@@ -16,6 +16,8 @@ import { client } from '../../../src/data/db.js'
 import { mockScanAndUploadResponseArray as rawDocuments, mockScanAndUploadResponse } from '../../mocks/cdp-uploader.js'
 import { mockFormattedDocuments as formattedDocuments } from '../../mocks/metadata.js'
 
+const testCorrelationId = '550e8400-e29b-41d4-a716-446655440000'
+
 vi.mock('../../../src/repos/metadata.js')
 vi.mock('../../../src/repos/outbox.js')
 vi.mock('../../../src/repos/status.js')
@@ -89,7 +91,23 @@ describe('Metadata Service', () => {
 
       await persistMetadataWithOutbox(rawDocuments)
 
-      expect(formatInboundMetadata).toHaveBeenCalledWith(rawDocuments)
+      // The service forwards whatever it is given; the guard against a missing id lives in
+      // formatInboundMetadata, which is the single point where the id reaches a document.
+      expect(formatInboundMetadata).toHaveBeenCalledWith(rawDocuments, undefined)
+    })
+
+    test('should pass a supplied correlationId through to formatInboundMetadata', async () => {
+      formatInboundMetadata.mockReturnValue(formattedDocuments)
+      insertStatus.mockResolvedValue({ acknowledged: true, insertedIds: {} })
+      persistMetadata.mockResolvedValue({ insertedIds: {} })
+
+      mockSession.withTransaction.mockImplementation(async (callback) => {
+        return await callback()
+      })
+
+      await persistMetadataWithOutbox(rawDocuments, testCorrelationId)
+
+      expect(formatInboundMetadata).toHaveBeenCalledWith(rawDocuments, testCorrelationId)
     })
 
     test('should call persistMetadata with formatted documents and session', async () => {
@@ -331,6 +349,33 @@ describe('Metadata Service', () => {
   })
 
   describe('persistValidationFailureStatus', () => {
+    const validationErrorFixture = {
+      details: [
+        { path: ['metadata', 'crn'], type: 'any.required', context: { value: undefined } }
+      ]
+    }
+
+    test('uses the supplied correlationId on every status document', async () => {
+      insertStatus.mockResolvedValue({ acknowledged: true })
+
+      await persistValidationFailureStatus(rawDocuments[0], validationErrorFixture, testCorrelationId)
+
+      const [documents] = insertStatus.mock.calls.at(-1)
+      expect(documents.length).toBeGreaterThan(0)
+      for (const doc of documents) {
+        expect(doc.correlationId).toBe(testCorrelationId)
+      }
+    })
+
+    test('throws when no correlationId is supplied, without writing any status record', async () => {
+      insertStatus.mockResolvedValue({ acknowledged: true })
+
+      await expect(persistValidationFailureStatus(rawDocuments[0], validationErrorFixture))
+        .rejects.toThrow('persistValidationFailureStatus requires an explicit correlationId')
+
+      expect(insertStatus).not.toHaveBeenCalled()
+    })
+
     test('should persist failed validation status records', async () => {
       const validationError = {
         details: [
@@ -344,18 +389,18 @@ describe('Metadata Service', () => {
 
       insertStatus.mockResolvedValue({ acknowledged: true, insertedCount: 2 })
 
-      await persistValidationFailureStatus(rawDocuments[0], validationError)
+      await persistValidationFailureStatus(rawDocuments[0], validationError, testCorrelationId)
 
       expect(insertStatus).toHaveBeenCalledWith(
         expect.arrayContaining([
-          expect.objectContaining({ validated: false, correlationId: expect.any(String) }),
-          expect.objectContaining({ validated: false, correlationId: expect.any(String) })
+          expect.objectContaining({ validated: false, correlationId: testCorrelationId }),
+          expect.objectContaining({ validated: false, correlationId: testCorrelationId })
         ])
       )
       expect(client.startSession).not.toHaveBeenCalled()
     })
 
-    test('should generate a correlationId and pass it to the status mapper', async () => {
+    test('should pass one correlationId to the status mapper for every document', async () => {
       const validationError = {
         details: [
           {
@@ -368,7 +413,7 @@ describe('Metadata Service', () => {
 
       insertStatus.mockResolvedValue({ acknowledged: true, insertedCount: 2 })
 
-      await persistValidationFailureStatus(rawDocuments[0], validationError)
+      await persistValidationFailureStatus(rawDocuments[0], validationError, testCorrelationId)
 
       const statusDocuments = insertStatus.mock.calls[0][0]
 
@@ -376,12 +421,7 @@ describe('Metadata Service', () => {
       const correlationIds = statusDocuments.map(doc => doc.correlationId)
       const uniqueCorrelationIds = [...new Set(correlationIds)]
 
-      expect(uniqueCorrelationIds).toHaveLength(1)
-      expect(uniqueCorrelationIds[0]).toBeDefined()
-      expect(typeof uniqueCorrelationIds[0]).toBe('string')
-      expect(uniqueCorrelationIds[0]).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-      )
+      expect(uniqueCorrelationIds).toEqual([testCorrelationId])
     })
   })
 

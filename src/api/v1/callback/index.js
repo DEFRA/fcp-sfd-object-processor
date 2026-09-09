@@ -1,6 +1,7 @@
 import Boom from '@hapi/boom'
 
 import { constants as httpConstants } from 'node:http2'
+import { randomUUID } from 'node:crypto'
 import { createLogger } from '../../../logging/logger.js'
 import { callbackPayloadSchema, callbackResponseSchema } from './schema.js'
 import { config } from '../../../config/index.js'
@@ -41,7 +42,9 @@ export const uploadCallback = {
         await metricsCounter('callback_validation_failures')
 
         try {
-          await persistValidationFailureStatus(request.payload, err)
+          // Minted at the boundary until the callback leg lands, which replaces this with
+          // the journeyId resolved from the payload metadata (FLS1-175).
+          await persistValidationFailureStatus(request.payload, err, randomUUID())
         } catch (persistError) {
           logger.error(buildCallbackPersistFailureLog(request, persistError), 'Failed to persist status for callback validation failure')
         }
@@ -77,7 +80,9 @@ export const uploadCallback = {
       }
 
       try {
-        const result = await persistMetadataWithOutbox(request.payload)
+        // Minted at the boundary until the callback leg lands, which replaces this with
+        // the journeyId resolved from the payload metadata (FLS1-175).
+        const result = await persistMetadataWithOutbox(request.payload, randomUUID())
 
         if (result.duplicate) {
           return h.response({

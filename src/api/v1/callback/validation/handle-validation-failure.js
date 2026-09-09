@@ -1,4 +1,5 @@
 import { constants as httpConstants } from 'node:http2'
+import { randomUUID } from 'node:crypto'
 import { createLogger } from '../../../../logging/logger.js'
 import { persistValidationFailureStatus } from '../../../../services/metadata-service.js'
 
@@ -16,7 +17,9 @@ const logger = createLogger()
  */
 export async function handleValidationFailure (payload, error, file, h) {
   try {
-    await persistValidationFailureStatus(payload, error)
+    // Minted here until the callback leg lands, which threads the journeyId resolved for
+    // this upload through validateCallbackPayload (FLS1-175).
+    await persistValidationFailureStatus(payload, error, randomUUID())
   } catch (persistErr) {
     logger.error(persistErr, 'Failed to persist status for semantic validation failure')
   }

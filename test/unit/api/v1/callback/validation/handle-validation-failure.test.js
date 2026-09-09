@@ -3,6 +3,8 @@ import { vi, describe, test, expect, beforeEach } from 'vitest'
 import { handleValidationFailure } from '../../../../../../src/api/v1/callback/validation/handle-validation-failure.js'
 import { persistValidationFailureStatus } from '../../../../../../src/services/metadata-service.js'
 
+const uuidV4Pattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+
 // Mock dependencies before importing the module under test
 vi.mock('../../../../../../src/services/metadata-service.js', () => ({
   persistValidationFailureStatus: vi.fn(),
@@ -37,7 +39,7 @@ describe('handleValidationFailure', () => {
 
     await handleValidationFailure(payload, error, undefined, mockH)
 
-    expect(persistValidationFailureStatus).toHaveBeenCalledWith(payload, error)
+    expect(persistValidationFailureStatus).toHaveBeenCalledWith(payload, error, expect.stringMatching(uuidV4Pattern))
   })
 
   test('returns 201 response via Hapi response toolkit', async () => {
@@ -58,7 +60,7 @@ describe('handleValidationFailure', () => {
     // Should not throw
     await handleValidationFailure(payload, error, file, mockH)
 
-    expect(persistValidationFailureStatus).toHaveBeenCalledWith(payload, error)
+    expect(persistValidationFailureStatus).toHaveBeenCalledWith(payload, error, expect.stringMatching(uuidV4Pattern))
   })
 
   test('does not throw when file is undefined', async () => {

@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto'
-
 import { client } from '../data/db.js'
 import { persistMetadata, formatInboundMetadata, getMetadataByFileId } from '../repos/metadata.js'
 import { createOutboxEntries } from '../repos/outbox.js'
@@ -7,17 +5,18 @@ import { insertStatus } from '../repos/status.js'
 import { createLogger } from '../logging/logger.js'
 import { buildValidatedStatusDocuments, buildValidationFailureStatusDocuments } from '../mappers/status.js'
 import { flattenFormValues } from '../utils/flatten-form-files.js'
+import { assertCorrelationId } from '../utils/assert-correlation-id.js'
 
 const logger = createLogger()
 
 const DUPLICATE_KEY_ERROR_CODE = 11000
 
-const persistMetadataWithOutbox = async (rawDocuments) => {
+const persistMetadataWithOutbox = async (rawDocuments, correlationId) => {
   const session = client.startSession()
 
   try {
     return await session.withTransaction(async () => {
-      const documents = formatInboundMetadata(rawDocuments)
+      const documents = formatInboundMetadata(rawDocuments, correlationId)
       const statusDocuments = buildValidatedStatusDocuments(documents)
 
       await insertStatus(statusDocuments, session)
@@ -67,9 +66,13 @@ const persistMetadataWithOutbox = async (rawDocuments) => {
   }
 }
 
-const persistValidationFailureStatus = async (payload, validationError) => {
+// The correlationId is required, not defaulted, so a failed upload's status records can
+// always be traced to the upload that produced them. The callback path supplies the
+// journeyId resolved for this upload.
+const persistValidationFailureStatus = async (payload, validationError, correlationId) => {
   try {
-    const correlationId = randomUUID()
+    assertCorrelationId(correlationId, 'persistValidationFailureStatus')
+
     const statusDocuments = buildValidationFailureStatusDocuments(payload, validationError, correlationId)
     return await insertStatus(statusDocuments)
   } catch (error) {

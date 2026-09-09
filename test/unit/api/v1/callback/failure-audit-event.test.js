@@ -51,6 +51,8 @@ vi.mock('../../../../../src/utils/build-callback-validation-failure-log.js', () 
 }))
 
 const { uploadCallback } = await import('../../../../../src/api/v1/callback/index.js')
+
+const uuidV4Pattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 const { persistMetadataWithOutbox, persistValidationFailureStatus } = await import('../../../../../src/services/metadata-service.js')
 const { buildCallbackValidationFailureLog } = await import('../../../../../src/utils/build-callback-validation-failure-log.js')
 
@@ -220,7 +222,7 @@ describe('callback handler — event 5 (document/failed on Joi validation failur
 
     await uploadCallback.options.validate.failAction(request, h, mockErr)
 
-    expect(persistValidationFailureStatus).toHaveBeenCalledWith(request.payload, mockErr)
+    expect(persistValidationFailureStatus).toHaveBeenCalledWith(request.payload, mockErr, expect.stringMatching(uuidV4Pattern))
   })
 
   test('emits document/failed per payload fileId in failAction', async () => {
