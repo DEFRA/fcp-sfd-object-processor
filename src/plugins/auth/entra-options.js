@@ -1,5 +1,4 @@
-import { AUTH_STRATEGY_NAMES } from '../../constants/auth.js'
-import { createAuthStrategy } from './create-auth-strategy.js'
+import { AUTH_PROVIDER_NAMES } from '../../constants/auth.js'
 
 /**
  * Builds the two accepted issuer strings (v1.0 and v2.0 token forms) for a given Entra tenant.
@@ -12,10 +11,8 @@ const buildTenantIssuers = (tenantId) => [
 
 /**
  * Builds a lookup from every accepted issuer string, for every configured tenant, back to that
- * tenant's config. Used inside `validate()` to resolve which tenant a token belongs to from its
- * own `iss` claim, since a single Hapi JWT strategy is registered for all tenants (see
- * `src/plugins/auth/index.js` for why: registering one strategy per tenant does not provide
- * fallback between tenants the way it might appear to).
+ * tenant's config. Used to resolve which tenant a token belongs to from its own `iss` claim, since
+ * all tenants share a single provider entry rather than one strategy each.
  * @param {object[]} tenants - Array of `{ tenantId, allowedGroupIds }`
  */
 const buildIssuerToTenantMap = (tenants) => {
@@ -29,29 +26,23 @@ const buildIssuerToTenantMap = (tenants) => {
 }
 
 /**
- * Builds a single Hapi JWT strategy options object that accepts tokens from every configured
- * Entra tenant. Verifies tokens against each tenant's JWKS endpoint and checks security group
- * membership against that specific token's own tenant, resolved from its `iss` claim.
+ * Builds the Entra provider descriptor consumed by `createAuthStrategy`. Accepts tokens from every
+ * configured tenant, and checks security group membership against that specific token's own tenant,
+ * resolved from its `iss` claim.
  * @param {object[]} [tenants] - Array of `{ tenantId, allowedGroupIds }`, one entry per tenant
+ * @returns {import('./create-auth-strategy.js').AuthProvider}
  */
-export function getEntraAuthOptions (tenants = []) {
+export function getEntraAuthProvider (tenants = []) {
   const issuerToTenant = buildIssuerToTenantMap(tenants)
-  const jwksUris = tenants.map(({ tenantId }) => `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`)
 
-  return createAuthStrategy({
-    strategyName: AUTH_STRATEGY_NAMES.ENTRA,
-    jwksUris,
-    verify: {
-      aud: false,
-      sub: false,
-      iss: [...issuerToTenant.keys()],
-      nbf: true,
-      exp: true
-    },
+  return {
+    name: AUTH_PROVIDER_NAMES.ENTRA,
+    jwksUris: tenants.map(({ tenantId }) => `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`),
+    issuers: [...issuerToTenant.keys()],
     // Resolves the allowed security groups for the specific tenant this token was issued by,
     // rather than a single fixed list. `@hapi/jwt` has already rejected any token whose `iss` is
-    // not one of the keys in `issuerToTenant` (via `verify.iss` above) before this runs, so the
-    // lookup cannot miss in practice — the `?? []` is defence in depth, not a reachable path.
+    // not one of the keys in `issuerToTenant` (via the strategy's `verify.iss`) before this runs,
+    // so the lookup cannot miss in practice — the `?? []` is defence in depth.
     getAllowedList: (payload) => issuerToTenant.get(payload.iss)?.allowedGroupIds ?? [],
     checkAllowed: (payload, allowedGroupIdsLocal) => {
       const tokenGroups = Array.isArray(payload.groups) ? payload.groups : []
@@ -69,5 +60,5 @@ export function getEntraAuthOptions (tenants = []) {
     },
     emptyListMessage: 'No authorized security groups configured',
     unauthorisedMessage: 'Token does not belong to an authorized Security Group'
-  })
+  }
 }
