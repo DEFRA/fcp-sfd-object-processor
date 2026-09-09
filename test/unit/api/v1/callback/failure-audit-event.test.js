@@ -97,7 +97,7 @@ describe('callback handler — event 4 (document/failed on processing error)', (
 
     expect(mockSendAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
-        correlationid: 'test-correlation-id',
+        correlationid: RESOLVED_ID,
         audit: expect.objectContaining({
           entities: [{ entity: 'document', action: 'failed', entityid: 'payload-file-id-1' }],
           accounts: { sbi: '105000000' },
@@ -259,7 +259,7 @@ describe('callback handler — event 5 (document/failed on Joi validation failur
 
     expect(mockSendAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
-        correlationid: 'test-correlation-id',
+        correlationid: RESOLVED_ID,
         audit: expect.objectContaining({
           entities: [{ entity: 'document', action: 'failed', entityid: 'payload-file-id-1' }],
           accounts: { sbi: '105000000' },

@@ -845,6 +845,13 @@ describe('POST to the /api/v1/callback route — idempotency', async () => {
     const beforeMetadataCount = await db.collection(metadataCollection).countDocuments()
     const beforeOutboxCount = await db.collection(outboxCollection).countDocuments()
 
+    // The correlation id written by the first insert, to compare against after the duplicate.
+    const firstDoc = await db.collection(metadataCollection).findOne(
+      { 'file.fileId': mockScanAndUploadResponseSingleFile.form['single-file'].fileId },
+      { projection: { messaging: 1 } }
+    )
+    const existingCorrelationId = firstDoc.messaging.correlationId
+
     const response = await server.inject({
       method: 'POST',
       url: '/api/v1/callback',
@@ -856,7 +863,17 @@ describe('POST to the /api/v1/callback route — idempotency', async () => {
 
     expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
     expect(response.result.message).toBe('Duplicate callback ignored')
+    // The stored correlation id is deliberately not returned to the caller.
     expect(response.result).not.toHaveProperty('correlationId')
+
+    // The stored value wins: a duplicate must not overwrite the correlation id the
+    // document was first written with, or the record would stop matching the events
+    // already published under it.
+    const afterDoc = await db.collection(metadataCollection).findOne(
+      { 'file.fileId': mockScanAndUploadResponseSingleFile.form['single-file'].fileId },
+      { projection: { messaging: 1 } }
+    )
+    expect(afterDoc.messaging.correlationId).toBe(existingCorrelationId)
 
     // No new records created
     expect(afterMetadataCount).toBe(beforeMetadataCount)

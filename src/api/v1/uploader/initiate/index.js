@@ -9,6 +9,7 @@ import { initiatePayloadSchema, initiateResponseSchema } from './schema.js'
 import { metricsCounter } from '../../../../api/common/helpers/metrics.js'
 import { insertSession } from '../../../../repos/sessions.js'
 import { JOURNEY_ID_KEY } from '../../../../constants/correlation.js'
+import { runWithCorrelationId } from '../../../../logging/correlation-id-store.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -59,74 +60,79 @@ export const uploaderInitiateRoute = {
       status: initiateResponseSchema
     },
     handler: async (request, h) => {
-      const uploaderUrl = config.get('uploaderUrl')
-      const initiateEndpoint = config.get('uploaderInitiateEndpoint')
-      const url = `${uploaderUrl}${initiateEndpoint}`
-
       // Minted once per upload and carried both to CDP Uploader and onto the session record,
       // so the callback can be joined back to this initiate request end to end (FLS1-175).
       // Deliberately not returned to the client; it is an internal correlation identifier.
       const journeyId = randomUUID()
 
-      const payload = buildCdpUploaderPayload(request.payload, journeyId)
+      // Entered here, not only at the callback, so that the request which mints the
+      // identifier also carries it on every line it logs. The pino mixin reads the store
+      // and emits the value as transaction.id.
+      return runWithCorrelationId(journeyId, async () => {
+        const uploaderUrl = config.get('uploaderUrl')
+        const initiateEndpoint = config.get('uploaderInitiateEndpoint')
+        const url = `${uploaderUrl}${initiateEndpoint}`
 
-      logger.info({ url }, 'Forwarding initiate request to Upstream service')
+        const payload = buildCdpUploaderPayload(request.payload, journeyId)
 
-      let response
+        logger.info({ url }, 'Forwarding initiate request to Upstream service')
 
-      try {
-        response = await httpClient(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        })
-      } catch (err) {
-        if (err instanceof TimeoutError) {
-          logger.error({ url, retry: err.retryMetadata ?? null }, 'Upstream service request timed out')
-          throw Boom.gatewayTimeout('Upstream service request timed out')
+        let response
+
+        try {
+          response = await httpClient(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          })
+        } catch (err) {
+          if (err instanceof TimeoutError) {
+            logger.error({ url, retry: err.retryMetadata ?? null }, 'Upstream service request timed out')
+            throw Boom.gatewayTimeout('Upstream service request timed out')
+          }
+          logger.error({ error: { message: err.message }, url, retry: err.retryMetadata ?? null }, 'Upstream service request failed')
+          throw Boom.badGateway('Upstream service request failed')
         }
-        logger.error({ error: { message: err.message }, url, retry: err.retryMetadata ?? null }, 'Upstream service request failed')
-        throw Boom.badGateway('Upstream service request failed')
-      }
 
-      if (!response.ok) {
-        const body = await response.text().catch(() => 'Unable to read response body')
-        logger.error(
-          { statusCode: response.status, body, url },
-          'Upstream service returned non-2xx response'
-        )
-        throw Boom.badGateway(`Upstream service returned ${response.status}`)
-      }
+        if (!response.ok) {
+          const body = await response.text().catch(() => 'Unable to read response body')
+          logger.error(
+            { statusCode: response.status, body, url },
+            'Upstream service returned non-2xx response'
+          )
+          throw Boom.badGateway(`Upstream service returned ${response.status}`)
+        }
 
-      let cdpResponse
-      try {
-        cdpResponse = await response.json()
-      } catch (err) {
-        logger.error({ error: { message: err.message }, url }, 'Failed to parse Upstream service response')
-        throw Boom.badGateway('Invalid response from Upstream service')
-      }
+        let cdpResponse
+        try {
+          cdpResponse = await response.json()
+        } catch (err) {
+          logger.error({ error: { message: err.message }, url }, 'Failed to parse Upstream service response')
+          throw Boom.badGateway('Invalid response from Upstream service')
+        }
 
-      if (!cdpResponse?.uploadId) {
-        logger.error({ cdpResponse, url }, 'Upstream service response missing uploadId')
-        throw Boom.badGateway('Invalid response from Upstream service')
-      }
+        if (!cdpResponse?.uploadId) {
+          logger.error({ cdpResponse, url }, 'Upstream service response missing uploadId')
+          throw Boom.badGateway('Invalid response from Upstream service')
+        }
 
-      const data = rewriteResponseUrls(cdpResponse)
+        const data = rewriteResponseUrls(cdpResponse)
 
-      try {
-        await insertSession({
-          uploadId: cdpResponse.uploadId,
-          journeyId,
-          metadata: request.payload.metadata,
-          timestamp: new Date()
-        })
-      } catch (sessionErr) {
-        // The journeyId is logged here because a swallowed insert failure later causes the
-        // callback to fall back to a generated id; the two events can then be joined by hand.
-        logger.error({ error: { message: sessionErr.message }, uploadId: cdpResponse.uploadId, journeyId }, 'Failed to persist upload session record')
-      }
+        try {
+          await insertSession({
+            uploadId: cdpResponse.uploadId,
+            journeyId,
+            metadata: request.payload.metadata,
+            timestamp: new Date()
+          })
+        } catch (sessionErr) {
+          // The journeyId is logged here because a swallowed insert failure later causes the
+          // callback to fall back to a generated id; the two events can then be joined by hand.
+          logger.error({ error: { message: sessionErr.message }, uploadId: cdpResponse.uploadId, journeyId }, 'Failed to persist upload session record')
+        }
 
-      return h.response({ data }).code(httpConstants.HTTP_STATUS_OK)
+        return h.response({ data }).code(httpConstants.HTTP_STATUS_OK)
+      })
     }
   }
 }
