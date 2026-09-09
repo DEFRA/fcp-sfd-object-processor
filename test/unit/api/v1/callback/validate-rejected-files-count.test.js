@@ -3,6 +3,7 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { validateCallbackPayload } from '../../../../../src/api/v1/callback/validation/validate-callback-payload.js'
 import * as metricsModule from '../../../../../src/api/common/helpers/metrics.js'
 import { baseMetadata, baseFileUpload1 } from '../../../../mocks/base-data.js'
+import { persistValidationFailureStatus } from '../../../../../src/services/metadata-service.js'
 
 vi.mock('../../../../../src/api/common/helpers/metrics.js', () => ({ metricsCounter: vi.fn() }))
 
@@ -26,6 +27,8 @@ const mockH = {
   response: (body) => ({ body, code: (status) => ({ status, body }) })
 }
 
+const CORRELATION_ID = '550e8400-e29b-41d4-a716-446655440000'
+
 describe('numberOfRejectedFiles mismatch check', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -39,7 +42,7 @@ describe('numberOfRejectedFiles mismatch check', () => {
       form: { 'good-file': baseFileUpload1, 'text-field': 'some text' }
     }
 
-    await validateCallbackPayload(payload, mockH)
+    await validateCallbackPayload(payload, mockH, CORRELATION_ID)
 
     expect(mockLogger.warn).not.toHaveBeenCalled()
     expect(metricsModule.metricsCounter).not.toHaveBeenCalledWith('op.callback.rejected_files_mismatch')
@@ -53,7 +56,7 @@ describe('numberOfRejectedFiles mismatch check', () => {
       form: { 'bad-file': rejectedFile, 'text-field': 'some text' }
     }
 
-    await validateCallbackPayload(payload, mockH)
+    await validateCallbackPayload(payload, mockH, CORRELATION_ID)
 
     expect(mockLogger.warn).toHaveBeenCalledWith(
       {
@@ -80,7 +83,7 @@ describe('numberOfRejectedFiles mismatch check', () => {
       form: { 'bad-file': rejectedFile }
     }
 
-    await validateCallbackPayload(payload, mockH)
+    await validateCallbackPayload(payload, mockH, CORRELATION_ID)
 
     expect(mockLogger.warn).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -99,7 +102,7 @@ describe('numberOfRejectedFiles mismatch check', () => {
       form: { 'bad-file': rejectedFile }
     }
 
-    await validateCallbackPayload(payload, mockH)
+    await validateCallbackPayload(payload, mockH, CORRELATION_ID)
 
     expect(mockLogger.warn).not.toHaveBeenCalled()
     expect(metricsModule.metricsCounter).not.toHaveBeenCalledWith('op.callback.rejected_files_mismatch')
@@ -117,10 +120,23 @@ describe('numberOfRejectedFiles mismatch check', () => {
       }
     }
 
-    await validateCallbackPayload(payload, mockH)
+    await validateCallbackPayload(payload, mockH, CORRELATION_ID)
 
     expect(mockLogger.warn).not.toHaveBeenCalled()
     expect(metricsModule.metricsCounter).not.toHaveBeenCalledWith('op.callback.rejected_files_mismatch')
+  })
+
+  test('forwards the correlation id to the persisted validation failure', async () => {
+    const payload = {
+      uploadStatus: 'ready',
+      metadata: baseMetadata,
+      numberOfRejectedFiles: 1,
+      form: { 'bad-file': rejectedFile }
+    }
+
+    await validateCallbackPayload(payload, mockH, CORRELATION_ID)
+
+    expect(persistValidationFailureStatus).toHaveBeenCalledWith(payload, expect.any(Error), CORRELATION_ID)
   })
 
   test('processing continues after mismatch — Stage 2 still handles non-complete files', async () => {
@@ -131,7 +147,7 @@ describe('numberOfRejectedFiles mismatch check', () => {
       form: { 'bad-file': rejectedFile }
     }
 
-    const result = await validateCallbackPayload(payload, mockH)
+    const result = await validateCallbackPayload(payload, mockH, CORRELATION_ID)
 
     expect(mockLogger.warn).toHaveBeenCalled()
     expect(result).not.toBeNull()

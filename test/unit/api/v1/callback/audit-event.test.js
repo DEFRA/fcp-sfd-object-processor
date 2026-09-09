@@ -41,6 +41,10 @@ vi.mock('../../../../../src/api/common/helpers/metrics.js', () => ({
   metricsCounter: vi.fn()
 }))
 
+vi.mock('../../../../../src/services/journey-correlation-service.js', () => ({
+  resolveJourneyId: vi.fn()
+}))
+
 vi.mock('../../../../../src/api/v1/callback/validation/validate-callback-payload.js', () => ({
   validateCallbackPayload: vi.fn().mockResolvedValue(null)
 }))
@@ -51,7 +55,10 @@ vi.mock('../../../../../src/utils/build-callback-validation-failure-log.js', () 
 }))
 
 const { uploadCallback } = await import('../../../../../src/api/v1/callback/index.js')
+const { resolveJourneyId } = await import('../../../../../src/services/journey-correlation-service.js')
 const { persistMetadataWithOutbox } = await import('../../../../../src/services/metadata-service.js')
+
+const { RESOLVED_ID } = vi.hoisted(() => ({ RESOLVED_ID: '3f2504e0-4f89-41d3-9a0c-0305e82c3301' }))
 
 const buildMockRequest = (overrides = {}) => ({
   payload: {
@@ -76,6 +83,7 @@ describe('callback handler — (document/created)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockPublishAuditEvent.mockResolvedValue(undefined)
+    resolveJourneyId.mockResolvedValue({ journeyId: RESOLVED_ID, source: 'generated' })
   })
 
   test('emits document/created for each inserted fileId on success', async () => {

@@ -12,11 +12,12 @@ const logger = createLogger()
  * @param {Error} error - The validation error
  * @param {Object|undefined} file - The file that failed validation (optional)
  * @param {Object} h - Hapi response toolkit
+ * @param {string} correlationId - Journey id resolved at the callback boundary
  * @returns {Promise<Object>} Hapi response with 201 status
  */
-export async function handleValidationFailure (payload, error, file, h) {
+export async function handleValidationFailure (payload, error, file, h, correlationId) {
   try {
-    await persistValidationFailureStatus(payload, error)
+    await persistValidationFailureStatus(payload, error, correlationId)
   } catch (persistErr) {
     logger.error(persistErr, 'Failed to persist status for semantic validation failure')
   }

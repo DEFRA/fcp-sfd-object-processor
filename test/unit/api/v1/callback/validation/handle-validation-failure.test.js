@@ -18,6 +18,8 @@ vi.mock('../../../../../../src/logging/logger.js', () => ({
   })
 }))
 
+const CORRELATION_ID = '550e8400-e29b-41d4-a716-446655440000'
+
 describe('handleValidationFailure', () => {
   let mockH
 
@@ -35,16 +37,16 @@ describe('handleValidationFailure', () => {
     const payload = { uploadStatus: 'ready' }
     const error = new Error('test error')
 
-    await handleValidationFailure(payload, error, undefined, mockH)
+    await handleValidationFailure(payload, error, undefined, mockH, CORRELATION_ID)
 
-    expect(persistValidationFailureStatus).toHaveBeenCalledWith(payload, error)
+    expect(persistValidationFailureStatus).toHaveBeenCalledWith(payload, error, CORRELATION_ID)
   })
 
   test('returns 201 response via Hapi response toolkit', async () => {
     const payload = { uploadStatus: 'ready' }
     const error = new Error('test error')
 
-    await handleValidationFailure(payload, error, undefined, mockH)
+    await handleValidationFailure(payload, error, undefined, mockH, CORRELATION_ID)
 
     expect(mockH.response).toHaveBeenCalledWith({ message: 'Validation failure persisted' })
     expect(mockH.response().code).toHaveBeenCalledWith(201)
@@ -56,9 +58,9 @@ describe('handleValidationFailure', () => {
     const file = { fileId: 'abc-123', fileStatus: 'complete' }
 
     // Should not throw
-    await handleValidationFailure(payload, error, file, mockH)
+    await handleValidationFailure(payload, error, file, mockH, CORRELATION_ID)
 
-    expect(persistValidationFailureStatus).toHaveBeenCalledWith(payload, error)
+    expect(persistValidationFailureStatus).toHaveBeenCalledWith(payload, error, CORRELATION_ID)
   })
 
   test('does not throw when file is undefined', async () => {
@@ -66,7 +68,7 @@ describe('handleValidationFailure', () => {
     const error = new Error('test error')
 
     await expect(
-      handleValidationFailure(payload, error, undefined, mockH)
+      handleValidationFailure(payload, error, undefined, mockH, CORRELATION_ID)
     ).resolves.not.toThrow()
   })
 
@@ -76,7 +78,7 @@ describe('handleValidationFailure', () => {
     const file = { fileStatus: 'complete' }
 
     await expect(
-      handleValidationFailure(payload, error, file, mockH)
+      handleValidationFailure(payload, error, file, mockH, CORRELATION_ID)
     ).resolves.not.toThrow()
   })
 
@@ -87,7 +89,7 @@ describe('handleValidationFailure', () => {
     const error = new Error('test error')
 
     await expect(
-      handleValidationFailure(payload, error, undefined, mockH)
+      handleValidationFailure(payload, error, undefined, mockH, CORRELATION_ID)
     ).resolves.not.toThrow()
   })
 
@@ -95,7 +97,7 @@ describe('handleValidationFailure', () => {
     const payload = { uploadStatus: 'ready' }
     const error = new Error('test error')
 
-    const result = await handleValidationFailure(payload, error, undefined, null)
+    const result = await handleValidationFailure(payload, error, undefined, null, CORRELATION_ID)
 
     expect(result).toEqual({
       status: 201,
@@ -107,7 +109,7 @@ describe('handleValidationFailure', () => {
     const payload = { uploadStatus: 'ready' }
     const error = new Error('test error')
 
-    const result = await handleValidationFailure(payload, error, undefined, {})
+    const result = await handleValidationFailure(payload, error, undefined, {}, CORRELATION_ID)
 
     expect(result).toEqual({
       status: 201,

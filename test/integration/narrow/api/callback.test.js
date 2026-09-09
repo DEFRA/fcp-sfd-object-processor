@@ -810,6 +810,7 @@ describe('POST to the /api/v1/callback route — idempotency', async () => {
   afterAll(async () => {
     await db.collection(metadataCollection).deleteMany({})
     config.set('mongo.collections.uploadMetadata', originalCollection)
+    metadataCollection = config.get('mongo.collections.uploadMetadata')
     if (server && typeof server.stop === 'function') {
       await server.stop()
     }
@@ -987,5 +988,138 @@ describe('POST /api/v1/callback — audit event schema validation', async () => 
       expect(event.audit.details.reason).toBe('payload_validation_failure')
       expect(event.audit.accounts).toBeUndefined()
     })
+  })
+})
+
+describe('POST /api/v1/callback — journey id propagation', async () => {
+  const JOURNEY_ID = '7c9e6679-7425-40de-944b-e07fc1f90ae7'
+  const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+  let journeyServer
+  let sessionsCollection
+
+  const payloadWithJourneyId = (journeyId) => ({
+    ...mockScanAndUploadResponseSingleFile,
+    metadata: { ...mockScanAndUploadResponseSingleFile.metadata, journeyId }
+  })
+
+  const readPersisted = async () => {
+    const documents = await db.collection(metadataCollection).find({}).toArray()
+    const statusRecords = await db.collection(statusCollection).find({}).toArray()
+    const outboxEntries = await db.collection(outboxCollection).find({}).toArray()
+
+    return { documents, statusRecords, outboxEntries }
+  }
+
+  beforeAll(async () => {
+    sessionsCollection = config.get('mongo.collections.sessions')
+    journeyServer = await createServer()
+    await journeyServer.initialize()
+  })
+
+  afterEach(async () => {
+    await db.collection(sessionsCollection).deleteMany({ journeyId: JOURNEY_ID })
+  })
+
+  afterAll(async () => {
+    if (journeyServer && typeof journeyServer.stop === 'function') {
+      await journeyServer.stop()
+    }
+  })
+
+  test('a journey id matching the initiate session becomes the persisted correlation id', async () => {
+    await db.collection(sessionsCollection).insertOne({
+      uploadId: 'upload-id-for-journey-test',
+      journeyId: JOURNEY_ID,
+      metadata: mockScanAndUploadResponseSingleFile.metadata,
+      timestamp: new Date()
+    })
+
+    const response = await journeyServer.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: payloadWithJourneyId(JOURNEY_ID)
+    })
+
+    const { documents, statusRecords, outboxEntries } = await readPersisted()
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+    expect(documents).toHaveLength(1)
+    expect(documents[0].messaging.correlationId).toBe(JOURNEY_ID)
+    expect(statusRecords[0].correlationId).toBe(JOURNEY_ID)
+    expect(outboxEntries[0].payload.messaging.correlationId).toBe(JOURNEY_ID)
+  })
+
+  test('the journey id is kept out of the persisted metadata subdocument', async () => {
+    await db.collection(sessionsCollection).insertOne({
+      uploadId: 'upload-id-for-journey-test',
+      journeyId: JOURNEY_ID,
+      metadata: mockScanAndUploadResponseSingleFile.metadata,
+      timestamp: new Date()
+    })
+
+    await journeyServer.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: payloadWithJourneyId(JOURNEY_ID)
+    })
+
+    const { documents } = await readPersisted()
+
+    expect(documents[0].metadata).not.toHaveProperty('journeyId')
+    expect(documents[0].metadata).toEqual(mockScanAndUploadResponseSingleFile.metadata)
+  })
+
+  test('the metadata route still answers 200 after such a callback', async () => {
+    await db.collection(sessionsCollection).insertOne({
+      uploadId: 'upload-id-for-journey-test',
+      journeyId: JOURNEY_ID,
+      metadata: mockScanAndUploadResponseSingleFile.metadata,
+      timestamp: new Date()
+    })
+
+    await journeyServer.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: payloadWithJourneyId(JOURNEY_ID)
+    })
+
+    const response = await journeyServer.inject({
+      method: 'GET',
+      url: `/api/v1/metadata/sbi/${mockScanAndUploadResponseSingleFile.metadata.sbi}`
+    })
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+    response.result.data.forEach((document) => {
+      expect(document.metadata).not.toHaveProperty('journeyId')
+    })
+  })
+
+  test('a journey id with no matching session falls back to a generated correlation id', async () => {
+    const response = await journeyServer.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: payloadWithJourneyId(JOURNEY_ID)
+    })
+
+    const { documents } = await readPersisted()
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+    expect(documents[0].messaging.correlationId).toMatch(UUID_V4)
+    expect(documents[0].messaging.correlationId).not.toBe(JOURNEY_ID)
+    expect(documents[0].metadata).not.toHaveProperty('journeyId')
+  })
+
+  test('a callback carrying no journey id is still persisted under a generated one', async () => {
+    const response = await journeyServer.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: mockScanAndUploadResponseSingleFile
+    })
+
+    const { documents } = await readPersisted()
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+    expect(documents[0].messaging.correlationId).toMatch(UUID_V4)
   })
 })

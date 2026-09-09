@@ -6,9 +6,15 @@ import * as metadataService from '../../../../src/services/metadata-service.js'
 import { mockScanAndUploadResponse } from '../../../mocks/cdp-uploader.js'
 import * as metricsModule from '../../../../src/api/common/helpers/metrics.js'
 import * as validateCallbackModule from '../../../../src/api/v1/callback/validation/validate-callback-payload.js'
+import { resolveJourneyId } from '../../../../src/services/journey-correlation-service.js'
 
 vi.mock('../../../../src/services/metadata-service.js')
 vi.mock('../../../../src/api/common/helpers/metrics.js', () => ({ metricsCounter: vi.fn() }))
+vi.mock('../../../../src/services/journey-correlation-service.js', () => ({
+  resolveJourneyId: vi.fn().mockResolvedValue({ journeyId: RESOLVED_ID, source: 'generated' })
+}))
+
+const { RESOLVED_ID } = vi.hoisted(() => ({ RESOLVED_ID: '3f2504e0-4f89-41d3-9a0c-0305e82c3301' }))
 
 const buildMockH = () => ({
   response: (body) => ({
@@ -25,6 +31,7 @@ describe('callback handler status enforcement', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.restoreAllMocks()
+    resolveJourneyId.mockResolvedValue({ journeyId: RESOLVED_ID, source: 'generated' })
   })
 
   test('non-ready uploadStatus is persisted then returns 201', async () => {
@@ -34,7 +41,7 @@ describe('callback handler status enforcement', () => {
 
     const result = await uploadCallback.options.handler({ payload }, buildMockH())
 
-    expect(metadataService.persistValidationFailureStatus).toHaveBeenCalledWith(payload, expect.any(Error))
+    expect(metadataService.persistValidationFailureStatus).toHaveBeenCalledWith(payload, expect.any(Error), RESOLVED_ID)
     expect(result.status).toBe(201)
     expect(result.body).toBeDefined()
   })
@@ -46,7 +53,7 @@ describe('callback handler status enforcement', () => {
 
     const result = await uploadCallback.options.handler({ payload }, buildMockH())
 
-    expect(metadataService.persistMetadataWithOutbox).toHaveBeenCalledWith(payload)
+    expect(metadataService.persistMetadataWithOutbox).toHaveBeenCalledWith(payload, RESOLVED_ID)
     expect(result.status).toBe(201)
     expect(result.body).toEqual({
       message: 'Metadata created',
@@ -64,7 +71,7 @@ describe('callback handler status enforcement', () => {
 
     const result = await uploadCallback.options.handler({ payload }, buildMockH())
 
-    expect(metadataService.persistValidationFailureStatus).toHaveBeenCalledWith(payload, expect.any(Error))
+    expect(metadataService.persistValidationFailureStatus).toHaveBeenCalledWith(payload, expect.any(Error), RESOLVED_ID)
     expect(metadataService.persistMetadataWithOutbox).not.toHaveBeenCalled()
     expect(result.status).toBe(201)
     // Rejected files should trigger unexpected-status metric since fileStatus !== 'complete'
@@ -81,7 +88,7 @@ describe('callback handler status enforcement', () => {
 
     const result = await uploadCallback.options.handler({ payload }, buildMockH())
 
-    expect(metadataService.persistMetadataWithOutbox).toHaveBeenCalledWith(payload)
+    expect(metadataService.persistMetadataWithOutbox).toHaveBeenCalledWith(payload, RESOLVED_ID)
     expect(result.status).toBe(200)
     expect(result.body).toEqual({
       message: 'Duplicate callback ignored'
@@ -107,7 +114,7 @@ describe('callback handler status enforcement', () => {
 
     const result = await uploadCallback.options.handler({ payload: groupedPayload }, buildMockH())
 
-    expect(metadataService.persistMetadataWithOutbox).toHaveBeenCalledWith(groupedPayload)
+    expect(metadataService.persistMetadataWithOutbox).toHaveBeenCalledWith(groupedPayload, RESOLVED_ID)
     expect(result.status).toBe(200)
     expect(result.body).toEqual({
       message: 'Duplicate callback ignored'
@@ -151,6 +158,11 @@ describe('uploadCallback validate.failAction', () => {
   const validationError = new Error('payload invalid')
   const request = { payload: { uploadStatus: 'pending' } }
 
+  beforeEach(() => {
+    vi.clearAllMocks()
+    resolveJourneyId.mockResolvedValue({ journeyId: RESOLVED_ID, source: 'generated' })
+  })
+
   test('persists validation failure and returns 201 takeover response', async () => {
     metadataService.persistValidationFailureStatus.mockResolvedValue()
     const takeoverResult = { status: httpConstants.HTTP_STATUS_CREATED, body: { message: 'Validation failure persisted' } }
@@ -163,7 +175,7 @@ describe('uploadCallback validate.failAction', () => {
 
     const result = await uploadCallback.options.validate.failAction(request, h, validationError)
 
-    expect(metadataService.persistValidationFailureStatus).toHaveBeenCalledWith(request.payload, validationError)
+    expect(metadataService.persistValidationFailureStatus).toHaveBeenCalledWith({ uploadStatus: 'pending', metadata: {} }, validationError, RESOLVED_ID)
     expect(metricsModule.metricsCounter).toHaveBeenCalledWith('callback_validation_failures')
     expect(h.response).toHaveBeenCalledWith({ message: 'Validation failure persisted' })
     expect(mockTakeover).toHaveBeenCalled()
