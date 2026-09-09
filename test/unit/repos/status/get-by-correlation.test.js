@@ -59,13 +59,13 @@ describe('getStatusByCorrelationId', () => {
     expect(mockSort).toHaveBeenCalledWith({ timestamp: 1 })
   })
 
-  test('should exclude _id field from results', async () => {
+  test('should exclude the _id and correlationId fields from results', async () => {
     const mockDocuments = [{ correlationId, sbi: 105000000, fileId: '123', timestamp: new Date(), validated: true, errors: null }]
     mockToArray.mockResolvedValue(mockDocuments)
 
     await getStatusByCorrelationId(correlationId)
 
-    expect(mockProject).toHaveBeenCalledWith({ _id: 0 })
+    expect(mockProject).toHaveBeenCalledWith({ _id: 0, correlationId: 0 })
   })
 
   test('should return array of status documents when records exist', async () => {
