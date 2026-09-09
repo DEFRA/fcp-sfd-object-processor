@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto'
-
 import { client } from '../data/db.js'
 import { persistMetadata, formatInboundMetadata, getMetadataByFileId } from '../repos/metadata.js'
 import { createOutboxEntries } from '../repos/outbox.js'
@@ -12,12 +10,12 @@ const logger = createLogger()
 
 const DUPLICATE_KEY_ERROR_CODE = 11000
 
-const persistMetadataWithOutbox = async (rawDocuments) => {
+const persistMetadataWithOutbox = async (rawDocuments, correlationId) => {
   const session = client.startSession()
 
   try {
     return await session.withTransaction(async () => {
-      const documents = formatInboundMetadata(rawDocuments)
+      const documents = formatInboundMetadata(rawDocuments, correlationId)
       const statusDocuments = buildValidatedStatusDocuments(documents)
 
       await insertStatus(statusDocuments, session)
@@ -67,9 +65,8 @@ const persistMetadataWithOutbox = async (rawDocuments) => {
   }
 }
 
-const persistValidationFailureStatus = async (payload, validationError) => {
+const persistValidationFailureStatus = async (payload, validationError, correlationId) => {
   try {
-    const correlationId = randomUUID()
     const statusDocuments = buildValidationFailureStatusDocuments(payload, validationError, correlationId)
     return await insertStatus(statusDocuments)
   } catch (error) {

@@ -53,6 +53,8 @@ const validPayload = {
   numberOfRejectedFiles: 0
 }
 
+const CORRELATION_ID = '550e8400-e29b-41d4-a716-446655440000'
+
 describe('validateCallbackPayload', () => {
   let h
 
@@ -66,13 +68,13 @@ describe('validateCallbackPayload', () => {
   })
 
   test('returns null when payload is valid', async () => {
-    const result = await validateCallbackPayload(validPayload, h)
+    const result = await validateCallbackPayload(validPayload, h, CORRELATION_ID)
     expect(result).toBeNull()
   })
 
   test('returns error when uploadStatus is not ready', async () => {
     const payload = { ...validPayload, uploadStatus: 'pending' }
-    const result = await validateCallbackPayload(payload, h)
+    const result = await validateCallbackPayload(payload, h, CORRELATION_ID)
     expect(result).toBeDefined()
   })
 
@@ -84,7 +86,7 @@ describe('validateCallbackPayload', () => {
       },
       numberOfRejectedFiles: 1
     }
-    const result = await validateCallbackPayload(payload, h)
+    const result = await validateCallbackPayload(payload, h, CORRELATION_ID)
     expect(result).toBeDefined()
   })
 
@@ -100,7 +102,7 @@ describe('validateCallbackPayload', () => {
       },
       numberOfRejectedFiles: 1
     }
-    const result = await validateCallbackPayload(payload, h)
+    const result = await validateCallbackPayload(payload, h, CORRELATION_ID)
     // Should return error because rejected file is in array
     expect(result).toBeDefined()
   })
@@ -117,7 +119,7 @@ describe('validateCallbackPayload', () => {
       },
       numberOfRejectedFiles: 0
     }
-    const result = await validateCallbackPayload(payload, h)
+    const result = await validateCallbackPayload(payload, h, CORRELATION_ID)
     expect(result).toBeNull()
   })
 
@@ -133,7 +135,7 @@ describe('validateCallbackPayload', () => {
       },
       numberOfRejectedFiles: 1
     }
-    const result = await validateCallbackPayload(payload, h)
+    const result = await validateCallbackPayload(payload, h, CORRELATION_ID)
     expect(result).toBeDefined()
   })
 
@@ -150,7 +152,7 @@ describe('validateCallbackPayload', () => {
       },
       numberOfRejectedFiles: 2
     }
-    const result = await validateCallbackPayload(payload, h)
+    const result = await validateCallbackPayload(payload, h, CORRELATION_ID)
     // Should return error because rejected files are in array
     expect(result).toBeDefined()
   })
@@ -170,7 +172,7 @@ describe('validateCallbackPayload', () => {
       },
       numberOfRejectedFiles: 2
     }
-    const result = await validateCallbackPayload(payload, h)
+    const result = await validateCallbackPayload(payload, h, CORRELATION_ID)
     expect(result).toBeDefined()
   })
 
@@ -184,7 +186,7 @@ describe('validateCallbackPayload', () => {
       },
       numberOfRejectedFiles: 0
     }
-    const result = await validateCallbackPayload(payload, h)
+    const result = await validateCallbackPayload(payload, h, CORRELATION_ID)
     expect(result).toBeNull()
   })
 
@@ -201,7 +203,7 @@ describe('validateCallbackPayload', () => {
       },
       numberOfRejectedFiles: 0
     }
-    const result = await validateCallbackPayload(payload, h)
+    const result = await validateCallbackPayload(payload, h, CORRELATION_ID)
     expect(result).toBeNull()
   })
 
@@ -218,23 +220,23 @@ describe('validateCallbackPayload', () => {
       },
       numberOfRejectedFiles: 0
     }
-    const result = await validateCallbackPayload(payload, h)
+    const result = await validateCallbackPayload(payload, h, CORRELATION_ID)
     expect(result).toBeNull()
   })
 
   test('treats null payload as empty object without throwing', async () => {
-    const result = await validateCallbackPayload(null, h)
+    const result = await validateCallbackPayload(null, h, CORRELATION_ID)
     expect(result).toBeDefined()
   })
 
   test('treats undefined payload as empty object without throwing', async () => {
-    const result = await validateCallbackPayload(undefined, h)
+    const result = await validateCallbackPayload(undefined, h, CORRELATION_ID)
     expect(result).toBeDefined()
   })
 
   test('treats missing form as empty object without throwing', async () => {
     const payload = { uploadStatus: 'ready', metadata: validMetadata, numberOfRejectedFiles: 0 }
-    const result = await validateCallbackPayload(payload, h)
+    const result = await validateCallbackPayload(payload, h, CORRELATION_ID)
     expect(result).toBeNull()
   })
 
@@ -249,7 +251,7 @@ describe('validateCallbackPayload', () => {
       form: { 'file-1': fileWithBadChecksum },
       numberOfRejectedFiles: 0
     }
-    const result = await validateCallbackPayload(payload, h)
+    const result = await validateCallbackPayload(payload, h, CORRELATION_ID)
     expect(result).toBeDefined()
   })
 })

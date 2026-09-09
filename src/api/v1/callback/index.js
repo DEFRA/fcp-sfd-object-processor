@@ -11,10 +11,23 @@ import { buildCallbackValidationFailureLog, buildCallbackPersistFailureLog } fro
 import { buildAuditAccounts } from '../../../utils/build-audit-accounts.js'
 import { sendAuditEvent } from '../../../messaging/outbound/audit/send-audit-event.js'
 import { extractFileIdsFromPayload } from '../../../mappers/status.js'
+import { splitJourneyId } from '../../../utils/split-journey-id.js'
+import { resolveJourneyId } from '../../../services/journey-correlation-service.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
 const tracingHeader = config.get('tracing.header')
+
+// Takes the journey id out of the caller-supplied metadata and verifies it against the
+// session written at initiate. Returns the correlation id for this upload together with
+// a payload whose metadata no longer carries the id, so that nothing downstream has to
+// remember to strip it. Never throws: an unresolved id degrades to a generated one.
+const resolveCallbackCorrelation = async (payload) => {
+  const { journeyId: rawJourneyId, metadata } = splitJourneyId(payload?.metadata)
+  const { journeyId } = await resolveJourneyId(rawJourneyId, metadata)
+
+  return { correlationId: journeyId, payload: { ...payload, metadata } }
+}
 
 /**
  * Hapi route definition for the CDP Uploader callback endpoint.
@@ -41,8 +54,10 @@ export const uploadCallback = {
         logger.error(buildCallbackValidationFailureLog(request, err), 'Validation failed')
         await metricsCounter('callback_validation_failures')
 
+        const { correlationId, payload } = await resolveCallbackCorrelation(request.payload)
+
         try {
-          await persistValidationFailureStatus(request.payload, err)
+          await persistValidationFailureStatus(payload, err, correlationId)
         } catch (persistError) {
           logger.error(buildCallbackPersistFailureLog(request, persistError), 'Failed to persist status for callback validation failure')
         }
@@ -67,8 +82,10 @@ export const uploadCallback = {
       status: callbackResponseSchema
     },
     handler: async (request, h) => {
+      const { correlationId, payload } = await resolveCallbackCorrelation(request.payload)
+
       try {
-        const validationError = await validateCallbackPayload(request.payload, h)
+        const validationError = await validateCallbackPayload(payload, h, correlationId)
         if (validationError) {
           return validationError
         }
@@ -78,7 +95,7 @@ export const uploadCallback = {
       }
 
       try {
-        const result = await persistMetadataWithOutbox(request.payload)
+        const result = await persistMetadataWithOutbox(payload, correlationId)
 
         if (result.duplicate) {
           return h.response({

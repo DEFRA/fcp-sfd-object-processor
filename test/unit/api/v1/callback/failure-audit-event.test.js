@@ -41,6 +41,10 @@ vi.mock('../../../../../src/api/common/helpers/metrics.js', () => ({
   metricsCounter: vi.fn()
 }))
 
+vi.mock('../../../../../src/services/journey-correlation-service.js', () => ({
+  resolveJourneyId: vi.fn()
+}))
+
 vi.mock('../../../../../src/api/v1/callback/validation/validate-callback-payload.js', () => ({
   validateCallbackPayload: vi.fn().mockResolvedValue(null)
 }))
@@ -51,8 +55,11 @@ vi.mock('../../../../../src/utils/build-callback-validation-failure-log.js', () 
 }))
 
 const { uploadCallback } = await import('../../../../../src/api/v1/callback/index.js')
+const { resolveJourneyId } = await import('../../../../../src/services/journey-correlation-service.js')
 const { persistMetadataWithOutbox, persistValidationFailureStatus } = await import('../../../../../src/services/metadata-service.js')
 const { buildCallbackValidationFailureLog } = await import('../../../../../src/utils/build-callback-validation-failure-log.js')
+
+const { RESOLVED_ID } = vi.hoisted(() => ({ RESOLVED_ID: '3f2504e0-4f89-41d3-9a0c-0305e82c3301' }))
 
 const buildMockRequest = (overrides = {}) => ({
   payload: {
@@ -77,6 +84,7 @@ describe('callback handler — event 4 (document/failed on processing error)', (
   beforeEach(() => {
     vi.clearAllMocks()
     mockSendAuditEvent.mockResolvedValue(undefined)
+    resolveJourneyId.mockResolvedValue({ journeyId: RESOLVED_ID, source: 'generated' })
   })
 
   test('emits document/failed per payload fileId when persistMetadataWithOutbox throws', async () => {
@@ -208,6 +216,7 @@ describe('callback handler — event 5 (document/failed on Joi validation failur
   beforeEach(() => {
     vi.clearAllMocks()
     mockSendAuditEvent.mockResolvedValue(undefined)
+    resolveJourneyId.mockResolvedValue({ journeyId: RESOLVED_ID, source: 'generated' })
   })
 
   test('returns 201 response in failAction', async () => {
@@ -238,7 +247,7 @@ describe('callback handler — event 5 (document/failed on Joi validation failur
 
     await uploadCallback.options.validate.failAction(request, h, mockErr)
 
-    expect(persistValidationFailureStatus).toHaveBeenCalledWith(request.payload, mockErr)
+    expect(persistValidationFailureStatus).toHaveBeenCalledWith(request.payload, mockErr, RESOLVED_ID)
   })
 
   test('emits document/failed per payload fileId in failAction', async () => {

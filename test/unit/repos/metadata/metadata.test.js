@@ -28,6 +28,8 @@ vi.mock('../../../../src/config/index.js', () => ({
 let mockCollection
 let mockSession
 
+const CORRELATION_ID = '550e8400-e29b-41d4-a716-446655440000'
+
 describe('Metadata Repository', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -46,7 +48,7 @@ describe('Metadata Repository', () => {
 
   describe('Format inbound metadata', () => {
     describe('When payload includes multiple uploads', () => {
-      const formattedMetadata = formatInboundMetadata(mockScanAndUploadResponse)
+      const formattedMetadata = formatInboundMetadata(mockScanAndUploadResponse, CORRELATION_ID)
 
       test('it should return an array', () => {
         expect(formattedMetadata).toBeInstanceOf(Array)
@@ -110,7 +112,8 @@ describe('Metadata Repository', () => {
         expect(formattedMetadata[1].messaging.publishedAt).toBeNull()
       })
 
-      test('each object should have the same correlationId', () => {
+      test('each object should carry the supplied correlationId', () => {
+        expect(formattedMetadata[0].messaging.correlationId).toBe(CORRELATION_ID)
         expect(formattedMetadata[0].messaging.correlationId).toBe(formattedMetadata[1].messaging.correlationId)
       })
 
@@ -131,7 +134,7 @@ describe('Metadata Repository', () => {
         }
       }
 
-      const formatted = formatInboundMetadata(payload)
+      const formatted = formatInboundMetadata(payload, CORRELATION_ID)
 
       expect(formatted).toHaveLength(1)
       expect(formatted[0].file.fileId).toBe(mockScanAndUploadResponse.form['a-file-upload-field'].fileId)
@@ -148,7 +151,7 @@ describe('Metadata Repository', () => {
         }
       }
 
-      const formatted = formatInboundMetadata(payload)
+      const formatted = formatInboundMetadata(payload, CORRELATION_ID)
 
       expect(formatted).toHaveLength(2)
       expect(formatted[0].file.fileId).toBe(fileUpload1.fileId)
@@ -167,7 +170,7 @@ describe('Metadata Repository', () => {
         }
       }
 
-      const formatted = formatInboundMetadata(payload)
+      const formatted = formatInboundMetadata(payload, CORRELATION_ID)
 
       expect(formatted).toHaveLength(2)
       expect(formatted.map(item => item.file.fileId)).toEqual([fileUpload1.fileId, fileUpload2.fileId])
@@ -184,7 +187,7 @@ describe('Metadata Repository', () => {
         }
       }
 
-      const formatted = formatInboundMetadata(payload)
+      const formatted = formatInboundMetadata(payload, CORRELATION_ID)
 
       expect(formatted[0].messaging.correlationId).toBe(formatted[1].messaging.correlationId)
     })
@@ -207,7 +210,7 @@ describe('Metadata Repository', () => {
         }
       }
 
-      const formatted = formatInboundMetadata(payload)
+      const formatted = formatInboundMetadata(payload, CORRELATION_ID)
 
       expect(formatted).toHaveLength(2)
       expect(formatted[0].file.fileId).toBe(fileUpload1.fileId)
@@ -227,7 +230,7 @@ describe('Metadata Repository', () => {
         }
       }
 
-      const formatted = formatInboundMetadata(payload)
+      const formatted = formatInboundMetadata(payload, CORRELATION_ID)
 
       expect(formatted).toHaveLength(2)
       // All files should share the same correlationId

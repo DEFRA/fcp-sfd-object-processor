@@ -34,6 +34,8 @@ vi.mock('../../../src/logging/logger.js', () => ({
   })
 }))
 
+const CORRELATION_ID = '550e8400-e29b-41d4-a716-446655440000'
+
 describe('Metadata Service', () => {
   let mockSession
 
@@ -58,7 +60,7 @@ describe('Metadata Service', () => {
         return await callback()
       })
 
-      await persistMetadataWithOutbox(rawDocuments)
+      await persistMetadataWithOutbox(rawDocuments, CORRELATION_ID)
 
       expect(client.startSession).toHaveBeenCalled()
       expect(mockSession.endSession).toHaveBeenCalled()
@@ -73,7 +75,7 @@ describe('Metadata Service', () => {
         return await callback()
       })
 
-      await persistMetadataWithOutbox(rawDocuments)
+      await persistMetadataWithOutbox(rawDocuments, CORRELATION_ID)
 
       expect(mockSession.withTransaction).toHaveBeenCalled()
     })
@@ -87,9 +89,9 @@ describe('Metadata Service', () => {
         return await callback()
       })
 
-      await persistMetadataWithOutbox(rawDocuments)
+      await persistMetadataWithOutbox(rawDocuments, CORRELATION_ID)
 
-      expect(formatInboundMetadata).toHaveBeenCalledWith(rawDocuments)
+      expect(formatInboundMetadata).toHaveBeenCalledWith(rawDocuments, CORRELATION_ID)
     })
 
     test('should call persistMetadata with formatted documents and session', async () => {
@@ -101,7 +103,7 @@ describe('Metadata Service', () => {
         return await callback()
       })
 
-      await persistMetadataWithOutbox(rawDocuments)
+      await persistMetadataWithOutbox(rawDocuments, CORRELATION_ID)
 
       expect(persistMetadata).toHaveBeenCalledWith(formattedDocuments, mockSession)
     })
@@ -122,7 +124,7 @@ describe('Metadata Service', () => {
         return await callback()
       })
 
-      await persistMetadataWithOutbox(rawDocuments)
+      await persistMetadataWithOutbox(rawDocuments, CORRELATION_ID)
 
       expect(createOutboxEntries).toHaveBeenCalledWith(
         mockMetadataResult.insertedIds,
@@ -147,7 +149,7 @@ describe('Metadata Service', () => {
         return await callback()
       })
 
-      const result = await persistMetadataWithOutbox(rawDocuments)
+      const result = await persistMetadataWithOutbox(rawDocuments, CORRELATION_ID)
 
       expect(result).toEqual(mockMetadataResult)
     })
@@ -162,7 +164,7 @@ describe('Metadata Service', () => {
         return await callback()
       })
 
-      await expect(persistMetadataWithOutbox(rawDocuments)).rejects.toThrow('Database error')
+      await expect(persistMetadataWithOutbox(rawDocuments, CORRELATION_ID)).rejects.toThrow('Database error')
 
       expect(mockSession.endSession).toHaveBeenCalled()
     })
@@ -184,7 +186,7 @@ describe('Metadata Service', () => {
         return await callback()
       })
 
-      await expect(persistMetadataWithOutbox(rawDocuments)).rejects.toThrow('Outbox creation failed')
+      await expect(persistMetadataWithOutbox(rawDocuments, CORRELATION_ID)).rejects.toThrow('Outbox creation failed')
 
       expect(mockSession.endSession).toHaveBeenCalled()
     })
@@ -194,7 +196,7 @@ describe('Metadata Service', () => {
 
       mockSession.withTransaction.mockRejectedValue(mockError)
 
-      await expect(persistMetadataWithOutbox(rawDocuments)).rejects.toThrow('Transaction error')
+      await expect(persistMetadataWithOutbox(rawDocuments, CORRELATION_ID)).rejects.toThrow('Transaction error')
 
       expect(mockSession.endSession).toHaveBeenCalled()
     })
@@ -215,7 +217,7 @@ describe('Metadata Service', () => {
         return await callback()
       })
 
-      await persistMetadataWithOutbox(rawDocuments)
+      await persistMetadataWithOutbox(rawDocuments, CORRELATION_ID)
 
       expect(insertStatus).toHaveBeenCalledWith(
         expect.arrayContaining([
@@ -233,7 +235,7 @@ describe('Metadata Service', () => {
       mockSession.withTransaction.mockRejectedValue(duplicateKeyError)
       getMetadataByFileId.mockResolvedValue({ messaging: { correlationId: existingCorrelationId } })
 
-      const result = await persistMetadataWithOutbox(mockScanAndUploadResponse)
+      const result = await persistMetadataWithOutbox(mockScanAndUploadResponse, CORRELATION_ID)
 
       expect(result).toEqual({ duplicate: true, correlationId: existingCorrelationId })
       expect(getMetadataByFileId).toHaveBeenCalled()
@@ -246,7 +248,7 @@ describe('Metadata Service', () => {
       mockSession.withTransaction.mockRejectedValue(duplicateKeyError)
       getMetadataByFileId.mockResolvedValue({ messaging: { correlationId: existingCorrelationId } })
 
-      await persistMetadataWithOutbox(mockScanAndUploadResponse)
+      await persistMetadataWithOutbox(mockScanAndUploadResponse, CORRELATION_ID)
 
       expect(mockSession.endSession).toHaveBeenCalled()
     })
@@ -258,7 +260,7 @@ describe('Metadata Service', () => {
       mockSession.withTransaction.mockRejectedValue(duplicateKeyError)
       getMetadataByFileId.mockResolvedValue({ messaging: { correlationId: existingCorrelationId } })
 
-      await persistMetadataWithOutbox(mockScanAndUploadResponse)
+      await persistMetadataWithOutbox(mockScanAndUploadResponse, CORRELATION_ID)
 
       expect(createOutboxEntries).not.toHaveBeenCalled()
     })
@@ -268,7 +270,7 @@ describe('Metadata Service', () => {
 
       mockSession.withTransaction.mockRejectedValue(genericError)
 
-      await expect(persistMetadataWithOutbox(rawDocuments)).rejects.toThrow('Some other database error')
+      await expect(persistMetadataWithOutbox(rawDocuments, CORRELATION_ID)).rejects.toThrow('Some other database error')
       expect(getMetadataByFileId).not.toHaveBeenCalled()
     })
 
@@ -285,7 +287,7 @@ describe('Metadata Service', () => {
 
       mockSession.withTransaction.mockRejectedValue(duplicateKeyError)
 
-      await expect(persistMetadataWithOutbox(payloadWithNoFiles)).rejects.toThrow('E11000 duplicate key error')
+      await expect(persistMetadataWithOutbox(payloadWithNoFiles, CORRELATION_ID)).rejects.toThrow('E11000 duplicate key error')
       expect(getMetadataByFileId).not.toHaveBeenCalled()
     })
 
@@ -305,7 +307,7 @@ describe('Metadata Service', () => {
       mockSession.withTransaction.mockRejectedValue(duplicateKeyError)
       getMetadataByFileId.mockResolvedValue({ messaging: { correlationId: existingCorrelationId } })
 
-      const result = await persistMetadataWithOutbox(payloadWithArrayFiles)
+      const result = await persistMetadataWithOutbox(payloadWithArrayFiles, CORRELATION_ID)
 
       expect(result).toEqual({ duplicate: true, correlationId: existingCorrelationId })
       expect(getMetadataByFileId).toHaveBeenCalledWith(
@@ -325,7 +327,7 @@ describe('Metadata Service', () => {
 
       mockSession.withTransaction.mockRejectedValue(duplicateKeyError)
 
-      await expect(persistMetadataWithOutbox(payloadWithEmptyArray)).rejects.toThrow('E11000 duplicate key error')
+      await expect(persistMetadataWithOutbox(payloadWithEmptyArray, CORRELATION_ID)).rejects.toThrow('E11000 duplicate key error')
       expect(getMetadataByFileId).not.toHaveBeenCalled()
     })
   })
@@ -344,18 +346,18 @@ describe('Metadata Service', () => {
 
       insertStatus.mockResolvedValue({ acknowledged: true, insertedCount: 2 })
 
-      await persistValidationFailureStatus(rawDocuments[0], validationError)
+      await persistValidationFailureStatus(rawDocuments[0], validationError, CORRELATION_ID)
 
       expect(insertStatus).toHaveBeenCalledWith(
         expect.arrayContaining([
-          expect.objectContaining({ validated: false, correlationId: expect.any(String) }),
-          expect.objectContaining({ validated: false, correlationId: expect.any(String) })
+          expect.objectContaining({ validated: false, correlationId: CORRELATION_ID }),
+          expect.objectContaining({ validated: false, correlationId: CORRELATION_ID })
         ])
       )
       expect(client.startSession).not.toHaveBeenCalled()
     })
 
-    test('should generate a correlationId and pass it to the status mapper', async () => {
+    test('should pass the supplied correlationId to the status mapper', async () => {
       const validationError = {
         details: [
           {
@@ -368,7 +370,7 @@ describe('Metadata Service', () => {
 
       insertStatus.mockResolvedValue({ acknowledged: true, insertedCount: 2 })
 
-      await persistValidationFailureStatus(rawDocuments[0], validationError)
+      await persistValidationFailureStatus(rawDocuments[0], validationError, CORRELATION_ID)
 
       const statusDocuments = insertStatus.mock.calls[0][0]
 
@@ -377,11 +379,7 @@ describe('Metadata Service', () => {
       const uniqueCorrelationIds = [...new Set(correlationIds)]
 
       expect(uniqueCorrelationIds).toHaveLength(1)
-      expect(uniqueCorrelationIds[0]).toBeDefined()
-      expect(typeof uniqueCorrelationIds[0]).toBe('string')
-      expect(uniqueCorrelationIds[0]).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-      )
+      expect(uniqueCorrelationIds[0]).toBe(CORRELATION_ID)
     })
   })
 

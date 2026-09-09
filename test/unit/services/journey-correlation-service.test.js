@@ -10,8 +10,13 @@ vi.mock('../../../src/repos/sessions.js', () => ({
   getSessionByJourneyId: vi.fn()
 }))
 
+vi.mock('../../../src/api/common/helpers/metrics.js', () => ({
+  metricsCounter: vi.fn()
+}))
+
 const { resolveJourneyId } = await import('../../../src/services/journey-correlation-service.js')
 const { getSessionByJourneyId } = await import('../../../src/repos/sessions.js')
+const { metricsCounter } = await import('../../../src/api/common/helpers/metrics.js')
 
 const VALID_JOURNEY_ID = '550e8400-e29b-41d4-a716-446655440000'
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -22,6 +27,10 @@ const expectGenerated = (result, rawJourneyId) => {
   expect(result.source).toBe('generated')
   expect(result.journeyId).toMatch(UUID_V4)
   expect(result.journeyId).not.toBe(rawJourneyId)
+}
+
+const expectUnresolvedMetric = () => {
+  expect(metricsCounter).toHaveBeenCalledWith('callback_journey_id_unresolved')
 }
 
 const expectUnresolvedWarning = (reason) => {
@@ -51,6 +60,7 @@ describe('journey-correlation-service', () => {
       expect(result).toEqual({ journeyId: VALID_JOURNEY_ID, source: 'session' })
       expect(getSessionByJourneyId).toHaveBeenCalledWith(VALID_JOURNEY_ID)
       expect(mockLogger.warn).not.toHaveBeenCalled()
+      expect(metricsCounter).not.toHaveBeenCalled()
     })
 
     test('accepts an uppercase v4 UUID', async () => {
@@ -69,6 +79,7 @@ describe('journey-correlation-service', () => {
 
       expectGenerated(result)
       expectUnresolvedWarning('missing_or_malformed_journey_id')
+      expectUnresolvedMetric()
       expect(getSessionByJourneyId).not.toHaveBeenCalled()
     })
 
@@ -84,6 +95,7 @@ describe('journey-correlation-service', () => {
 
       expectGenerated(result, 'not-a-uuid')
       expectUnresolvedWarning('missing_or_malformed_journey_id')
+      expectUnresolvedMetric()
       expect(getSessionByJourneyId).not.toHaveBeenCalled()
     })
 
@@ -130,6 +142,7 @@ describe('journey-correlation-service', () => {
 
       expectGenerated(result, braced)
       expectUnresolvedWarning('no_session_found')
+      expectUnresolvedMetric()
     })
   })
 
@@ -141,6 +154,7 @@ describe('journey-correlation-service', () => {
 
       expectGenerated(result, VALID_JOURNEY_ID)
       expectUnresolvedWarning('no_session_found')
+      expectUnresolvedMetric()
     })
 
     test('generates an id when the session sbi does not match', async () => {
@@ -152,6 +166,7 @@ describe('journey-correlation-service', () => {
 
       expectGenerated(result, VALID_JOURNEY_ID)
       expectUnresolvedWarning('session_metadata_mismatch')
+      expectUnresolvedMetric()
     })
 
     test('generates an id when the session submissionId does not match', async () => {
@@ -163,6 +178,7 @@ describe('journey-correlation-service', () => {
 
       expectGenerated(result, VALID_JOURNEY_ID)
       expectUnresolvedWarning('session_metadata_mismatch')
+      expectUnresolvedMetric()
     })
 
     test('generates an id when the session has no metadata', async () => {
@@ -172,6 +188,7 @@ describe('journey-correlation-service', () => {
 
       expectGenerated(result, VALID_JOURNEY_ID)
       expectUnresolvedWarning('session_metadata_mismatch')
+      expectUnresolvedMetric()
     })
 
     test('generates an id when the callback payload has no metadata', async () => {
@@ -181,6 +198,7 @@ describe('journey-correlation-service', () => {
 
       expectGenerated(result, VALID_JOURNEY_ID)
       expectUnresolvedWarning('session_metadata_mismatch')
+      expectUnresolvedMetric()
     })
   })
 
@@ -192,6 +210,7 @@ describe('journey-correlation-service', () => {
 
       expectGenerated(result, VALID_JOURNEY_ID)
       expectUnresolvedWarning('session_lookup_failed')
+      expectUnresolvedMetric()
     })
 
     test('includes the underlying error message in the warning', async () => {

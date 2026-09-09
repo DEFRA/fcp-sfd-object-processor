@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto'
-
 import { config } from '../config/index.js'
 import { NotFoundError } from '../errors/not-found-error.js'
 import { db } from '../data/db.js'
@@ -40,16 +38,17 @@ const getMetadataByFileId = async (fileId) => {
 // removes any formData that is not a file upload
 // creates subdocuments to organise data
 // normalises grouped arrays to indexed field names and filters to file uploads
+// correlationId is supplied by the caller and is the journey id resolved at the callback
+// boundary, so that one identifier covers the whole upload from initiate to CRM.
 
-const formatInboundMetadata = (payload) => {
+const formatInboundMetadata = (payload, correlationId) => {
   const { metadata, uploadStatus, numberOfRejectedFiles } = payload
 
   // Re-key grouped arrays first, then remove anything without a fileId
   const normalisedForm = normaliseFormFields(payload.form)
   const filteredFormData = Object.values(normalisedForm ?? {}).filter(data => typeof data === 'object' && data?.fileId)
 
-  // ensure that all files uploaded together are grouped via the same correlationId
-  const correlationId = randomUUID()
+  // all files uploaded together are grouped via the same correlationId
   const filesInBatch = filteredFormData.length
 
   return filteredFormData.map((formUpload) => {
