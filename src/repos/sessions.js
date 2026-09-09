@@ -32,10 +32,19 @@ const insertSession = async ({ uploadId, uploadRef, metadata, timestamp }) => {
   }
 }
 
+// Used by the callback to verify a caller-supplied journeyId against the session
+// persisted at initiate time, before trusting it as the correlation id for this upload.
+const getSessionByJourneyId = async (journeyId) => {
+  const collection = config.get(sessionsCollection)
+
+  return db.collection(collection)
+    .findOne({ journeyId }, { projection: { uploadId: 1, metadata: 1 } })
+}
+
 const getSessionByUploadId = async (uploadId) => {
   const collection = config.get(sessionsCollection)
 
   return db.collection(collection).findOne({ uploadId })
 }
 
-export { insertSession, getSessionByUploadId }
+export { insertSession, getSessionByJourneyId, getSessionByUploadId }

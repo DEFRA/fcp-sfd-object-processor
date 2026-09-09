@@ -39,6 +39,9 @@ const createIndexes = async () => {
   await db.collection(sessionsCollection).createIndexes([
     { key: { uploadId: 1 }, name: 'sessions_uploadId_idx', unique: true },
     { key: { uploadRef: 1 }, name: 'sessions_uploadRef_idx', unique: true },
+    // sparse, because session records written before this field existed have no journeyId
+    // and a non-sparse unique index would collide on those missing values.
+    { key: { journeyId: 1 }, name: 'sessions_journeyId_idx', unique: true, sparse: true },
     { key: { timestamp: -1 }, name: 'sessions_timestamp_idx' }
   ])
 

@@ -23,6 +23,7 @@ vi.mock('../../../../../src/config/index.js', () => ({
     get: vi.fn((key) => {
       const values = {
         'aws.messaging.topics.auditEvents': 'arn:aws:sns:eu-west-2:000000000000:fcp_audit_fcp_sfd_object_processor',
+        'aws.messaging.auditApplication': 'Single Front Door',
         serviceName: 'fcp-sfd-object-processor',
         cdpEnvironment: 'test'
       }
@@ -81,7 +82,7 @@ describe('sendAuditEvent', () => {
     expect(publishAuditEvent).toHaveBeenCalledWith(
       mockAuditEvent,
       expect.objectContaining({
-        application: 'fcp-sfd-object-processor',
+        application: 'Single Front Door',
         component: 'fcp-sfd-object-processor',
         version: '1.0.0',
         generateCorrelationId: true,

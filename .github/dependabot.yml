@@ -8,6 +8,14 @@ updates:
     commit-message:
       prefix: "chore"
     open-pull-requests-limit: 5
+    ignore:
+      # MongoDB must stay on 7.0. Versions 8.0+ carry a fatal startup check
+      # that aborts on Linux kernel 6.19+ (SERVER-121912), which Docker Desktop
+      # exceeds, so 8.x will not run locally. See the note in compose.yaml.
+      - dependency-name: "mongo"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
     groups:
       docker-security:
         applies-to: security-updates

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
-import { insertSession, getSessionByUploadId } from '../../../src/repos/sessions.js'
+import { getSessionByJourneyId, getSessionByUploadId, insertSession } from '../../../src/repos/sessions.js'
 import { db } from '../../../src/data/db.js'
 
 vi.mock('../../../src/data/db.js', () => ({
@@ -127,5 +127,41 @@ describe('getSessionByUploadId', () => {
     const result = await getSessionByUploadId('missing-id')
 
     expect(result).toBeNull()
+  })
+})
+
+describe('getSessionByJourneyId', () => {
+  let mockCollection
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockCollection = { findOne: vi.fn() }
+    db.collection.mockReturnValue(mockCollection)
+  })
+
+  test('queries on journeyId and projects only uploadId and metadata', async () => {
+    const session = { uploadId: 'upload-1', metadata: { sbi: 105000000 } }
+    mockCollection.findOne.mockResolvedValue(session)
+
+    const result = await getSessionByJourneyId('550e8400-e29b-41d4-a716-446655440000')
+
+    expect(db.collection).toHaveBeenCalledWith('sessions')
+    expect(mockCollection.findOne).toHaveBeenCalledWith(
+      { journeyId: '550e8400-e29b-41d4-a716-446655440000' },
+      { projection: { uploadId: 1, metadata: 1 } }
+    )
+    expect(result).toBe(session)
+  })
+
+  test('returns null when no session matches', async () => {
+    mockCollection.findOne.mockResolvedValue(null)
+
+    await expect(getSessionByJourneyId('missing')).resolves.toBeNull()
+  })
+
+  test('propagates errors thrown by findOne', async () => {
+    mockCollection.findOne.mockRejectedValue(new Error('MongoNetworkError'))
+
+    await expect(getSessionByJourneyId('any')).rejects.toThrow('MongoNetworkError')
   })
 })
