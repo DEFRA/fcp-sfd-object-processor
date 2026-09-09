@@ -101,7 +101,7 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
       expect(response.result.data.statusUrl).toBe('/api/v1/uploader/status/9fcaabe5-77ec-44db-8356-3a6e8dc51b13')
     })
 
-    test('should call insertSession with uploadId, metadata and timestamp', async () => {
+    test('should call insertSession with uploadId, journeyId, metadata and timestamp', async () => {
       mockHttpClient.mockResolvedValue({
         ok: true,
         json: async () => mockCdpUploaderResponse
@@ -114,8 +114,11 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
         payload: mockValidPayload
       })
 
+      const sentJourneyId = JSON.parse(mockHttpClient.mock.calls[0][1].body).metadata.journeyId
+
       expect(mockInsertSession).toHaveBeenCalledWith({
         uploadId: mockCdpUploaderResponse.uploadId,
+        journeyId: sentJourneyId,
         metadata: mockValidPayload.metadata,
         timestamp: expect.any(Date)
       })
@@ -159,7 +162,10 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
       expect(body.s3Bucket).toBe(config.get('cdpUploaderS3Bucket'))
       expect(body.s3Path).toBe(config.get('cdpUploaderS3Path'))
       expect(body.callback).toBe(config.get('cdpUploaderCallbackUrl'))
-      expect(body.metadata).toEqual(mockValidPayload.metadata)
+      expect(body.metadata).toEqual({
+        ...mockValidPayload.metadata,
+        journeyId: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+      })
     })
   })
 
@@ -262,6 +268,21 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
       expect(response.result.message).toContain('sbi')
+    })
+
+    test('should return 400 for a client-supplied journeyId in metadata', async () => {
+      const response = await server.inject({
+        method: 'POST',
+        url: '/api/v1/uploader/initiate',
+        payload: {
+          ...mockValidPayload,
+          metadata: { ...mockValidPayload.metadata, journeyId: '550e8400-e29b-41d4-a716-446655440000' }
+        }
+      })
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
+      expect(response.result.message).toContain('journeyId')
+      expect(mockHttpClient).not.toHaveBeenCalled()
     })
 
     test('should return 400 for unknown fields (strict mode)', async () => {

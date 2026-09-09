@@ -41,6 +41,20 @@ describe('Sessions Repository', () => {
     expect(result.acknowledged).toBe(true)
   })
 
+  test('persists the journeyId on the session document', async () => {
+    const sessionData = {
+      uploadId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+      journeyId: '550e8400-e29b-41d4-a716-446655440000',
+      metadata: { sbi: 105000000 },
+      timestamp: new Date()
+    }
+    mockCollection.insertOne.mockResolvedValue({ acknowledged: true, insertedId: 'some-id' })
+
+    await insertSession(sessionData)
+
+    expect(mockCollection.insertOne).toHaveBeenCalledWith(sessionData)
+  })
+
   test('throws when the insert is not acknowledged', async () => {
     mockCollection.insertOne.mockResolvedValue({ acknowledged: false })
 
