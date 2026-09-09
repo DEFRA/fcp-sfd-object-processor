@@ -225,5 +225,17 @@ describe('initiatePayloadSchema validation', () => {
       expect(error).toBeDefined()
       expect(error.details[0].type).toBe('object.unknown')
     })
+
+    test('a client-supplied metadata.journeyId is rejected', () => {
+      // The journey id is minted server-side at initiate. A caller naming their own
+      // could attach their upload to another journey's records.
+      const { error } = initiatePayloadSchema.validate({
+        ...mockValidPayload,
+        metadata: { ...mockValidPayload.metadata, journeyId: '550e8400-e29b-41d4-a716-446655440000' }
+      })
+      expect(error).toBeDefined()
+      expect(error.details[0].type).toBe('object.unknown')
+      expect(error.details[0].path).toEqual(['metadata', 'journeyId'])
+    })
   })
 })
