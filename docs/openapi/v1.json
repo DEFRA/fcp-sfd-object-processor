@@ -629,6 +629,9 @@
             "type": "string",
             "description": "Unique Object Storage Reference combining SBI and submission ID",
             "example": "105000000_1733826312"
+          },
+          "journeyId": {
+            "type": "string"
           }
         },
         "required": [

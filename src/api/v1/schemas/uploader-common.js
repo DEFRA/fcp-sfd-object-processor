@@ -2,6 +2,7 @@ import Joi from 'joi'
 import { schemaConsts } from '../../../constants/schemas.js'
 import { mimeTypePattern } from '../../../constants/mime-types.js'
 import { config } from '../../../config/index.js'
+import { JOURNEY_ID_KEY } from '../../../constants/correlation.js'
 
 export const allowedDocumentTypes = config.get('cdpUploaderDocumentTypes')
 
@@ -113,6 +114,19 @@ export const baseMetadataSchema = Joi.object({
   ...businessIdentifierFields,
   ...submissionFields
 }).strict()
+
+// Callback-only variant. The journey id minted at initiate is echoed back verbatim by
+// CDP Uploader inside this object, so the callback must accept it. The initiate payload
+// is client-supplied and must still reject it, so initiatePayloadSchema keeps
+// baseMetadataSchema unchanged.
+// Joi.any() rather than a guid check is deliberate: a schema failure on the callback
+// route diverts to failAction and persists a validation failure, so a malformed journey
+// id would discard a legitimate upload's metadata. resolveJourneyId validates it
+// strictly at the boundary instead. optional() lets an upload initiated before this
+// deploys call back with no journey id at all.
+export const callbackMetadataSchema = baseMetadataSchema.keys({
+  [JOURNEY_ID_KEY]: Joi.any().optional()
+})
 
 // Shared field schemas for uploader response payloads (callback and status endpoints)
 // These use raw CDP states and are shared with the callback contract.

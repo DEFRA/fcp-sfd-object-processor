@@ -5,6 +5,7 @@ import {
   businessIdentifierFields,
   submissionFields,
   baseMetadataSchema,
+  callbackMetadataSchema,
   fileUploadSchema,
   uploaderResponseFields,
   mappedResponseFields
@@ -363,6 +364,50 @@ describe('Shared Schema Components', () => {
       const result = baseMetadataSchema.validate(metadataWithExtraField)
       expect(result.error).toBeDefined()
       expect(result.error.message).toContain('extraField')
+    })
+  })
+
+  describe('callbackMetadataSchema', () => {
+    const validBaseMetadata = {
+      sbi: 123456789,
+      crn: 1234567890,
+      frn: 1234567890,
+      submissionId: 'test-submission-123',
+      type: 'CS_Agreement_Evidence',
+      reference: 'Test Reference',
+      service: 'fcp-sfd-frontend',
+      uosr: 'uosr-test-123'
+    }
+
+    test('accepts a well-formed journeyId alongside the business fields', () => {
+      const result = callbackMetadataSchema.validate({
+        ...validBaseMetadata,
+        journeyId: '550e8400-e29b-41d4-a716-446655440000'
+      })
+      expect(result.error).toBeUndefined()
+    })
+
+    test('accepts a journeyId of any type, so a malformed one never fails the callback', () => {
+      const result = callbackMetadataSchema.validate({ ...validBaseMetadata, journeyId: 12345 })
+      expect(result.error).toBeUndefined()
+    })
+
+    test('accepts metadata with no journeyId at all', () => {
+      const result = callbackMetadataSchema.validate(validBaseMetadata)
+      expect(result.error).toBeUndefined()
+    })
+
+    test('still rejects unknown keys other than journeyId', () => {
+      const result = callbackMetadataSchema.validate({ ...validBaseMetadata, extraField: 'not allowed' })
+      expect(result.error).toBeDefined()
+      expect(result.error.message).toContain('extraField')
+    })
+
+    test('still requires the business identifier fields', () => {
+      const { sbi, ...withoutSbi } = validBaseMetadata
+      const result = callbackMetadataSchema.validate(withoutSbi)
+      expect(result.error).toBeDefined()
+      expect(result.error.message).toContain('sbi is required')
     })
   })
 

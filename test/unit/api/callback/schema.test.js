@@ -343,6 +343,30 @@ describe('callbackPayloadSchema validation', () => {
       expect(error).toBeDefined()
       expect(error.details.some(d => d.type === 'object.unknown')).toBe(true)
     })
+
+    test('accepts a metadata.journeyId echoed back by CDP Uploader', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        metadata: { ...validPayload.metadata, journeyId: '550e8400-e29b-41d4-a716-446655440000' }
+      })
+      expect(error).toBeUndefined()
+    })
+
+    test('accepts a payload whose metadata has no journeyId', () => {
+      const { error } = callbackPayloadSchema.validate(validPayload)
+      expect(error).toBeUndefined()
+    })
+
+    test('accepts a malformed metadata.journeyId without erroring', () => {
+      // A schema failure here would divert to failAction and persist a validation
+      // failure, discarding a legitimate upload's metadata. The id is validated
+      // strictly at the boundary in resolveJourneyId instead.
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        metadata: { ...validPayload.metadata, journeyId: 12345 }
+      })
+      expect(error).toBeUndefined()
+    })
   })
 
   describe('File upload validation', () => {
