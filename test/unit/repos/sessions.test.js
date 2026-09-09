@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
-import { insertSession } from '../../../src/repos/sessions.js'
+import { insertSession, getSessionByUploadId } from '../../../src/repos/sessions.js'
 import { db } from '../../../src/data/db.js'
 
 vi.mock('../../../src/data/db.js', () => ({
@@ -21,7 +21,7 @@ describe('Sessions Repository', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockCollection = { insertOne: vi.fn() }
+    mockCollection = { insertOne: vi.fn(), findOne: vi.fn() }
     db.collection.mockReturnValue(mockCollection)
   })
 
@@ -29,6 +29,7 @@ describe('Sessions Repository', () => {
     const timestamp = new Date()
     const sessionData = {
       uploadId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+      uploadRef: 'a1b2c3d4-e5f6-4789-abcd-ef0123456789',
       metadata: { sbi: 105000000, type: 'CS_Agreement_Evidence' },
       timestamp
     }
@@ -55,5 +56,76 @@ describe('Sessions Repository', () => {
     await expect(
       insertSession({ uploadId: 'test-id', metadata: {}, timestamp: new Date() })
     ).rejects.toThrow('MongoNetworkError')
+  })
+
+  test('retries once with a freshly minted uploadRef on a duplicate key error', async () => {
+    const duplicateKeyError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+    mockCollection.insertOne
+      .mockRejectedValueOnce(duplicateKeyError)
+      .mockResolvedValueOnce({ acknowledged: true, insertedId: 'retry-id' })
+
+    const sessionData = {
+      uploadId: 'test-id',
+      uploadRef: 'a1b2c3d4-e5f6-4789-abcd-ef0123456789',
+      metadata: {},
+      timestamp: new Date()
+    }
+
+    const result = await insertSession(sessionData)
+
+    expect(mockCollection.insertOne).toHaveBeenCalledTimes(2)
+    const retryCallArgs = mockCollection.insertOne.mock.calls[1][0]
+    expect(retryCallArgs.uploadRef).not.toBe(sessionData.uploadRef)
+    expect(result.acknowledged).toBe(true)
+  })
+
+  test('throws when the retry insert is not acknowledged', async () => {
+    const duplicateKeyError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+    mockCollection.insertOne
+      .mockRejectedValueOnce(duplicateKeyError)
+      .mockResolvedValueOnce({ acknowledged: false })
+
+    await expect(
+      insertSession({ uploadId: 'test-id', uploadRef: 'a1b2c3d4-e5f6-4789-abcd-ef0123456789', metadata: {}, timestamp: new Date() })
+    ).rejects.toThrow('Failed to insert session record')
+  })
+
+  test('propagates a non-duplicate-key error without retrying', async () => {
+    const otherError = Object.assign(new Error('MongoNetworkError'), { code: 89 })
+    mockCollection.insertOne.mockRejectedValue(otherError)
+
+    await expect(
+      insertSession({ uploadId: 'test-id', uploadRef: 'a1b2c3d4-e5f6-4789-abcd-ef0123456789', metadata: {}, timestamp: new Date() })
+    ).rejects.toThrow('MongoNetworkError')
+    expect(mockCollection.insertOne).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('getSessionByUploadId', () => {
+  let mockCollection
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockCollection = { findOne: vi.fn() }
+    db.collection.mockReturnValue(mockCollection)
+  })
+
+  test('queries the sessions collection by uploadId', async () => {
+    const session = { uploadId: 'test-id', uploadRef: 'a1b2c3d4-e5f6-4789-abcd-ef0123456789', timestamp: new Date() }
+    mockCollection.findOne.mockResolvedValue(session)
+
+    const result = await getSessionByUploadId('test-id')
+
+    expect(db.collection).toHaveBeenCalledWith('sessions')
+    expect(mockCollection.findOne).toHaveBeenCalledWith({ uploadId: 'test-id' })
+    expect(result).toEqual(session)
+  })
+
+  test('returns null when no session is found', async () => {
+    mockCollection.findOne.mockResolvedValue(null)
+
+    const result = await getSessionByUploadId('missing-id')
+
+    expect(result).toBeNull()
   })
 })
