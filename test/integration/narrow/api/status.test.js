@@ -68,7 +68,7 @@ describe('GET to the /api/v1/status/{correlationId} route', async () => {
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
       expect(response.result.data).toHaveLength(3)
-      expect(response.result.data.every(r => r.correlationId === correlationId)).toBe(true)
+      expect(response.result.data.every(r => r.correlationId === undefined)).toBe(true)
     })
 
     test('should return records sorted by timestamp ascending', async () => {

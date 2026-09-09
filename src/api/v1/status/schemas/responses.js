@@ -4,8 +4,6 @@ import { generateResponseSchemas } from '../../schemas/responses.js'
 import { schemaConsts } from '../../../../constants/schemas.js'
 
 const statusRecordSchema = Joi.object({
-  correlationId: Joi.string()
-    .guid({ version: ['uuidv4'] }),
   sbi: Joi.number()
     .integer()
     .min(schemaConsts.SBI_MIN)

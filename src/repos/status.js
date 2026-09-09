@@ -23,7 +23,7 @@ const getStatusByCorrelationId = async (correlationId) => {
   const results = await db
     .collection(collection)
     .find({ correlationId })
-    .project({ _id: 0 })
+    .project({ _id: 0, correlationId: 0 }) // correlationId is internal and never returned to callers
     .sort({ timestamp: 1 })
     .toArray()
 
