@@ -170,7 +170,7 @@ const resolveProcessorOutcome = async (uploadRef, uploadId) => {
       stage: 'rejected-by-processor',
       correlationId,
       // receivedValue echoes user-submitted content and this response is browser facing
-      errors: failedRecords.flatMap(record => record.errors ?? []).map(({ receivedValue, ...error }) => error)
+      errors: failedRecords.flatMap(record => record.errors ?? []).map(({ receivedValue: _receivedValue, ...error }) => error)
     }
   }
 
