@@ -216,6 +216,38 @@ describe('uploaderStatusRoute handler', () => {
       expect(mockCode).toHaveBeenCalledWith(httpConstants.HTTP_STATUS_OK)
     })
 
+    test('strips the journeyId from the returned metadata, leaving other fields untouched', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ...validReadyResponse,
+          metadata: { ...validReadyResponse.metadata, journeyId: '550e8400-e29b-41d4-a716-446655440000' }
+        })
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.metadata).not.toHaveProperty('journeyId')
+      expect(data.metadata).toEqual(validReadyResponse.metadata)
+    })
+
+    test('returns the metadata unchanged when it carries no journeyId', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.metadata).toEqual(validReadyResponse.metadata)
+    })
+
     test('normalises grouped form fields into indexed keys', async () => {
       mockHttpClient.mockResolvedValue({
         ok: true,
