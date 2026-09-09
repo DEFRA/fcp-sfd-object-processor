@@ -102,7 +102,7 @@ describe('callback handler — (document/created)', () => {
     expect(mockPublishAuditEvent).toHaveBeenCalledTimes(2)
     expect(mockPublishAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
-        correlationid: 'test-correlation-id',
+        correlationid: RESOLVED_ID,
         audit: expect.objectContaining({
           entities: [{ entity: 'document', action: 'created', entityid: fileId1 }],
           accounts: { sbi: '105000000' },
