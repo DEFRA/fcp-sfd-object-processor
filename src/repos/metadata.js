@@ -8,7 +8,7 @@ import { normaliseFormFields } from '../utils/normalise-form-fields.js'
 const metadataCollection = 'mongo.collections.uploadMetadata'
 const noDocumentsFoundError = 'No documents found'
 
-const getS3ReferenceByFileId = async (fileId) => {
+const getS3ReferenceAndSbiByFileId = async (fileId) => {
   const collection = config.get(metadataCollection)
   const document = await db.collection(collection)
     .findOne(
@@ -84,7 +84,7 @@ const getMetadataBySbi = async (sbi) => {
 
   const documents = await db.collection(collection)
     .find({ 'metadata.sbi': sbi })
-    .project({ metadata: 1, file: 1 })
+    .project({ metadata: 1, file: 1 }) // only return the metadata and file keys
     .toArray()
 
   if (documents.length === 0) {
@@ -129,7 +129,7 @@ export {
   getMetadataBySbi,
   persistMetadata,
   formatInboundMetadata,
-  getS3ReferenceByFileId,
+  getS3ReferenceAndSbiByFileId,
   getMetadataByFileId,
   bulkUpdatePublishedAtDate
 }

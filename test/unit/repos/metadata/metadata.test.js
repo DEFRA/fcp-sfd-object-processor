@@ -4,7 +4,7 @@ import {
   formatInboundMetadata,
   persistMetadata,
   bulkUpdatePublishedAtDate,
-  getS3ReferenceByFileId,
+  getS3ReferenceAndSbiByFileId,
   getMetadataByFileId,
   getMetadataBySbi
 } from '../../../../src/repos/metadata.js'
@@ -236,7 +236,7 @@ describe('Metadata Repository', () => {
   })
 })
 
-describe('getS3ReferenceByFileId', () => {
+describe('getS3ReferenceAndSbiByFileId', () => {
   let queryCollection
 
   beforeEach(() => {
@@ -249,7 +249,7 @@ describe('getS3ReferenceByFileId', () => {
     const document = { s3: { key: 'k', bucket: 'b' }, metadata: { sbi: 105000000 } }
     queryCollection.findOne.mockResolvedValue(document)
 
-    const result = await getS3ReferenceByFileId('file-1')
+    const result = await getS3ReferenceAndSbiByFileId('file-1')
 
     expect(result).toEqual(document)
     expect(queryCollection.findOne).toHaveBeenCalledWith(
@@ -261,7 +261,7 @@ describe('getS3ReferenceByFileId', () => {
   test('throws NotFoundError when document is missing', async () => {
     queryCollection.findOne.mockResolvedValue(null)
 
-    await expect(getS3ReferenceByFileId('missing')).rejects.toThrow(NotFoundError)
+    await expect(getS3ReferenceAndSbiByFileId('missing')).rejects.toThrow(NotFoundError)
   })
 })
 

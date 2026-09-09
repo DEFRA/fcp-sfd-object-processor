@@ -26,7 +26,7 @@ vi.mock('../../../../../src/messaging/outbound/audit/send-audit-event.js', () =>
 }))
 
 vi.mock('../../../../../src/repos/metadata.js', () => ({
-  getS3ReferenceByFileId: vi.fn()
+  getS3ReferenceAndSbiByFileId: vi.fn()
 }))
 
 vi.mock('../../../../../src/repos/s3.js', () => ({
@@ -34,7 +34,7 @@ vi.mock('../../../../../src/repos/s3.js', () => ({
 }))
 
 const { blobRoute } = await import('../../../../../src/api/v1/blobs/index.js')
-const { getS3ReferenceByFileId } = await import('../../../../../src/repos/metadata.js')
+const { getS3ReferenceAndSbiByFileId } = await import('../../../../../src/repos/metadata.js')
 const { generatePresignedUrl } = await import('../../../../../src/repos/s3.js')
 
 const buildMockRequest = (fileId = 'test-file-id') => ({
@@ -53,7 +53,7 @@ describe('blob handler — event 3 (document/read)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockPublishAuditEvent.mockResolvedValue(undefined)
-    getS3ReferenceByFileId.mockResolvedValue({ s3: { key: 'some-key', bucket: 'some-bucket' }, metadata: { sbi: 105000000 } })
+    getS3ReferenceAndSbiByFileId.mockResolvedValue({ s3: { key: 'some-key', bucket: 'some-bucket' }, metadata: { sbi: 105000000 } })
     generatePresignedUrl.mockResolvedValue({ url: 'https://s3.example.com/presigned' })
   })
 
@@ -78,7 +78,7 @@ describe('blob handler — event 3 (document/read)', () => {
   })
 
   test('omits accounts when SBI cannot be determined from lookup result', async () => {
-    getS3ReferenceByFileId.mockResolvedValueOnce({ s3: { key: 'some-key', bucket: 'some-bucket' } })
+    getS3ReferenceAndSbiByFileId.mockResolvedValueOnce({ s3: { key: 'some-key', bucket: 'some-bucket' } })
 
     const request = buildMockRequest('test-file-id')
     const h = buildMockH()
@@ -96,7 +96,7 @@ describe('blob handler — event 3 (document/read)', () => {
   })
 
   test('omits accounts when lookup metadata.sbi is null', async () => {
-    getS3ReferenceByFileId.mockResolvedValueOnce({
+    getS3ReferenceAndSbiByFileId.mockResolvedValueOnce({
       s3: { key: 'some-key', bucket: 'some-bucket' },
       metadata: { sbi: null }
     })
