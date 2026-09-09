@@ -131,6 +131,48 @@ describe('Uploader Initiate Functions', () => {
       const result = buildCdpUploaderPayload(clientPayload)
       expect(result.metadata).toEqual({})
     })
+
+    test('should carry the journey id in the uploader metadata alongside every client field', () => {
+      const clientPayload = {
+        redirect: '/upload-complete',
+        metadata: {
+          sbi: 123456789,
+          crn: 1234567890,
+          type: 'CS_Agreement_Evidence',
+          reference: 'Test Reference'
+        }
+      }
+
+      const result = buildCdpUploaderPayload(clientPayload, '550e8400-e29b-41d4-a716-446655440000')
+
+      expect(result.metadata).toEqual({
+        sbi: 123456789,
+        crn: 1234567890,
+        type: 'CS_Agreement_Evidence',
+        reference: 'Test Reference',
+        journeyId: '550e8400-e29b-41d4-a716-446655440000'
+      })
+    })
+
+    test('should not mutate the client metadata object when adding the journey id', () => {
+      const metadata = { sbi: 123456789, type: 'CS_Agreement_Evidence' }
+      const clientPayload = { redirect: '/upload-complete', metadata }
+
+      buildCdpUploaderPayload(clientPayload, '550e8400-e29b-41d4-a716-446655440000')
+
+      expect(metadata).toEqual({ sbi: 123456789, type: 'CS_Agreement_Evidence' })
+    })
+
+    test('should omit the journey id when none is supplied', () => {
+      const clientPayload = {
+        redirect: '/upload-complete',
+        metadata: { sbi: 123456789 }
+      }
+
+      const result = buildCdpUploaderPayload(clientPayload)
+
+      expect(result.metadata).not.toHaveProperty('journeyId')
+    })
   })
 
   describe('rewriteResponseUrls', () => {
