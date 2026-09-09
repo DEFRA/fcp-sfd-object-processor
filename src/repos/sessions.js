@@ -3,10 +3,15 @@ import { db } from '../data/db.js'
 
 const sessionsCollection = 'mongo.collections.sessions'
 
-const insertSession = async ({ uploadId, metadata, timestamp }) => {
+const insertSession = async ({ uploadId, journeyId, metadata, timestamp }) => {
   const collection = config.get(sessionsCollection)
 
-  const result = await db.collection(collection).insertOne({ uploadId, metadata, timestamp })
+  // journeyId is added only when present. The driver serialises an undefined value as null,
+  // and a null would defeat the sparse unique index on this field, colliding across records
+  // written before the field existed.
+  const document = { uploadId, metadata, timestamp, ...(journeyId ? { journeyId } : {}) }
+
+  const result = await db.collection(collection).insertOne(document)
 
   if (!result.acknowledged) {
     throw new Error('Failed to insert session record')
