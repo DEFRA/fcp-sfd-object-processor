@@ -15,6 +15,7 @@ import {
   buildStatusResponseLog
 } from '../../../../utils/build-uploader-status-log.js'
 import { normaliseFormFields } from '../../../../utils/normalise-form-fields.js'
+import { splitJourneyId } from '../../../../utils/split-journey-id.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -119,9 +120,14 @@ const mapCdpStatus = (cdpResponse) => {
     mappedStatus = 'pending'
   }
 
+  // CDP Uploader echoes the metadata supplied at initiate verbatim, so it carries the
+  // journey id. This route proxies that response straight to the client and is not on the
+  // callback path, so it strips the id independently of the callback boundary.
+  const { metadata: metadataWithoutJourneyId } = splitJourneyId(metadata)
+
   return {
     uploadStatus: mappedStatus,
     form: normaliseFormFields(form),
-    metadata
+    metadata: metadataWithoutJourneyId
   }
 }
