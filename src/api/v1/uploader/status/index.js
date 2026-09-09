@@ -150,50 +150,60 @@ const deriveDeliveryStatus = async (fileIds) => {
   return 'queued'
 }
 
-const mapCdpStatus = async (cdpResponse, uploadId) => {
-  const { uploadStatus, numberOfRejectedFiles, form, metadata } = cdpResponse
-  const { uploadRef, ...responseMetadata } = metadata ?? {}
+const resolveProcessorOutcome = async (uploadRef, uploadId) => {
+  const statusRecords = uploadRef ? await getStatusByUploadRef(uploadRef) : []
 
-  let mappedStatus
-  let stage
-  let correlationId
-  let errors
-  let timedOut
-  let deliveryStatus
+  if (statusRecords.length === 0) {
+    return {
+      uploadStatus: 'pending',
+      stage: 'awaiting-callback',
+      timedOut: await isAwaitingCallbackTimedOut(uploadId)
+    }
+  }
 
-  if (uploadStatus !== 'ready') {
-    mappedStatus = 'pending'
-    stage = 'scanning'
-  } else if (numberOfRejectedFiles > 0) {
-    mappedStatus = 'failure'
-    stage = 'rejected-by-scanner'
-  } else {
-    const statusRecords = uploadRef ? await getStatusByUploadRef(uploadRef) : []
+  const correlationId = statusRecords[0].correlationId
+  const failedRecords = statusRecords.filter(record => record.validated === false)
 
-    if (statusRecords.length === 0) {
-      mappedStatus = 'pending'
-      stage = 'awaiting-callback'
-      timedOut = await isAwaitingCallbackTimedOut(uploadId)
-    } else {
-      correlationId = statusRecords[0].correlationId
-      const failedRecords = statusRecords.filter(record => record.validated === false)
-
-      if (failedRecords.length > 0) {
-        mappedStatus = 'failure'
-        stage = 'rejected-by-processor'
-        // receivedValue echoes user-submitted content and this response is browser facing
-        errors = failedRecords.flatMap(record => record.errors ?? []).map(({ receivedValue, ...error }) => error)
-      } else {
-        mappedStatus = 'success'
-        stage = 'accepted'
-        deliveryStatus = await deriveDeliveryStatus(statusRecords.map(record => record.fileId))
-      }
+  if (failedRecords.length > 0) {
+    return {
+      uploadStatus: 'failure',
+      stage: 'rejected-by-processor',
+      correlationId,
+      // receivedValue echoes user-submitted content and this response is browser facing
+      errors: failedRecords.flatMap(record => record.errors ?? []).map(({ receivedValue, ...error }) => error)
     }
   }
 
   return {
-    uploadStatus: mappedStatus,
-    stage,
+    uploadStatus: 'success',
+    stage: 'accepted',
+    correlationId,
+    deliveryStatus: await deriveDeliveryStatus(statusRecords.map(record => record.fileId))
+  }
+}
+
+const resolveOutcome = async (uploadStatus, numberOfRejectedFiles, uploadRef, uploadId) => {
+  if (uploadStatus !== 'ready') {
+    return { uploadStatus: 'pending', stage: 'scanning' }
+  }
+
+  if (numberOfRejectedFiles > 0) {
+    return { uploadStatus: 'failure', stage: 'rejected-by-scanner' }
+  }
+
+  return resolveProcessorOutcome(uploadRef, uploadId)
+}
+
+const mapCdpStatus = async (cdpResponse, uploadId) => {
+  const { uploadStatus, numberOfRejectedFiles, form, metadata } = cdpResponse
+  const { uploadRef, ...responseMetadata } = metadata ?? {}
+
+  const outcome = await resolveOutcome(uploadStatus, numberOfRejectedFiles, uploadRef, uploadId)
+  const { correlationId, errors, timedOut, deliveryStatus } = outcome
+
+  return {
+    uploadStatus: outcome.uploadStatus,
+    stage: outcome.stage,
     ...(correlationId !== undefined && { correlationId }),
     ...(errors !== undefined && { errors }),
     ...(timedOut !== undefined && { timedOut }),
