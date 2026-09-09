@@ -236,7 +236,11 @@ describe('callback handler — event 5 (document/failed on Joi validation failur
 
     await uploadCallback.options.validate.failAction(request, h, mockErr)
 
-    expect(buildCallbackValidationFailureLog).toHaveBeenCalledWith(request, mockErr)
+    expect(buildCallbackValidationFailureLog).toHaveBeenCalledWith(
+      request,
+      mockErr,
+      expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
+    )
     expect(mockLogger.error).toHaveBeenCalledWith({}, 'Validation failed')
   })
 

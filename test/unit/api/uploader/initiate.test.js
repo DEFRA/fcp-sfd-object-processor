@@ -34,7 +34,8 @@ const mockConfigValues = {
   cdpUploaderMimeTypes: ['application/pdf', 'image/jpeg'],
   cdpUploaderDocumentTypes: ['CS_Agreement_Evidence', 'CS_Application_Evidence'],
   cdpUploaderMaxFileSize: 10485760,
-  cdpUploaderTimeoutMs: 30000
+  cdpUploaderTimeoutMs: 30000,
+  journeyIdEnabled: true
 }
 
 describe('uploader initiate handler', () => {
@@ -308,9 +309,13 @@ describe('uploader initiate handler', () => {
       expect(mockCode).toHaveBeenCalledWith(httpConstants.HTTP_STATUS_OK)
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.objectContaining({
+          event: expect.objectContaining({
+            type: 'session_persist_failure',
+            outcome: 'failure',
+            reference: expect.stringMatching(uuidV4Pattern)
+          }),
           error: { message: 'DB connection error' },
-          uploadId: mockCdpUploaderResponse.uploadId,
-          journeyId: expect.stringMatching(uuidV4Pattern)
+          'cdp-uploader': { uploadId: mockCdpUploaderResponse.uploadId }
         }),
         'Failed to persist upload session record'
       )

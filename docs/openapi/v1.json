@@ -621,7 +621,9 @@
             "example": "105000000_1733826312"
           },
           "journeyId": {
-            "type": "string"
+            "type": "string",
+            "description": "Correlation identifier minted by this service when the upload is initiated and echoed back verbatim by CDP Uploader. Set by this service only. Clients must not supply it: the initiate endpoint rejects it with a 400.",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
           }
         },
         "required": [

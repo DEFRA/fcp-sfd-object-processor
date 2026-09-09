@@ -24,7 +24,15 @@ const isValidJourneyId = (value) => !journeyIdSchema.validate(value).error
 // occurrence alarmable rather than leaving it to be found by chance in the logs.
 const UNRESOLVED_EVENT = 'callback_journey_id_unresolved'
 
-const logUnresolved = async (rawJourneyId, reason) => {
+// The received value is described rather than quoted. The callback route is unauthenticated and
+// callbackMetadataSchema types this field as Joi.any(), so whatever a caller sends arrives here
+// unchecked: quoting it would let a caller inflate a log line or split one entry into several
+// with embedded newlines. This matches the rule assert-correlation-id.js already documents.
+//
+// The counter is deliberately not awaited. It swallows its own errors, and an unresolved
+// callback is common during the transitional window, so making every such callback wait on a
+// CloudWatch flush adds latency to the response for no functional gain.
+const logUnresolved = (rawJourneyId, reason) => {
   logger.warn({
     event: {
       type: UNRESOLVED_EVENT,
@@ -32,9 +40,9 @@ const logUnresolved = async (rawJourneyId, reason) => {
       outcome: 'failure',
       reason
     }
-  }, `Callback journey id could not be resolved; rawJourneyId=${rawJourneyId ?? 'none'}; reason=${reason}`)
+  }, `Callback journey id could not be resolved; reason=${reason}; received type ${typeof rawJourneyId}`)
 
-  await metricsCounter(UNRESOLVED_EVENT)
+  metricsCounter(UNRESOLVED_EVENT)
 }
 
 // Resolves and verifies the journeyId carried in the callback payload metadata against
@@ -48,7 +56,7 @@ const logUnresolved = async (rawJourneyId, reason) => {
 // alarmed on. Outside the transitional window it should never happen.
 export const resolveJourneyId = async (rawJourneyId, payloadMetadata) => {
   if (!isValidJourneyId(rawJourneyId)) {
-    await logUnresolved(rawJourneyId, 'missing_or_malformed_journey_id')
+    logUnresolved(rawJourneyId, 'missing_or_malformed_journey_id')
     return { journeyId: randomUUID(), source: 'generated' }
   }
 
@@ -66,13 +74,13 @@ export const resolveJourneyId = async (rawJourneyId, payloadMetadata) => {
       error: {
         message: error.message
       }
-    }, `Session lookup failed while resolving callback journey id; rawJourneyId=${rawJourneyId}`)
-    await metricsCounter(UNRESOLVED_EVENT)
+    }, 'Session lookup failed while resolving callback journey id')
+    metricsCounter(UNRESOLVED_EVENT)
     return { journeyId: randomUUID(), source: 'generated' }
   }
 
   if (!session) {
-    await logUnresolved(rawJourneyId, 'no_session_found')
+    logUnresolved(rawJourneyId, 'no_session_found')
     return { journeyId: randomUUID(), source: 'generated' }
   }
 
@@ -80,7 +88,7 @@ export const resolveJourneyId = async (rawJourneyId, payloadMetadata) => {
   const submissionIdMatches = session.metadata?.submissionId === payloadMetadata?.submissionId
 
   if (!sbiMatches || !submissionIdMatches) {
-    await logUnresolved(rawJourneyId, 'session_metadata_mismatch')
+    logUnresolved(rawJourneyId, 'session_metadata_mismatch')
     return { journeyId: randomUUID(), source: 'generated' }
   }
 

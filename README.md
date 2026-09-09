@@ -247,7 +247,23 @@ On the callback the id is split back out of `metadata`, verified against the ses
 
 If the id is missing, malformed or does not match a session, the callback logs `callback_journey_id_unresolved`, increments a counter of the same name and falls back to a generated id. The upload still succeeds: the callback is the only delivery of a file's metadata, so it is never failed over a correlation problem.
 
+The persistence path itself is stricter than the callback boundary. `formatInboundMetadata` and `persistValidationFailureStatus` require a v4 UUID and throw without one, because by that point the id has either been resolved or been generated, so an absent one is a defect in this service rather than a caller error. A document or status record carrying no usable id is unreachable by correlation and is rejected by the CRM when the CloudEvent is published, so it is better not written.
+
 The `journeyId` is an internal correlation identifier. It is not returned to the client, and it is stripped from both the persisted document and the `/uploader/status/{uploadId}` response.
+
+#### Releasing this in two steps
+
+`JOURNEY_ID_ENABLED` controls whether initiate adds the `journeyId` to the metadata sent to CDP Uploader. **It defaults to `false`, and the order of the release matters.**
+
+The callback must be able to accept the key on every pod before any pod starts sending it. During a rolling deployment both versions run at once, so a callback for an upload initiated by a new pod can be routed to a pod still running the old code. That pod validates the body against a schema which rejects unknown keys, diverts to `failAction`, and persists a validation failure in place of the upload's metadata. CDP Uploader does not deliver the callback a second time, so the files sit in S3 unreachable and are never published to the CRM. Virus scanning puts seconds to minutes between initiate and callback, which is comparable to the duration of the deployment itself, so the window is real rather than theoretical.
+
+Release in this order:
+
+1. Deploy this version with `JOURNEY_ID_ENABLED` unset or `false`. Every pod can now accept the key on the callback; none is sending it.
+2. Confirm every pod is running the new version.
+3. Set `JOURNEY_ID_ENABLED=true`. Initiate now sends the key and uploads correlate end to end.
+
+Rolling back is the reverse: set the flag to `false` before deploying an older version. Uploads initiated while the flag was on will fall back to a generated id on the callback and log `callback_journey_id_unresolved`, which is the designed degradation and does not fail the upload.
 
 ### Retrieve metadata
 

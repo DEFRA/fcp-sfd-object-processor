@@ -73,5 +73,17 @@ export const uploaderConfig = {
     format: 'document-type-array',
     default: [],
     env: 'CDP_UPLOADER_DOCUMENT_TYPES'
+  },
+  journeyIdEnabled: {
+    doc: 'Whether initiate adds the journeyId to the metadata sent to CDP Uploader. Defaults ' +
+      'to false so that one artefact can be deployed twice: the callback must be able to ' +
+      'accept the key on every pod before any pod starts sending it. During a rolling deploy ' +
+      'a callback for an upload initiated by a new pod can be routed to an old pod, whose ' +
+      'schema rejects the unknown key, diverting to failAction and persisting a validation ' +
+      'failure in place of the upload. CDP Uploader does not deliver the callback again. ' +
+      'Deploy with this false, confirm every pod is running the new version, then set it true.',
+    format: Boolean,
+    default: false,
+    env: 'JOURNEY_ID_ENABLED'
   }
 }

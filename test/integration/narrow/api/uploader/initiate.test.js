@@ -47,11 +47,17 @@ const mockCdpUploaderResponse = {
   statusUrl: 'http://cdp-uploader:7337/status/9fcaabe5-77ec-44db-8356-3a6e8dc51b13'
 }
 
+// The enrichment ships switched off so that the artefact can be released twice; these tests
+// exercise the enabled state, which is what runs once the callback accepts the key everywhere.
+const journeyIdEnabledDefault = config.get('journeyIdEnabled')
+
 beforeAll(async () => {
   vi.restoreAllMocks()
+  config.set('journeyIdEnabled', true)
 })
 
 afterAll(async () => {
+  config.set('journeyIdEnabled', journeyIdEnabledDefault)
   vi.restoreAllMocks()
 })
 

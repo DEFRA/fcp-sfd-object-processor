@@ -5,6 +5,7 @@ import { insertStatus } from '../repos/status.js'
 import { createLogger } from '../logging/logger.js'
 import { buildValidatedStatusDocuments, buildValidationFailureStatusDocuments } from '../mappers/status.js'
 import { flattenFormValues } from '../utils/flatten-form-files.js'
+import { assertCorrelationId } from '../utils/assert-correlation-id.js'
 
 const logger = createLogger()
 
@@ -69,6 +70,12 @@ const persistMetadataWithOutbox = async (rawDocuments, correlationId) => {
 }
 
 const persistValidationFailureStatus = async (payload, validationError, correlationId) => {
+  // Guarded before the try, so that a defect in this service is not logged and reported as a
+  // database failure. A status record keyed to nothing cannot be joined back to the upload it
+  // describes, which makes it worse than no record at all. Both callers catch, so the callback
+  // still answers 201.
+  assertCorrelationId(correlationId)
+
   try {
     const statusDocuments = buildValidationFailureStatusDocuments(payload, validationError, correlationId)
     return await insertStatus(statusDocuments)
