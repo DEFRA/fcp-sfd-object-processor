@@ -2,6 +2,7 @@ import { config } from '../config/index.js'
 import { NotFoundError } from '../errors/not-found-error.js'
 import { db } from '../data/db.js'
 import { normaliseFormFields } from '../utils/normalise-form-fields.js'
+import { assertCorrelationId } from '../utils/assert-correlation-id.js'
 
 const metadataCollection = 'mongo.collections.uploadMetadata'
 const noDocumentsFoundError = 'No documents found'
@@ -39,9 +40,14 @@ const getMetadataByFileId = async (fileId) => {
 // creates subdocuments to organise data
 // normalises grouped arrays to indexed field names and filters to file uploads
 // correlationId is supplied by the caller and is the journey id resolved at the callback
-// boundary, so that one identifier covers the whole upload from initiate to CRM.
+// boundary, so that one identifier covers the whole upload from initiate to CRM. It is
+// required: this is the point at which it first reaches a document, so it is guarded before
+// anything is built. See src/utils/assert-correlation-id.js for why this throws where the
+// callback boundary does not.
 
 const formatInboundMetadata = (payload, correlationId) => {
+  assertCorrelationId(correlationId)
+
   const { metadata, uploadStatus, numberOfRejectedFiles } = payload
 
   // Re-key grouped arrays first, then remove anything without a fileId

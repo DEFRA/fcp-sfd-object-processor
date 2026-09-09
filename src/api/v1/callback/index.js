@@ -55,13 +55,13 @@ export const uploadCallback = {
         const { correlationId, payload } = await resolveCallbackCorrelation(request.payload)
 
         return runWithCorrelationId(correlationId, async () => {
-          logger.error(buildCallbackValidationFailureLog(request, err), 'Validation failed')
+          logger.error(buildCallbackValidationFailureLog(request, err, correlationId), 'Validation failed')
           await metricsCounter('callback_validation_failures')
 
           try {
             await persistValidationFailureStatus(payload, err, correlationId)
           } catch (persistError) {
-            logger.error(buildCallbackPersistFailureLog(request, persistError), 'Failed to persist status for callback validation failure')
+            logger.error(buildCallbackPersistFailureLog(request, persistError, correlationId), 'Failed to persist status for callback validation failure')
           }
 
           const failedFileIds = extractFileIdsFromPayload(request.payload)

@@ -125,7 +125,14 @@ export const baseMetadataSchema = Joi.object({
 // strictly at the boundary instead. optional() lets an upload initiated before this
 // deploys call back with no journey id at all.
 export const callbackMetadataSchema = baseMetadataSchema.keys({
-  [JOURNEY_ID_KEY]: Joi.any().optional()
+  [JOURNEY_ID_KEY]: Joi.any()
+    .optional()
+    .description(
+      'Correlation identifier minted by this service when the upload is initiated and echoed ' +
+      'back verbatim by CDP Uploader. Set by this service only. Clients must not supply it: ' +
+      'the initiate endpoint rejects it with a 400.'
+    )
+    .example(schemaConsts.JOURNEY_ID_EXAMPLE)
 })
 
 // Shared field schemas for uploader response payloads (callback and status endpoints)

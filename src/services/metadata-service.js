@@ -5,6 +5,7 @@ import { insertStatus } from '../repos/status.js'
 import { createLogger } from '../logging/logger.js'
 import { buildValidatedStatusDocuments, buildValidationFailureStatusDocuments } from '../mappers/status.js'
 import { flattenFormValues } from '../utils/flatten-form-files.js'
+import { assertCorrelationId } from '../utils/assert-correlation-id.js'
 
 const logger = createLogger()
 
@@ -42,20 +43,23 @@ const persistMetadataWithOutbox = async (rawDocuments, correlationId) => {
       // All files in a single callback share the same correlationId,
       // so we only need to look up the first to retrieve it.
       const existingDocument = await getMetadataByFileId(fileIds[0])
-      const { correlationId } = existingDocument.messaging
+      // Named distinctly from the correlationId parameter it would otherwise shadow. The
+      // duplicate path must return the id stored on the first callback, not the one resolved
+      // for this one.
+      const { correlationId: existingCorrelationId } = existingDocument.messaging
 
       logger.info(
         {
           event: {
             type: 'duplicate_callback',
             outcome: 'success',
-            reference: correlationId
+            reference: existingCorrelationId
           }
         },
         'Duplicate callback received — returning existing correlationId'
       )
 
-      return { duplicate: true, correlationId }
+      return { duplicate: true, correlationId: existingCorrelationId }
     }
 
     logger.error(error, 'Failed to persist metadata with outbox')
@@ -66,6 +70,12 @@ const persistMetadataWithOutbox = async (rawDocuments, correlationId) => {
 }
 
 const persistValidationFailureStatus = async (payload, validationError, correlationId) => {
+  // Guarded before the try, so that a defect in this service is not logged and reported as a
+  // database failure. A status record keyed to nothing cannot be joined back to the upload it
+  // describes, which makes it worse than no record at all. Both callers catch, so the callback
+  // still answers 201.
+  assertCorrelationId(correlationId)
+
   try {
     const statusDocuments = buildValidationFailureStatusDocuments(payload, validationError, correlationId)
     return await insertStatus(statusDocuments)

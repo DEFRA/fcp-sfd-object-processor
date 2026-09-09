@@ -55,6 +55,23 @@ describe('Sessions Repository', () => {
     expect(mockCollection.insertOne).toHaveBeenCalledWith(sessionData)
   })
 
+  // Asserted on the key's absence rather than on object equality. toHaveBeenCalledWith treats a
+  // key set to undefined as equivalent to a missing key, so an unconditional spread would leave
+  // the test above green while writing journeyId: undefined. The driver serialises that as null,
+  // and a null defeats the sparse unique index on this field, so the second session written
+  // without a journeyId would collide with the first and throw in an environment.
+  test('omits journeyId entirely rather than writing an explicit undefined', async () => {
+    mockCollection.insertOne.mockResolvedValue({ acknowledged: true, insertedId: 'some-id' })
+
+    await insertSession({
+      uploadId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+      metadata: { sbi: 105000000 },
+      timestamp: new Date()
+    })
+
+    expect(mockCollection.insertOne.mock.calls[0][0]).not.toHaveProperty('journeyId')
+  })
+
   test('throws when the insert is not acknowledged', async () => {
     mockCollection.insertOne.mockResolvedValue({ acknowledged: false })
 

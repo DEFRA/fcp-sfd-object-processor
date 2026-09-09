@@ -18,7 +18,12 @@ const baseUrl = config.get('baseUrl.v1')
 // that object back verbatim on the callback, and the callback body has no other passthrough.
 // Enrichment is confined to the outbound payload: the client's own metadata object is left
 // untouched, so nothing else in this service sees the id inside a business object.
+//
+// Gated on journeyIdEnabled so that this artefact can be released twice. See the config entry
+// for why the order matters; in short, an old pod handling the callback rejects the key.
 export const buildCdpUploaderPayload = (clientPayload, journeyId) => {
+  const journeyIdEnabled = config.get('journeyIdEnabled')
+
   return {
     redirect: clientPayload.redirect,
     s3Bucket: config.get('cdpUploaderS3Bucket'),
@@ -26,7 +31,10 @@ export const buildCdpUploaderPayload = (clientPayload, journeyId) => {
     callback: config.get('cdpUploaderCallbackUrl'),
     mimeTypes: config.get('cdpUploaderMimeTypes'),
     maxFileSize: config.get('cdpUploaderMaxFileSize'),
-    metadata: { ...clientPayload.metadata, ...(journeyId ? { [JOURNEY_ID_KEY]: journeyId } : {}) }
+    metadata: {
+      ...clientPayload.metadata,
+      ...(journeyIdEnabled && journeyId ? { [JOURNEY_ID_KEY]: journeyId } : {})
+    }
   }
 }
 
@@ -126,9 +134,20 @@ export const uploaderInitiateRoute = {
             timestamp: new Date()
           })
         } catch (sessionErr) {
-          // The journeyId is logged here because a swallowed insert failure later causes the
-          // callback to fall back to a generated id; the two events can then be joined by hand.
-          logger.error({ error: { message: sessionErr.message }, uploadId: cdpResponse.uploadId, journeyId }, 'Failed to persist upload session record')
+          // A swallowed insert failure later causes the callback to fall back to a generated
+          // id, so this line has to carry the journeyId for the two events to be joined by
+          // hand. It does: this runs inside runWithCorrelationId, and the pino mixin emits the
+          // value as transaction.id. event.reference names it a second time under an approved
+          // ECS field, which is how the rest of the service marks an identifiable event.
+          logger.error({
+            event: {
+              type: 'session_persist_failure',
+              outcome: 'failure',
+              reference: journeyId
+            },
+            error: { message: sessionErr.message },
+            'cdp-uploader': { uploadId: cdpResponse.uploadId }
+          }, 'Failed to persist upload session record')
         }
 
         return h.response({ data }).code(httpConstants.HTTP_STATUS_OK)

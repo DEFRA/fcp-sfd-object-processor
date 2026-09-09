@@ -236,6 +236,40 @@ describe('Metadata Repository', () => {
       // All files should share the same correlationId
       expect(formatted[0].messaging.correlationId).toBe(formatted[1].messaging.correlationId)
     })
+
+    // The identifier reaches a document here for the first time, so this is where an absent
+    // or malformed one has to stop. It is a defect in this service's own code by this point,
+    // not a caller error, so it fails loudly rather than degrading.
+    describe('when the correlationId is not a usable identifier', () => {
+      test('throws when the correlationId is undefined', () => {
+        expect(() => formatInboundMetadata(mockScanAndUploadResponse, undefined)).toThrow(/must be a v4 UUID/)
+      })
+
+      test('throws when the correlationId is omitted entirely', () => {
+        expect(() => formatInboundMetadata(mockScanAndUploadResponse)).toThrow(/must be a v4 UUID/)
+      })
+
+      test('throws when the correlationId is null', () => {
+        expect(() => formatInboundMetadata(mockScanAndUploadResponse, null)).toThrow(/must be a v4 UUID/)
+      })
+
+      test('throws when the correlationId is an empty string', () => {
+        expect(() => formatInboundMetadata(mockScanAndUploadResponse, '')).toThrow(/must be a v4 UUID/)
+      })
+
+      test('throws when the correlationId is not a string', () => {
+        expect(() => formatInboundMetadata(mockScanAndUploadResponse, 12345)).toThrow(/must be a v4 UUID/)
+      })
+
+      test('throws when the correlationId is a string that is not a UUID', () => {
+        expect(() => formatInboundMetadata(mockScanAndUploadResponse, 'not-a-uuid')).toThrow(/must be a v4 UUID/)
+      })
+
+      test('throws when the correlationId is a well formed UUID of the wrong version', () => {
+        expect(() => formatInboundMetadata(mockScanAndUploadResponse, '123e4567-e89b-12d3-a456-426655440000'))
+          .toThrow(/must be a v4 UUID/)
+      })
+    })
   })
 })
 
