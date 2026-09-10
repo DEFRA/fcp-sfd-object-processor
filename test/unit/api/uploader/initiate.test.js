@@ -15,6 +15,8 @@ const mockValidPayload = {
   }
 }
 
+const uuidV4Pattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+
 const mockCdpUploaderResponse = {
   uploadId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
   uploadUrl: 'http://cdp-uploader:7337/upload/9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
@@ -42,6 +44,7 @@ describe('uploader initiate handler', () => {
   let mockLogger
   let mockMetricsCounter
   let mockHttpClient
+  let mockInsertSession
   let TimeoutError
 
   beforeEach(async () => {
@@ -50,6 +53,7 @@ describe('uploader initiate handler', () => {
     mockLogger = { info: vi.fn(), error: vi.fn(), warn: vi.fn() }
     mockMetricsCounter = vi.fn().mockResolvedValue(undefined)
     mockHttpClient = vi.fn()
+    mockInsertSession = vi.fn().mockResolvedValue({ acknowledged: true })
 
     vi.doMock('../../../../src/config/index.js', () => ({
       config: {
@@ -73,7 +77,7 @@ describe('uploader initiate handler', () => {
     }))
 
     vi.doMock('../../../../src/repos/sessions.js', () => ({
-      insertSession: vi.fn().mockResolvedValue({ acknowledged: true })
+      insertSession: mockInsertSession
     }))
 
     const mod = await import('../../../../src/api/v1/uploader/initiate/index.js')
@@ -185,8 +189,81 @@ describe('uploader initiate handler', () => {
         callback: 'http://localhost:3004/api/v1/callback',
         mimeTypes: ['application/pdf', 'image/jpeg'],
         maxFileSize: 10485760,
-        metadata: mockValidPayload.metadata
+        metadata: { ...mockValidPayload.metadata, journeyId: expect.stringMatching(uuidV4Pattern) }
       })
+    })
+
+    test('mints one journey id per upload and sends it in the uploader metadata', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        json: async () => mockCdpUploaderResponse
+      })
+
+      await uploaderInitiateRoute.options.handler(mockRequest, mockH)
+      await uploaderInitiateRoute.options.handler(mockRequest, mockH)
+
+      const firstJourneyId = JSON.parse(mockHttpClient.mock.calls[0][1].body).metadata.journeyId
+      const secondJourneyId = JSON.parse(mockHttpClient.mock.calls[1][1].body).metadata.journeyId
+
+      expect(firstJourneyId).toMatch(uuidV4Pattern)
+      expect(secondJourneyId).toMatch(uuidV4Pattern)
+      expect(firstJourneyId).not.toBe(secondJourneyId)
+    })
+
+    test('persists the same journey id on the session with the unenriched client metadata', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        json: async () => mockCdpUploaderResponse
+      })
+
+      await uploaderInitiateRoute.options.handler(mockRequest, mockH)
+
+      const sentJourneyId = JSON.parse(mockHttpClient.mock.calls[0][1].body).metadata.journeyId
+
+      expect(mockInsertSession).toHaveBeenCalledWith({
+        uploadId: mockCdpUploaderResponse.uploadId,
+        journeyId: sentJourneyId,
+        metadata: mockValidPayload.metadata,
+        timestamp: expect.any(Date)
+      })
+      expect(mockInsertSession.mock.calls[0][0].metadata).not.toHaveProperty('journeyId')
+    })
+
+    test('does not return the journey id to the client', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        json: async () => mockCdpUploaderResponse
+      })
+
+      await uploaderInitiateRoute.options.handler(mockRequest, mockH)
+
+      expect(mockH.response).toHaveBeenCalledWith({
+        data: {
+          uploadId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+          uploadUrl: 'http://cdp-uploader:7337/upload-and-scan/9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+          statusUrl: '/api/v1/uploader/status/9fcaabe5-77ec-44db-8356-3a6e8dc51b13'
+        }
+      })
+    })
+
+    test('returns 200 and logs the journey id when the session insert fails', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        json: async () => mockCdpUploaderResponse
+      })
+      mockInsertSession.mockRejectedValue(new Error('DB connection error'))
+
+      await uploaderInitiateRoute.options.handler(mockRequest, mockH)
+
+      expect(mockCode).toHaveBeenCalledWith(httpConstants.HTTP_STATUS_OK)
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: { message: 'DB connection error' },
+          uploadId: mockCdpUploaderResponse.uploadId,
+          journeyId: expect.stringMatching(uuidV4Pattern)
+        }),
+        'Failed to persist upload session record'
+      )
     })
 
     test('returns 504 on timeout', async () => {

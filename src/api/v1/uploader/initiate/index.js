@@ -1,5 +1,6 @@
 import Boom from '@hapi/boom'
 import { constants as httpConstants } from 'node:http2'
+import { randomUUID } from 'node:crypto'
 
 import { createLogger } from '../../../../logging/logger.js'
 import { config } from '../../../../config/index.js'
@@ -7,11 +8,16 @@ import { httpClient, TimeoutError } from '../../../../http/client.js'
 import { initiatePayloadSchema, initiateResponseSchema } from './schema.js'
 import { metricsCounter } from '../../../../api/common/helpers/metrics.js'
 import { insertSession } from '../../../../repos/sessions.js'
+import { JOURNEY_ID_KEY } from '../../../../constants/correlation.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
 
-export const buildCdpUploaderPayload = (clientPayload) => {
+// The journey id travels in the uploader `metadata` object because CDP Uploader echoes
+// that object back verbatim on the callback, and the callback body has no other passthrough.
+// Enrichment is confined to the outbound payload: the client's own metadata object is left
+// untouched, so nothing else in this service sees the id inside a business object.
+export const buildCdpUploaderPayload = (clientPayload, journeyId) => {
   return {
     redirect: clientPayload.redirect,
     s3Bucket: config.get('cdpUploaderS3Bucket'),
@@ -19,7 +25,7 @@ export const buildCdpUploaderPayload = (clientPayload) => {
     callback: config.get('cdpUploaderCallbackUrl'),
     mimeTypes: config.get('cdpUploaderMimeTypes'),
     maxFileSize: config.get('cdpUploaderMaxFileSize'),
-    metadata: clientPayload.metadata
+    metadata: { ...clientPayload.metadata, ...(journeyId ? { [JOURNEY_ID_KEY]: journeyId } : {}) }
   }
 }
 
@@ -57,7 +63,12 @@ export const uploaderInitiateRoute = {
       const initiateEndpoint = config.get('uploaderInitiateEndpoint')
       const url = `${uploaderUrl}${initiateEndpoint}`
 
-      const payload = buildCdpUploaderPayload(request.payload)
+      // Minted once per upload and carried both to CDP Uploader and onto the session record,
+      // so the callback can be joined back to this initiate request end to end (FLS1-175).
+      // Deliberately not returned to the client; it is an internal correlation identifier.
+      const journeyId = randomUUID()
+
+      const payload = buildCdpUploaderPayload(request.payload, journeyId)
 
       logger.info({ url }, 'Forwarding initiate request to Upstream service')
 
@@ -105,11 +116,14 @@ export const uploaderInitiateRoute = {
       try {
         await insertSession({
           uploadId: cdpResponse.uploadId,
+          journeyId,
           metadata: request.payload.metadata,
           timestamp: new Date()
         })
       } catch (sessionErr) {
-        logger.error({ error: { message: sessionErr.message }, uploadId: cdpResponse.uploadId }, 'Failed to persist upload session record')
+        // The journeyId is logged here because a swallowed insert failure later causes the
+        // callback to fall back to a generated id; the two events can then be joined by hand.
+        logger.error({ error: { message: sessionErr.message }, uploadId: cdpResponse.uploadId, journeyId }, 'Failed to persist upload session record')
       }
 
       return h.response({ data }).code(httpConstants.HTTP_STATUS_OK)
