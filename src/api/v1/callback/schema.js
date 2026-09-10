@@ -1,5 +1,5 @@
 import Joi from 'joi'
-import { fileUploadSchema, baseMetadataSchema, uploaderResponseFields } from '../schemas/uploader-common.js'
+import { fileUploadSchema, callbackMetadataSchema, uploaderResponseFields } from '../schemas/uploader-common.js'
 import { generateResponseSchemas } from '../schemas/responses.js'
 import { constants as httpConstants } from 'node:http2'
 
@@ -42,7 +42,7 @@ const formSchema = Joi.object()
 export const callbackPayloadSchema = Joi.object({
   uploadStatus: uploaderResponseFields.uploadStatus,
 
-  metadata: baseMetadataSchema.required(),
+  metadata: callbackMetadataSchema.required(),
 
   form: formSchema.required(),
 
