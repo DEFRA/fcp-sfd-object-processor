@@ -7,6 +7,7 @@ import Jwt from '@hapi/jwt'
 
 import { config } from '../config/index.js'
 import { router } from './router.js'
+import { correlationScope } from './common/helpers/correlation-scope.js'
 import { requestLogger } from './common/helpers/request-logger.js'
 import { secureContext } from './common/helpers/secure-context/secure-context.js'
 import { pulse } from './common/helpers/pulse.js'
@@ -47,6 +48,11 @@ const createServer = async () => {
   await server.register([
     Jwt,
     auth,
+    // correlationScope must be registered before requestLogger: it enters the correlation
+    // store's async scope in onRequest so hapi-pino's own [response] log line, and every
+    // handler line, can read a value once one is set. Registering it after requestLogger
+    // would leave hapi-pino's onRequest handling running first, with no scope entered.
+    correlationScope,
     requestLogger,
     requestTracing,
     secureContext,
