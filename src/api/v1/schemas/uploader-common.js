@@ -113,7 +113,7 @@ export const baseMetadataSchema = Joi.object({
   ...businessIdentifierFields,
   ...submissionFields,
 
-  // TODO: make required once all pre-deployment upload sessions have expired
+  // Future: make required once all pre-deployment upload sessions have expired
   uploadRef: Joi.string()
     .guid({ version: ['uuidv4'] })
     .optional()
