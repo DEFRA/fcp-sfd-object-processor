@@ -57,7 +57,7 @@ const { persistMetadataWithOutbox, persistValidationFailureStatus } = await impo
 const { resolveJourneyId } = await import('../../../../../src/services/journey-correlation-service.js')
 const { validateCallbackPayload } = await import('../../../../../src/api/v1/callback/validation/validate-callback-payload.js')
 const { sendAuditEvent } = await import('../../../../../src/messaging/outbound/audit/send-audit-event.js')
-const { getCorrelationId } = await import('../../../../../src/logging/correlation-id-store.js')
+const { getCorrelationId, enterCorrelationScope } = await import('../../../../../src/logging/correlation-id-store.js')
 
 const JOURNEY_ID = '550e8400-e29b-41d4-a716-446655440000'
 
@@ -108,6 +108,7 @@ describe('callback correlation store', () => {
         return { insertedCount: 1, insertedIds: { 0: { toString: () => 'file-id-1' } } }
       })
 
+      enterCorrelationScope()
       await uploadCallback.options.handler(buildMockRequest(), buildMockH())
 
       expect(seen).toBe(JOURNEY_ID)
@@ -120,6 +121,7 @@ describe('callback correlation store', () => {
         return null
       })
 
+      enterCorrelationScope()
       await uploadCallback.options.handler(buildMockRequest(), buildMockH())
 
       expect(seen).toBe(JOURNEY_ID)
@@ -131,17 +133,19 @@ describe('callback correlation store', () => {
         seen = getCorrelationId()
       })
 
+      enterCorrelationScope()
       await uploadCallback.options.handler(buildMockRequest(), buildMockH())
 
       expect(seen).toBe(JOURNEY_ID)
     })
 
-    test('leaves the store empty once the request is done', async () => {
+    test('leaves the correlation id readable after the handler promise resolves', async () => {
+      // The scope is entered upstream, by the correlation-scope plugin at onRequest, and
+      // outlives the handler. This is the property the [response] log line depends on.
+      enterCorrelationScope()
       await uploadCallback.options.handler(buildMockRequest(), buildMockH())
 
-      // The scope is per request. A value leaking outside it would attach one upload's id
-      // to an unrelated request handled later on the same worker.
-      expect(getCorrelationId()).toBeUndefined()
+      expect(getCorrelationId()).toBe(JOURNEY_ID)
     })
 
     test('does not fall back to the tracing header when resolving', async () => {
@@ -151,6 +155,7 @@ describe('callback correlation store', () => {
         return { insertedCount: 1, insertedIds: { 0: { toString: () => 'file-id-1' } } }
       })
 
+      enterCorrelationScope()
       await uploadCallback.options.handler(buildMockRequest(), buildMockH())
 
       expect(seen).not.toBe('test-correlation-id')
@@ -164,6 +169,7 @@ describe('callback correlation store', () => {
         seen = getCorrelationId()
       })
 
+      enterCorrelationScope()
       await uploadCallback.options.validate.failAction(buildMockRequest(), buildMockH(), new Error('Validation failed'))
 
       expect(seen).toBe(JOURNEY_ID)
@@ -175,15 +181,17 @@ describe('callback correlation store', () => {
         seen = getCorrelationId()
       })
 
+      enterCorrelationScope()
       await uploadCallback.options.validate.failAction(buildMockRequest(), buildMockH(), new Error('Validation failed'))
 
       expect(seen).toBe(JOURNEY_ID)
     })
 
-    test('leaves the store empty once the request is done', async () => {
+    test('leaves the correlation id readable after failAction promise resolves', async () => {
+      enterCorrelationScope()
       await uploadCallback.options.validate.failAction(buildMockRequest(), buildMockH(), new Error('Validation failed'))
 
-      expect(getCorrelationId()).toBeUndefined()
+      expect(getCorrelationId()).toBe(JOURNEY_ID)
     })
   })
 })

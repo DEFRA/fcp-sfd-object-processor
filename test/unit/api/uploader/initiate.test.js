@@ -48,6 +48,7 @@ describe('uploader initiate handler', () => {
   let mockInsertSession
   let TimeoutError
   let getCorrelationId
+  let enterCorrelationScope
 
   beforeEach(async () => {
     vi.resetModules()
@@ -92,6 +93,9 @@ describe('uploader initiate handler', () => {
     // enters, which lets the tests below read the id from inside a downstream call.
     const storeMod = await import('../../../../src/logging/correlation-id-store.js')
     getCorrelationId = storeMod.getCorrelationId
+    // Stands in for the correlation-scope plugin's onRequest extension, which is what
+    // enters the scope in production before the handler ever runs.
+    enterCorrelationScope = storeMod.enterCorrelationScope
   })
 
   afterEach(() => {
@@ -159,6 +163,7 @@ describe('uploader initiate handler', () => {
         return { ok: true, json: async () => mockCdpUploaderResponse }
       })
 
+      enterCorrelationScope()
       await uploaderInitiateRoute.options.handler(mockRequest, mockH)
 
       // The value in the store is the same id sent to the uploader, so the request that
@@ -179,22 +184,25 @@ describe('uploader initiate handler', () => {
         return { acknowledged: true }
       })
 
+      enterCorrelationScope()
       await uploaderInitiateRoute.options.handler(mockRequest, mockH)
 
       expect(seen).toBe(mockInsertSession.mock.calls[0][0].journeyId)
     })
 
-    test('leaves the store empty once the request is done', async () => {
+    test('leaves the correlation id readable after the handler promise resolves', async () => {
       mockHttpClient.mockResolvedValue({
         ok: true,
         json: async () => mockCdpUploaderResponse
       })
 
+      // The scope is entered upstream, by the correlation-scope plugin at onRequest, and
+      // outlives the handler. This is the property the [response] log line depends on.
+      enterCorrelationScope()
       await uploaderInitiateRoute.options.handler(mockRequest, mockH)
 
-      // The scope is per request. A value leaking outside it would attach one upload's id
-      // to an unrelated request handled later on the same worker.
-      expect(getCorrelationId()).toBeUndefined()
+      const sentJourneyId = JSON.parse(mockHttpClient.mock.calls[0][1].body).metadata.journeyId
+      expect(getCorrelationId()).toBe(sentJourneyId)
     })
 
     test('returns 200 with rewritten URLs on successful proxy', async () => {
