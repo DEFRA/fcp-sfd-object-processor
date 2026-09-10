@@ -28,6 +28,10 @@ vi.mock('../../../../../../src/repos/sessions.js', () => ({
   insertSession: vi.fn()
 }))
 
+vi.mock('@defra/hapi-tracing', () => ({
+  getTraceId: vi.fn().mockReturnValue('trace-id-123')
+}))
+
 describe('Uploader Initiate Functions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -71,7 +75,8 @@ describe('Uploader Initiate Functions', () => {
           sbi: 123456789,
           crn: 1234567890,
           type: 'CS_Agreement_Evidence',
-          reference: 'Test Reference'
+          reference: 'Test Reference',
+          uploadRef: 'trace-id-123'
         }
       })
 
@@ -100,7 +105,7 @@ describe('Uploader Initiate Functions', () => {
 
       const result = buildCdpUploaderPayload(clientPayload)
 
-      expect(result.metadata).toEqual(clientPayload.metadata)
+      expect(result.metadata).toEqual({ ...clientPayload.metadata, uploadRef: 'trace-id-123' })
     })
 
     test('should handle different redirect paths', () => {
@@ -129,7 +134,7 @@ describe('Uploader Initiate Functions', () => {
       }
 
       const result = buildCdpUploaderPayload(clientPayload)
-      expect(result.metadata).toEqual({})
+      expect(result.metadata).toEqual({ uploadRef: 'trace-id-123' })
     })
   })
 
@@ -235,7 +240,7 @@ describe('Uploader Initiate Functions', () => {
         callback: null,
         mimeTypes: null,
         maxFileSize: null,
-        metadata: { test: 'value' }
+        metadata: { test: 'value', uploadRef: 'trace-id-123' }
       })
     })
 

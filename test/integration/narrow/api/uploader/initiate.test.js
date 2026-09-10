@@ -116,12 +116,13 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
 
       expect(mockInsertSession).toHaveBeenCalledWith({
         uploadId: mockCdpUploaderResponse.uploadId,
+        uploadRef: expect.any(String),
         metadata: mockValidPayload.metadata,
         timestamp: expect.any(Date)
       })
     })
 
-    test('should return 200 even when insertSession throws', async () => {
+    test('should return 500 when insertSession throws', async () => {
       mockHttpClient.mockResolvedValue({
         ok: true,
         json: async () => mockCdpUploaderResponse
@@ -134,8 +135,7 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
         payload: mockValidPayload
       })
 
-      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
-      expect(response.result.data.uploadId).toBe(mockCdpUploaderResponse.uploadId)
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
     })
 
     test('should forward enriched payload to CDP Uploader', async () => {
@@ -159,7 +159,7 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
       expect(body.s3Bucket).toBe(config.get('cdpUploaderS3Bucket'))
       expect(body.s3Path).toBe(config.get('cdpUploaderS3Path'))
       expect(body.callback).toBe(config.get('cdpUploaderCallbackUrl'))
-      expect(body.metadata).toEqual(mockValidPayload.metadata)
+      expect(body.metadata).toEqual({ ...mockValidPayload.metadata, uploadRef: expect.any(String) })
     })
   })
 

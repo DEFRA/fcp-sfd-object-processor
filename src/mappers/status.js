@@ -38,6 +38,7 @@ const buildValidatedStatusDocuments = (documents) => {
     correlationId: document.messaging.correlationId,
     sbi: document.metadata.sbi,
     fileId: document.file.fileId,
+    uploadRef: document.messaging.uploadRef ?? null,
     timestamp: new Date(),
     validated: true,
     errors: null
@@ -57,11 +58,13 @@ const buildValidationFailureStatusDocuments = (payload, validationError, correla
   const sbi = getSbiFromPayload(payload)
   const errors = mapValidationErrors(validationError)
   const fileIds = extractFileIdsFromPayload(payload)
+  const uploadRef = payload?.metadata?.uploadRef ?? null
 
   return fileIds.map(fileId => ({
     correlationId,
     sbi,
     fileId,
+    uploadRef,
     timestamp: new Date(),
     validated: false,
     errors

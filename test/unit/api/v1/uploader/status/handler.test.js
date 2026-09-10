@@ -43,6 +43,29 @@ vi.mock('../../../../../../src/http/client.js', () => ({
   AbortError: class AbortError extends Error { }
 }))
 
+const { mockGetStatusByUploadRef, mockGetSessionByUploadId, mockGetPublishedAtByFileIds, mockGetOutboxStatusesByFileIds } = vi.hoisted(() => ({
+  mockGetStatusByUploadRef: vi.fn().mockResolvedValue([]),
+  mockGetSessionByUploadId: vi.fn().mockResolvedValue(null),
+  mockGetPublishedAtByFileIds: vi.fn().mockResolvedValue([]),
+  mockGetOutboxStatusesByFileIds: vi.fn().mockResolvedValue([])
+}))
+
+vi.mock('../../../../../../src/repos/status.js', () => ({
+  getStatusByUploadRef: mockGetStatusByUploadRef
+}))
+
+vi.mock('../../../../../../src/repos/sessions.js', () => ({
+  getSessionByUploadId: mockGetSessionByUploadId
+}))
+
+vi.mock('../../../../../../src/repos/metadata.js', () => ({
+  getPublishedAtByFileIds: mockGetPublishedAtByFileIds
+}))
+
+vi.mock('../../../../../../src/repos/outbox.js', () => ({
+  getOutboxStatusesByFileIds: mockGetOutboxStatusesByFileIds
+}))
+
 // Import after mocks are established
 const { uploaderStatusRoute } = await import('../../../../../../src/api/v1/uploader/status/index.js')
 const { TimeoutError } = await import('../../../../../../src/http/client.js')
@@ -66,7 +89,7 @@ const completeFile = {
 
 const validReadyResponse = {
   uploadStatus: 'ready',
-  metadata: { sbi: 105000000, crn: 1050000000 },
+  metadata: { sbi: 105000000, crn: 1050000000, uploadRef: 'a1b2c3d4-e5f6-4789-abcd-ef0123456789' },
   form: { 'file-field': completeFile },
   numberOfRejectedFiles: 0
 }
@@ -142,10 +165,21 @@ beforeEach(() => {
       case 'uploaderUrl': return 'http://cdp-uploader:7337'
       case 'uploaderStatusEndpoint': return '/status'
       case 'cdpUploaderTimeoutMs': return 30000
+      case 'uploaderStatusAwaitingCallbackTimeoutMs': return 300000
       default: return null
     }
   })
   mockHttpClient.mockReset()
+  mockGetStatusByUploadRef.mockReset().mockResolvedValue([
+    { correlationId: '550e8400-e29b-41d4-a716-446655440000', validated: true, errors: null, fileId: completeFile.fileId }
+  ])
+  mockGetSessionByUploadId.mockReset().mockResolvedValue(null)
+  mockGetPublishedAtByFileIds.mockReset().mockResolvedValue([
+    { file: { fileId: completeFile.fileId }, messaging: { publishedAt: new Date() } }
+  ])
+  mockGetOutboxStatusesByFileIds.mockReset().mockResolvedValue([
+    { payload: { file: { fileId: completeFile.fileId } }, status: 'SENT' }
+  ])
 })
 
 // ─── Handler function tests ─────────────────────────────────────────────────
@@ -230,6 +264,194 @@ describe('uploaderStatusRoute handler', () => {
       expect(data.form.document).toBeUndefined()
       expect(data.form['document-1'].fileId).toBe(completeFile.fileId)
       expect(data.form['document-2'].fileId).toBe('f8b1fcab-9cb7-4e98-abd4-4ea03e27df95')
+    })
+
+    test('ready with a validated local record maps to success and accepted, returning correlationId', async () => {
+      mockGetStatusByUploadRef.mockResolvedValue([
+        { correlationId: '550e8400-e29b-41d4-a716-446655440000', validated: true, errors: null }
+      ])
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.uploadStatus).toBe('success')
+      expect(data.stage).toBe('accepted')
+      expect(data.correlationId).toBe('550e8400-e29b-41d4-a716-446655440000')
+      expect(data.errors).toBeUndefined()
+    })
+
+    test('accepted upload reports deliveryStatus delivered once every file has been published', async () => {
+      mockGetStatusByUploadRef.mockResolvedValue([
+        { correlationId: '550e8400-e29b-41d4-a716-446655440000', validated: true, errors: null, fileId: completeFile.fileId }
+      ])
+      mockGetPublishedAtByFileIds.mockResolvedValue([
+        { file: { fileId: completeFile.fileId }, messaging: { publishedAt: new Date() } }
+      ])
+      mockGetOutboxStatusesByFileIds.mockResolvedValue([
+        { payload: { file: { fileId: completeFile.fileId } }, status: 'SENT' }
+      ])
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.uploadStatus).toBe('success')
+      expect(data.deliveryStatus).toBe('delivered')
+    })
+
+    test('accepted upload reports deliveryStatus queued while the outbox entry has not yet published', async () => {
+      mockGetStatusByUploadRef.mockResolvedValue([
+        { correlationId: '550e8400-e29b-41d4-a716-446655440000', validated: true, errors: null, fileId: completeFile.fileId }
+      ])
+      mockGetPublishedAtByFileIds.mockResolvedValue([
+        { file: { fileId: completeFile.fileId }, messaging: { publishedAt: null } }
+      ])
+      mockGetOutboxStatusesByFileIds.mockResolvedValue([
+        { payload: { file: { fileId: completeFile.fileId } }, status: 'PENDING' }
+      ])
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.uploadStatus).toBe('success')
+      expect(data.deliveryStatus).toBe('queued')
+    })
+
+    test('accepted upload reports deliveryStatus failed without affecting uploadStatus when the outbox entry hits PERMANENT_FAILURE', async () => {
+      mockGetStatusByUploadRef.mockResolvedValue([
+        { correlationId: '550e8400-e29b-41d4-a716-446655440000', validated: true, errors: null, fileId: completeFile.fileId }
+      ])
+      mockGetPublishedAtByFileIds.mockResolvedValue([
+        { file: { fileId: completeFile.fileId }, messaging: { publishedAt: null } }
+      ])
+      mockGetOutboxStatusesByFileIds.mockResolvedValue([
+        { payload: { file: { fileId: completeFile.fileId } }, status: 'PERMANENT_FAILURE' }
+      ])
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.uploadStatus).toBe('success')
+      expect(data.deliveryStatus).toBe('failed')
+    })
+
+    test('ready with no local record maps to pending and awaiting-callback', async () => {
+      mockGetStatusByUploadRef.mockResolvedValue([])
+      mockGetSessionByUploadId.mockResolvedValue({ timestamp: new Date() })
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.uploadStatus).toBe('pending')
+      expect(data.stage).toBe('awaiting-callback')
+      expect(data.correlationId).toBeUndefined()
+    })
+
+    test('awaiting-callback reports timedOut true once the session exceeds the configured window', async () => {
+      mockGetStatusByUploadRef.mockResolvedValue([])
+      mockGetSessionByUploadId.mockResolvedValue({ timestamp: new Date(Date.now() - 400000) })
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.stage).toBe('awaiting-callback')
+      expect(data.timedOut).toBe(true)
+    })
+
+    test('awaiting-callback reports timedOut false when session is within the configured window', async () => {
+      mockGetStatusByUploadRef.mockResolvedValue([])
+      mockGetSessionByUploadId.mockResolvedValue({ timestamp: new Date() })
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.uploadStatus).toBe('pending')
+      expect(data.stage).toBe('awaiting-callback')
+      expect(data.timedOut).toBe(false)
+    })
+
+    test('awaiting-callback omits timedOut when no session record is found', async () => {
+      mockGetStatusByUploadRef.mockResolvedValue([])
+      mockGetSessionByUploadId.mockResolvedValue(null)
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.stage).toBe('awaiting-callback')
+      expect(data.timedOut).toBeUndefined()
+    })
+
+    test('ready with a record where validated is false maps to failure and rejected-by-processor, stripping receivedValue from errors', async () => {
+      mockGetStatusByUploadRef.mockResolvedValue([
+        {
+          correlationId: '550e8400-e29b-41d4-a716-446655440000',
+          validated: false,
+          errors: [{ field: 'metadata.crn', errorType: 'any.required', receivedValue: 'secret-user-input' }]
+        }
+      ])
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.uploadStatus).toBe('failure')
+      expect(data.stage).toBe('rejected-by-processor')
+      expect(data.correlationId).toBe('550e8400-e29b-41d4-a716-446655440000')
+      expect(data.errors).toEqual([{ field: 'metadata.crn', errorType: 'any.required' }])
+      expect(data.errors[0]).not.toHaveProperty('receivedValue')
+      expect(data.deliveryStatus).toBeUndefined()
     })
 
     test('returns 200 with data envelope for initiated status', async () => {

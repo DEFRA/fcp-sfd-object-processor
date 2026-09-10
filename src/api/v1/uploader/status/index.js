@@ -15,6 +15,11 @@ import {
   buildStatusResponseLog
 } from '../../../../utils/build-uploader-status-log.js'
 import { normaliseFormFields } from '../../../../utils/normalise-form-fields.js'
+import { getStatusByUploadRef } from '../../../../repos/status.js'
+import { getSessionByUploadId } from '../../../../repos/sessions.js'
+import { getPublishedAtByFileIds } from '../../../../repos/metadata.js'
+import { getOutboxStatusesByFileIds } from '../../../../repos/outbox.js'
+import { PERMANENT_FAILURE } from '../../../../constants/outbox.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -104,24 +109,106 @@ export const uploaderStatusRoute = {
 
       logger.info(buildStatusResponseLog(uploadId, validatedResponse, duration), 'Upstream service status response received')
 
-      return h.response({ data: mapCdpStatus(validatedResponse) }).code(httpConstants.HTTP_STATUS_OK)
+      return h.response({ data: await mapCdpStatus(validatedResponse, uploadId) }).code(httpConstants.HTTP_STATUS_OK)
     }
   }
 }
 
-const mapCdpStatus = (cdpResponse) => {
-  const { uploadStatus, numberOfRejectedFiles, form, metadata } = cdpResponse
+const isAwaitingCallbackTimedOut = async (uploadId) => {
+  const session = await getSessionByUploadId(uploadId)
 
-  let mappedStatus
-  if (uploadStatus === 'ready') {
-    mappedStatus = numberOfRejectedFiles === 0 ? 'success' : 'failure'
-  } else {
-    mappedStatus = 'pending'
+  if (!session?.timestamp) {
+    return undefined
+  }
+
+  const timeoutMs = config.get('uploaderStatusAwaitingCallbackTimeoutMs')
+  return Date.now() - new Date(session.timestamp).getTime() > timeoutMs
+}
+
+// Derived purely for visibility into CRM message delivery; must never influence uploadStatus.
+const deriveDeliveryStatus = async (fileIds) => {
+  if (fileIds.length === 0) {
+    return undefined
+  }
+
+  const [outboxStatuses, publishedRecords] = await Promise.all([
+    getOutboxStatusesByFileIds(fileIds),
+    getPublishedAtByFileIds(fileIds)
+  ])
+
+  const hasPermanentFailure = outboxStatuses.some(entry => entry.status === PERMANENT_FAILURE)
+  if (hasPermanentFailure) {
+    return 'failed'
+  }
+
+  const allPublished = publishedRecords.length === fileIds.length &&
+    publishedRecords.every(record => record.messaging?.publishedAt)
+  if (allPublished) {
+    return 'delivered'
+  }
+
+  return 'queued'
+}
+
+const resolveProcessorOutcome = async (uploadRef, uploadId) => {
+  const statusRecords = uploadRef ? await getStatusByUploadRef(uploadRef) : []
+
+  if (statusRecords.length === 0) {
+    return {
+      uploadStatus: 'pending',
+      stage: 'awaiting-callback',
+      timedOut: await isAwaitingCallbackTimedOut(uploadId)
+    }
+  }
+
+  const correlationId = statusRecords[0].correlationId
+  const failedRecords = statusRecords.filter(record => record.validated === false)
+
+  if (failedRecords.length > 0) {
+    return {
+      uploadStatus: 'failure',
+      stage: 'rejected-by-processor',
+      correlationId,
+      // receivedValue echoes user-submitted content and this response is browser facing
+      errors: failedRecords.flatMap(record => record.errors ?? []).map(({ receivedValue: _receivedValue, ...error }) => error)
+    }
   }
 
   return {
-    uploadStatus: mappedStatus,
+    uploadStatus: 'success',
+    stage: 'accepted',
+    correlationId,
+    deliveryStatus: await deriveDeliveryStatus(statusRecords.map(record => record.fileId))
+  }
+}
+
+const resolveOutcome = async (uploadStatus, numberOfRejectedFiles, uploadRef, uploadId) => {
+  if (uploadStatus !== 'ready') {
+    return { uploadStatus: 'pending', stage: 'scanning' }
+  }
+
+  if (numberOfRejectedFiles > 0) {
+    return { uploadStatus: 'failure', stage: 'rejected-by-scanner' }
+  }
+
+  return resolveProcessorOutcome(uploadRef, uploadId)
+}
+
+const mapCdpStatus = async (cdpResponse, uploadId) => {
+  const { uploadStatus, numberOfRejectedFiles, form, metadata } = cdpResponse
+  const { uploadRef, ...responseMetadata } = metadata ?? {}
+
+  const outcome = await resolveOutcome(uploadStatus, numberOfRejectedFiles, uploadRef, uploadId)
+  const { correlationId, errors, timedOut, deliveryStatus } = outcome
+
+  return {
+    uploadStatus: outcome.uploadStatus,
+    stage: outcome.stage,
+    ...(correlationId !== undefined && { correlationId }),
+    ...(errors !== undefined && { errors }),
+    ...(timedOut !== undefined && { timedOut }),
+    ...(deliveryStatus !== undefined && { deliveryStatus }),
     form: normaliseFormFields(form),
-    metadata
+    metadata: responseMetadata
   }
 }

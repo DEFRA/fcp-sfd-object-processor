@@ -1,5 +1,7 @@
 import Boom from '@hapi/boom'
 import { constants as httpConstants } from 'node:http2'
+import { randomUUID } from 'node:crypto'
+import { getTraceId } from '@defra/hapi-tracing'
 
 import { createLogger } from '../../../../logging/logger.js'
 import { config } from '../../../../config/index.js'
@@ -12,6 +14,8 @@ const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
 
 export const buildCdpUploaderPayload = (clientPayload) => {
+  const uploadRef = getTraceId() ?? randomUUID()
+
   return {
     redirect: clientPayload.redirect,
     s3Bucket: config.get('cdpUploaderS3Bucket'),
@@ -19,7 +23,7 @@ export const buildCdpUploaderPayload = (clientPayload) => {
     callback: config.get('cdpUploaderCallbackUrl'),
     mimeTypes: config.get('cdpUploaderMimeTypes'),
     maxFileSize: config.get('cdpUploaderMaxFileSize'),
-    metadata: clientPayload.metadata
+    metadata: { ...clientPayload.metadata, uploadRef }
   }
 }
 
@@ -102,15 +106,12 @@ export const uploaderInitiateRoute = {
 
       const data = rewriteResponseUrls(cdpResponse)
 
-      try {
-        await insertSession({
-          uploadId: cdpResponse.uploadId,
-          metadata: request.payload.metadata,
-          timestamp: new Date()
-        })
-      } catch (sessionErr) {
-        logger.error({ error: { message: sessionErr.message }, uploadId: cdpResponse.uploadId }, 'Failed to persist upload session record')
-      }
+      await insertSession({
+        uploadId: cdpResponse.uploadId,
+        uploadRef: payload.metadata.uploadRef,
+        metadata: request.payload.metadata,
+        timestamp: new Date()
+      })
 
       return h.response({ data }).code(httpConstants.HTTP_STATUS_OK)
     }

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, vi, test } from 'vitest'
 import { ObjectId } from 'mongodb'
 
-import { createOutboxEntries } from '../../../../src/repos/outbox.js'
+import { createOutboxEntries, getOutboxStatusesByFileIds } from '../../../../src/repos/outbox.js'
 import { mockMetadataResponse as documents } from '../../../mocks/metadata.js'
 import { PENDING } from '../../../../src/constants/outbox.js'
 import { db } from '../../../../src/data/db.js'
@@ -215,6 +215,39 @@ describe('Outbox Repository', () => {
 
       expect(mockCollection.insertMany).not.toHaveBeenCalled()
       expect(result).toEqual({})
+    })
+  })
+
+  describe('getOutboxStatusesByFileIds', () => {
+    test('queries by fileIds and projects only fileId and status', async () => {
+      const mockToArray = vi.fn().mockResolvedValue([])
+      mockCollection.find.mockReturnValue({ toArray: mockToArray })
+
+      await getOutboxStatusesByFileIds(['file-1', 'file-2'])
+
+      expect(mockCollection.find).toHaveBeenCalledWith(
+        { 'payload.file.fileId': { $in: ['file-1', 'file-2'] } },
+        { projection: { _id: 0, 'payload.file.fileId': 1, status: 1 } }
+      )
+    })
+
+    test('returns the matched entries', async () => {
+      const entries = [{ payload: { file: { fileId: 'file-1' } }, status: PENDING }]
+      const mockToArray = vi.fn().mockResolvedValue(entries)
+      mockCollection.find.mockReturnValue({ toArray: mockToArray })
+
+      const result = await getOutboxStatusesByFileIds(['file-1'])
+
+      expect(result).toEqual(entries)
+    })
+
+    test('returns empty array when no entries match', async () => {
+      const mockToArray = vi.fn().mockResolvedValue([])
+      mockCollection.find.mockReturnValue({ toArray: mockToArray })
+
+      const result = await getOutboxStatusesByFileIds(['missing'])
+
+      expect(result).toEqual([])
     })
   })
 })

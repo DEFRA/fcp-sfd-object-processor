@@ -27,7 +27,8 @@ const createIndexes = async () => {
     { key: { correlationId: 1, timestamp: 1 }, name: 'status_correlationId_timestamp_idx' },
     { key: { sbi: 1 }, name: 'status_sbi_idx' },
     { key: { timestamp: -1 }, name: 'status_timestamp_idx' },
-    { key: { sbi: 1, timestamp: -1 }, name: 'status_sbi_timestamp_idx' }
+    { key: { sbi: 1, timestamp: -1 }, name: 'status_sbi_timestamp_idx' },
+    { key: { uploadRef: 1 }, name: 'status_uploadRef_idx' }
   ])
 
   await db.collection(uploadMetadataCollection).createIndexes([
@@ -37,6 +38,7 @@ const createIndexes = async () => {
 
   await db.collection(sessionsCollection).createIndexes([
     { key: { uploadId: 1 }, name: 'sessions_uploadId_idx', unique: true },
+    { key: { uploadRef: 1 }, name: 'sessions_uploadRef_idx', unique: true },
     // sparse, because session records written before this field existed have no journeyId
     // and a non-sparse unique index would collide on those missing values.
     { key: { journeyId: 1 }, name: 'sessions_journeyId_idx', unique: true, sparse: true },

@@ -73,5 +73,12 @@ export const uploaderConfig = {
     format: 'document-type-array',
     default: [],
     env: 'CDP_UPLOADER_DOCUMENT_TYPES'
+  },
+  uploaderStatusAwaitingCallbackTimeoutMs: {
+    doc: 'Time in milliseconds after upload session creation before an upload stuck awaiting-callback is reported as timed out',
+    format: Number,
+    nullable: false,
+    default: 300000,
+    env: 'UPLOADER_STATUS_AWAITING_CALLBACK_TIMEOUT_MS'
   }
 }

@@ -80,7 +80,8 @@ describe('data/db createIndexes', () => {
       { key: { correlationId: 1, timestamp: 1 }, name: 'status_correlationId_timestamp_idx' },
       { key: { sbi: 1 }, name: 'status_sbi_idx' },
       { key: { timestamp: -1 }, name: 'status_timestamp_idx' },
-      { key: { sbi: 1, timestamp: -1 }, name: 'status_sbi_timestamp_idx' }
+      { key: { sbi: 1, timestamp: -1 }, name: 'status_sbi_timestamp_idx' },
+      { key: { uploadRef: 1 }, name: 'status_uploadRef_idx' }
     ])
 
     expect(mocks.createIndexes).toHaveBeenNthCalledWith(2, [
@@ -90,6 +91,7 @@ describe('data/db createIndexes', () => {
 
     expect(mocks.createIndexes).toHaveBeenNthCalledWith(3, [
       { key: { uploadId: 1 }, name: 'sessions_uploadId_idx', unique: true },
+      { key: { uploadRef: 1 }, name: 'sessions_uploadRef_idx', unique: true },
       { key: { journeyId: 1 }, name: 'sessions_journeyId_idx', unique: true, sparse: true },
       { key: { timestamp: -1 }, name: 'sessions_timestamp_idx' }
     ])

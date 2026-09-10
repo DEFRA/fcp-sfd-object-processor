@@ -152,6 +152,22 @@ export const cdpUploaderStatusResponseSchema = Joi.object({
 const uploaderStatusSuccessSchema = Joi.object({
   data: Joi.object({
     uploadStatus: mappedResponseFields.uploadStatus,
+    stage: mappedResponseFields.stage,
+    correlationId: Joi.string()
+      .guid({ version: ['uuidv4'] })
+      .description('Correlation id of the persisted status records for this upload, when available')
+      .label('MappedStatusCorrelationId'),
+    errors: Joi.array()
+      .items(Joi.object({
+        field: Joi.string(),
+        errorType: Joi.string()
+      }))
+      .description('Validation errors recorded for this upload, when rejected by the processor')
+      .label('MappedStatusErrors'),
+    timedOut: Joi.boolean()
+      .description('Whether the upload has exceeded the configured window while awaiting a callback')
+      .label('MappedStatusTimedOut'),
+    deliveryStatus: mappedResponseFields.deliveryStatus,
     metadata: Joi.object()
       .required()
       .description('Metadata associated with the upload session')

@@ -30,7 +30,21 @@ const getStatusByCorrelationId = async (correlationId) => {
   return results
 }
 
+const getStatusByUploadRef = async (uploadRef) => {
+  const collection = config.get(statusCollection)
+
+  const results = await db
+    .collection(collection)
+    .find({ uploadRef })
+    .project({ _id: 0 })
+    .sort({ timestamp: 1 })
+    .toArray()
+
+  return results
+}
+
 export {
   insertStatus,
-  getStatusByCorrelationId
+  getStatusByCorrelationId,
+  getStatusByUploadRef
 }

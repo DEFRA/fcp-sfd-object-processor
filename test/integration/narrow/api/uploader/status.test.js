@@ -14,6 +14,19 @@ vi.mock('../../../../../src/http/client.js', () => ({
   AbortError: class AbortError extends Error { }
 }))
 
+const { mockGetStatusByUploadRef, mockGetSessionByUploadId } = vi.hoisted(() => ({
+  mockGetStatusByUploadRef: vi.fn(),
+  mockGetSessionByUploadId: vi.fn()
+}))
+
+vi.mock('../../../../../src/repos/status.js', () => ({
+  getStatusByUploadRef: mockGetStatusByUploadRef
+}))
+
+vi.mock('../../../../../src/repos/sessions.js', () => ({
+  getSessionByUploadId: mockGetSessionByUploadId
+}))
+
 const { TimeoutError } = await import('../../../../../src/http/client.js')
 
 let server
@@ -56,7 +69,8 @@ const validMetadata = {
   type: 'CS_Agreement_Evidence',
   reference: 'user entered reference',
   service: 'fcp-sfd-frontend',
-  uosr: '105000000_1733826312'
+  uosr: '105000000_1733826312',
+  uploadRef: 'a1b2c3d4-e5f6-4789-abcd-ef0123456789'
 }
 
 const mockReadyResponse = {
@@ -103,6 +117,10 @@ beforeAll(async () => {
   server = await createServer()
   await server.initialize()
   vi.restoreAllMocks()
+  mockGetStatusByUploadRef.mockResolvedValue([
+    { correlationId: '550e8400-e29b-41d4-a716-446655440000', validated: true, errors: null }
+  ])
+  mockGetSessionByUploadId.mockResolvedValue(null)
 })
 
 afterAll(async () => {
@@ -112,6 +130,10 @@ afterAll(async () => {
 
 afterEach(() => {
   mockHttpClient.mockReset()
+  mockGetStatusByUploadRef.mockReset().mockResolvedValue([
+    { correlationId: '550e8400-e29b-41d4-a716-446655440000', validated: true, errors: null }
+  ])
+  mockGetSessionByUploadId.mockReset().mockResolvedValue(null)
 })
 
 // ─── Successful responses ────────────────────────────────────────────────────
@@ -139,7 +161,7 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
   test('ready upload without numberOfRejectedFiles defaults to 0 and maps to success', async () => {
     const readyResponseWithoutRejectedCount = {
       uploadStatus: 'ready',
-      metadata: { sbi: 105000000, crn: 1050000000 },
+      metadata: { sbi: 105000000, crn: 1050000000, uploadRef: 'a1b2c3d4-e5f6-4789-abcd-ef0123456789' },
       form: { 'file-field': completeFile }
       // numberOfRejectedFiles intentionally omitted
     }
