@@ -1,11 +1,17 @@
 import { constants as httpConstants } from 'node:http2'
+import { Writable } from 'node:stream'
 import { vi, describe, test, expect, beforeAll, afterAll, afterEach } from 'vitest'
+import hapi from '@hapi/hapi'
+import hapiPino from 'hapi-pino'
 
 import { db } from '../../../../src/data/db.js'
 import { config } from '../../../../src/config'
 import { mockScanAndUploadResponse, mockScanAndUploadResponseSingleFile } from '../../../mocks/cdp-uploader.js'
 import { baseMetadata, baseFileUpload2 } from '../../../mocks/base-data.js'
 import { assertValidAuditEvent } from '../../../helpers/validate-audit-payload.js'
+import { correlationScope } from '../../../../src/api/common/helpers/correlation-scope.js'
+import { loggerOptions } from '../../../../src/logging/logger-options.js'
+import { router } from '../../../../src/api/router.js'
 
 const capturedAuditEvents = []
 
@@ -1138,5 +1144,93 @@ describe('POST /api/v1/callback — journey id propagation', async () => {
 
     expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
     expect(documents[0].messaging.correlationId).toMatch(UUID_V4)
+  })
+})
+
+describe('POST /api/v1/callback — response log carries transaction.id', () => {
+  // Regression guard for the whole correlation-scope plan: a unit test cannot catch a
+  // future change that moves hapi-pino's own [response] log line outside the scope again,
+  // because unit tests call the handler directly rather than going through hapi's response
+  // lifecycle event, which is where the [response] line is actually emitted.
+  const JOURNEY_ID = '3f29b6b4-8e0a-4c1e-9a2f-6f2f1c0d5b41'
+
+  let logServer
+  let sessionsCollection
+  let capturedLogs
+
+  const captureJsonLines = (buffer) => {
+    buffer
+      .toString()
+      .split('\n')
+      .filter(Boolean)
+      .forEach((line) => capturedLogs.push(JSON.parse(line)))
+  }
+
+  beforeAll(async () => {
+    sessionsCollection = config.get('mongo.collections.sessions')
+
+    capturedLogs = []
+    const captureStream = new Writable({
+      write (chunk, _encoding, callback) {
+        captureJsonLines(chunk)
+        callback()
+      }
+    })
+
+    // A dedicated server, not createServer(), so the hapi-pino stream can be captured
+    // deterministically. log.enabled defaults to false in test, and the default
+    // pino-pretty transport runs off-thread and can't be read synchronously, so both are
+    // overridden here; everything else, including the real mixin, is production code.
+    logServer = hapi.server({ port: 0 })
+    await logServer.register([
+      correlationScope,
+      {
+        plugin: hapiPino,
+        options: {
+          ...loggerOptions,
+          enabled: true,
+          transport: undefined,
+          stream: captureStream
+        }
+      },
+      router
+    ])
+    await logServer.initialize()
+  })
+
+  afterEach(async () => {
+    capturedLogs.length = 0
+    await db.collection(sessionsCollection).deleteMany({ journeyId: JOURNEY_ID })
+  })
+
+  afterAll(async () => {
+    if (logServer && typeof logServer.stop === 'function') {
+      await logServer.stop()
+    }
+  })
+
+  test('the [response] log line carries the same transaction.id as the handler lines', async () => {
+    await db.collection(sessionsCollection).insertOne({
+      uploadId: 'upload-id-for-response-log-test',
+      journeyId: JOURNEY_ID,
+      metadata: mockScanAndUploadResponseSingleFile.metadata,
+      timestamp: new Date()
+    })
+
+    const response = await logServer.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: {
+        ...mockScanAndUploadResponseSingleFile,
+        metadata: { ...mockScanAndUploadResponseSingleFile.metadata, journeyId: JOURNEY_ID }
+      }
+    })
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+
+    const responseLogLine = capturedLogs.find((line) => line.msg?.startsWith('[response]'))
+
+    expect(responseLogLine).toBeDefined()
+    expect(responseLogLine['transaction.id']).toBe(JOURNEY_ID)
   })
 })
