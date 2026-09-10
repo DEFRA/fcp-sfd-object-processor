@@ -6,7 +6,7 @@ const asyncLocalStorage = new AsyncLocalStorage()
 // store outlives the caller (e.g. a hapi onRequest extension) and is still readable
 // from later lifecycle stages such as the hapi-pino response log.
 const enterCorrelationScope = () => {
-  asyncLocalStorage.enterWith({ correlationId: undefined })
+  asyncLocalStorage.enterWith({ correlationId: null })
 }
 
 const setCorrelationId = (correlationId) => {

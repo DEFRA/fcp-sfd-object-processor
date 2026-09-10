@@ -25,14 +25,14 @@ describe('#correlation-scope', () => {
     expect(result).toBe(mockH.continue)
   })
 
-  test('leaves the correlation id undefined until something sets it', async () => {
+  test('leaves the correlation id null until something sets it', async () => {
     const mockServer = { ext: vi.fn() }
     await correlationScope.plugin.register(mockServer)
     const [, onRequest] = mockServer.ext.mock.calls[0]
 
     onRequest({}, { continue: Symbol('continue') })
 
-    expect(getCorrelationId()).toBeUndefined()
+    expect(getCorrelationId()).toBeNull()
   })
 
   test('makes a value set after the extension runs readable afterwards', async () => {

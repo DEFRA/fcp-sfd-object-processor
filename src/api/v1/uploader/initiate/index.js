@@ -9,7 +9,7 @@ import { initiatePayloadSchema, initiateResponseSchema } from './schema.js'
 import { metricsCounter } from '../../../../api/common/helpers/metrics.js'
 import { insertSession } from '../../../../repos/sessions.js'
 import { JOURNEY_ID_KEY } from '../../../../constants/correlation.js'
-import { runWithCorrelationId } from '../../../../logging/correlation-id-store.js'
+import { setCorrelationId } from '../../../../logging/correlation-id-store.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -73,85 +73,86 @@ export const uploaderInitiateRoute = {
       // Deliberately not returned to the client; it is an internal correlation identifier.
       const journeyId = randomUUID()
 
-      // Entered here, not only at the callback, so that the request which mints the
-      // identifier also carries it on every line it logs. The pino mixin reads the store
-      // and emits the value as transaction.id.
-      return runWithCorrelationId(journeyId, async () => {
-        const uploaderUrl = config.get('uploaderUrl')
-        const initiateEndpoint = config.get('uploaderInitiateEndpoint')
-        const url = `${uploaderUrl}${initiateEndpoint}`
+      // The scope itself is entered upstream by the correlation-scope plugin at onRequest;
+      // this just fills in the value once it's known, so every line this request logs from
+      // here on, including hapi-pino's own [response] line, carries it as transaction.id.
+      setCorrelationId(journeyId)
 
-        const payload = buildCdpUploaderPayload(request.payload, journeyId)
+      const uploaderUrl = config.get('uploaderUrl')
+      const initiateEndpoint = config.get('uploaderInitiateEndpoint')
+      const url = `${uploaderUrl}${initiateEndpoint}`
 
-        logger.info({ url }, 'Forwarding initiate request to Upstream service')
+      const payload = buildCdpUploaderPayload(request.payload, journeyId)
 
-        let response
+      logger.info({ url }, 'Forwarding initiate request to Upstream service')
 
-        try {
-          response = await httpClient(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          })
-        } catch (err) {
-          if (err instanceof TimeoutError) {
-            logger.error({ url, retry: err.retryMetadata ?? null }, 'Upstream service request timed out')
-            throw Boom.gatewayTimeout('Upstream service request timed out')
-          }
-          logger.error({ error: { message: err.message }, url, retry: err.retryMetadata ?? null }, 'Upstream service request failed')
-          throw Boom.badGateway('Upstream service request failed')
+      let response
+
+      try {
+        response = await httpClient(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+      } catch (err) {
+        if (err instanceof TimeoutError) {
+          logger.error({ url, retry: err.retryMetadata ?? null }, 'Upstream service request timed out')
+          throw Boom.gatewayTimeout('Upstream service request timed out')
         }
+        logger.error({ error: { message: err.message }, url, retry: err.retryMetadata ?? null }, 'Upstream service request failed')
+        throw Boom.badGateway('Upstream service request failed')
+      }
 
-        if (!response.ok) {
-          const body = await response.text().catch(() => 'Unable to read response body')
-          logger.error(
-            { statusCode: response.status, body, url },
-            'Upstream service returned non-2xx response'
-          )
-          throw Boom.badGateway(`Upstream service returned ${response.status}`)
-        }
+      if (!response.ok) {
+        const body = await response.text().catch(() => 'Unable to read response body')
+        logger.error(
+          { statusCode: response.status, body, url },
+          'Upstream service returned non-2xx response'
+        )
+        throw Boom.badGateway(`Upstream service returned ${response.status}`)
+      }
 
-        let cdpResponse
-        try {
-          cdpResponse = await response.json()
-        } catch (err) {
-          logger.error({ error: { message: err.message }, url }, 'Failed to parse Upstream service response')
-          throw Boom.badGateway('Invalid response from Upstream service')
-        }
+      let cdpResponse
+      try {
+        cdpResponse = await response.json()
+      } catch (err) {
+        logger.error({ error: { message: err.message }, url }, 'Failed to parse Upstream service response')
+        throw Boom.badGateway('Invalid response from Upstream service')
+      }
 
-        if (!cdpResponse?.uploadId) {
-          logger.error({ cdpResponse, url }, 'Upstream service response missing uploadId')
-          throw Boom.badGateway('Invalid response from Upstream service')
-        }
+      if (!cdpResponse?.uploadId) {
+        logger.error({ cdpResponse, url }, 'Upstream service response missing uploadId')
+        throw Boom.badGateway('Invalid response from Upstream service')
+      }
 
-        const data = rewriteResponseUrls(cdpResponse)
+      const data = rewriteResponseUrls(cdpResponse)
 
-        try {
-          await insertSession({
-            uploadId: cdpResponse.uploadId,
-            journeyId,
-            metadata: request.payload.metadata,
-            timestamp: new Date()
-          })
-        } catch (sessionErr) {
-          // A swallowed insert failure later causes the callback to fall back to a generated
-          // id, so this line has to carry the journeyId for the two events to be joined by
-          // hand. It does: this runs inside runWithCorrelationId, and the pino mixin emits the
-          // value as transaction.id. event.reference names it a second time under an approved
-          // ECS field, which is how the rest of the service marks an identifiable event.
-          logger.error({
-            event: {
-              type: 'session_persist_failure',
-              outcome: 'failure',
-              reference: journeyId
-            },
-            error: { message: sessionErr.message },
-            'cdp-uploader': { uploadId: cdpResponse.uploadId }
-          }, 'Failed to persist upload session record')
-        }
+      try {
+        await insertSession({
+          uploadId: cdpResponse.uploadId,
+          journeyId,
+          metadata: request.payload.metadata,
+          timestamp: new Date()
+        })
+      } catch (sessionErr) {
+        // A swallowed insert failure later causes the callback to fall back to a generated
+        // id, so this line has to carry the journeyId for the two events to be joined by
+        // hand. It does: the correlation scope carries the value across this whole request,
+        // and the pino mixin emits it as transaction.id. event.reference names it a second
+        // time under an approved ECS field, which is how the rest of the service marks an
+        // identifiable event.
+        logger.error({
+          event: {
+            type: 'session_persist_failure',
+            outcome: 'failure',
+            reference: journeyId
+          },
+          error: { message: sessionErr.message },
+          'cdp-uploader': { uploadId: cdpResponse.uploadId }
+        }, 'Failed to persist upload session record')
+      }
 
-        return h.response({ data }).code(httpConstants.HTTP_STATUS_OK)
-      })
+      return h.response({ data }).code(httpConstants.HTTP_STATUS_OK)
     }
   }
 }

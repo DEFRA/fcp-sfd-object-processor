@@ -7,7 +7,7 @@ const correlationScope = {
   plugin: {
     name: 'correlation-scope',
     register: (server) => {
-      server.ext('onRequest', (request, h) => {
+      server.ext('onRequest', (_request, h) => {
         enterCorrelationScope()
         return h.continue
       })
