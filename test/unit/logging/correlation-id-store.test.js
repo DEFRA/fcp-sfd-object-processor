@@ -33,10 +33,10 @@ describe('correlation ID store', () => {
     expect(values).toEqual(['correlation-1', 'correlation-2'])
   })
 
-  test('leaves the correlation ID undefined after entering a scope until it is set', () => {
+  test('leaves the correlation ID null after entering a scope until it is set', () => {
     enterCorrelationScope()
 
-    expect(getCorrelationId()).toBeUndefined()
+    expect(getCorrelationId()).toBeNull()
   })
 
   test('makes a value set after entering a scope visible across a later await', async () => {
