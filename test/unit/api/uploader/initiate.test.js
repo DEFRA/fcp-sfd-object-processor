@@ -46,6 +46,7 @@ describe('uploader initiate handler', () => {
   let mockHttpClient
   let mockInsertSession
   let TimeoutError
+  let getCorrelationId
 
   beforeEach(async () => {
     vi.resetModules()
@@ -86,6 +87,10 @@ describe('uploader initiate handler', () => {
     rewriteResponseUrls = mod.rewriteResponseUrls
     const clientMod = await import('../../../../src/http/client.js')
     TimeoutError = clientMod.TimeoutError
+    // Not mocked. Imported after resetModules so it is the same store instance the handler
+    // enters, which lets the tests below read the id from inside a downstream call.
+    const storeMod = await import('../../../../src/logging/correlation-id-store.js')
+    getCorrelationId = storeMod.getCorrelationId
   })
 
   afterEach(() => {
@@ -144,6 +149,51 @@ describe('uploader initiate handler', () => {
       mockH = {
         response: vi.fn().mockReturnValue({ code: mockCode })
       }
+    })
+
+    test('runs the outbound uploader call inside the correlation store', async () => {
+      let seen
+      mockHttpClient.mockImplementation(async () => {
+        seen = getCorrelationId()
+        return { ok: true, json: async () => mockCdpUploaderResponse }
+      })
+
+      await uploaderInitiateRoute.options.handler(mockRequest, mockH)
+
+      // The value in the store is the same id sent to the uploader, so the request that
+      // mints the identifier also logs under it.
+      const sent = JSON.parse(mockHttpClient.mock.calls[0][1].body).metadata.journeyId
+      expect(seen).toBe(sent)
+      expect(seen).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
+    })
+
+    test('runs the session insert inside the correlation store', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        json: async () => mockCdpUploaderResponse
+      })
+      let seen
+      mockInsertSession.mockImplementation(async () => {
+        seen = getCorrelationId()
+        return { acknowledged: true }
+      })
+
+      await uploaderInitiateRoute.options.handler(mockRequest, mockH)
+
+      expect(seen).toBe(mockInsertSession.mock.calls[0][0].journeyId)
+    })
+
+    test('leaves the store empty once the request is done', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        json: async () => mockCdpUploaderResponse
+      })
+
+      await uploaderInitiateRoute.options.handler(mockRequest, mockH)
+
+      // The scope is per request. A value leaking outside it would attach one upload's id
+      // to an unrelated request handled later on the same worker.
+      expect(getCorrelationId()).toBeUndefined()
     })
 
     test('returns 200 with rewritten URLs on successful proxy', async () => {

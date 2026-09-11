@@ -239,6 +239,16 @@ The steps to upload a file are as follows:
 
 CDP Uploader calls `POST /api/v1/callback` in the background once scanning completes. That is what persists the metadata and queues the outbox entries, so a file is not retrievable through the endpoints below until the callback has landed.
 
+### Correlating one upload end to end
+
+A single `journeyId` is minted when an upload is initiated. It is persisted on the session record and added to the `metadata` object sent to CDP Uploader, which echoes that object back verbatim on the callback. This is the only way a value survives the round trip. The platform's own `x-cdp-request-id` cannot do the job, because it identifies one HTTP request and the callback arrives as a separate request from CDP Uploader, so its trace id bears no relation to the initiate that preceded it. The callback body carries no `uploadId` either, so there is nothing else to join on.
+
+On the callback the id is split back out of `metadata`, verified against the session, and used as the `messaging.correlationId` on the persisted document. From there it already flows to the outbox entry and to `data.correlationId` on the CloudEvent delivered to the CRM, so one value covers the whole journey. It is also placed in the correlation store for the lifetime of both the initiate and callback requests, which is what puts it on every log line as `transaction.id`.
+
+If the id is missing, malformed or does not match a session, the callback logs `callback_journey_id_unresolved`, increments a counter of the same name and falls back to a generated id. The upload still succeeds: the callback is the only delivery of a file's metadata, so it is never failed over a correlation problem.
+
+The `journeyId` is an internal correlation identifier. It is not returned to the client, and it is stripped from both the persisted document and the `/uploader/status/{uploadId}` response.
+
 ### Retrieve metadata
 
 Metadata relating to a given SBI (Single Business Identifier) can be retrieved by providing the SBI in question. In this case, from the previous examples this would be `105000000`.
