@@ -13,6 +13,7 @@ import { persistMetadata, formatInboundMetadata, getMetadataByFileId } from '../
 import { createOutboxEntries } from '../../../src/repos/outbox.js'
 import { insertStatus } from '../../../src/repos/status.js'
 import { client } from '../../../src/data/db.js'
+import { createLogger } from '../../../src/logging/logger.js'
 import { mockScanAndUploadResponseArray as rawDocuments, mockScanAndUploadResponse } from '../../mocks/cdp-uploader.js'
 import { mockFormattedDocuments as formattedDocuments } from '../../mocks/metadata.js'
 
@@ -35,6 +36,9 @@ vi.mock('../../../src/logging/logger.js', () => ({
 }))
 
 const CORRELATION_ID = '550e8400-e29b-41d4-a716-446655440000'
+const UUID_V1 = '123e4567-e89b-12d3-a456-426655440000'
+
+const logger = createLogger()
 
 describe('Metadata Service', () => {
   let mockSession
@@ -228,6 +232,26 @@ describe('Metadata Service', () => {
       )
     })
 
+    // persistMetadataWithOutbox holds no guard of its own. formatInboundMetadata is the
+    // single point at which the identifier reaches a document, so it is the choke point,
+    // and this asserts that its refusal reaches the caller with nothing written.
+    test('should propagate the correlationId guard from formatInboundMetadata and write nothing', async () => {
+      formatInboundMetadata.mockImplementation(() => {
+        throw new Error('A correlation id is required on the persistence path and must be a v4 UUID; received type undefined')
+      })
+
+      mockSession.withTransaction.mockImplementation(async (callback) => {
+        return await callback()
+      })
+
+      await expect(persistMetadataWithOutbox(rawDocuments, undefined)).rejects.toThrow(/must be a v4 UUID/)
+
+      expect(insertStatus).not.toHaveBeenCalled()
+      expect(persistMetadata).not.toHaveBeenCalled()
+      expect(createOutboxEntries).not.toHaveBeenCalled()
+      expect(mockSession.endSession).toHaveBeenCalled()
+    })
+
     test('should return duplicate indicator and correlationId on E11000 duplicate key error', async () => {
       const existingCorrelationId = '123e4567-e89b-12d3-a456-426655440000'
       const duplicateKeyError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
@@ -380,6 +404,69 @@ describe('Metadata Service', () => {
 
       expect(uniqueCorrelationIds).toHaveLength(1)
       expect(uniqueCorrelationIds[0]).toBe(CORRELATION_ID)
+    })
+
+    // A status record keyed to nothing cannot be joined back to the upload it describes,
+    // so the guard runs before any document is built and before insertStatus is reached.
+    describe('when the correlationId is not a usable identifier', () => {
+      const validationError = {
+        details: [
+          {
+            path: ['metadata', 'crn'],
+            type: 'any.required',
+            context: { value: undefined }
+          }
+        ]
+      }
+
+      test('rejects when the correlationId is undefined', async () => {
+        await expect(persistValidationFailureStatus(rawDocuments[0], validationError, undefined))
+          .rejects.toThrow(/must be a v4 UUID/)
+      })
+
+      test('rejects when the correlationId is omitted entirely', async () => {
+        await expect(persistValidationFailureStatus(rawDocuments[0], validationError))
+          .rejects.toThrow(/must be a v4 UUID/)
+      })
+
+      test('rejects when the correlationId is null', async () => {
+        await expect(persistValidationFailureStatus(rawDocuments[0], validationError, null))
+          .rejects.toThrow(/must be a v4 UUID/)
+      })
+
+      test('rejects when the correlationId is an empty string', async () => {
+        await expect(persistValidationFailureStatus(rawDocuments[0], validationError, ''))
+          .rejects.toThrow(/must be a v4 UUID/)
+      })
+
+      test('rejects when the correlationId is not a string', async () => {
+        await expect(persistValidationFailureStatus(rawDocuments[0], validationError, 12345))
+          .rejects.toThrow(/must be a v4 UUID/)
+      })
+
+      test('rejects when the correlationId is a string that is not a UUID', async () => {
+        await expect(persistValidationFailureStatus(rawDocuments[0], validationError, 'not-a-uuid'))
+          .rejects.toThrow(/must be a v4 UUID/)
+      })
+
+      test('rejects when the correlationId is a well formed UUID of the wrong version', async () => {
+        await expect(persistValidationFailureStatus(rawDocuments[0], validationError, UUID_V1))
+          .rejects.toThrow(/must be a v4 UUID/)
+      })
+
+      test('writes no status records', async () => {
+        await expect(persistValidationFailureStatus(rawDocuments[0], validationError, undefined))
+          .rejects.toThrow(/must be a v4 UUID/)
+
+        expect(insertStatus).not.toHaveBeenCalled()
+      })
+
+      test('does not report the failure as a persistence error', async () => {
+        await expect(persistValidationFailureStatus(rawDocuments[0], validationError, undefined))
+          .rejects.toThrow(/must be a v4 UUID/)
+
+        expect(logger.error).not.toHaveBeenCalled()
+      })
     })
   })
 
