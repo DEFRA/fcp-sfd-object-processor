@@ -19,15 +19,17 @@ const isFileEntry = (val) =>
  *
  * @param {Object} payload - The request payload
  * @param {Object} h - Hapi response toolkit
- * @returns {Object|null} - Returns error response if validation fails, null if successful
+ * @param {string} correlationId - Journey id resolved at the callback boundary
+ * @returns {Promise<Object|null>} - Resolves to an error response if validation fails, or to
+ *   null if successful. The function is async, so callers must await it.
  */
-export async function validateCallbackPayload (payload, h) {
+export async function validateCallbackPayload (payload, h, correlationId) {
   const requestPayload = payload || {}
 
   // Stage 1: Contract validation — uploadStatus must be 'ready'
   if (requestPayload.uploadStatus !== 'ready') {
     await metricsCounter('callback_unexpected_status')
-    return handleValidationFailure(requestPayload, new Error(`uploadStatus must be 'ready' but was '${requestPayload.uploadStatus}'`), undefined, h)
+    return handleValidationFailure(requestPayload, new Error(`uploadStatus must be 'ready' but was '${requestPayload.uploadStatus}'`), undefined, h, correlationId)
   }
 
   // Observability: numberOfRejectedFiles mismatch check (lenient — warn only)
@@ -59,14 +61,14 @@ export async function validateCallbackPayload (payload, h) {
   for (const fileVal of flattenFormValues(form)) {
     if (isFileEntry(fileVal) && fileVal.fileStatus !== 'complete') {
       await metricsCounter('callback_unexpected_status')
-      return handleValidationFailure(requestPayload, new Error(`fileStatus must be 'complete' but was '${fileVal.fileStatus}'`), fileVal, h)
+      return handleValidationFailure(requestPayload, new Error(`fileStatus must be 'complete' but was '${fileVal.fileStatus}'`), fileVal, h, correlationId)
     }
   }
 
   // Stage 3: Post-Joi semantic validation for each file upload
   const validation = validateFormFiles(form)
   if (!validation.isValid) {
-    return handleValidationFailure(requestPayload, new Error(validation.error), validation.file, h)
+    return handleValidationFailure(requestPayload, new Error(validation.error), validation.file, h, correlationId)
   }
 
   return null

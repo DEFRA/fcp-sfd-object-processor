@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto'
-
 import { client } from '../data/db.js'
 import { persistMetadata, formatInboundMetadata, getMetadataByFileId } from '../repos/metadata.js'
 import { createOutboxEntries } from '../repos/outbox.js'
@@ -12,12 +10,12 @@ const logger = createLogger()
 
 const DUPLICATE_KEY_ERROR_CODE = 11000
 
-const persistMetadataWithOutbox = async (rawDocuments) => {
+const persistMetadataWithOutbox = async (rawDocuments, correlationId) => {
   const session = client.startSession()
 
   try {
     return await session.withTransaction(async () => {
-      const documents = formatInboundMetadata(rawDocuments)
+      const documents = formatInboundMetadata(rawDocuments, correlationId)
       const statusDocuments = buildValidatedStatusDocuments(documents)
 
       await insertStatus(statusDocuments, session)
@@ -44,20 +42,23 @@ const persistMetadataWithOutbox = async (rawDocuments) => {
       // All files in a single callback share the same correlationId,
       // so we only need to look up the first to retrieve it.
       const existingDocument = await getMetadataByFileId(fileIds[0])
-      const { correlationId } = existingDocument.messaging
+      // Named distinctly from the correlationId parameter it would otherwise shadow. The
+      // duplicate path must return the id stored on the first callback, not the one resolved
+      // for this one.
+      const { correlationId: existingCorrelationId } = existingDocument.messaging
 
       logger.info(
         {
           event: {
             type: 'duplicate_callback',
             outcome: 'success',
-            reference: correlationId
+            reference: existingCorrelationId
           }
         },
         'Duplicate callback received — returning existing correlationId'
       )
 
-      return { duplicate: true, correlationId }
+      return { duplicate: true, correlationId: existingCorrelationId }
     }
 
     logger.error(error, 'Failed to persist metadata with outbox')
@@ -67,9 +68,8 @@ const persistMetadataWithOutbox = async (rawDocuments) => {
   }
 }
 
-const persistValidationFailureStatus = async (payload, validationError) => {
+const persistValidationFailureStatus = async (payload, validationError, correlationId) => {
   try {
-    const correlationId = randomUUID()
     const statusDocuments = buildValidationFailureStatusDocuments(payload, validationError, correlationId)
     return await insertStatus(statusDocuments)
   } catch (error) {
