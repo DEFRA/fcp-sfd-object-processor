@@ -1,11 +1,13 @@
 // Schema-related constants for Joi validation and examples
+// SBI and CRN ranges must stay in step with docs/asyncapi/v1.yaml, the event
+// contract CRM and FDM validate against, and docs/openapi/v1.json.
 
 export const schemaConsts = {
-  SBI_MIN: 100000000,
+  SBI_MIN: 105000000,
   SBI_MAX: 999999999,
   SBI_EXAMPLE: 105000000,
 
-  CRN_MIN: 1000000000,
+  CRN_MIN: 1050000000,
   CRN_MAX: 9999999999,
   CRN_EXAMPLE: 1050000000,
 

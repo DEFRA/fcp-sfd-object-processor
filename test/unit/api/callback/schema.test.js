@@ -174,6 +174,32 @@ describe('callbackPayloadSchema validation', () => {
       expect(error).toBeUndefined()
     })
 
+    test('accepts the contract lower bounds published in docs/asyncapi/v1.yaml', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        metadata: { ...validPayload.metadata, sbi: 105000000, crn: 1050000000 }
+      })
+      expect(error).toBeUndefined()
+    })
+
+    test('rejects an SBI below the contract lower bound published in docs/asyncapi/v1.yaml', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        metadata: { ...validPayload.metadata, sbi: 104999999 }
+      })
+      expect(error).toBeDefined()
+      expect(error.details.some(d => d.path.includes('sbi') && d.type === 'number.min')).toBe(true)
+    })
+
+    test('rejects a CRN below the contract lower bound published in docs/asyncapi/v1.yaml', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        metadata: { ...validPayload.metadata, crn: 1049999999 }
+      })
+      expect(error).toBeDefined()
+      expect(error.details.some(d => d.path.includes('crn') && d.type === 'number.min')).toBe(true)
+    })
+
     test('missing sbi fails validation', () => {
       const { sbi, ...metadata } = validPayload.metadata
       const { error } = callbackPayloadSchema.validate({

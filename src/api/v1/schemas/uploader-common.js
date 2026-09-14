@@ -21,12 +21,12 @@ export const businessIdentifierFields = {
     .min(schemaConsts.SBI_MIN)
     .max(schemaConsts.SBI_MAX)
     .required()
-    .description('Single Business Identifier - must be exactly 9 digits')
+    .description(`Single Business Identifier - must be a 9 digit number between ${schemaConsts.SBI_MIN} and ${schemaConsts.SBI_MAX}`)
     .messages({
       'number.base': 'sbi must be a number',
       'number.integer': 'sbi must be an integer',
-      'number.min': 'sbi must be exactly 9 digits',
-      'number.max': 'sbi must be exactly 9 digits',
+      'number.min': `sbi must be between ${schemaConsts.SBI_MIN} and ${schemaConsts.SBI_MAX}`,
+      'number.max': `sbi must be between ${schemaConsts.SBI_MIN} and ${schemaConsts.SBI_MAX}`,
       'any.required': 'sbi is required'
     })
     .example(schemaConsts.SBI_EXAMPLE),
@@ -36,12 +36,12 @@ export const businessIdentifierFields = {
     .min(schemaConsts.CRN_MIN)
     .max(schemaConsts.CRN_MAX)
     .required()
-    .description('Customer Reference Number - must be exactly 10 digits')
+    .description(`Customer Reference Number - must be a 10 digit number between ${schemaConsts.CRN_MIN} and ${schemaConsts.CRN_MAX}`)
     .messages({
       'number.base': 'crn must be a number',
       'number.integer': 'crn must be an integer',
-      'number.min': 'crn must be exactly 10 digits',
-      'number.max': 'crn must be exactly 10 digits',
+      'number.min': `crn must be between ${schemaConsts.CRN_MIN} and ${schemaConsts.CRN_MAX}`,
+      'number.max': `crn must be between ${schemaConsts.CRN_MIN} and ${schemaConsts.CRN_MAX}`,
       'any.required': 'crn is required'
     })
     .example(schemaConsts.CRN_EXAMPLE),
