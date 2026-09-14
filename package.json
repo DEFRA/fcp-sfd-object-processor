@@ -40,6 +40,7 @@
     "@aws-sdk/client-sns": "3.1124.0",
     "@aws-sdk/s3-request-presigner": "3.1124.0",
     "@defra/fcp-audit-publisher": "1.0.7",
+    "@defra/hapi-secure-context": "0.4.0",
     "@defra/hapi-tracing": "1.30.0",
     "@elastic/ecs-pino-format": "1.5.0",
     "@fetchkit/ffetch": "5.5.4",
