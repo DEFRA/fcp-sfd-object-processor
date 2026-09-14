@@ -159,6 +159,7 @@ describe('Shared Schema Components', () => {
           '',
           'string',
           12345678, // too short
+          104999999, // below the agreed lower bound
           1234567890, // too long
           123.456789 // decimal
         ]
@@ -171,7 +172,7 @@ describe('Shared Schema Components', () => {
 
       test('should provide proper error messages for SBI', () => {
         const result = businessIdentifierFields.sbi.validate(12345678)
-        expect(result.error.message).toContain('sbi must be exactly 9 digits')
+        expect(result.error.message).toContain('sbi must be between 105000000 and 999999999')
       })
     })
 
@@ -189,6 +190,7 @@ describe('Shared Schema Components', () => {
           '',
           'string',
           123456789, // too short
+          1049999999, // below the agreed lower bound
           12345678901, // too long
           123.4567890 // decimal
         ]
@@ -587,7 +589,7 @@ describe('Shared Schema Components', () => {
 
       const result = baseMetadataSchema.validate(metadataWithLargeNumbers)
       expect(result.error).toBeDefined()
-      expect(result.error.message).toContain('must be exactly')
+      expect(result.error.message).toContain('sbi must be between 105000000 and 999999999')
     })
   })
 })

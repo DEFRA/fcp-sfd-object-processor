@@ -197,7 +197,7 @@
           "sbi": {
             "type": "integer",
             "nullable": true,
-            "minimum": 100000000,
+            "minimum": 105000000,
             "maximum": 999999999
           },
           "fileId": {
@@ -252,14 +252,14 @@
             "type": "integer",
             "description": "Single Business Identifier",
             "example": 105000000,
-            "minimum": 100000000,
+            "minimum": 105000000,
             "maximum": 999999999
           },
           "crn": {
             "type": "integer",
             "description": "Customer Reference Number",
             "example": 1050000000,
-            "minimum": 1000000000,
+            "minimum": 1050000000,
             "maximum": 9999999999
           },
           "frn": {
@@ -580,16 +580,16 @@
         "properties": {
           "sbi": {
             "type": "integer",
-            "description": "Single Business Identifier - must be exactly 9 digits",
+            "description": "Single Business Identifier - must be a 9 digit number between 105000000 and 999999999",
             "example": 105000000,
-            "minimum": 100000000,
+            "minimum": 105000000,
             "maximum": 999999999
           },
           "crn": {
             "type": "integer",
-            "description": "Customer Reference Number - must be exactly 10 digits",
+            "description": "Customer Reference Number - must be a 10 digit number between 1050000000 and 9999999999",
             "example": 1050000000,
-            "minimum": 1000000000,
+            "minimum": 1050000000,
             "maximum": 9999999999
           },
           "frn": {
@@ -725,16 +725,16 @@
         "properties": {
           "sbi": {
             "type": "integer",
-            "description": "Single Business Identifier - must be exactly 9 digits",
+            "description": "Single Business Identifier - must be a 9 digit number between 105000000 and 999999999",
             "example": 105000000,
-            "minimum": 100000000,
+            "minimum": 105000000,
             "maximum": 999999999
           },
           "crn": {
             "type": "integer",
-            "description": "Customer Reference Number - must be exactly 10 digits",
+            "description": "Customer Reference Number - must be a 10 digit number between 1050000000 and 9999999999",
             "example": 1050000000,
-            "minimum": 1000000000,
+            "minimum": 1050000000,
             "maximum": 9999999999
           },
           "frn": {
