@@ -16,10 +16,15 @@ const sanitiseReceivedValue = (value) => {
   return '[complex value]'
 }
 
-const buildFallbackValidationError = (validationError) => {
-  const message = typeof validationError?.message === 'string' && validationError.message.length > 0
+export const buildFallbackValidationError = (validationError) => {
+  let message = typeof validationError?.message === 'string' && validationError.message.length > 0
     ? validationError.message
     : 'Validation failed'
+
+  // Cap message length to prevent injection of unbounded text from unauthenticated sources
+  if (message.length > 256) {
+    message = message.slice(0, 256)
+  }
 
   return {
     field: 'payload',

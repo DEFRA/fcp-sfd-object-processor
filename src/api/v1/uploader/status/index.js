@@ -115,14 +115,20 @@ export const uploaderStatusRoute = {
   }
 }
 
-const extractScannerErrors = (form) => {
+export const extractScannerErrors = (form) => {
   const formValues = flattenFormValues(form)
   const errors = formValues
     .filter(value => value && typeof value === 'object' && value.fileStatus === 'rejected')
-    .map((file) => ({
-      field: file.filename || 'file',
-      errorType: file.errorCode || file.errorMessage || REJECTED_BY_SCANNER
-    }))
+    .map((file) => {
+      const filename = typeof file.filename === 'string' ? file.filename.slice(0, 256) : 'file'
+      const errorCode = typeof file.errorCode === 'string' ? file.errorCode.slice(0, 256) : undefined
+      const errorMessage = typeof file.errorMessage === 'string' ? file.errorMessage.slice(0, 256) : undefined
+
+      return {
+        field: filename,
+        errorType: errorCode || errorMessage || REJECTED_BY_SCANNER
+      }
+    })
 
   return errors.length > 0 ? errors : [{ field: 'file', errorType: REJECTED_BY_SCANNER }]
 }

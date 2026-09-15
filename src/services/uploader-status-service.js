@@ -64,15 +64,23 @@ export const getLocalVerdictByUploadId = async (uploadId) => {
     getOutboxStatusesByFileIds(fileIds)
   ])
 
-  const publishedFileIds = new Set(
-    metadataRecords
-      .filter(record => record.messaging?.publishedAt && typeof record.file?.fileId === 'string')
-      .map(record => record.file.fileId)
+  // Check for permanent delivery failures: a file has a PERMANENT_FAILURE outbox entry
+  // AND its corresponding metadata does NOT have a publishedAt timestamp.
+  // This ensures we only report failure if delivery truly failed (not just in-flight).
+  // To prevent race conditions where outbox status updates after metadata query,
+  // we require that every file either has publishedAt OR has no outbox entry at all.
+  const outboxByFileId = new Map(
+    outboxRecords
+      .filter(record => typeof record.payload?.file?.fileId === 'string')
+      .map(record => [record.payload.file.fileId, record])
   )
 
-  const hasUnpublishedPermanentFailure = outboxRecords.some(
-    record => record.status === PERMANENT_FAILURE && !publishedFileIds.has(record.payload?.file?.fileId)
-  )
+  const hasUnpublishedPermanentFailure = fileIds.some(fileId => {
+    const outboxEntry = outboxByFileId.get(fileId)
+    const metadata = metadataRecords.find(m => m.file?.fileId === fileId)
+    const isPublished = metadata?.messaging?.publishedAt !== undefined && metadata.messaging.publishedAt !== null
+    return outboxEntry?.status === PERMANENT_FAILURE && !isPublished
+  })
 
   if (hasUnpublishedPermanentFailure) {
     return {

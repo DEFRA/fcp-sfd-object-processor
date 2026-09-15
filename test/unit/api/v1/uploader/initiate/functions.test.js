@@ -1,4 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { randomUUID } from 'node:crypto'
 import { buildCdpUploaderPayload, rewriteResponseUrls } from '../../../../../../src/api/v1/uploader/initiate/index.js'
 
 // Use vi.hoisted so mockConfigGet is available when vi.mock factory is hoisted.
@@ -163,26 +164,31 @@ describe('Uploader Initiate Functions', () => {
       expect(metadata).toEqual({ sbi: 123456789, type: 'CS_Agreement_Evidence' })
     })
 
-    test('should omit the journey id when none is supplied', () => {
+    test('should always include journeyId when supplied', () => {
       const clientPayload = {
         redirect: '/upload-complete',
         metadata: { sbi: 123456789 }
       }
 
-      const result = buildCdpUploaderPayload(clientPayload)
+      const journeyId = randomUUID()
+      const result = buildCdpUploaderPayload(clientPayload, journeyId)
 
-      expect(result.metadata).not.toHaveProperty('journeyId')
+      expect(result.metadata).toHaveProperty('journeyId')
+      expect(result.metadata.journeyId).toBe(journeyId)
     })
 
-    test('should omit the journey id when no id is supplied', () => {
+    test('should preserve client metadata alongside journeyId', () => {
       const clientPayload = {
         redirect: '/upload-complete',
-        metadata: { sbi: 123456789 }
+        metadata: { sbi: 123456789, customField: 'value' }
       }
 
-      const result = buildCdpUploaderPayload(clientPayload)
+      const journeyId = randomUUID()
+      const result = buildCdpUploaderPayload(clientPayload, journeyId)
 
-      expect(result.metadata).not.toHaveProperty('journeyId')
+      expect(result.metadata.sbi).toBe(123456789)
+      expect(result.metadata.customField).toBe('value')
+      expect(result.metadata.journeyId).toBe(journeyId)
     })
   })
 

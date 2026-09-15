@@ -28,7 +28,7 @@ export const buildCdpUploaderPayload = (clientPayload, journeyId) => {
     maxFileSize: config.get('cdpUploaderMaxFileSize'),
     metadata: {
       ...clientPayload.metadata,
-      ...(journeyId ? { [JOURNEY_ID_KEY]: journeyId } : {})
+      [JOURNEY_ID_KEY]: journeyId
     }
   }
 }
