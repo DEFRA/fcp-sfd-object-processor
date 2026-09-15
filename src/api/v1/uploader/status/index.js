@@ -43,8 +43,8 @@ export const uploaderStatusRoute = {
   method: 'GET',
   path: `${baseUrl}/uploader/status/{uploadId}`,
   options: {
-    description: 'Proxy CDP Uploader scan status for an upload session',
-    notes: 'Polls CDP Uploader for the current scan status and file details for a given uploadId. Note that this endpoint has multiple response examples based on uploadStatus. If not rendering on the /documentation endpoint, please use the official Swagger Editor (online or the VS Code extension).',
+    description: 'Return upload outcome by combining CDP scan status with local processing and delivery verdicts',
+    notes: 'Polls CDP Uploader for the current scan status and file details for a given uploadId, then merges that state with local callback validation and outbox delivery outcomes. Note that this endpoint has multiple response examples based on uploadStatus. If not rendering on the /documentation endpoint, please use the official Swagger Editor (online or the VS Code extension).',
     tags: ['api', 'uploader'],
     validate: {
       params: uploaderStatusParamsSchema,

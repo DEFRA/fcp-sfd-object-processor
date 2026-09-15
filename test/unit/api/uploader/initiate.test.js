@@ -316,6 +316,8 @@ describe('uploader initiate handler', () => {
         output: { statusCode: httpConstants.HTTP_STATUS_SERVICE_UNAVAILABLE }
       })
 
+      expect(mockH.response).not.toHaveBeenCalled()
+
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.objectContaining({
           event: expect.objectContaining({

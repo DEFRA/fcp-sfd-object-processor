@@ -235,7 +235,7 @@ View the openapi spec for example commands and full API documentation.
 The steps to upload a file are as follows:
 1. POST to `uploader/initiate`. The payload accepts only `redirect` and `metadata` — the S3 bucket, S3 path, callback URL, permitted MIME types and maximum file size are all server-side configuration and are rejected if sent by the client.
 2. POST the file direct to cdp-uploader at the returned `uploadUrl`.
-3. GET `/uploader/status/{uploadId}` to check the scan outcome. The raw CDP state is mapped to `pending`, `success` or `failure`.
+3. GET `/uploader/status/{uploadId}` to check the upload outcome. The endpoint combines CDP scan state with local callback, validation and outbox delivery state, then returns `pending`, `success` or `failure`.
 
 CDP Uploader calls `POST /api/v1/callback` in the background once scanning completes. That is what persists the metadata and queues the outbox entries, so a file is not retrievable through the endpoints below until the callback has landed.
 
