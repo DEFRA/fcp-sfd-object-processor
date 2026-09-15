@@ -37,6 +37,7 @@ const ACCEPTED_STATUS = Object.freeze({
   stage: 'accepted',
   errors: null
 })
+const REJECTED_BY_SCANNER = 'rejected-by-scanner'
 
 export const uploaderStatusRoute = {
   method: 'GET',
@@ -145,10 +146,10 @@ const extractScannerErrors = (form) => {
     .filter(value => value && typeof value === 'object' && value.fileStatus === 'rejected')
     .map((file) => ({
       field: file.filename || 'file',
-      errorType: file.errorCode || file.errorMessage || 'rejected-by-scanner'
+      errorType: file.errorCode || file.errorMessage || REJECTED_BY_SCANNER
     }))
 
-  return errors.length > 0 ? errors : [{ field: 'file', errorType: 'rejected-by-scanner' }]
+  return errors.length > 0 ? errors : [{ field: 'file', errorType: REJECTED_BY_SCANNER }]
 }
 
 const mapLocalVerdict = async (uploadId) => {
@@ -190,7 +191,6 @@ const mapLocalVerdict = async (uploadId) => {
 
   const hasPublishedAt = metadataRecords.some(record => record.messaging?.publishedAt)
   const hasPermanentFailure = outboxRecords.some(record => record.status === PERMANENT_FAILURE)
-  const hasRetryingOrDelivered = outboxRecords.some(record => record.status !== PERMANENT_FAILURE)
 
   if (!hasPublishedAt && hasPermanentFailure) {
     return {
@@ -200,11 +200,7 @@ const mapLocalVerdict = async (uploadId) => {
     }
   }
 
-  if (hasPublishedAt || hasRetryingOrDelivered) {
-    return ACCEPTED_STATUS
-  } else {
-    return ACCEPTED_STATUS
-  }
+  return ACCEPTED_STATUS
 }
 
 const mapCdpStatus = async (uploadId, cdpResponse) => {
@@ -219,11 +215,17 @@ const mapCdpStatus = async (uploadId, cdpResponse) => {
   if (uploadStatus === 'ready' && numberOfRejectedFiles > 0) {
     mappedStatus = {
       uploadStatus: 'failure',
-      stage: 'rejected-by-scanner',
+      stage: REJECTED_BY_SCANNER,
       errors: extractScannerErrors(form)
     }
   } else if (uploadStatus === 'ready') {
     mappedStatus = await mapLocalVerdict(uploadId)
+  } else {
+    mappedStatus = {
+      uploadStatus: 'pending',
+      stage: 'scanning',
+      errors: null
+    }
   }
 
   // CDP Uploader echoes the metadata supplied at initiate verbatim, so it carries the
