@@ -242,6 +242,23 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
       }
     }
 
+    // Post-process: hapi-swagger renders Joi.valid(null) within alternatives as
+    // `{ type: 'string', nullable: true }` for this route. Runtime allows only
+    // array or null, so normalize the generated contract accordingly.
+    const mappedStatusErrors = spec.components?.schemas?.MappedUploaderStatusData?.properties?.errors
+    if (Array.isArray(mappedStatusErrors?.anyOf) && mappedStatusErrors.anyOf.length === 2) {
+      const arraySchemaRef = mappedStatusErrors.anyOf.find((candidate) => typeof candidate?.$ref === 'string')
+      const nullableStringIndex = mappedStatusErrors.anyOf.findIndex(
+        (candidate) => candidate?.type === 'string' && candidate?.nullable === true
+      )
+
+      if (arraySchemaRef && nullableStringIndex !== -1) {
+        mappedStatusErrors.anyOf = undefined
+        mappedStatusErrors.allOf = [arraySchemaRef]
+        mappedStatusErrors.nullable = true
+      }
+    }
+
     // Write to file
     await writeFile(outputPath, JSON.stringify(spec, null, 2))
 

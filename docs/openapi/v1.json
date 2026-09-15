@@ -420,15 +420,12 @@
           },
           "errors": {
             "description": "Validation or delivery errors associated with the upload verdict",
-            "anyOf": [
+            "allOf": [
               {
                 "$ref": "#/x-alt-definitions/Model3"
-              },
-              {
-                "type": "string",
-                "nullable": true
               }
-            ]
+            ],
+            "nullable": true
           },
           "metadata": {
             "$ref": "#/components/schemas/MappedStatusMetadata"
@@ -1186,9 +1183,9 @@
     },
     "/api/v1/uploader/status/{uploadId}": {
       "get": {
-        "summary": "Proxy CDP Uploader scan status for an upload session",
+        "summary": "Return upload outcome by combining CDP scan status with local processing and delivery verdicts",
         "operationId": "getApiV1UploaderStatusUploadid",
-        "description": "Polls CDP Uploader for the current scan status and file details for a given uploadId. Note that this endpoint has multiple response examples based on uploadStatus. If not rendering on the /documentation endpoint, please use the official Swagger Editor (online or the VS Code extension).",
+        "description": "Polls CDP Uploader for the current scan status and file details for a given uploadId, then merges that state with local callback validation and outbox delivery outcomes. Note that this endpoint has multiple response examples based on uploadStatus. If not rendering on the /documentation endpoint, please use the official Swagger Editor (online or the VS Code extension).",
         "parameters": [
           {
             "name": "uploadId",
