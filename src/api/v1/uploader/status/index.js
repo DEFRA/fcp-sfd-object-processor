@@ -27,6 +27,16 @@ const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
 const uploaderUrl = config.get('uploaderUrl')
 const uploaderStatusEndpoint = config.get('uploaderStatusEndpoint')
+const DEFAULT_PENDING_STATUS = Object.freeze({
+  uploadStatus: 'pending',
+  stage: 'awaiting-callback',
+  errors: null
+})
+const ACCEPTED_STATUS = Object.freeze({
+  uploadStatus: 'success',
+  stage: 'accepted',
+  errors: null
+})
 
 export const uploaderStatusRoute = {
   method: 'GET',
@@ -145,21 +155,13 @@ const mapLocalVerdict = async (uploadId) => {
   const session = await getSessionByUploadId(uploadId)
 
   if (!session?.journeyId) {
-    return {
-      uploadStatus: 'pending',
-      stage: 'awaiting-callback',
-      errors: null
-    }
+    return DEFAULT_PENDING_STATUS
   }
 
   const statusRecords = await getStatusByCorrelationId(session.journeyId)
 
   if (statusRecords.length === 0) {
-    return {
-      uploadStatus: 'pending',
-      stage: 'awaiting-callback',
-      errors: null
-    }
+    return DEFAULT_PENDING_STATUS
   }
 
   const failedStatusRecords = statusRecords.filter(record => record.validated === false)
@@ -199,17 +201,9 @@ const mapLocalVerdict = async (uploadId) => {
   }
 
   if (hasPublishedAt || hasRetryingOrDelivered) {
-    return {
-      uploadStatus: 'success',
-      stage: 'accepted',
-      errors: null
-    }
-  }
-
-  return {
-    uploadStatus: 'success',
-    stage: 'accepted',
-    errors: null
+    return ACCEPTED_STATUS
+  } else {
+    return ACCEPTED_STATUS
   }
 }
 
