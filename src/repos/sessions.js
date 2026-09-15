@@ -29,4 +29,11 @@ const getSessionByJourneyId = async (journeyId) => {
     .findOne({ journeyId }, { projection: { uploadId: 1, metadata: 1 } })
 }
 
-export { insertSession, getSessionByJourneyId }
+const getSessionByUploadId = async (uploadId) => {
+  const collection = config.get(sessionsCollection)
+
+  return db.collection(collection)
+    .findOne({ uploadId }, { projection: { journeyId: 1, metadata: 1 } })
+}
+
+export { insertSession, getSessionByJourneyId, getSessionByUploadId }

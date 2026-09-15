@@ -305,16 +305,18 @@ describe('uploader initiate handler', () => {
       })
     })
 
-    test('returns 200 and logs the journey id when the session insert fails', async () => {
+    test('returns 503 and logs the journey id when the session insert fails', async () => {
       mockHttpClient.mockResolvedValue({
         ok: true,
         json: async () => mockCdpUploaderResponse
       })
       mockInsertSession.mockRejectedValue(new Error('DB connection error'))
 
-      await uploaderInitiateRoute.options.handler(mockRequest, mockH)
+      await expect(uploaderInitiateRoute.options.handler(mockRequest, mockH)).rejects.toMatchObject({
+        isBoom: true,
+        output: { statusCode: httpConstants.HTTP_STATUS_SERVICE_UNAVAILABLE }
+      })
 
-      expect(mockCode).toHaveBeenCalledWith(httpConstants.HTTP_STATUS_OK)
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.objectContaining({
           event: expect.objectContaining({

@@ -2,7 +2,14 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { constants as httpConstants } from 'node:http2'
 
 // Use vi.hoisted so mocks are available when vi.mock factory is hoisted.
-const { mockConfigGet, mockHttpClient } = vi.hoisted(() => ({
+const {
+  mockConfigGet,
+  mockHttpClient,
+  mockGetSessionByUploadId,
+  mockGetStatusByCorrelationId,
+  mockGetMetadataMessagingByFileIds,
+  mockGetOutboxStatusesByFileIds
+} = vi.hoisted(() => ({
   mockConfigGet: vi.fn().mockImplementation((key) => {
     switch (key) {
       case 'baseUrl.v1': return '/api/v1'
@@ -13,7 +20,11 @@ const { mockConfigGet, mockHttpClient } = vi.hoisted(() => ({
       default: return null
     }
   }),
-  mockHttpClient: vi.fn()
+  mockHttpClient: vi.fn(),
+  mockGetSessionByUploadId: vi.fn(),
+  mockGetStatusByCorrelationId: vi.fn(),
+  mockGetMetadataMessagingByFileIds: vi.fn(),
+  mockGetOutboxStatusesByFileIds: vi.fn()
 }))
 
 const mockLogger = {
@@ -41,6 +52,22 @@ vi.mock('../../../../../../src/http/client.js', () => ({
   },
   NetworkError: class NetworkError extends Error { },
   AbortError: class AbortError extends Error { }
+}))
+
+vi.mock('../../../../../../src/repos/sessions.js', () => ({
+  getSessionByUploadId: mockGetSessionByUploadId
+}))
+
+vi.mock('../../../../../../src/repos/status.js', () => ({
+  getStatusByCorrelationId: mockGetStatusByCorrelationId
+}))
+
+vi.mock('../../../../../../src/repos/metadata.js', () => ({
+  getMetadataMessagingByFileIds: mockGetMetadataMessagingByFileIds
+}))
+
+vi.mock('../../../../../../src/repos/outbox.js', () => ({
+  getOutboxStatusesByFileIds: mockGetOutboxStatusesByFileIds
 }))
 
 // Import after mocks are established
@@ -146,6 +173,28 @@ beforeEach(() => {
     }
   })
   mockHttpClient.mockReset()
+  mockGetSessionByUploadId.mockReset()
+  mockGetStatusByCorrelationId.mockReset()
+  mockGetMetadataMessagingByFileIds.mockReset()
+  mockGetOutboxStatusesByFileIds.mockReset()
+
+  mockGetSessionByUploadId.mockResolvedValue({
+    journeyId: '550e8400-e29b-41d4-a716-446655440000'
+  })
+  mockGetStatusByCorrelationId.mockResolvedValue([
+    {
+      fileId: completeFile.fileId,
+      validated: true,
+      errors: null
+    }
+  ])
+  mockGetMetadataMessagingByFileIds.mockResolvedValue([
+    {
+      file: { fileId: completeFile.fileId },
+      messaging: { publishedAt: new Date('2026-01-01T12:00:00.000Z') }
+    }
+  ])
+  mockGetOutboxStatusesByFileIds.mockResolvedValue([])
 })
 
 // ─── Handler function tests ─────────────────────────────────────────────────

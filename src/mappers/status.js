@@ -16,9 +16,21 @@ const sanitiseReceivedValue = (value) => {
   return '[complex value]'
 }
 
+const buildFallbackValidationError = (validationError) => {
+  const message = typeof validationError?.message === 'string' && validationError.message.length > 0
+    ? validationError.message
+    : 'Validation failed'
+
+  return {
+    field: 'payload',
+    errorType: message,
+    receivedValue: ''
+  }
+}
+
 const mapValidationErrors = (validationError) => {
   if (!validationError?.details || !Array.isArray(validationError.details)) {
-    return []
+    return [buildFallbackValidationError(validationError)]
   }
 
   return validationError.details.map((detail) => ({

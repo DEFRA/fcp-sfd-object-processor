@@ -130,11 +130,25 @@ const bulkUpdatePublishedAtDate = async (session, fileIds) => {
   return updateResult
 }
 
+const getMetadataMessagingByFileIds = async (fileIds) => {
+  if (!Array.isArray(fileIds) || fileIds.length === 0) {
+    return []
+  }
+
+  const collection = config.get(metadataCollection)
+
+  return db.collection(collection)
+    .find({ 'file.fileId': { $in: fileIds } })
+    .project({ _id: 0, 'file.fileId': 1, 'messaging.publishedAt': 1 })
+    .toArray()
+}
+
 export {
   getMetadataBySbi,
   persistMetadata,
   formatInboundMetadata,
   getS3ReferenceAndSbiByFileId,
   getMetadataByFileId,
-  bulkUpdatePublishedAtDate
+  bulkUpdatePublishedAtDate,
+  getMetadataMessagingByFileIds
 }

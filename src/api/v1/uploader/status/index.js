@@ -9,13 +9,19 @@ import {
   cdpUploaderStatusResponseSchema,
   uploaderStatusResponseSchema
 } from './schema.js'
+import { getSessionByUploadId } from '../../../../repos/sessions.js'
+import { getStatusByCorrelationId } from '../../../../repos/status.js'
+import { getMetadataMessagingByFileIds } from '../../../../repos/metadata.js'
+import { getOutboxStatusesByFileIds } from '../../../../repos/outbox.js'
 import { metricsCounter } from '../../../../api/common/helpers/metrics.js'
 import {
   buildStatusRequestLog,
   buildStatusResponseLog
 } from '../../../../utils/build-uploader-status-log.js'
 import { normaliseFormFields } from '../../../../utils/normalise-form-fields.js'
+import { flattenFormValues } from '../../../../utils/flatten-form-files.js'
 import { splitJourneyId } from '../../../../utils/split-journey-id.js'
+import { PERMANENT_FAILURE } from '../../../../constants/outbox.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -105,19 +111,125 @@ export const uploaderStatusRoute = {
 
       logger.info(buildStatusResponseLog(uploadId, validatedResponse, duration), 'Upstream service status response received')
 
-      return h.response({ data: mapCdpStatus(validatedResponse) }).code(httpConstants.HTTP_STATUS_OK)
+      const mappedStatus = await mapCdpStatus(uploadId, validatedResponse)
+
+      return h.response({ data: mappedStatus }).code(httpConstants.HTTP_STATUS_OK)
     }
   }
 }
 
-const mapCdpStatus = (cdpResponse) => {
+const sanitiseErrorsForResponse = (errors) => {
+  if (!Array.isArray(errors) || errors.length === 0) {
+    return []
+  }
+
+  return errors.map((error) => ({
+    field: error?.field ?? 'payload',
+    errorType: error?.errorType ?? 'unknown'
+  }))
+}
+
+const extractScannerErrors = (form) => {
+  const formValues = flattenFormValues(form)
+  const errors = formValues
+    .filter(value => value && typeof value === 'object' && value.fileStatus === 'rejected')
+    .map((file) => ({
+      field: file.filename || 'file',
+      errorType: file.errorCode || file.errorMessage || 'rejected-by-scanner'
+    }))
+
+  return errors.length > 0 ? errors : [{ field: 'file', errorType: 'rejected-by-scanner' }]
+}
+
+const mapLocalVerdict = async (uploadId) => {
+  const session = await getSessionByUploadId(uploadId)
+
+  if (!session?.journeyId) {
+    return {
+      uploadStatus: 'pending',
+      stage: 'awaiting-callback',
+      errors: null
+    }
+  }
+
+  const statusRecords = await getStatusByCorrelationId(session.journeyId)
+
+  if (statusRecords.length === 0) {
+    return {
+      uploadStatus: 'pending',
+      stage: 'awaiting-callback',
+      errors: null
+    }
+  }
+
+  const failedStatusRecords = statusRecords.filter(record => record.validated === false)
+  if (failedStatusRecords.length > 0) {
+    const processorErrors = sanitiseErrorsForResponse(
+      failedStatusRecords.flatMap(record => Array.isArray(record.errors) ? record.errors : [])
+    )
+
+    return {
+      uploadStatus: 'failure',
+      stage: 'rejected-by-processor',
+      errors: processorErrors.length > 0
+        ? processorErrors
+        : [{ field: 'payload', errorType: 'validation-failed' }]
+    }
+  }
+
+  const fileIds = statusRecords
+    .map(record => record.fileId)
+    .filter(fileId => typeof fileId === 'string' && fileId.length > 0)
+
+  const [metadataRecords, outboxRecords] = await Promise.all([
+    getMetadataMessagingByFileIds(fileIds),
+    getOutboxStatusesByFileIds(fileIds)
+  ])
+
+  const hasPublishedAt = metadataRecords.some(record => record.messaging?.publishedAt)
+  const hasPermanentFailure = outboxRecords.some(record => record.status === PERMANENT_FAILURE)
+  const hasRetryingOrDelivered = outboxRecords.some(record => record.status !== PERMANENT_FAILURE)
+
+  if (!hasPublishedAt && hasPermanentFailure) {
+    return {
+      uploadStatus: 'failure',
+      stage: 'delivery-failed',
+      errors: [{ field: 'delivery', errorType: 'permanent-failure' }]
+    }
+  }
+
+  if (hasPublishedAt || hasRetryingOrDelivered) {
+    return {
+      uploadStatus: 'success',
+      stage: 'accepted',
+      errors: null
+    }
+  }
+
+  return {
+    uploadStatus: 'success',
+    stage: 'accepted',
+    errors: null
+  }
+}
+
+const mapCdpStatus = async (uploadId, cdpResponse) => {
   const { uploadStatus, numberOfRejectedFiles, form, metadata } = cdpResponse
 
-  let mappedStatus
-  if (uploadStatus === 'ready') {
-    mappedStatus = numberOfRejectedFiles === 0 ? 'success' : 'failure'
-  } else {
-    mappedStatus = 'pending'
+  let mappedStatus = {
+    uploadStatus: 'pending',
+    stage: 'scanning',
+    errors: null
+  }
+
+  if (uploadStatus === 'ready' && numberOfRejectedFiles > 0) {
+    mappedStatus = {
+      uploadStatus: 'failure',
+      stage: 'rejected-by-scanner',
+      errors: extractScannerErrors(form)
+    }
+  } else if (uploadStatus === 'ready') {
+    mappedStatus = await mapLocalVerdict(uploadId)
   }
 
   // CDP Uploader echoes the metadata supplied at initiate verbatim, so it carries the
@@ -126,7 +238,9 @@ const mapCdpStatus = (cdpResponse) => {
   const { metadata: metadataWithoutJourneyId } = splitJourneyId(metadata)
 
   return {
-    uploadStatus: mappedStatus,
+    uploadStatus: mappedStatus.uploadStatus,
+    stage: mappedStatus.stage,
+    errors: mappedStatus.errors,
     form: normaliseFormFields(form),
     metadata: metadataWithoutJourneyId
   }

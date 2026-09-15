@@ -376,6 +376,18 @@
           "failure"
         ]
       },
+      "stage": {
+        "type": "string",
+        "description": "Detailed processing stage for the upload status verdict",
+        "enum": [
+          "scanning",
+          "rejected-by-scanner",
+          "awaiting-callback",
+          "rejected-by-processor",
+          "delivery-failed",
+          "accepted"
+        ]
+      },
       "MappedStatusMetadata": {
         "type": "object",
         "description": "Metadata associated with the upload session"
@@ -403,6 +415,21 @@
           "uploadStatus": {
             "$ref": "#/components/schemas/uploadStatus"
           },
+          "stage": {
+            "$ref": "#/components/schemas/stage"
+          },
+          "errors": {
+            "description": "Validation or delivery errors associated with the upload verdict",
+            "anyOf": [
+              {
+                "$ref": "#/x-alt-definitions/Model3"
+              },
+              {
+                "type": "string",
+                "nullable": true
+              }
+            ]
+          },
           "metadata": {
             "$ref": "#/components/schemas/MappedStatusMetadata"
           },
@@ -412,6 +439,8 @@
         },
         "required": [
           "uploadStatus",
+          "stage",
+          "errors",
           "metadata",
           "form"
         ]
@@ -1508,6 +1537,27 @@
       "type": "array",
       "items": {
         "$ref": "#/x-alt-definitions/Model1"
+      }
+    },
+    "Model2": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "errorType": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "field",
+        "errorType"
+      ]
+    },
+    "Model3": {
+      "type": "array",
+      "items": {
+        "$ref": "#/x-alt-definitions/Model2"
       }
     }
   }

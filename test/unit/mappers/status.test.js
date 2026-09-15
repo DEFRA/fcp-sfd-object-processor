@@ -73,29 +73,65 @@ describe('extractFileIdsFromPayload', () => {
 
 describe('Status Mappers', () => {
   describe('mapValidationErrors', () => {
-    test('should return empty array when validationError is undefined', () => {
+    test('should return fallback error when validationError is undefined', () => {
       const result = mapValidationErrors(undefined)
-      expect(result).toEqual([])
+      expect(result).toEqual([
+        {
+          field: 'payload',
+          errorType: 'Validation failed',
+          receivedValue: ''
+        }
+      ])
     })
 
-    test('should return empty array when validationError is null', () => {
+    test('should return fallback error when validationError is null', () => {
       const result = mapValidationErrors(null)
-      expect(result).toEqual([])
+      expect(result).toEqual([
+        {
+          field: 'payload',
+          errorType: 'Validation failed',
+          receivedValue: ''
+        }
+      ])
     })
 
-    test('should return empty array when validationError has no details', () => {
+    test('should return fallback error when validationError has no details', () => {
       const result = mapValidationErrors({})
-      expect(result).toEqual([])
+      expect(result).toEqual([
+        {
+          field: 'payload',
+          errorType: 'Validation failed',
+          receivedValue: ''
+        }
+      ])
     })
 
-    test('should return empty array when details is not an array', () => {
+    test('should return fallback error when details is not an array', () => {
       const result = mapValidationErrors({ details: 'not-an-array' })
-      expect(result).toEqual([])
+      expect(result).toEqual([
+        {
+          field: 'payload',
+          errorType: 'Validation failed',
+          receivedValue: ''
+        }
+      ])
     })
 
     test('should return empty array when details is an empty array', () => {
       const result = mapValidationErrors({ details: [] })
       expect(result).toEqual([])
+    })
+
+    test('should return fallback error with the error message when details are missing', () => {
+      const result = mapValidationErrors(new Error("fileStatus must be 'complete' but was 'rejected'"))
+
+      expect(result).toEqual([
+        {
+          field: 'payload',
+          errorType: "fileStatus must be 'complete' but was 'rejected'",
+          receivedValue: ''
+        }
+      ])
     })
 
     test('should map single validation error correctly', () => {
