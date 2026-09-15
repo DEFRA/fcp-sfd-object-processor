@@ -206,11 +206,7 @@ const mapLocalVerdict = async (uploadId) => {
 const mapCdpStatus = async (uploadId, cdpResponse) => {
   const { uploadStatus, numberOfRejectedFiles, form, metadata } = cdpResponse
 
-  let mappedStatus = {
-    uploadStatus: 'pending',
-    stage: 'scanning',
-    errors: null
-  }
+  let mappedStatus
 
   if (uploadStatus === 'ready' && numberOfRejectedFiles > 0) {
     mappedStatus = {
