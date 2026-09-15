@@ -1226,6 +1226,8 @@
                     "value": {
                       "data": {
                         "uploadStatus": "success",
+                        "stage": "accepted",
+                        "errors": null,
                         "metadata": {
                           "sbi": 105000000,
                           "crn": 1050000000,
@@ -1257,6 +1259,13 @@
                     "value": {
                       "data": {
                         "uploadStatus": "failure",
+                        "stage": "rejected-by-scanner",
+                        "errors": [
+                          {
+                            "field": "document.pdf",
+                            "errorType": "rejected-by-scanner"
+                          }
+                        ],
                         "metadata": {
                           "sbi": 105000000,
                           "crn": 1050000000,
@@ -1286,6 +1295,8 @@
                     "value": {
                       "data": {
                         "uploadStatus": "pending",
+                        "stage": "scanning",
+                        "errors": null,
                         "metadata": {
                           "sbi": 105000000,
                           "crn": 1050000000,

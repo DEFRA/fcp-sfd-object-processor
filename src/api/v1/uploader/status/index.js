@@ -189,10 +189,17 @@ const mapLocalVerdict = async (uploadId) => {
     getOutboxStatusesByFileIds(fileIds)
   ])
 
-  const hasPublishedAt = metadataRecords.some(record => record.messaging?.publishedAt)
-  const hasPermanentFailure = outboxRecords.some(record => record.status === PERMANENT_FAILURE)
+  const publishedFileIds = new Set(
+    metadataRecords
+      .filter(record => record.messaging?.publishedAt && typeof record.file?.fileId === 'string')
+      .map(record => record.file.fileId)
+  )
 
-  if (!hasPublishedAt && hasPermanentFailure) {
+  const hasUnpublishedPermanentFailure = outboxRecords.some(
+    record => record.status === PERMANENT_FAILURE && !publishedFileIds.has(record.payload?.file?.fileId)
+  )
+
+  if (hasUnpublishedPermanentFailure) {
     return {
       uploadStatus: 'failure',
       stage: 'delivery-failed',

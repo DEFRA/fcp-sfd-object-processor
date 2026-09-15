@@ -234,6 +234,43 @@ describe('uploaderStatusRoute handler', () => {
       expect(data.numberOfRejectedFiles).toBeUndefined()
     })
 
+    test('ready status maps to delivery-failed when one file is published and another is permanently failed', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+
+      mockGetStatusByCorrelationId.mockResolvedValue([
+        { fileId: 'f-1', validated: true, errors: null },
+        { fileId: 'f-2', validated: true, errors: null }
+      ])
+
+      mockGetMetadataMessagingByFileIds.mockResolvedValue([
+        {
+          file: { fileId: 'f-1' },
+          messaging: { publishedAt: new Date('2026-01-01T12:00:00.000Z') }
+        },
+        {
+          file: { fileId: 'f-2' },
+          messaging: { publishedAt: null }
+        }
+      ])
+
+      mockGetOutboxStatusesByFileIds.mockResolvedValue([
+        { status: 'SENT', payload: { file: { fileId: 'f-1' } } },
+        { status: 'PERMANENT_FAILURE', payload: { file: { fileId: 'f-2' } } }
+      ])
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.uploadStatus).toBe('failure')
+      expect(data.stage).toBe('delivery-failed')
+      expect(data.errors).toEqual([{ field: 'delivery', errorType: 'permanent-failure' }])
+    })
+
     test('ready status with rejections maps to failure and omits numberOfRejectedFiles', async () => {
       mockHttpClient.mockResolvedValue({
         ok: true,

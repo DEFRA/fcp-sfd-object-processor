@@ -565,6 +565,97 @@ describe('GET /api/v1/uploader/status/{uploadId} — merged local verdicts', () 
     expect(response.result.data.stage).toBe('delivery-failed')
   })
 
+  test('mixed outcome (one published and one permanent failure) returns failure/delivery-failed', async () => {
+    const uploadId = randomUUID()
+    const journeyId = randomUUID()
+    const fileIdPublished = randomUUID()
+    const fileIdFailed = randomUUID()
+    const callbackPayload = buildCallbackPayload(journeyId, fileIdPublished)
+
+    await db.collection(sessionsCollection).insertOne(
+      buildSession(uploadId, journeyId, { submissionId: callbackPayload.metadata.submissionId })
+    )
+
+    const callbackResponse = await server.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: callbackPayload
+    })
+    expect(callbackResponse.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+
+    await db.collection(metadataCollection).updateOne(
+      { 'file.fileId': fileIdPublished },
+      { $set: { 'messaging.publishedAt': new Date() } }
+    )
+
+    await db.collection(statusCollection).insertOne({
+      correlationId: journeyId,
+      sbi: validMetadata.sbi,
+      fileId: fileIdFailed,
+      timestamp: new Date(),
+      validated: true,
+      errors: null
+    })
+
+    await db.collection(metadataCollection).insertOne({
+      raw: {
+        uploadStatus: 'ready',
+        numberOfRejectedFiles: 0,
+        ...completeFile,
+        fileId: fileIdFailed
+      },
+      metadata: callbackPayload.metadata,
+      file: {
+        fileId: fileIdFailed,
+        filename: completeFile.filename,
+        contentType: completeFile.contentType,
+        fileStatus: completeFile.fileStatus
+      },
+      s3: {
+        key: completeFile.s3Key,
+        bucket: completeFile.s3Bucket
+      },
+      messaging: {
+        publishedAt: null,
+        correlationId: journeyId,
+        filesInBatch: 2
+      }
+    })
+
+    await db.collection(outboxCollection).insertOne({
+      messageId: randomUUID(),
+      payload: {
+        metadata: callbackPayload.metadata,
+        file: {
+          fileId: fileIdFailed,
+          filename: completeFile.filename,
+          contentType: completeFile.contentType,
+          fileStatus: completeFile.fileStatus
+        },
+        messaging: {
+          correlationId: journeyId,
+          filesInBatch: 2
+        }
+      },
+      status: PERMANENT_FAILURE,
+      attempts: 5,
+      createdAt: new Date(),
+      lastAttemptedAt: new Date()
+    })
+
+    mockHttpClient.mockResolvedValueOnce(mockReadyStatus(callbackPayload.metadata))
+
+    const response = await server.inject({
+      method: 'GET',
+      url: `/api/v1/uploader/status/${uploadId}`
+    })
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+    expect(response.result.data.uploadStatus).toBe('failure')
+    expect(response.result.data.stage).toBe('delivery-failed')
+    expect(response.result.data.errors).toEqual([{ field: 'delivery', errorType: 'permanent-failure' }])
+  })
+
   test('unresolved correlation reads pending/awaiting-callback when no session maps the upload id', async () => {
     const uploadId = randomUUID()
 

@@ -184,6 +184,8 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
           value: {
             data: {
               uploadStatus: 'success',
+              stage: 'accepted',
+              errors: null,
               metadata,
               form: {
                 'file-upload-1': {
@@ -204,6 +206,8 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
           value: {
             data: {
               uploadStatus: 'failure',
+              stage: 'rejected-by-scanner',
+              errors: [{ field: schemaConsts.FILENAME_EXAMPLE, errorType: 'rejected-by-scanner' }],
               metadata,
               form: {
                 'file-upload-1': {
@@ -222,6 +226,8 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
           value: {
             data: {
               uploadStatus: 'pending',
+              stage: 'scanning',
+              errors: null,
               metadata,
               form: {
                 'file-upload-1': {
