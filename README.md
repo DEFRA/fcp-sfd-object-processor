@@ -253,20 +253,6 @@ The persistence path itself is stricter than the callback boundary. `formatInbou
 
 The `journeyId` is an internal correlation identifier. It is not returned to the client, and it is stripped from both the persisted document and the `/uploader/status/{uploadId}` response.
 
-#### Releasing this in two steps
-
-`JOURNEY_ID_ENABLED` controls whether initiate adds the `journeyId` to the metadata sent to CDP Uploader. **It defaults to `false`, and the order of the release matters.**
-
-The callback must be able to accept the key on every pod before any pod starts sending it. During a rolling deployment both versions run at once, so a callback for an upload initiated by a new pod can be routed to a pod still running the old code. That pod validates the body against a schema which rejects unknown keys, diverts to `failAction`, and persists a validation failure in place of the upload's metadata. CDP Uploader does not deliver the callback a second time, so the files sit in S3 unreachable and are never published to the CRM. Virus scanning puts seconds to minutes between initiate and callback, which is comparable to the duration of the deployment itself, so the window is real rather than theoretical.
-
-Release in this order:
-
-1. Deploy this version with `JOURNEY_ID_ENABLED` unset or `false`. Every pod can now accept the key on the callback; none is sending it.
-2. Confirm every pod is running the new version.
-3. Set `JOURNEY_ID_ENABLED=true`. Initiate now sends the key and uploads correlate end to end.
-
-Rolling back is the reverse: set the flag to `false` before deploying an older version. Uploads initiated while the flag was on will fall back to a generated id on the callback and log `callback_journey_id_unresolved`, which is the designed degradation and does not fail the upload.
-
 ### Retrieve metadata
 
 Metadata relating to a given SBI (Single Business Identifier) can be retrieved by providing the SBI in question. In this case, from the previous examples this would be `105000000`.
