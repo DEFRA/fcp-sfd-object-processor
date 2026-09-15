@@ -89,6 +89,7 @@ This service uses **Microsoft Entra ID (Azure AD) JWT authentication** via `@hap
 - **Testing:** Vitest (not Jest!)
 - **Linting:** neostandard ESLint config
 - **AWS SDK:** v3 clients (S3, SNS)
+- **Secure-context handling:** delegated to the shared `@defra/hapi-secure-context` plugin; do not add a custom secure-context helper or `ENABLE_SECURE_CONTEXT` toggle in this service.
 
 ## Development Workflows
 
