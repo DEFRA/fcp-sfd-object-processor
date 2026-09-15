@@ -34,8 +34,7 @@ const mockConfigValues = {
   cdpUploaderMimeTypes: ['application/pdf', 'image/jpeg'],
   cdpUploaderDocumentTypes: ['CS_Agreement_Evidence', 'CS_Application_Evidence'],
   cdpUploaderMaxFileSize: 10485760,
-  cdpUploaderTimeoutMs: 30000,
-  journeyIdEnabled: true
+  cdpUploaderTimeoutMs: 30000
 }
 
 describe('uploader initiate handler', () => {

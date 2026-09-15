@@ -656,6 +656,45 @@ describe('GET /api/v1/uploader/status/{uploadId} — merged local verdicts', () 
     expect(response.result.data.errors).toEqual([{ field: 'delivery', errorType: 'permanent-failure' }])
   })
 
+  test('unresolved correlation reads pending/awaiting-callback when callback metadata mismatches session', async () => {
+    const uploadId = randomUUID()
+    const journeyId = randomUUID()
+    const fileId = randomUUID()
+    const callbackPayload = buildCallbackPayload(journeyId, fileId)
+
+    await db.collection(sessionsCollection).insertOne(
+      buildSession(uploadId, journeyId, {
+        sbi: validMetadata.sbi,
+        submissionId: 'session-submission-id'
+      })
+    )
+
+    callbackPayload.metadata.submissionId = 'callback-submission-id'
+
+    const callbackResponse = await server.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: callbackPayload
+    })
+
+    expect(callbackResponse.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+
+    const statusRecords = await db.collection(statusCollection).find({ fileId }).toArray()
+    expect(statusRecords).toHaveLength(1)
+    expect(statusRecords[0].correlationId).not.toBe(journeyId)
+
+    mockHttpClient.mockResolvedValueOnce(mockReadyStatus(callbackPayload.metadata))
+
+    const response = await server.inject({
+      method: 'GET',
+      url: `/api/v1/uploader/status/${uploadId}`
+    })
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+    expect(response.result.data.uploadStatus).toBe('pending')
+    expect(response.result.data.stage).toBe('awaiting-callback')
+  })
+
   test('unresolved correlation reads pending/awaiting-callback when no session maps the upload id', async () => {
     const uploadId = randomUUID()
 

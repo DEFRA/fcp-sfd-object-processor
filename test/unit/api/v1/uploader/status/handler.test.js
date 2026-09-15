@@ -302,6 +302,23 @@ describe('uploaderStatusRoute handler', () => {
       expect(mockCode).toHaveBeenCalledWith(httpConstants.HTTP_STATUS_OK)
     })
 
+    test('ready status maps to pending/awaiting-callback when session exists but no status records are found', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+      mockGetStatusByCorrelationId.mockResolvedValue([])
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.uploadStatus).toBe('pending')
+      expect(data.stage).toBe('awaiting-callback')
+      expect(data.errors).toBeNull()
+    })
+
     test('strips the journeyId from the returned metadata, leaving other fields untouched', async () => {
       mockHttpClient.mockResolvedValue({
         ok: true,
