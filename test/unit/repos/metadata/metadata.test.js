@@ -6,7 +6,8 @@ import {
   bulkUpdatePublishedAtDate,
   getS3ReferenceAndSbiByFileId,
   getMetadataByFileId,
-  getMetadataBySbi
+  getMetadataBySbi,
+  getMetadataMessagingByFileIds
 } from '../../../../src/repos/metadata.js'
 import { mockScanAndUploadResponse } from '../../../mocks/cdp-uploader.js'
 import { db } from '../../../../src/data/db.js'
@@ -443,5 +444,39 @@ describe('bulkUpdatePublishedAtDate', () => {
 
     await expect(bulkUpdatePublishedAtDate(mockSession, mockIds))
       .rejects.toThrow('Failed to update publishedAt status')
+  })
+})
+
+describe('getMetadataMessagingByFileIds', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockCollection = {
+      find: vi.fn()
+    }
+    db.collection.mockReturnValue(mockCollection)
+  })
+
+  test('returns empty array when fileIds is not an array', async () => {
+    const result = await getMetadataMessagingByFileIds(undefined)
+    expect(result).toEqual([])
+    expect(mockCollection.find).not.toHaveBeenCalled()
+  })
+
+  test('returns empty array when fileIds is empty', async () => {
+    const result = await getMetadataMessagingByFileIds([])
+    expect(result).toEqual([])
+    expect(mockCollection.find).not.toHaveBeenCalled()
+  })
+
+  test('queries metadata projection by file ids', async () => {
+    const toArray = vi.fn().mockResolvedValue([{ file: { fileId: 'f1' }, messaging: { publishedAt: null } }])
+    const project = vi.fn().mockReturnValue({ toArray })
+    mockCollection.find.mockReturnValue({ project })
+
+    const result = await getMetadataMessagingByFileIds(['f1'])
+
+    expect(mockCollection.find).toHaveBeenCalledWith({ 'file.fileId': { $in: ['f1'] } })
+    expect(project).toHaveBeenCalledWith({ _id: 0, 'file.fileId': 1, 'messaging.publishedAt': 1 })
+    expect(result).toEqual([{ file: { fileId: 'f1' }, messaging: { publishedAt: null } }])
   })
 })

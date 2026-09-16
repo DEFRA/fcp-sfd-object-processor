@@ -184,6 +184,8 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
           value: {
             data: {
               uploadStatus: 'success',
+              stage: 'accepted',
+              errors: null,
               metadata,
               form: {
                 'file-upload-1': {
@@ -204,6 +206,8 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
           value: {
             data: {
               uploadStatus: 'failure',
+              stage: 'rejected-by-scanner',
+              errors: [{ field: schemaConsts.FILENAME_EXAMPLE, errorType: 'rejected-by-scanner' }],
               metadata,
               form: {
                 'file-upload-1': {
@@ -222,6 +226,8 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
           value: {
             data: {
               uploadStatus: 'pending',
+              stage: 'scanning',
+              errors: null,
               metadata,
               form: {
                 'file-upload-1': {
@@ -233,6 +239,23 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
             }
           }
         }
+      }
+    }
+
+    // Post-process: hapi-swagger renders Joi.valid(null) within alternatives as
+    // `{ type: 'string', nullable: true }` for this route. Runtime allows only
+    // array or null, so normalize the generated contract accordingly.
+    const mappedStatusErrors = spec.components?.schemas?.MappedUploaderStatusData?.properties?.errors
+    if (Array.isArray(mappedStatusErrors?.anyOf) && mappedStatusErrors.anyOf.length === 2) {
+      const arraySchemaRef = mappedStatusErrors.anyOf.find((candidate) => typeof candidate?.$ref === 'string')
+      const nullableStringIndex = mappedStatusErrors.anyOf.findIndex(
+        (candidate) => candidate?.type === 'string' && candidate?.nullable === true
+      )
+
+      if (arraySchemaRef && nullableStringIndex !== -1) {
+        mappedStatusErrors.anyOf = undefined
+        mappedStatusErrors.allOf = [arraySchemaRef]
+        mappedStatusErrors.nullable = true
       }
     }
 

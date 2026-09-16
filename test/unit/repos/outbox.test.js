@@ -34,7 +34,8 @@ const { config } = await import('../../../src/config/index.js')
 const { db } = await import('../../../src/data/db.js')
 const {
   createOutboxEntries,
-  logTerminalFailuresIfAny
+  logTerminalFailuresIfAny,
+  getOutboxStatusesByFileIds
 } = await import('../../../src/repos/outbox.js')
 
 describe('src/repos/outbox', () => {
@@ -371,5 +372,37 @@ describe('logTerminalFailuresIfAny', () => {
     ).resolves.not.toThrow()
 
     expect(mockSendAuditEvent).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('getOutboxStatusesByFileIds', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  test('returns empty array when fileIds is not an array', async () => {
+    const result = await getOutboxStatusesByFileIds(undefined)
+    expect(result).toEqual([])
+    expect(db.collection).not.toHaveBeenCalled()
+  })
+
+  test('returns empty array when fileIds is empty', async () => {
+    const result = await getOutboxStatusesByFileIds([])
+    expect(result).toEqual([])
+    expect(db.collection).not.toHaveBeenCalled()
+  })
+
+  test('queries outbox statuses by file ids with projection', async () => {
+    const toArray = vi.fn().mockResolvedValue([{ status: 'PENDING', payload: { file: { fileId: 'f1' } } }])
+    const project = vi.fn().mockReturnValue({ toArray })
+    const find = vi.fn().mockReturnValue({ project })
+    db.collection.mockReturnValue({ find })
+
+    const result = await getOutboxStatusesByFileIds(['f1'])
+
+    expect(db.collection).toHaveBeenCalledWith('outbox')
+    expect(find).toHaveBeenCalledWith({ 'payload.file.fileId': { $in: ['f1'] } })
+    expect(project).toHaveBeenCalledWith({ _id: 0, status: 1, 'payload.file.fileId': 1 })
+    expect(result).toEqual([{ status: 'PENDING', payload: { file: { fileId: 'f1' } } }])
   })
 })

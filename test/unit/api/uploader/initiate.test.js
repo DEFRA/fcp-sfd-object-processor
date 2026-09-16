@@ -34,8 +34,7 @@ const mockConfigValues = {
   cdpUploaderMimeTypes: ['application/pdf', 'image/jpeg'],
   cdpUploaderDocumentTypes: ['CS_Agreement_Evidence', 'CS_Application_Evidence'],
   cdpUploaderMaxFileSize: 10485760,
-  cdpUploaderTimeoutMs: 30000,
-  journeyIdEnabled: true
+  cdpUploaderTimeoutMs: 30000
 }
 
 describe('uploader initiate handler', () => {
@@ -305,16 +304,20 @@ describe('uploader initiate handler', () => {
       })
     })
 
-    test('returns 200 and logs the journey id when the session insert fails', async () => {
+    test('returns 503 and logs the journey id when the session insert fails', async () => {
       mockHttpClient.mockResolvedValue({
         ok: true,
         json: async () => mockCdpUploaderResponse
       })
       mockInsertSession.mockRejectedValue(new Error('DB connection error'))
 
-      await uploaderInitiateRoute.options.handler(mockRequest, mockH)
+      await expect(uploaderInitiateRoute.options.handler(mockRequest, mockH)).rejects.toMatchObject({
+        isBoom: true,
+        output: { statusCode: httpConstants.HTTP_STATUS_SERVICE_UNAVAILABLE }
+      })
 
-      expect(mockCode).toHaveBeenCalledWith(httpConstants.HTTP_STATUS_OK)
+      expect(mockH.response).not.toHaveBeenCalled()
+
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.objectContaining({
           event: expect.objectContaining({

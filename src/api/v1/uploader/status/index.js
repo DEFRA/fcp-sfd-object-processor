@@ -9,25 +9,28 @@ import {
   cdpUploaderStatusResponseSchema,
   uploaderStatusResponseSchema
 } from './schema.js'
+import { getLocalVerdictByUploadId } from '../../../../services/uploader-status-service.js'
 import { metricsCounter } from '../../../../api/common/helpers/metrics.js'
 import {
   buildStatusRequestLog,
   buildStatusResponseLog
 } from '../../../../utils/build-uploader-status-log.js'
 import { normaliseFormFields } from '../../../../utils/normalise-form-fields.js'
+import { flattenFormValues } from '../../../../utils/flatten-form-files.js'
 import { splitJourneyId } from '../../../../utils/split-journey-id.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
 const uploaderUrl = config.get('uploaderUrl')
 const uploaderStatusEndpoint = config.get('uploaderStatusEndpoint')
+const REJECTED_BY_SCANNER = 'rejected-by-scanner'
 
 export const uploaderStatusRoute = {
   method: 'GET',
   path: `${baseUrl}/uploader/status/{uploadId}`,
   options: {
-    description: 'Proxy CDP Uploader scan status for an upload session',
-    notes: 'Polls CDP Uploader for the current scan status and file details for a given uploadId. Note that this endpoint has multiple response examples based on uploadStatus. If not rendering on the /documentation endpoint, please use the official Swagger Editor (online or the VS Code extension).',
+    description: 'Return upload outcome by combining CDP scan status with local processing and delivery verdicts',
+    notes: 'Polls CDP Uploader for the current scan status and file details for a given uploadId, then merges that state with local callback validation and outbox delivery outcomes. Note that this endpoint has multiple response examples based on uploadStatus. If not rendering on the /documentation endpoint, please use the official Swagger Editor (online or the VS Code extension).',
     tags: ['api', 'uploader'],
     validate: {
       params: uploaderStatusParamsSchema,
@@ -105,19 +108,49 @@ export const uploaderStatusRoute = {
 
       logger.info(buildStatusResponseLog(uploadId, validatedResponse, duration), 'Upstream service status response received')
 
-      return h.response({ data: mapCdpStatus(validatedResponse) }).code(httpConstants.HTTP_STATUS_OK)
+      const mappedStatus = await mapCdpStatus(uploadId, validatedResponse)
+
+      return h.response({ data: mappedStatus }).code(httpConstants.HTTP_STATUS_OK)
     }
   }
 }
 
-const mapCdpStatus = (cdpResponse) => {
+export const extractScannerErrors = (form) => {
+  const formValues = flattenFormValues(form)
+  const errors = formValues
+    .filter(value => value && typeof value === 'object' && value.fileStatus === 'rejected')
+    .map((file) => {
+      const filename = typeof file.filename === 'string' ? file.filename.slice(0, 256) : 'file'
+      const errorCode = typeof file.errorCode === 'string' ? file.errorCode.slice(0, 256) : undefined
+      const errorMessage = typeof file.errorMessage === 'string' ? file.errorMessage.slice(0, 256) : undefined
+
+      return {
+        field: filename,
+        errorType: errorCode || errorMessage || REJECTED_BY_SCANNER
+      }
+    })
+
+  return errors.length > 0 ? errors : [{ field: 'file', errorType: REJECTED_BY_SCANNER }]
+}
+const mapCdpStatus = async (uploadId, cdpResponse) => {
   const { uploadStatus, numberOfRejectedFiles, form, metadata } = cdpResponse
 
   let mappedStatus
-  if (uploadStatus === 'ready') {
-    mappedStatus = numberOfRejectedFiles === 0 ? 'success' : 'failure'
+
+  if (uploadStatus === 'ready' && numberOfRejectedFiles > 0) {
+    mappedStatus = {
+      uploadStatus: 'failure',
+      stage: REJECTED_BY_SCANNER,
+      errors: extractScannerErrors(form)
+    }
+  } else if (uploadStatus === 'ready') {
+    mappedStatus = await getLocalVerdictByUploadId(uploadId)
   } else {
-    mappedStatus = 'pending'
+    mappedStatus = {
+      uploadStatus: 'pending',
+      stage: 'scanning',
+      errors: null
+    }
   }
 
   // CDP Uploader echoes the metadata supplied at initiate verbatim, so it carries the
@@ -126,7 +159,9 @@ const mapCdpStatus = (cdpResponse) => {
   const { metadata: metadataWithoutJourneyId } = splitJourneyId(metadata)
 
   return {
-    uploadStatus: mappedStatus,
+    uploadStatus: mappedStatus.uploadStatus,
+    stage: mappedStatus.stage,
+    errors: mappedStatus.errors,
     form: normaliseFormFields(form),
     metadata: metadataWithoutJourneyId
   }
