@@ -1,7 +1,7 @@
 # AI Coding Agent Instructions - fcp-sfd-object-processor
 
 ## Service Overview
-This is a **messaging gateway** for the Single Front Door (SFD) service that processes file upload metadata. It receives callbacks from [CDP Uploader](https://github.com/DEFRA/cdp-uploader), persists metadata to MongoDB, and publishes events to AWS SNS using the **Transactional Outbox pattern**.
+This is a **REST API and messaging gateway** for the Single Front Door (SFD) service. It proxies upload initiation and status requests to [CDP Uploader](https://github.com/DEFRA/cdp-uploader), receives uploader callbacks, persists file metadata to MongoDB, and publishes document and audit events to AWS SNS using the **Transactional Outbox pattern**.
 
 ## Critical Architecture Patterns
 
@@ -9,10 +9,11 @@ This is a **messaging gateway** for the Single Front Door (SFD) service that pro
 This service implements a transactional outbox to ensure reliable message delivery. **Never bypass this pattern.**
 
 **How it works:**
-1. Incoming data is persisted to `uploadMetadata` collection
-2. Simultaneously, outbox entries are created in same MongoDB transaction (see [metadata-service.js](../src/services/metadata-service.js))
-3. Background processor polls outbox and publishes to SNS ([outbound/index.js](../src/messaging/outbound/index.js))
-4. Successful publishes update outbox status to `SENT`
+1. `POST /api/v1/uploader/initiate` persists a `sessions` record so uploads can be correlated end to end
+2. Incoming callback data is persisted to `uploadMetadata`
+3. Simultaneously, outbox entries are created in the same MongoDB transaction (see [metadata-service.js](../src/services/metadata-service.js))
+4. Background processor polls outbox and publishes to SNS ([outbound/index.js](../src/messaging/outbound/index.js))
+5. Successful publishes update outbox status to `SENT` and set `messaging.publishedAt`
 
 **When writing new features:**
 - Always use MongoDB sessions and transactions for data+outbox writes
@@ -23,41 +24,41 @@ This service implements a transactional outbox to ensure reliable message delive
 ```
 api/ (routes, handlers, schemas)
   ↓
-services/ (business logic, orchestrates repos, manages transactions)
+services/ (business logic, orchestration, transaction management)
   ↓
-repos/ (database operations, accepts sessions)
+repos/ (database and storage operations)
   ↓
 data/ (MongoDB client)
 ```
 
 **Rules:**
-- API handlers call services, never repos directly
-- Services coordinate transactions and call multiple repos
-- Repos accept `session` parameter for transactions
-- Never create DB queries in API handlers
+- Transactional and correlation logic belongs in services
+- Simple read handlers may call repos directly, but handlers must not build MongoDB queries
+- Repos that participate in transactions accept a `session` parameter
 
 ### Authentication Strategy
-This service uses **Microsoft Entra ID (Azure AD) JWT authentication** via `@hapi/jwt` plugin.
+This service supports **Microsoft Entra ID (Azure AD)** and optional **AWS Cognito** JWT authentication via `@hapi/jwt`.
 
 **Key features:**
-- Configurable via `AUTH_ENTRA_ENABLED` environment variable (default: `false`)
-- Default authentication on all routes unless explicitly disabled with `auth: false`
-- Accepts both v1.0 and v2.0 Azure AD access tokens
+- Local compose files disable both auth modes by default. In config, `AUTH_ENTRA_ENABLED` defaults to `true` and `AUTH_COGNITO_ENABLED` defaults to `false`
+- When one or more auth strategies are registered, authentication is applied by default to all routes unless explicitly disabled with `auth: false`
+- Entra accepts both v1.0 and v2.0 access tokens
+- Both strategies can be enabled at once
 
 **Implementation details:**
 - Auth plugin registered in [src/api/index.js](../src/api/index.js) after `@hapi/jwt`
-- Strategy configuration in [src/plugins/auth.js](../src/plugins/auth.js)
+- Strategy registration in [src/plugins/auth/index.js](../src/plugins/auth/index.js)
+- Entra strategy options in [src/plugins/auth/entra-options.js](../src/plugins/auth/entra-options.js)
+- Cognito strategy options in [src/plugins/auth/cognito-options.js](../src/plugins/auth/cognito-options.js)
 - Config schema in [src/config/auth.js](../src/config/auth.js)
-- Custom format validator for security group UUIDs in [src/config/formats/security-groups.js](../src/config/formats/security-groups.js)
- - Multi-tenant Entra config in [src/config/auth.js](../src/config/auth.js) using `AUTH_ENTRA_TENANTS` (JSON array)
- - Custom format validator for Entra tenants in [src/config/formats/entra-tenants-array.js](../src/config/formats/entra-tenants-array.js)
+- Custom format validators in [src/config/formats/entra-security-groups.js](../src/config/formats/entra-security-groups.js), [src/config/formats/entra-tenants-array.js](../src/config/formats/entra-tenants-array.js), and [src/config/formats/cognito-client-ids.js](../src/config/formats/cognito-client-ids.js)
 
 **Token validation:**
-1. Verifies token signature against Azure AD public keys
+1. Verifies token signature against Entra or Cognito JWKS endpoints
 2. Checks token type is `JWT` or `at+jwt` (access token)
 3. Validates expiry (`exp`), not-before (`nbf`), and issuer (`iss`)
-4. Ensures token contains at least one matching security group from `AUTH_ALLOWED_GROUP_IDS`
-5. Logs authentication failures with request context (path, method, IP, user-agent, token groups)
+4. For Entra, resolves allowed security groups from `AUTH_ENTRA_TENANTS`; for Cognito, checks `client_id` against `AUTH_COGNITO_CLIENT_IDS`
+5. Logs authentication failures with request context and token details such as issuer, groups, or `client_id`
 
 **Disabling authentication for routes:**
 ```javascript
@@ -77,18 +78,20 @@ This service uses **Microsoft Entra ID (Azure AD) JWT authentication** via `@hap
 - `/api/v1/callback` - CDP Uploader callback (external service without auth capabilities)
 
 **When adding new routes:**
-- Authentication is applied by default (via `server.auth.default('entra')`)
+- Authentication is applied via `server.auth.default(...)` only when at least one auth strategy is configured
 - Only disable with `auth: false` for routes that must be publicly accessible
 - Document why authentication is disabled (see callback route for example)
 
 ## Technology Stack
-- **Runtime:** Node.js v22+ with ESM modules (`type: "module"`)
-- **API Framework:** Hapi.js with hapi-swagger for OpenAPI
+- **Runtime:** Node.js v24+ with ESM modules (`type: "module"`)
+- **API Framework:** Hapi.js with `hapi-swagger`, `hapi-pino`, and `hapi-pulse`
 - **Database:** MongoDB with replica sets (required for transactions)
-- **Validation:** Joi schemas in `src/api/v*/*/schema.js`
-- **Testing:** Vitest (not Jest!)
-- **Linting:** neostandard ESLint config
+- **Validation:** Joi schemas in `src/api/**/schema.js` and `src/api/**/schemas/*.js`
+- **Testing:** Vitest with V8 coverage (not Jest)
+- **Linting:** ESLint v9 with neostandard config
 - **AWS SDK:** v3 clients (S3, SNS)
+- **HTTP client:** `@fetchkit/ffetch` with retry and backoff
+- **Containers:** `defradigital/node-development:latest-24` and `defradigital/node:latest-24`
 
 ## Development Workflows
 
@@ -96,37 +99,36 @@ This service uses **Microsoft Entra ID (Azure AD) JWT authentication** via `@hap
 ```bash
 # Recommended: Use fcp-sfd-core for full stack
 # Standalone development:
-docker compose up --build              # Standard dev mode
-npm run docker:dev                     # Same as above
-npm run docker:debug                   # With debug ports exposed
+docker compose up --build              # Build and start the local stack
+npm run docker:dev                     # Start the local stack
+npm run docker:dev:d                   # Start the local stack detached
+npm run docker:debug                   # Start with debug port 9229 exposed
 ```
 
-**Important:** Floci provides AWS services (S3, SNS) at `http://floci:4566` in containers.
+**Important:** The local stack includes MongoDB, Floci, Redis, and CDP Uploader. Floci provides AWS services at `http://floci:4566` inside containers.
 
 ### Testing
 
 **Testing Principles:**
-- Use Vitest for all testing (not Jest!)
+- Use Vitest for all testing (not Jest)
 - Write tests for all new features and bug fixes
 - Ensure tests cover edge cases and error handling
-- **NEVER change the original code to make it easier to test** - write tests that cover the original code as-is
+- Reuse the existing mocks and integration test patterns rather than changing production code for test convenience
 
 **Test Execution Commands:**
 ```bash
-npm run docker:test                    # Full test suite in container
+npm run docker:test                    # Lint + full test suite in container
 npm run docker:test:watch              # Watch mode in container
-npm test                               # Local tests (requires MongoDB)
+npm test                               # Local lint + coverage test run (requires MongoDB replica set)
 npm run test:watch                     # Local watch mode
-npm run lint                      # ESLint only
+npx vitest run test/unit/path/to/file.test.js  # Run a single test file locally
+npm run lint                           # ESLint only
 ```
-
-** Testing Workflow:**
-- Test must be ran using the watch-docker-tests skill.
 
 **Test Structure:**
 - `test/unit/` - Unit tests with mocked dependencies
 - `test/integration/narrow/` - Integration tests with real MongoDB
-- `test/mocks/` - Shared mock data (reuse these!)
+- `test/mocks/` - Shared mock data (reuse these)
 
 **Integration Test Pattern:**
 ```javascript
@@ -163,7 +165,7 @@ const mockSession = {
 }
 client.startSession.mockReturnValue(mockSession)
 ```
-- Mock pattern for auth config (see [test/unit/plugins/auth.test.js](../test/unit/plugins/auth.test.js)):
+- Mock pattern for auth config (see [test/unit/plugins/auth/index.test.js](../test/unit/plugins/auth/index.test.js) and [test/unit/plugins/auth/entra-options.test.js](../test/unit/plugins/auth/entra-options.test.js)):
 ```javascript
 const mockConfigGet = vi.fn()
 vi.mock('../../../src/config/index.js', () => ({
@@ -181,11 +183,14 @@ mockConfigGet.mockImplementation((key) => {
 ```
 
 ## Configuration Management
-Uses **convict** with environment-specific configs ([src/config/](../src/config/)):
-- `server.js` - Port, environment, logging
-- `database.js` - MongoDB connection and collections
-- `aws.js` - AWS SDK configuration
-- `uploader.js` - CDP Uploader URL
+Uses **convict** with configuration split by concern ([src/config/](../src/config/)):
+- `server.js` - Port, environment, logging, tracing, metrics, public API URL, outbox timing
+- `database.js` - MongoDB connection and collection names
+- `aws.js` - AWS region, endpoints, topics, presigned URL expiry, audit application
+- `auth.js` - Entra and Cognito authentication settings
+- `uploader.js` - CDP Uploader URLs, bucket/path, callback, MIME types, document types, journey ID flag
+- `retry.js` - Outbound HTTP retry policy
+- `hapi-swagger.js` - OpenAPI and Swagger UI settings
 
 **Access config:** `import { config } from '../config/index.js'` then `config.get('key.path')`
 
@@ -197,34 +202,35 @@ Uses **convict** with environment-specific configs ([src/config/](../src/config/
 - Top-level `await` is supported
 
 ### MongoDB Sessions
-- Transactions require replica sets (configured in docker-compose)
-- Always call `session.endSession()` in finally block
+- Transactions require replica sets (configured in Docker Compose)
+- Always call `session.endSession()` in a `finally` block
 - Use `session.withTransaction()` for automatic rollback on error
 
 ### Testing with Vitest
-- Use `vi.fn()` and `vi.mock()` not Jest's `jest.fn()`
+- Use `vi.fn()` and `vi.mock()`, not Jest's `jest.fn()`
 - Integration tests need `server.initialize()` before `server.inject()`
-- Don't use `--experimental-vm-modules` flag (vitest handles this)
+- Vitest itself does not need extra Node flags, but the current app start and OpenAPI scripts use `node --experimental-vm-modules`
 
 ### API Documentation
 - Swagger UI available at `/documentation` when running locally
-- Update static OpenAPI spec: run `npm run generateOpenApiSpec` while server is running
-- Routes auto-documented via hapi-swagger tags
+- Update static OpenAPI spec: run `npm run generateOpenApiSpec` while the server is running
+- Routes auto documented via hapi-swagger tags
 
 ## File Upload Data Flow
-1. CDP Uploader scans files → uploads to S3 → calls `/api/v1/callback`
-2. Callback handler validates payload ([schema.js](../src/api/v1/callback/schema.js))
-3. Service filters form data to only file uploads (not text fields)
-4. Transaction: insert metadata + create outbox entries with same `correlationId`
-5. Background: outbox processor publishes batches to SNS (batch size: 10)
-6. Successful publishes update `messaging.publishedAt` timestamp
-7. CRM service consumes SNS events to create cases with attachments
+1. Client calls `/api/v1/uploader/initiate`, which proxies to CDP Uploader, rewrites response URLs, and persists a `sessions` record
+2. CDP Uploader scans files, uploads to S3, then calls `/api/v1/callback`
+3. Callback resolves a `journeyId` and uses it as the upload `correlationId`
+4. Callback handler validates payload ([schema.js](../src/api/v1/callback/schema.js))
+5. Service filters form data to only file uploads (not text fields)
+6. Transaction: insert metadata + status records + outbox entries with the same `correlationId`
+7. Background outbox processor publishes batches to SNS (batch size: 10)
+8. Successful publishes update `messaging.publishedAt`
+9. CRM service consumes SNS events and retrieves files through `/api/v1/blob/{fileId}`
 
 **Key data transformations:**
-- Raw CDP payload → structured documents with `raw`, `metadata`, `file`, `s3`, `messaging` subdocuments
+- Raw CDP payload is normalised, filtered to file uploads, and stored under `raw`, `metadata`, `file`, `s3`, and `messaging` subdocuments
+- `/api/v1/uploader/status/{uploadId}` maps CDP Uploader states to `pending`, `success`, or `failure` and strips the internal `journeyId`
 - See `formatInboundMetadata()` in [repos/metadata.js](../src/repos/metadata.js)
-
-**Note:** CDP Uploader integration patterns are still under active testing - verify edge cases when implementing new callback features.
 
 ## SNS Message Format & CRM Integration
 
@@ -240,20 +246,21 @@ Messages published to SNS follow **CloudEvents v1.0** specification. Contract de
   datacontenttype: 'application/json',
   time: '2026-02-16T10:00:00Z', // ISO 8601
   data: {
-    crn: 1234567890,            // Customer Reference Number
+    crn: 1234567890,
     crm: {
-      caseType: 'CS_Agreement_Evidence',  // CRM queue name
+      caseType: 'CS_Agreement_Evidence',
       title: 'Reference - CRN 1234567890 - 16/02/2026'
     },
-    correlationId: 'uuid',      // Links related events
+    correlationId: 'uuid',
+    filesInBatch: 1,
     file: {
       fileId: 'uuid',
       fileName: 'document.pdf',
       contentType: 'application/pdf',
       url: 'https://fcp-placeholder.cdp-int.defra.cloud/api/v1/blob/{fileId}'
     },
-    sbi: 123456789,              // Single Business Identifier
-    sourceSystem: 'fcp-sfd-frontend',  // Or 'rps-portal'
+    sbi: 123456789,
+    sourceSystem: 'fcp-sfd-frontend',
     submissionId: 'uuid'
   }
 }
@@ -263,25 +270,26 @@ Messages published to SNS follow **CloudEvents v1.0** specification. Contract de
 - Maintain CloudEvents compliance (required fields: `id`, `source`, `specversion`, `type`, `datacontenttype`, `time`, `data`)
 - Use `fileId` as message `id` for idempotency in CRM
 - Preserve `correlationId` to group related uploads
+- Keep `url` aligned with `PUBLIC_API_BASE_URL` and the `/api/v1/blob/{fileId}` route
 - Validate against AsyncAPI schema before publishing
 
 ## When Adding New Endpoints
-1. Create schema in `src/api/v1/{feature}/schema.js`
-2. Create handler in `src/api/v1/{feature}/index.js` (follow callback route pattern)
-3. Add service function if orchestrating multiple repos
+1. Create route module in `src/api/v1/{feature}/index.js`
+2. Add Joi validation in `schema.js` or `schemas/`, following the neighbouring route pattern
+3. Add a service function when coordinating transactions, correlation, or multi repo workflows
 4. Register route in [src/api/router.js](../src/api/router.js)
-5. Add unit tests for handler, service, repo layers
-6. Add integration test with unique collection name
+5. Add unit tests for route logic and supporting services/repos
+6. Add integration tests when the route touches MongoDB or upstream services
 
 ## Debugging
 - Debug port exposed: `9229`
 - Use `npm run start:debug` for break-on-start debugging
 - Logger available via `createLogger()` from [src/logging/logger.js](../src/logging/logger.js)
-- Logs use ECS format (Elastic Common Schema)
+- Development logs default to `pino-pretty`. Production logs default to ECS format
 
 ## Logging
 
-All structured log fields **must** use the approved ECS `event.*` field structure. Flat top-level fields are not visible on the platform.
+This service uses Pino with [Elastic Common Schema (ECS)](https://www.elastic.co/guide/en/ecs/current/index.html) formatting in production. For custom structured fields, prefer ECS compatible nested objects such as `event.*`, `error.*`, `http.*`, `process.*`, and `cdp-uploader.*`.
 
 **Approved `event.*` fields:**
 
@@ -299,7 +307,8 @@ All structured log fields **must** use the approved ECS `event.*` field structur
 | `event.created` | date | Time the event was created |
 
 **Rules when writing log utilities:**
-- Always nest structured fields under `event: { ... }` — never use flat top-level keys
+- Prefer nested ECS compatible fields instead of inventing new flat top-level keys
+- Correlation is logged as `transaction.id` and request tracing as `trace.id`
 - Follow the pattern in [src/utils/build-uploader-status-log.js](../src/utils/build-uploader-status-log.js)
 - Duration values must be converted to nanoseconds: `duration * 1_000_000`
 - Add unit tests for every log builder function (see [test/unit/utils/](../test/unit/utils/))
@@ -318,36 +327,49 @@ export const buildMyOperationLog = (request, id) => ({
 ```
 
 ## AWS Integration (Floci)
-- S3 bucket for file storage: configured via `S3_BUCKET` env var
-- SNS topic for events: `DOCUMENT_UPLOAD_EVENTS_TOPIC_ARN`
+- CDP Uploader writes files to the bucket configured by `CDP_UPLOADER_S3_BUCKET`
+- SNS topic for document events: `DOCUMENT_UPLOAD_EVENTS_TOPIC_ARN`
+- SNS topic for audit events: `AUDIT_TOPIC_ARN`
 - Use `AWS_S3_FORCE_PATH_STYLE=true` for Floci
+- Presigned URL expiry is controlled by `S3_PRESIGNED_URL_EXPIRY_SECONDS`
+- Published download URLs use `PUBLIC_API_BASE_URL`
 - Endpoints configured in [src/config/aws.js](../src/config/aws.js)
 
 ## Configuration & Environment Variables
-All environment variables are documented in [compose.yaml](../compose.yaml) and related compose files. Reference these files for:
-- MongoDB connection strings (requires replica set)
-- AWS service endpoints (Floci vs production)
-- Service URLs (CDP Uploader)
-- Message processing intervals and batch sizes
+Defaults for local development live mainly in [compose.yaml](../compose.yaml) and [compose.test.yaml](../compose.test.yaml). Additional optional overrides and non-default values are documented in [../.env.example](../.env.example) and the schemas under [src/config/](../src/config/).
+
+Reference these files for:
+- MongoDB connection strings, database name, and collection related settings
+- CDP Uploader URLs, endpoint paths, bucket/path, callback URL, MIME types, document types, max file size, and `JOURNEY_ID_ENABLED`
+- AWS service endpoints, topic ARNs, audit application, presigned URL expiry, and public API base URL
+- Auth settings for Entra (`AUTH_ENTRA_TENANTS`) and Cognito (`AUTH_COGNITO_*`)
+- HTTP retry policy variables and metrics/tracing flags
+- Message processing limits and outbox retention settings
 
 ## Deployment & CI/CD
 
 Deployments are automated via GitHub Actions:
 
-**Pull Request Checks** ([check-pull-request.yml](../workflows/check-pull-request.yml)):
-- Runs on PRs to `main`
-- Executes full test suite in Docker
-- Builds Docker image without cache
+**Pull Request Checks** ([check-pull-request.yml](workflows/check-pull-request.yml)):
+- Runs on PRs to `main` and on manual dispatch
+- Uses Node.js 24 with `npm ci`
+- Builds the Docker image with `--no-cache`
+- Runs the Docker Compose test stack and produces coverage for SonarQube
 - Runs SonarQube analysis
 
-**Production Publish** ([publish.yml](../workflows/publish.yml)):
+**Production Publish** ([publish.yml](workflows/publish.yml)):
 - Triggers on push to `main` or manual dispatch
-- Runs tests + coverage reports
-- SonarQube quality gate
-- Uses DEFRA CDP build action for container publishing
+- Runs `npm ci`
+- Runs the Docker Compose test stack and coverage generation
+- Runs SonarQube analysis
+- Uses the DEFRA CDP build action for container publishing
 
-**Hotfix Workflow** ([publish-hotfix.yml](../workflows/publish-hotfix.yml)):
-- Available for emergency releases
+**Hotfix Workflow** ([publish-hotfix.yml](workflows/publish-hotfix.yml)):
+- Triggered by manual dispatch
+- Uses Node.js 24 with `npm ci`
+- Runs the Docker Compose test stack
+- Uses the DEFRA CDP hotfix build action
+- Runs SonarQube analysis
 
 **Testing in CI:**
 ```bash
@@ -357,9 +379,8 @@ docker compose -f compose.yaml -f compose.test.yaml run --build --rm 'fcp-sfd-ob
 
 **Before merging PRs:**
 - Ensure all tests pass locally via `npm run docker:test`
-- Check SonarQube dashboard for quality/coverage issues
-- Verify Docker build succeeds
-
+- Check SonarQube dashboard for quality and coverage issues
+- Verify the Docker build succeeds
 
 ---
 
