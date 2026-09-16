@@ -249,7 +249,7 @@ const finalizeClaimedOutboxEntries = async (
   }
 }
 
-const getOutboxStatusesByFileIds = async (fileIds) => {
+const getOutboxStatusesByFileIds = async (fileIds, session = undefined) => {
   if (!Array.isArray(fileIds) || fileIds.length === 0) {
     return []
   }
@@ -257,7 +257,7 @@ const getOutboxStatusesByFileIds = async (fileIds) => {
   const collection = config.get(outboxCollection)
 
   return db.collection(collection)
-    .find({ 'payload.file.fileId': { $in: fileIds } })
+    .find({ 'payload.file.fileId': { $in: fileIds } }, ...(session ? [{ session }] : []))
     .project({ _id: 0, status: 1, 'payload.file.fileId': 1 })
     .toArray()
 }

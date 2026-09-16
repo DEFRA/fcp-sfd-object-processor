@@ -17,12 +17,12 @@ const insertStatus = async (documents, session = undefined) => {
   return result
 }
 
-const getStatusByCorrelationId = async (correlationId) => {
+const getStatusByCorrelationId = async (correlationId, session = undefined) => {
   const collection = config.get(statusCollection)
 
   const results = await db
     .collection(collection)
-    .find({ correlationId })
+    .find({ correlationId }, ...(session ? [{ session }] : []))
     .project({ _id: 0, correlationId: 0 }) // correlationId is internal and never returned to callers
     .sort({ timestamp: 1 })
     .toArray()

@@ -1,3 +1,4 @@
+import { client } from '../data/db.js'
 import { getSessionByUploadId } from '../repos/sessions.js'
 import { getStatusByCorrelationId } from '../repos/status.js'
 import { getMetadataMessagingByFileIds } from '../repos/metadata.js'
@@ -27,68 +28,77 @@ const sanitiseErrorsForResponse = (errors) => {
   }))
 }
 
+// Runs every read behind this verdict on one causally consistent session, so a write that
+// landed just before this call (e.g. an outbox entry flipping to PERMANENT_FAILURE) is
+// guaranteed visible to every read in this function, not just to a read issued later on an
+// unrelated connection. Without this, the driver gives no ordering guarantee between an
+// acknowledged write on one connection and an immediately following read on another.
 export const getLocalVerdictByUploadId = async (uploadId) => {
-  const session = await getSessionByUploadId(uploadId)
+  const dbSession = client.startSession({ causalConsistency: true })
 
-  if (!session?.journeyId) {
-    return DEFAULT_PENDING_STATUS
-  }
+  try {
+    const session = await getSessionByUploadId(uploadId, dbSession)
 
-  const statusRecords = await getStatusByCorrelationId(session.journeyId)
+    if (!session?.journeyId) {
+      return DEFAULT_PENDING_STATUS
+    }
 
-  if (statusRecords.length === 0) {
-    return DEFAULT_PENDING_STATUS
-  }
+    const statusRecords = await getStatusByCorrelationId(session.journeyId, dbSession)
 
-  const failedStatusRecords = statusRecords.filter(record => record.validated === false)
-  if (failedStatusRecords.length > 0) {
-    const processorErrors = sanitiseErrorsForResponse(
-      failedStatusRecords.flatMap(record => Array.isArray(record.errors) ? record.errors : [])
+    if (statusRecords.length === 0) {
+      return DEFAULT_PENDING_STATUS
+    }
+
+    const failedStatusRecords = statusRecords.filter(record => record.validated === false)
+    if (failedStatusRecords.length > 0) {
+      const processorErrors = sanitiseErrorsForResponse(
+        failedStatusRecords.flatMap(record => Array.isArray(record.errors) ? record.errors : [])
+      )
+
+      return {
+        uploadStatus: 'failure',
+        stage: 'rejected-by-processor',
+        errors: processorErrors.length > 0
+          ? processorErrors
+          : [{ field: 'payload', errorType: 'validation-failed' }]
+      }
+    }
+
+    const fileIds = statusRecords
+      .map(record => record.fileId)
+      .filter(fileId => typeof fileId === 'string' && fileId.length > 0)
+
+    // Sequential, not Promise.all: both reads share dbSession, and causal consistency only
+    // orders operations on a session relative to each other in the order they're issued.
+    const metadataRecords = await getMetadataMessagingByFileIds(fileIds, dbSession)
+    const outboxRecords = await getOutboxStatusesByFileIds(fileIds, dbSession)
+
+    // Check for permanent delivery failures: a file has a PERMANENT_FAILURE outbox entry
+    // AND its corresponding metadata does NOT have a publishedAt timestamp.
+    // This ensures we only report failure if delivery truly failed (not just in-flight).
+    const outboxByFileId = new Map(
+      outboxRecords
+        .filter(record => typeof record.payload?.file?.fileId === 'string')
+        .map(record => [record.payload.file.fileId, record])
     )
 
-    return {
-      uploadStatus: 'failure',
-      stage: 'rejected-by-processor',
-      errors: processorErrors.length > 0
-        ? processorErrors
-        : [{ field: 'payload', errorType: 'validation-failed' }]
+    const hasUnpublishedPermanentFailure = fileIds.some(fileId => {
+      const outboxEntry = outboxByFileId.get(fileId)
+      const metadata = metadataRecords.find(m => m.file?.fileId === fileId)
+      const isPublished = metadata?.messaging?.publishedAt !== undefined && metadata.messaging.publishedAt !== null
+      return outboxEntry?.status === PERMANENT_FAILURE && !isPublished
+    })
+
+    if (hasUnpublishedPermanentFailure) {
+      return {
+        uploadStatus: 'failure',
+        stage: 'delivery-failed',
+        errors: [{ field: 'delivery', errorType: 'permanent-failure' }]
+      }
     }
+
+    return ACCEPTED_STATUS
+  } finally {
+    await dbSession.endSession()
   }
-
-  const fileIds = statusRecords
-    .map(record => record.fileId)
-    .filter(fileId => typeof fileId === 'string' && fileId.length > 0)
-
-  const [metadataRecords, outboxRecords] = await Promise.all([
-    getMetadataMessagingByFileIds(fileIds),
-    getOutboxStatusesByFileIds(fileIds)
-  ])
-
-  // Check for permanent delivery failures: a file has a PERMANENT_FAILURE outbox entry
-  // AND its corresponding metadata does NOT have a publishedAt timestamp.
-  // This ensures we only report failure if delivery truly failed (not just in-flight).
-  // To prevent race conditions where outbox status updates after metadata query,
-  // we require that every file either has publishedAt OR has no outbox entry at all.
-  const outboxByFileId = new Map(
-    outboxRecords
-      .filter(record => typeof record.payload?.file?.fileId === 'string')
-      .map(record => [record.payload.file.fileId, record])
-  )
-
-  const hasUnpublishedPermanentFailure = fileIds.some(fileId => {
-    const outboxEntry = outboxByFileId.get(fileId)
-    const metadata = metadataRecords.find(m => m.file?.fileId === fileId)
-    const isPublished = metadata?.messaging?.publishedAt !== undefined && metadata.messaging.publishedAt !== null
-    return outboxEntry?.status === PERMANENT_FAILURE && !isPublished
-  })
-
-  if (hasUnpublishedPermanentFailure) {
-    return {
-      uploadStatus: 'failure',
-      stage: 'delivery-failed',
-      errors: [{ field: 'delivery', errorType: 'permanent-failure' }]
-    }
-  }
-
-  return ACCEPTED_STATUS
 }
