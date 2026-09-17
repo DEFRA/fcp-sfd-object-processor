@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   connect: vi.fn(),
+  close: vi.fn(),
   db: vi.fn(),
   collection: vi.fn(),
   createIndexes: vi.fn(),
@@ -9,8 +10,7 @@ const mocks = vi.hoisted(() => ({
   command: vi.fn(),
   dropIndex: vi.fn(),
   configGet: vi.fn(),
-  loggerInfo: vi.fn(),
-  createSecureContext: vi.fn()
+  loggerInfo: vi.fn()
 }))
 
 vi.mock('mongodb', () => ({
@@ -31,16 +31,10 @@ vi.mock('../../../src/logging/logger.js', () => ({
   })
 }))
 
-vi.mock('../../../src/api/common/helpers/secure-context/secure-context.js', () => ({
-  createSecureContext: mocks.createSecureContext
-}))
-
-describe('data/db createIndexes', () => {
+describe('data/db', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.resetModules()
-
-    mocks.createSecureContext.mockReturnValue(undefined)
 
     mocks.configGet.mockImplementation((key) => {
       switch (key) {
@@ -65,10 +59,10 @@ describe('data/db createIndexes', () => {
       dropIndex: mocks.dropIndex
     })
     mocks.db.mockReturnValue({ collection: mocks.collection, command: mocks.command })
-    mocks.connect.mockResolvedValue({ db: mocks.db })
+    mocks.connect.mockResolvedValue({ db: mocks.db, close: mocks.close })
   })
 
-  test('creates status, metadata, sessions and outbox indexes on startup', async () => {
+  test('creates status, metadata, sessions and outbox indexes on connect', async () => {
     await import('../../../src/data/db.js')
 
     expect(mocks.collection).toHaveBeenNthCalledWith(1, 'status')
@@ -244,7 +238,7 @@ describe('data/db createIndexes', () => {
 
   test('exports the connected client and db instance', async () => {
     const mockDbInstance = { collection: mocks.collection }
-    const mockClientInstance = { db: mocks.db }
+    const mockClientInstance = { db: mocks.db, close: mocks.close }
     mocks.db.mockReturnValue(mockDbInstance)
     mocks.connect.mockResolvedValue(mockClientInstance)
 
@@ -254,22 +248,27 @@ describe('data/db createIndexes', () => {
     expect(db).toBe(mockDbInstance)
   })
 
-  test('passes a secure context when createSecureContext returns one', async () => {
+  test('passes a secure context through to MongoClient.connect when provided', async () => {
     const secureContext = { context: true }
-    mocks.createSecureContext.mockReturnValue(secureContext)
 
-    await import('../../../src/data/db.js')
+    const { connectDb } = await import('../../../src/data/db.js')
+    await connectDb(secureContext)
 
-    expect(mocks.connect).toHaveBeenCalledWith('mongodb://localhost:27017', {
+    expect(mocks.connect).toHaveBeenLastCalledWith('mongodb://localhost:27017', {
       retryWrites: false,
       readPreference: 'primary',
       secureContext
     })
   })
 
-  test('omits secureContext when createSecureContext returns undefined', async () => {
-    mocks.createSecureContext.mockReturnValue(undefined)
+  test('connectDb closes the previous client before reconnecting', async () => {
+    const { connectDb } = await import('../../../src/data/db.js')
+    await connectDb({ context: true })
 
+    expect(mocks.close).toHaveBeenCalledTimes(1)
+  })
+
+  test('omits secureContext when none is provided', async () => {
     await import('../../../src/data/db.js')
 
     expect(mocks.connect).toHaveBeenCalledWith('mongodb://localhost:27017', {

@@ -1,5 +1,4 @@
 import { MongoClient } from 'mongodb'
-import { createSecureContext } from '../api/common/helpers/secure-context/secure-context.js'
 import { config } from '../config/index.js'
 import { SENT } from '../constants/outbox.js'
 
@@ -9,13 +8,9 @@ const logger = createLogger()
 
 const OUTBOX_SENT_TTL_INDEX_NAME = 'outbox_sent_ttl_idx'
 
-const client = await MongoClient.connect(config.get('mongo.uri'), {
-  retryWrites: false,
-  readPreference: config.get('mongo.readPreference'),
-  ...(createSecureContext && { secureContext: createSecureContext(logger) })
-})
-
-const db = client.db(config.get('mongo.database'))
+// Populated by connectDb() once the hapi-secure-context plugin has registered.
+let client
+let db
 
 const createIndexes = async () => {
   const statusCollection = config.get('mongo.collections.status')
@@ -108,8 +103,30 @@ const createIndexes = async () => {
   logger.info('MongoDB indexes created')
 }
 
-await createIndexes()
+const connectDb = async (secureContext) => {
+  if (client) {
+    await client.close()
+  }
 
-logger.info('Connected to MongoDB')
+  client = await MongoClient.connect(config.get('mongo.uri'), {
+    retryWrites: false,
+    readPreference: config.get('mongo.readPreference'),
+    ...(secureContext && { secureContext })
+  })
 
-export { db, client, createIndexes }
+  db = client.db(config.get('mongo.database'))
+
+  await createIndexes()
+
+  logger.info('Connected to MongoDB')
+
+  return { client, db }
+}
+
+// Connects immediately so modules that import { db } / { client } at load time
+// (e.g. repos, integration tests) have a usable connection without waiting on
+// server startup. start-server.js reconnects with server.secureContext once the
+// hapi-secure-context plugin has patched tls, so this initial connection has none.
+await connectDb()
+
+export { db, client, connectDb, createIndexes }

@@ -118,6 +118,8 @@ No `.env` file is required for basic local development. All defaults are set in 
 
 ## Getting Started
 
+> Secure client trust for outbound MongoDB/TLS connections is handled by the shared `@defra/hapi-secure-context` plugin. There is no separate manual secure-context helper in this repo and no `ENABLE_SECURE_CONTEXT` flag to toggle.
+
 1. Clone the repository:
    ```
    git clone https://github.com/DEFRA/fcp-sfd-object-processor.git

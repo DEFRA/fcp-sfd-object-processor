@@ -17,12 +17,17 @@ vi.mock('../../../../../src/api/index.js', () => ({
   createServer: vi.fn()
 }))
 
+vi.mock('../../../../../src/data/db.js', () => ({
+  connectDb: vi.fn()
+}))
+
 const mockLogger = createLogger()
 
 const mockServer = {
   start: vi.fn(),
   stop: vi.fn(),
-  logger: mockLogger
+  logger: mockLogger,
+  secureContext: {}
 }
 
 describe('#startServer', () => {

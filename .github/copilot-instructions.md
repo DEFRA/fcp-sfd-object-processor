@@ -92,6 +92,7 @@ This service supports **Microsoft Entra ID (Azure AD)** and optional **AWS Cogni
 - **AWS SDK:** v3 clients (S3, SNS)
 - **HTTP client:** `@fetchkit/ffetch` with retry and backoff
 - **Containers:** `defradigital/node-development:latest-24` and `defradigital/node:latest-24`
+- **Secure-context handling:** delegated to the shared `@defra/hapi-secure-context` plugin; do not add a custom secure-context helper or `ENABLE_SECURE_CONTEXT` toggle in this service.
 
 ## Development Workflows
 

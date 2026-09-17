@@ -1,12 +1,14 @@
 import { config } from '../../../config/index.js'
 import { createServer } from '../../index.js'
 import { createLogger } from '../../../logging/logger.js'
+import { connectDb } from '../../../data/db.js'
 
 const startServer = async () => {
   let server
 
   try {
     server = await createServer()
+    await connectDb(server.secureContext)
     await server.start()
 
     server.logger.info('Server started successfully')
