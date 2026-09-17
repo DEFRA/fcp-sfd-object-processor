@@ -1,6 +1,10 @@
 ignore:
-  SNYK-JS-CONVICT-15182994:
+  SNYK-JS-APIDEVTOOLSJSONSCHEMAREFPARSER-17937352:
     - '*':
-        reason: Not exploitable
-        expires: 2026-04-26T15:57:00.000Z
-        created: 2026-03-27T15:57:00.00Z
+        reason: >-
+          No upstream fix available. @apidevtools/swagger-parser@10.0.3 (via hapi-swagger)
+          requires internal APIs removed in json-schema-ref-parser 15.x; forcing the
+          fixed version breaks hapi-swagger at runtime. Re-review when hapi-swagger
+          ships a compatible upgrade.
+        expires: 2026-12-17T00:00:00.000Z
+        created: 2026-09-17T00:00:00.000Z
