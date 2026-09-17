@@ -59,3 +59,11 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_SCANNER_OPTS: "-Dsonar.verbose=true"
+
+      - name: Snyk Scan
+        if: github.actor != 'dependabot[bot]'
+        uses: snyk/actions/node@12140f4059e244892ae643824a95459a102120dd # master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=medium
