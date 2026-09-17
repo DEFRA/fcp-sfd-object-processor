@@ -8,7 +8,6 @@ const startServer = async () => {
 
   try {
     server = await createServer()
-    // secureContext plugin has registered by now, so its patched tls context is available.
     await connectDb(server.secureContext)
     await server.start()
 
