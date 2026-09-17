@@ -216,7 +216,9 @@ This service uses **Microsoft Entra ID (Azure AD) JWT authentication** in deploy
 
 To enable authentication locally, set `AUTH_ENTRA_ENABLED=true` or `AUTH_COGNITO_ENABLED=true` and configure relevant Auth values in your `.env` file (see [`.env.example`](.env.example) for the format).
 
-Both strategies may be enabled at once. Entra tenants are combined into a single strategy rather than one per tenant, because Entra serves identical signing keys across tenants and Hapi's multi-strategy fallback would otherwise reject a valid token before reaching the strategy that accepts it.
+Both providers may be enabled at once. All enabled providers are registered under a **single** Hapi strategy (`bearer`), and the provider that validates a token is selected from the token's own `iss` claim. Hapi's multi-strategy fallback is deliberately not used: it only advances past a strategy that reports credentials as *missing*, never past a substantive rejection such as an issuer mismatch, so it never provided the failover between providers that it appeared to.
+
+If authentication is enabled but no provider can be configured, for example `AUTH_ENTRA_ENABLED=true` with an empty `AUTH_ENTRA_TENANTS` and Cognito disabled, no default strategy is registered and **every route serves unauthenticated requests**. The plugin logs this at `error` level with `event.type` of `auth_configuration_failure`. Switching both providers off is a supported local-development state and is logged at `warn` with `event.type` of `auth_disabled`.
 
 Configuration details are in [`src/config/auth.js`](src/config/auth.js) and the auth plugin is at [`src/plugins/auth/index.js`](src/plugins/auth/index.js).
 
