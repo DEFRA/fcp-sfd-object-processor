@@ -152,6 +152,26 @@ export const cdpUploaderStatusResponseSchema = Joi.object({
 const uploaderStatusSuccessSchema = Joi.object({
   data: Joi.object({
     uploadStatus: mappedResponseFields.uploadStatus,
+    stage: Joi.string()
+      .valid(
+        'scanning',
+        'rejected-by-scanner',
+        'awaiting-callback',
+        'rejected-by-processor',
+        'delivery-failed',
+        'accepted'
+      )
+      .required()
+      .description('Detailed processing stage for the upload status verdict'),
+    errors: Joi.alternatives().try(
+      Joi.array().items(
+        Joi.object({
+          field: Joi.string().required(),
+          errorType: Joi.string().required()
+        })
+      ),
+      Joi.valid(null)
+    ).required().description('Validation or delivery errors associated with the upload verdict'),
     metadata: Joi.object()
       .required()
       .description('Metadata associated with the upload session')

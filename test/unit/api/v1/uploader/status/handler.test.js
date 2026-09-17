@@ -2,7 +2,14 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { constants as httpConstants } from 'node:http2'
 
 // Use vi.hoisted so mocks are available when vi.mock factory is hoisted.
-const { mockConfigGet, mockHttpClient } = vi.hoisted(() => ({
+const {
+  mockConfigGet,
+  mockHttpClient,
+  mockGetSessionByUploadId,
+  mockGetStatusByCorrelationId,
+  mockGetMetadataMessagingByFileIds,
+  mockGetOutboxStatusesByFileIds
+} = vi.hoisted(() => ({
   mockConfigGet: vi.fn().mockImplementation((key) => {
     switch (key) {
       case 'baseUrl.v1': return '/api/v1'
@@ -13,7 +20,11 @@ const { mockConfigGet, mockHttpClient } = vi.hoisted(() => ({
       default: return null
     }
   }),
-  mockHttpClient: vi.fn()
+  mockHttpClient: vi.fn(),
+  mockGetSessionByUploadId: vi.fn(),
+  mockGetStatusByCorrelationId: vi.fn(),
+  mockGetMetadataMessagingByFileIds: vi.fn(),
+  mockGetOutboxStatusesByFileIds: vi.fn()
 }))
 
 const mockLogger = {
@@ -41,6 +52,27 @@ vi.mock('../../../../../../src/http/client.js', () => ({
   },
   NetworkError: class NetworkError extends Error { },
   AbortError: class AbortError extends Error { }
+}))
+
+vi.mock('../../../../../../src/repos/sessions.js', () => ({
+  getSessionByUploadId: mockGetSessionByUploadId
+}))
+
+vi.mock('../../../../../../src/repos/status.js', () => ({
+  getStatusByCorrelationId: mockGetStatusByCorrelationId
+}))
+
+vi.mock('../../../../../../src/repos/metadata.js', () => ({
+  getMetadataMessagingByFileIds: mockGetMetadataMessagingByFileIds
+}))
+
+vi.mock('../../../../../../src/repos/outbox.js', () => ({
+  getOutboxStatusesByFileIds: mockGetOutboxStatusesByFileIds
+}))
+
+vi.mock('../../../../../../src/data/db.js', () => ({
+  db: { collection: vi.fn() },
+  client: { startSession: vi.fn(() => ({ endSession: vi.fn() })) }
 }))
 
 // Import after mocks are established
@@ -146,6 +178,28 @@ beforeEach(() => {
     }
   })
   mockHttpClient.mockReset()
+  mockGetSessionByUploadId.mockReset()
+  mockGetStatusByCorrelationId.mockReset()
+  mockGetMetadataMessagingByFileIds.mockReset()
+  mockGetOutboxStatusesByFileIds.mockReset()
+
+  mockGetSessionByUploadId.mockResolvedValue({
+    journeyId: '550e8400-e29b-41d4-a716-446655440000'
+  })
+  mockGetStatusByCorrelationId.mockResolvedValue([
+    {
+      fileId: completeFile.fileId,
+      validated: true,
+      errors: null
+    }
+  ])
+  mockGetMetadataMessagingByFileIds.mockResolvedValue([
+    {
+      file: { fileId: completeFile.fileId },
+      messaging: { publishedAt: new Date('2026-01-01T12:00:00.000Z') }
+    }
+  ])
+  mockGetOutboxStatusesByFileIds.mockResolvedValue([])
 })
 
 // ─── Handler function tests ─────────────────────────────────────────────────
@@ -185,6 +239,43 @@ describe('uploaderStatusRoute handler', () => {
       expect(data.numberOfRejectedFiles).toBeUndefined()
     })
 
+    test('ready status maps to delivery-failed when one file is published and another is permanently failed', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+
+      mockGetStatusByCorrelationId.mockResolvedValue([
+        { fileId: 'f-1', validated: true, errors: null },
+        { fileId: 'f-2', validated: true, errors: null }
+      ])
+
+      mockGetMetadataMessagingByFileIds.mockResolvedValue([
+        {
+          file: { fileId: 'f-1' },
+          messaging: { publishedAt: new Date('2026-01-01T12:00:00.000Z') }
+        },
+        {
+          file: { fileId: 'f-2' },
+          messaging: { publishedAt: null }
+        }
+      ])
+
+      mockGetOutboxStatusesByFileIds.mockResolvedValue([
+        { status: 'SENT', payload: { file: { fileId: 'f-1' } } },
+        { status: 'PERMANENT_FAILURE', payload: { file: { fileId: 'f-2' } } }
+      ])
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.uploadStatus).toBe('failure')
+      expect(data.stage).toBe('delivery-failed')
+      expect(data.errors).toEqual([{ field: 'delivery', errorType: 'permanent-failure' }])
+    })
+
     test('ready status with rejections maps to failure and omits numberOfRejectedFiles', async () => {
       mockHttpClient.mockResolvedValue({
         ok: true,
@@ -214,6 +305,23 @@ describe('uploaderStatusRoute handler', () => {
         data: expect.objectContaining({ uploadStatus: 'pending' })
       })
       expect(mockCode).toHaveBeenCalledWith(httpConstants.HTTP_STATUS_OK)
+    })
+
+    test('ready status maps to pending/awaiting-callback when session exists but no status records are found', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => validReadyResponse
+      })
+      mockGetStatusByCorrelationId.mockResolvedValue([])
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.uploadStatus).toBe('pending')
+      expect(data.stage).toBe('awaiting-callback')
+      expect(data.errors).toBeNull()
     })
 
     test('strips the journeyId from the returned metadata, leaving other fields untouched', async () => {

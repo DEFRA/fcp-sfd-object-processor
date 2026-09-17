@@ -10,8 +10,8 @@ import { schemaConsts } from '../src/constants/schemas.js'
  * - hapi-swagger plugin must be registered and configured
  *
  * Post-processing steps:
- * 1. Rename security scheme from 'entra' (auth strategy name) to 'bearerAuth' (OpenAPI convention)
- * 2. Update security requirements on all paths to use 'bearerAuth'
+ * 1. Rename security scheme from 'entra' to 'bearerAuth' (OpenAPI convention)
+ * 2. Update the global and per-path security requirements to use 'bearerAuth'
  */
 const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
   const serverUrl = 'http://localhost:3004'
@@ -29,22 +29,31 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
     const spec = await response.json()
 
     // Post-process 1: Rename security scheme from 'entra' to 'bearerAuth'
-    // This is necessary because hapi-swagger uses the Hapi auth strategy name,
-    // but OpenAPI convention is to use descriptive names like 'bearerAuth'
+    // The name comes from `hapiSwaggerConfig.securityDefinitions` in src/config/hapi-swagger.js,
+    // which is hard-coded configuration rather than the Hapi auth strategy name. OpenAPI convention
+    // is a descriptive name like 'bearerAuth', so it is renamed here.
+    //
+    // Every reference must be renamed together: a requirement naming a scheme that
+    // `components.securitySchemes` does not define makes the document invalid.
+    const renameSecurityRequirements = (requirements) =>
+      requirements.map(requirement =>
+        requirement.entra ? { bearerAuth: requirement.entra } : requirement
+      )
+
     if (spec.components?.securitySchemes?.entra) {
       spec.components.securitySchemes.bearerAuth = spec.components.securitySchemes.entra
       delete spec.components.securitySchemes.entra
+
+      // Update the global security requirement (routes with auth inherit this)
+      if (spec.security) {
+        spec.security = renameSecurityRequirements(spec.security)
+      }
 
       // Update security requirements in all paths
       Object.values(spec.paths || {}).forEach(pathItem => {
         Object.values(pathItem).forEach(operation => {
           if (operation.security) {
-            operation.security = operation.security.map(requirement => {
-              if (requirement.entra) {
-                return { bearerAuth: requirement.entra }
-              }
-              return requirement
-            })
+            operation.security = renameSecurityRequirements(operation.security)
           }
         })
       })
@@ -184,6 +193,8 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
           value: {
             data: {
               uploadStatus: 'success',
+              stage: 'accepted',
+              errors: null,
               metadata,
               form: {
                 'file-upload-1': {
@@ -204,6 +215,8 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
           value: {
             data: {
               uploadStatus: 'failure',
+              stage: 'rejected-by-scanner',
+              errors: [{ field: schemaConsts.FILENAME_EXAMPLE, errorType: 'rejected-by-scanner' }],
               metadata,
               form: {
                 'file-upload-1': {
@@ -222,6 +235,8 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
           value: {
             data: {
               uploadStatus: 'pending',
+              stage: 'scanning',
+              errors: null,
               metadata,
               form: {
                 'file-upload-1': {
@@ -233,6 +248,23 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
             }
           }
         }
+      }
+    }
+
+    // Post-process: hapi-swagger renders Joi.valid(null) within alternatives as
+    // `{ type: 'string', nullable: true }` for this route. Runtime allows only
+    // array or null, so normalize the generated contract accordingly.
+    const mappedStatusErrors = spec.components?.schemas?.MappedUploaderStatusData?.properties?.errors
+    if (Array.isArray(mappedStatusErrors?.anyOf) && mappedStatusErrors.anyOf.length === 2) {
+      const arraySchemaRef = mappedStatusErrors.anyOf.find((candidate) => typeof candidate?.$ref === 'string')
+      const nullableStringIndex = mappedStatusErrors.anyOf.findIndex(
+        (candidate) => candidate?.type === 'string' && candidate?.nullable === true
+      )
+
+      if (arraySchemaRef && nullableStringIndex !== -1) {
+        mappedStatusErrors.anyOf = undefined
+        mappedStatusErrors.allOf = [arraySchemaRef]
+        mappedStatusErrors.nullable = true
       }
     }
 

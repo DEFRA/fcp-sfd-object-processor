@@ -71,7 +71,6 @@ const validMetadata = {
   uosr: '105000000_1733826312'
 }
 
-// TODO: format needs to be updated to match the new response schema
 const validReadyResponse = {
   uploadStatus: 'ready',
   metadata: validMetadata,
@@ -82,6 +81,8 @@ const validReadyResponse = {
 // Mapped response — as returned by the API after status mapping
 const validMappedSuccessResponse = {
   uploadStatus: 'success',
+  stage: 'accepted',
+  errors: null,
   metadata: validMetadata,
   form: { 'file-field': completeFile }
 }
@@ -699,6 +700,8 @@ describe('uploaderStatusResponseSchema', () => {
     const { error } = successSchema.validate({
       data: {
         uploadStatus: 'failure',
+        stage: 'rejected-by-scanner',
+        errors: [{ field: 'file', errorType: 'rejected-by-scanner' }],
         metadata: validMetadata,
         form: { 'file-upload-1': rejectedFile }
       }
@@ -711,6 +714,8 @@ describe('uploaderStatusResponseSchema', () => {
     const { error } = successSchema.validate({
       data: {
         uploadStatus: 'pending',
+        stage: 'scanning',
+        errors: null,
         metadata: validMetadata,
         form: {}
       }

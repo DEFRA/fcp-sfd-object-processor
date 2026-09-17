@@ -97,6 +97,10 @@ describe('journey-correlation-service', () => {
       expectUnresolvedWarning('missing_or_malformed_journey_id')
       expectUnresolvedMetric()
       expect(getSessionByJourneyId).not.toHaveBeenCalled()
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.not.stringContaining('not-a-uuid')
+      )
     })
 
     test('generates an id when the value is an empty string', async () => {
@@ -155,6 +159,12 @@ describe('journey-correlation-service', () => {
       expectGenerated(result, VALID_JOURNEY_ID)
       expectUnresolvedWarning('no_session_found')
       expectUnresolvedMetric()
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: expect.objectContaining({ reference: VALID_JOURNEY_ID })
+        }),
+        expect.stringContaining(`journeyId=${VALID_JOURNEY_ID}`)
+      )
     })
 
     test('generates an id when the session sbi does not match', async () => {
@@ -211,6 +221,12 @@ describe('journey-correlation-service', () => {
       expectGenerated(result, VALID_JOURNEY_ID)
       expectUnresolvedWarning('session_lookup_failed')
       expectUnresolvedMetric()
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: expect.objectContaining({ reference: VALID_JOURNEY_ID })
+        }),
+        expect.stringContaining(`journeyId=${VALID_JOURNEY_ID}`)
+      )
     })
 
     test('includes the underlying error message in the warning', async () => {

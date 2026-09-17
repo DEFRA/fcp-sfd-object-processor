@@ -32,15 +32,22 @@ const UNRESOLVED_EVENT = 'callback_journey_id_unresolved'
 // The counter is deliberately not awaited. It swallows its own errors, and an unresolved
 // callback is common during the transitional window, so making every such callback wait on a
 // CloudWatch flush adds latency to the response for no functional gain.
-const logUnresolved = (rawJourneyId, reason) => {
-  logger.warn({
+const logUnresolved = (rawJourneyId, reason, validatedJourneyId = null) => {
+  const logPayload = {
     event: {
       type: UNRESOLVED_EVENT,
       action: 'resolve_journey_id',
       outcome: 'failure',
-      reason
+      reason,
+      ...(validatedJourneyId ? { reference: validatedJourneyId } : {})
     }
-  }, `Callback journey id could not be resolved; reason=${reason}; received type ${typeof rawJourneyId}`)
+  }
+
+  const message = validatedJourneyId
+    ? `Callback journey id could not be resolved; reason=${reason}; journeyId=${validatedJourneyId}`
+    : `Callback journey id could not be resolved; reason=${reason}; received type ${typeof rawJourneyId}`
+
+  logger.warn(logPayload, message)
 
   metricsCounter(UNRESOLVED_EVENT)
 }
@@ -69,18 +76,19 @@ export const resolveJourneyId = async (rawJourneyId, payloadMetadata) => {
         type: UNRESOLVED_EVENT,
         action: 'resolve_journey_id',
         outcome: 'failure',
-        reason: 'session_lookup_failed'
+        reason: 'session_lookup_failed',
+        reference: rawJourneyId
       },
       error: {
         message: error.message
       }
-    }, 'Session lookup failed while resolving callback journey id')
+    }, `Session lookup failed while resolving callback journey id; journeyId=${rawJourneyId}`)
     metricsCounter(UNRESOLVED_EVENT)
     return { journeyId: randomUUID(), source: 'generated' }
   }
 
   if (!session) {
-    logUnresolved(rawJourneyId, 'no_session_found')
+    logUnresolved(rawJourneyId, 'no_session_found', rawJourneyId)
     return { journeyId: randomUUID(), source: 'generated' }
   }
 
@@ -88,7 +96,7 @@ export const resolveJourneyId = async (rawJourneyId, payloadMetadata) => {
   const submissionIdMatches = session.metadata?.submissionId === payloadMetadata?.submissionId
 
   if (!sbiMatches || !submissionIdMatches) {
-    logUnresolved(rawJourneyId, 'session_metadata_mismatch')
+    logUnresolved(rawJourneyId, 'session_metadata_mismatch', rawJourneyId)
     return { journeyId: randomUUID(), source: 'generated' }
   }
 

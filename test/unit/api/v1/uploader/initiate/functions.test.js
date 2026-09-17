@@ -1,4 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { randomUUID } from 'node:crypto'
 import { buildCdpUploaderPayload, rewriteResponseUrls } from '../../../../../../src/api/v1/uploader/initiate/index.js'
 
 // Use vi.hoisted so mockConfigGet is available when vi.mock factory is hoisted.
@@ -8,7 +9,6 @@ const { mockConfigGet } = vi.hoisted(() => ({
     if (key === 'baseUrl.v1') return '/api/v1'
     if (key === 'cdpUploaderMimeTypes') return ['application/pdf', 'image/jpeg', 'image/png']
     if (key === 'cdpUploaderDocumentTypes') return ['CS_Agreement_Evidence', 'CS_Application_Evidence']
-    if (key === 'journeyIdEnabled') return true
     return null
   })
 }))
@@ -43,7 +43,6 @@ describe('Uploader Initiate Functions', () => {
           case 'cdpUploaderCallbackUrl': return 'http://localhost:3000/api/v1/callback'
           case 'cdpUploaderMimeTypes': return ['application/pdf', 'image/jpeg']
           case 'cdpUploaderMaxFileSize': return 10485760 // 10MB
-          case 'journeyIdEnabled': return true
           default: return null
         }
       })
@@ -165,51 +164,31 @@ describe('Uploader Initiate Functions', () => {
       expect(metadata).toEqual({ sbi: 123456789, type: 'CS_Agreement_Evidence' })
     })
 
-    test('should omit the journey id when none is supplied', () => {
+    test('should always include journeyId when supplied', () => {
       const clientPayload = {
         redirect: '/upload-complete',
         metadata: { sbi: 123456789 }
       }
 
-      const result = buildCdpUploaderPayload(clientPayload)
+      const journeyId = randomUUID()
+      const result = buildCdpUploaderPayload(clientPayload, journeyId)
 
-      expect(result.metadata).not.toHaveProperty('journeyId')
+      expect(result.metadata).toHaveProperty('journeyId')
+      expect(result.metadata.journeyId).toBe(journeyId)
     })
 
-    // The enrichment is gated so that this artefact can be released twice. Until every pod
-    // accepts the key on the callback, a callback routed to an old pod would be rejected on
-    // an unknown key and persisted as a validation failure in place of the upload.
-    test('should omit the journey id when the feature is disabled', () => {
-      mockConfigGet.mockImplementation((key) => {
-        if (key === 'journeyIdEnabled') return false
-        if (key === 'baseUrl.v1') return '/api/v1'
-        return null
-      })
+    test('should preserve client metadata alongside journeyId', () => {
       const clientPayload = {
         redirect: '/upload-complete',
-        metadata: { sbi: 123456789 }
+        metadata: { sbi: 123456789, customField: 'value' }
       }
 
-      const result = buildCdpUploaderPayload(clientPayload, '550e8400-e29b-41d4-a716-446655440000')
+      const journeyId = randomUUID()
+      const result = buildCdpUploaderPayload(clientPayload, journeyId)
 
-      expect(result.metadata).not.toHaveProperty('journeyId')
-      expect(result.metadata).toEqual({ sbi: 123456789 })
-    })
-
-    test('should omit the journey id when the feature is enabled but no id is supplied', () => {
-      mockConfigGet.mockImplementation((key) => {
-        if (key === 'journeyIdEnabled') return true
-        if (key === 'baseUrl.v1') return '/api/v1'
-        return null
-      })
-      const clientPayload = {
-        redirect: '/upload-complete',
-        metadata: { sbi: 123456789 }
-      }
-
-      const result = buildCdpUploaderPayload(clientPayload)
-
-      expect(result.metadata).not.toHaveProperty('journeyId')
+      expect(result.metadata.sbi).toBe(123456789)
+      expect(result.metadata.customField).toBe('value')
+      expect(result.metadata.journeyId).toBe(journeyId)
     })
   })
 

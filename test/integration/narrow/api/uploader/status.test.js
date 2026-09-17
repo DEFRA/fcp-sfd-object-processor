@@ -1,7 +1,11 @@
 import { constants as httpConstants } from 'node:http2'
+import { randomUUID } from 'node:crypto'
 import { vi, describe, test, expect, beforeAll, afterAll, afterEach } from 'vitest'
 
 import { createServer } from '../../../../../src/api/index.js'
+import { db } from '../../../../../src/data/db.js'
+import { config } from '../../../../../src/config/index.js'
+import { PERMANENT_FAILURE } from '../../../../../src/constants/outbox.js'
 
 const { mockHttpClient } = vi.hoisted(() => ({ mockHttpClient: vi.fn() }))
 
@@ -18,6 +22,14 @@ const { TimeoutError } = await import('../../../../../src/http/client.js')
 
 let server
 const validUploadId = '9fcaabe5-77ec-44db-8356-3a6e8dc51b13'
+let originalSessionsCollection
+let originalStatusCollection
+let originalMetadataCollection
+let originalOutboxCollection
+let sessionsCollection
+let statusCollection
+let metadataCollection
+let outboxCollection
 
 const completeFile = {
   fileId: 'a0b1c2d3-e4f5-4789-abcd-ef0123456789',
@@ -97,27 +109,100 @@ const mockInitiatedResponse = {
   form: {}
 }
 
+const buildSession = (uploadId, journeyId, overrides = {}) => ({
+  uploadId,
+  journeyId,
+  metadata: {
+    sbi: validMetadata.sbi,
+    submissionId: validMetadata.submissionId,
+    ...overrides
+  },
+  timestamp: new Date()
+})
+
+const buildCallbackPayload = (journeyId, fileId, overrides = {}) => ({
+  uploadStatus: 'ready',
+  metadata: {
+    ...validMetadata,
+    journeyId,
+    submissionId: `${Date.now()}`
+  },
+  form: {
+    'file-field': {
+      ...completeFile,
+      fileId
+    }
+  },
+  numberOfRejectedFiles: 0,
+  ...overrides
+})
+
+const mockReadyStatus = (metadata = validMetadata) => ({
+  ok: true,
+  status: 200,
+  json: async () => ({
+    uploadStatus: 'ready',
+    metadata,
+    form: { 'file-field': completeFile },
+    numberOfRejectedFiles: 0
+  })
+})
+
 // ─── Setup ──────────────────────────────────────────────────────────────────
 
 beforeAll(async () => {
+  originalSessionsCollection = config.get('mongo.collections.sessions')
+  originalStatusCollection = config.get('mongo.collections.status')
+  originalMetadataCollection = config.get('mongo.collections.uploadMetadata')
+  originalOutboxCollection = config.get('mongo.collections.outbox')
+
+  config.set('mongo.collections.sessions', 'status-uploader-test-sessions')
+  config.set('mongo.collections.status', 'status-uploader-test-status')
+  config.set('mongo.collections.uploadMetadata', 'status-uploader-test-metadata')
+  config.set('mongo.collections.outbox', 'status-uploader-test-outbox')
+
+  sessionsCollection = config.get('mongo.collections.sessions')
+  statusCollection = config.get('mongo.collections.status')
+  metadataCollection = config.get('mongo.collections.uploadMetadata')
+  outboxCollection = config.get('mongo.collections.outbox')
+
+  await db.collection(sessionsCollection).deleteMany({})
+  await db.collection(statusCollection).deleteMany({})
+  await db.collection(metadataCollection).deleteMany({})
+  await db.collection(outboxCollection).deleteMany({})
+
   server = await createServer()
   await server.initialize()
   vi.restoreAllMocks()
 })
 
 afterAll(async () => {
+  await db.collection(sessionsCollection).deleteMany({})
+  await db.collection(statusCollection).deleteMany({})
+  await db.collection(metadataCollection).deleteMany({})
+  await db.collection(outboxCollection).deleteMany({})
+
+  config.set('mongo.collections.sessions', originalSessionsCollection)
+  config.set('mongo.collections.status', originalStatusCollection)
+  config.set('mongo.collections.uploadMetadata', originalMetadataCollection)
+  config.set('mongo.collections.outbox', originalOutboxCollection)
+
   vi.restoreAllMocks()
   await server.stop()
 })
 
-afterEach(() => {
+afterEach(async () => {
   mockHttpClient.mockReset()
+  await db.collection(sessionsCollection).deleteMany({})
+  await db.collection(statusCollection).deleteMany({})
+  await db.collection(metadataCollection).deleteMany({})
+  await db.collection(outboxCollection).deleteMany({})
 })
 
 // ─── Successful responses ────────────────────────────────────────────────────
 
 describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () => {
-  test('returns 200 with data envelope for a ready upload with no rejections (success)', async () => {
+  test('returns pending when scan is ready but no local acceptance record exists yet', async () => {
     mockHttpClient.mockResolvedValue({
       ok: true,
       status: 200,
@@ -131,12 +216,13 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
 
     expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
     expect(response.result.data).toBeDefined()
-    expect(response.result.data.uploadStatus).toBe('success')
+    expect(response.result.data.uploadStatus).toBe('pending')
+    expect(response.result.data.stage).toBe('awaiting-callback')
     expect(response.result.data.numberOfRejectedFiles).toBeUndefined()
     expect(response.result.data.form['file-field'].fileId).toBe(completeFile.fileId)
   })
 
-  test('ready upload without numberOfRejectedFiles defaults to 0 and maps to success', async () => {
+  test('ready upload without numberOfRejectedFiles still awaits callback when local record is missing', async () => {
     const readyResponseWithoutRejectedCount = {
       uploadStatus: 'ready',
       metadata: { sbi: 105000000, crn: 1050000000 },
@@ -157,7 +243,8 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
 
     expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
     expect(response.result.data).toBeDefined()
-    expect(response.result.data.uploadStatus).toBe('success')
+    expect(response.result.data.uploadStatus).toBe('pending')
+    expect(response.result.data.stage).toBe('awaiting-callback')
     expect(response.result.data.numberOfRejectedFiles).toBeUndefined()
   })
 
@@ -342,7 +429,7 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
 describe('GET /api/v1/uploader/status/{uploadId} — polling scenario', () => {
   test('multiple sequential checks for the same uploadId each return 200 with mapped statuses', async () => {
     // Simulate a polling flow: initiated → pending → ready (0 rejections)
-    // Expected mapped output:    pending  → pending → success
+    // Expected mapped output without local callback state: pending → pending → pending
     mockHttpClient.mockReset()
       .mockResolvedValueOnce({
         ok: true,
@@ -371,8 +458,265 @@ describe('GET /api/v1/uploader/status/{uploadId} — polling scenario', () => {
     expect(responses[1].statusCode).toBe(httpConstants.HTTP_STATUS_OK)
     expect(responses[1].result.data.uploadStatus).toBe('pending')
     expect(responses[2].statusCode).toBe(httpConstants.HTTP_STATUS_OK)
-    expect(responses[2].result.data.uploadStatus).toBe('success')
+    expect(responses[2].result.data.uploadStatus).toBe('pending')
+    expect(responses[2].result.data.stage).toBe('awaiting-callback')
     expect(mockHttpClient).toHaveBeenCalledTimes(3)
+  })
+})
+
+describe('GET /api/v1/uploader/status/{uploadId} — merged local verdicts', () => {
+  test('returns success/accepted after callback is accepted by this service', async () => {
+    const uploadId = randomUUID()
+    const journeyId = randomUUID()
+    const fileId = randomUUID()
+    const callbackPayload = buildCallbackPayload(journeyId, fileId)
+
+    await db.collection(sessionsCollection).insertOne(
+      buildSession(uploadId, journeyId, { submissionId: callbackPayload.metadata.submissionId })
+    )
+
+    const callbackResponse = await server.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: callbackPayload
+    })
+    expect(callbackResponse.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+
+    mockHttpClient.mockResolvedValueOnce(mockReadyStatus(callbackPayload.metadata))
+
+    const response = await server.inject({
+      method: 'GET',
+      url: `/api/v1/uploader/status/${uploadId}`
+    })
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+    expect(response.result.data.uploadStatus).toBe('success')
+    expect(response.result.data.stage).toBe('accepted')
+    expect(response.result.data.errors).toBeNull()
+  })
+
+  test('failed-callback-then-status returns failure/rejected-by-processor with populated safe errors', async () => {
+    const uploadId = randomUUID()
+    const journeyId = randomUUID()
+    const fileId = randomUUID()
+    const callbackPayload = buildCallbackPayload(journeyId, fileId, {
+      uploadStatus: 'pending'
+    })
+    delete callbackPayload.numberOfRejectedFiles
+
+    await db.collection(sessionsCollection).insertOne(
+      buildSession(uploadId, journeyId, { submissionId: callbackPayload.metadata.submissionId })
+    )
+
+    const callbackResponse = await server.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: callbackPayload
+    })
+    expect(callbackResponse.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+
+    mockHttpClient.mockResolvedValueOnce(mockReadyStatus(callbackPayload.metadata))
+
+    const response = await server.inject({
+      method: 'GET',
+      url: `/api/v1/uploader/status/${uploadId}`
+    })
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+    expect(response.result.data.uploadStatus).toBe('failure')
+    expect(response.result.data.stage).toBe('rejected-by-processor')
+    expect(response.result.data.errors).toBeInstanceOf(Array)
+    expect(response.result.data.errors.length).toBeGreaterThan(0)
+    expect(response.result.data.errors[0].errorType).toContain("uploadStatus must be 'ready'")
+    expect(response.result.data.errors[0].receivedValue).toBeUndefined()
+  })
+
+  test('delivery-failure-then-status returns failure/delivery-failed', async () => {
+    const uploadId = randomUUID()
+    const journeyId = randomUUID()
+    const fileId = randomUUID()
+    const callbackPayload = buildCallbackPayload(journeyId, fileId)
+
+    await db.collection(sessionsCollection).insertOne(
+      buildSession(uploadId, journeyId, { submissionId: callbackPayload.metadata.submissionId })
+    )
+
+    const callbackResponse = await server.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: callbackPayload
+    })
+    expect(callbackResponse.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+
+    await db.collection(outboxCollection).updateMany(
+      { 'payload.file.fileId': fileId },
+      { $set: { status: PERMANENT_FAILURE, attempts: 5, lastAttemptedAt: new Date() } }
+    )
+
+    mockHttpClient.mockResolvedValueOnce(mockReadyStatus(callbackPayload.metadata))
+
+    const response = await server.inject({
+      method: 'GET',
+      url: `/api/v1/uploader/status/${uploadId}`
+    })
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+    expect(response.result.data.uploadStatus).toBe('failure')
+    expect(response.result.data.stage).toBe('delivery-failed')
+  })
+
+  test('mixed outcome (one published and one permanent failure) returns failure/delivery-failed', async () => {
+    const uploadId = randomUUID()
+    const journeyId = randomUUID()
+    const fileIdPublished = randomUUID()
+    const fileIdFailed = randomUUID()
+    const callbackPayload = buildCallbackPayload(journeyId, fileIdPublished)
+
+    await db.collection(sessionsCollection).insertOne(
+      buildSession(uploadId, journeyId, { submissionId: callbackPayload.metadata.submissionId })
+    )
+
+    const callbackResponse = await server.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: callbackPayload
+    })
+    expect(callbackResponse.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+
+    await db.collection(metadataCollection).updateOne(
+      { 'file.fileId': fileIdPublished },
+      { $set: { 'messaging.publishedAt': new Date() } }
+    )
+
+    await db.collection(statusCollection).insertOne({
+      correlationId: journeyId,
+      sbi: validMetadata.sbi,
+      fileId: fileIdFailed,
+      timestamp: new Date(),
+      validated: true,
+      errors: null
+    })
+
+    await db.collection(metadataCollection).insertOne({
+      raw: {
+        uploadStatus: 'ready',
+        numberOfRejectedFiles: 0,
+        ...completeFile,
+        fileId: fileIdFailed
+      },
+      metadata: callbackPayload.metadata,
+      file: {
+        fileId: fileIdFailed,
+        filename: completeFile.filename,
+        contentType: completeFile.contentType,
+        fileStatus: completeFile.fileStatus
+      },
+      s3: {
+        key: completeFile.s3Key,
+        bucket: completeFile.s3Bucket
+      },
+      messaging: {
+        publishedAt: null,
+        correlationId: journeyId,
+        filesInBatch: 2
+      }
+    })
+
+    await db.collection(outboxCollection).insertOne({
+      messageId: randomUUID(),
+      payload: {
+        metadata: callbackPayload.metadata,
+        file: {
+          fileId: fileIdFailed,
+          filename: completeFile.filename,
+          contentType: completeFile.contentType,
+          fileStatus: completeFile.fileStatus
+        },
+        messaging: {
+          correlationId: journeyId,
+          filesInBatch: 2
+        }
+      },
+      status: PERMANENT_FAILURE,
+      attempts: 5,
+      createdAt: new Date(),
+      lastAttemptedAt: new Date()
+    })
+
+    mockHttpClient.mockResolvedValueOnce(mockReadyStatus(callbackPayload.metadata))
+
+    const response = await server.inject({
+      method: 'GET',
+      url: `/api/v1/uploader/status/${uploadId}`
+    })
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+    expect(response.result.data.uploadStatus).toBe('failure')
+    expect(response.result.data.stage).toBe('delivery-failed')
+    expect(response.result.data.errors).toEqual([{ field: 'delivery', errorType: 'permanent-failure' }])
+  })
+
+  test('unresolved correlation reads pending/awaiting-callback when callback metadata mismatches session', async () => {
+    const uploadId = randomUUID()
+    const journeyId = randomUUID()
+    const fileId = randomUUID()
+    const callbackPayload = buildCallbackPayload(journeyId, fileId)
+
+    await db.collection(sessionsCollection).insertOne(
+      buildSession(uploadId, journeyId, {
+        sbi: validMetadata.sbi,
+        submissionId: 'session-submission-id'
+      })
+    )
+
+    callbackPayload.metadata.submissionId = 'callback-submission-id'
+
+    const callbackResponse = await server.inject({
+      method: 'POST',
+      url: '/api/v1/callback',
+      payload: callbackPayload
+    })
+
+    expect(callbackResponse.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+
+    const statusRecords = await db.collection(statusCollection).find({ fileId }).toArray()
+    expect(statusRecords).toHaveLength(1)
+    expect(statusRecords[0].correlationId).not.toBe(journeyId)
+
+    mockHttpClient.mockResolvedValueOnce(mockReadyStatus(callbackPayload.metadata))
+
+    const response = await server.inject({
+      method: 'GET',
+      url: `/api/v1/uploader/status/${uploadId}`
+    })
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+    expect(response.result.data.uploadStatus).toBe('pending')
+    expect(response.result.data.stage).toBe('awaiting-callback')
+  })
+
+  test('unresolved correlation reads pending/awaiting-callback when no session maps the upload id', async () => {
+    const uploadId = randomUUID()
+
+    await db.collection(statusCollection).insertOne({
+      correlationId: randomUUID(),
+      sbi: validMetadata.sbi,
+      fileId: randomUUID(),
+      timestamp: new Date(),
+      validated: false,
+      errors: [{ field: 'payload', errorType: 'uploadStatus must be ready' }]
+    })
+
+    mockHttpClient.mockResolvedValueOnce(mockReadyStatus(validMetadata))
+
+    const response = await server.inject({
+      method: 'GET',
+      url: `/api/v1/uploader/status/${uploadId}`
+    })
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+    expect(response.result.data.uploadStatus).toBe('pending')
+    expect(response.result.data.stage).toBe('awaiting-callback')
   })
 })
 

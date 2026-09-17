@@ -15,74 +15,143 @@ describe('buildAuthFailureLog', () => {
     expect(result.msg).toEqual('Authentication failed')
   })
 
-  test('should include reason, path, method and sourceIp from args', () => {
+  test('should nest request context under approved ECS fields', () => {
     const result = buildAuthFailureLog('some reason', mockRequest)
 
     expect(result).toEqual({
       msg: 'Authentication failed',
-      reason: 'some reason',
-      path: '/test',
-      method: 'GET',
-      sourceIp: '127.0.0.1'
+      event: {
+        type: 'auth_validation_failure',
+        action: 'GET',
+        category: '/test',
+        reason: 'some reason',
+        outcome: 'failure'
+      },
+      client: {
+        address: '127.0.0.1'
+      },
+      user_agent: {
+        original: 'test-agent'
+      }
     })
+  })
+
+  test('should not emit any flat top-level context keys', () => {
+    const result = buildAuthFailureLog('some reason', mockRequest, { strategy: 'entra' })
+
+    expect(Object.keys(result)).toEqual(['msg', 'event', 'client', 'user_agent'])
   })
 
   test('should default extra to empty object when not provided', () => {
     const result = buildAuthFailureLog('some reason', mockRequest)
 
-    expect(Object.keys(result)).toHaveLength(5)
+    expect(result.event.reason).toEqual('some reason')
   })
 
-  test('should merge minimal extra with strategy into result', () => {
+  test('should leave the reason unchanged when extra is empty', () => {
+    const result = buildAuthFailureLog('some reason', mockRequest, {})
+
+    expect(result.event.reason).toEqual('some reason')
+  })
+
+  test('should fold a scalar extra value into the reason', () => {
     const result = buildAuthFailureLog('some reason', mockRequest, { strategy: 'entra' })
 
-    expect(result).toEqual({
-      msg: 'Authentication failed',
-      reason: 'some reason',
-      path: '/test',
-      method: 'GET',
-      sourceIp: '127.0.0.1',
-      strategy: 'entra'
-    })
+    expect(result.event.reason).toEqual('some reason | strategy=entra')
   })
 
-  test('should merge tokenType and strategy into result', () => {
+  test('should join an array extra value with commas', () => {
+    const result = buildAuthFailureLog('some reason', mockRequest, { tokenGroups: ['group-3', 'group-4'] })
+
+    expect(result.event.reason).toEqual('some reason | tokenGroups=group-3,group-4')
+  })
+
+  test('should omit an extra value that is undefined', () => {
+    const result = buildAuthFailureLog('some reason', mockRequest, { strategy: undefined, issuer: 'https://issuer' })
+
+    expect(result.event.reason).toEqual('some reason | issuer=https://issuer')
+  })
+
+  test('should omit an extra value that is null', () => {
+    const result = buildAuthFailureLog('some reason', mockRequest, { strategy: null, issuer: 'https://issuer' })
+
+    expect(result.event.reason).toEqual('some reason | issuer=https://issuer')
+  })
+
+  test('should keep an extra value that is an empty string', () => {
+    const result = buildAuthFailureLog('some reason', mockRequest, { strategy: '' })
+
+    expect(result.event.reason).toEqual('some reason | strategy=')
+  })
+
+  test('should keep an extra value that is boolean false', () => {
+    const result = buildAuthFailureLog('some reason', mockRequest, { tokenExpired: false })
+
+    expect(result.event.reason).toEqual('some reason | tokenExpired=false')
+  })
+
+  test('should keep an extra value that is the number zero', () => {
+    const result = buildAuthFailureLog('some reason', mockRequest, { groupCount: 0 })
+
+    expect(result.event.reason).toEqual('some reason | groupCount=0')
+  })
+
+  test('should render an empty array extra value as an empty list', () => {
+    const result = buildAuthFailureLog('some reason', mockRequest, { tokenGroups: [] })
+
+    expect(result.event.reason).toEqual('some reason | tokenGroups=')
+  })
+
+  test('should preserve the order in which extras were supplied', () => {
+    const result = buildAuthFailureLog('some reason', mockRequest, { second: 'b', first: 'a' })
+
+    expect(result.event.reason).toEqual('some reason | second=b | first=a')
+  })
+
+  test('should not mutate the extra object supplied by the caller', () => {
+    const extra = { strategy: 'entra', issuer: null }
+    buildAuthFailureLog('some reason', mockRequest, extra)
+
+    expect(extra).toEqual({ strategy: 'entra', issuer: null })
+  })
+
+  test('should set client.address to undefined when the remote address is absent', () => {
+    const result = buildAuthFailureLog('some reason', { ...mockRequest, info: {} })
+
+    expect(result.client.address).toBeUndefined()
+  })
+
+  test('should set the event type and outcome regardless of the reason supplied', () => {
+    const result = buildAuthFailureLog('any reason at all', mockRequest, { strategy: 'cognito' })
+
+    expect(result.event.type).toEqual('auth_validation_failure')
+    expect(result.event.outcome).toEqual('failure')
+  })
+
+  test('should fold tokenType and strategy into the reason', () => {
     const result = buildAuthFailureLog('Provided token is not an access token', mockRequest, {
       tokenType: 'refresh',
       strategy: 'entra'
     })
 
-    expect(result).toEqual({
-      msg: 'Authentication failed',
-      reason: 'Provided token is not an access token',
-      path: '/test',
-      method: 'GET',
-      sourceIp: '127.0.0.1',
-      tokenType: 'refresh',
-      strategy: 'entra'
-    })
+    expect(result.event.reason).toEqual(
+      'Provided token is not an access token | tokenType=refresh | strategy=entra'
+    )
   })
 
-  test('should merge tokenGroups, requiredGroups and strategy into result', () => {
+  test('should fold tokenGroups, requiredGroups and strategy into the reason', () => {
     const result = buildAuthFailureLog(
       'Token does not belong to an authorized Security Group',
       mockRequest,
       { tokenGroups: ['group-3', 'group-4'], requiredGroups: ['group-1', 'group-2'], strategy: 'entra' }
     )
 
-    expect(result).toEqual({
-      msg: 'Authentication failed',
-      reason: 'Token does not belong to an authorized Security Group',
-      path: '/test',
-      method: 'GET',
-      sourceIp: '127.0.0.1',
-      tokenGroups: ['group-3', 'group-4'],
-      requiredGroups: ['group-1', 'group-2'],
-      strategy: 'entra'
-    })
+    expect(result.event.reason).toEqual(
+      'Token does not belong to an authorized Security Group | tokenGroups=group-3,group-4 | requiredGroups=group-1,group-2 | strategy=entra'
+    )
   })
 
-  test('should merge clientId, issuer and strategy into result', () => {
+  test('should fold clientId, issuer and strategy into the reason', () => {
     const result = buildAuthFailureLog(
       'Token client_id is not in the list of authorized Cognito client IDs',
       mockRequest,
@@ -93,15 +162,14 @@ describe('buildAuthFailureLog', () => {
       }
     )
 
-    expect(result).toEqual({
-      msg: 'Authentication failed',
-      reason: 'Token client_id is not in the list of authorized Cognito client IDs',
-      path: '/test',
-      method: 'GET',
-      sourceIp: '127.0.0.1',
-      clientId: 'unauthorized-client',
-      issuer: 'https://cognito-idp.eu-west-2.amazonaws.com/eu-west-2_testPoolId',
-      strategy: 'cognito'
-    })
+    expect(result.event.reason).toEqual(
+      'Token client_id is not in the list of authorized Cognito client IDs | clientId=unauthorized-client | issuer=https://cognito-idp.eu-west-2.amazonaws.com/eu-west-2_testPoolId | strategy=cognito'
+    )
+  })
+
+  test('should set user_agent.original to undefined when the header is absent', () => {
+    const result = buildAuthFailureLog('some reason', { ...mockRequest, headers: {} })
+
+    expect(result.user_agent.original).toBeUndefined()
   })
 })

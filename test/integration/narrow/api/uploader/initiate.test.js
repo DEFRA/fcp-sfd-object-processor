@@ -47,17 +47,11 @@ const mockCdpUploaderResponse = {
   statusUrl: 'http://cdp-uploader:7337/status/9fcaabe5-77ec-44db-8356-3a6e8dc51b13'
 }
 
-// The enrichment ships switched off so that the artefact can be released twice; these tests
-// exercise the enabled state, which is what runs once the callback accepts the key everywhere.
-const journeyIdEnabledDefault = config.get('journeyIdEnabled')
-
 beforeAll(async () => {
   vi.restoreAllMocks()
-  config.set('journeyIdEnabled', true)
 })
 
 afterAll(async () => {
-  config.set('journeyIdEnabled', journeyIdEnabledDefault)
   vi.restoreAllMocks()
 })
 
@@ -130,7 +124,7 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
       })
     })
 
-    test('should return 200 even when insertSession throws', async () => {
+    test('should return 503 when insertSession throws', async () => {
       mockHttpClient.mockResolvedValue({
         ok: true,
         json: async () => mockCdpUploaderResponse
@@ -143,8 +137,7 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
         payload: mockValidPayload
       })
 
-      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
-      expect(response.result.data.uploadId).toBe(mockCdpUploaderResponse.uploadId)
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_SERVICE_UNAVAILABLE)
     })
 
     test('should forward enriched payload to CDP Uploader', async () => {
