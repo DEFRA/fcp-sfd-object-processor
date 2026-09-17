@@ -7,6 +7,7 @@ import { createAuthStrategy } from './create-auth-strategy.js'
 import { AUTH_STRATEGY_NAME } from '../../constants/auth.js'
 import { sendAuditEvent } from '../../messaging/outbound/audit/send-audit-event.js'
 import { buildAuthFailureResponseLog } from '../../utils/build-auth-failure-response-log.js'
+import { buildAuthDisabledLog, buildAuthConfigurationFailureLog } from '../../utils/build-auth-configuration-log.js'
 
 const logger = createLogger()
 const tracingHeader = config.get('tracing.header')
@@ -19,6 +20,7 @@ export const auth = {
       const cognitoEnabled = config.get('auth.cognito.enabled')
 
       if (!entraEnabled && !cognitoEnabled) {
+        logger.warn(buildAuthDisabledLog({ entraEnabled, cognitoEnabled }))
         return
       }
 
@@ -31,9 +33,11 @@ export const auth = {
       // a contract either provider offers. Dispatching on `iss` makes the choice deterministic.
       // See .github/debugging/fcp-sfd-object-processor-entra-401-iss-mismatch.md.
       const providers = []
+      let entraTenantCount = 0
 
       if (entraEnabled) {
         const tenants = config.get('auth.entra.tenants')
+        entraTenantCount = tenants.length
         // Only add the provider when at least one tenant is configured: it would otherwise
         // contribute no issuers, and an empty `verify.iss` is rejected by @hapi/jwt's own schema
         // and would fail server startup.
@@ -46,7 +50,12 @@ export const auth = {
         providers.push(getCognitoAuthProvider())
       }
 
+      // Reaching here means authentication was asked for but could not be set up, so no default
+      // strategy is registered and every route serves unauthenticated traffic. That is a
+      // misconfiguration rather than a choice, so it is logged at `error` to be alertable rather
+      // than inferred from an unexpected 200.
       if (providers.length === 0) {
+        logger.error(buildAuthConfigurationFailureLog({ entraEnabled, cognitoEnabled, entraTenantCount }))
         return
       }
 

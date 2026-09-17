@@ -84,6 +84,50 @@ describe('buildAuthFailureLog', () => {
     expect(result.event.reason).toEqual('some reason | strategy=')
   })
 
+  test('should keep an extra value that is boolean false', () => {
+    const result = buildAuthFailureLog('some reason', mockRequest, { tokenExpired: false })
+
+    expect(result.event.reason).toEqual('some reason | tokenExpired=false')
+  })
+
+  test('should keep an extra value that is the number zero', () => {
+    const result = buildAuthFailureLog('some reason', mockRequest, { groupCount: 0 })
+
+    expect(result.event.reason).toEqual('some reason | groupCount=0')
+  })
+
+  test('should render an empty array extra value as an empty list', () => {
+    const result = buildAuthFailureLog('some reason', mockRequest, { tokenGroups: [] })
+
+    expect(result.event.reason).toEqual('some reason | tokenGroups=')
+  })
+
+  test('should preserve the order in which extras were supplied', () => {
+    const result = buildAuthFailureLog('some reason', mockRequest, { second: 'b', first: 'a' })
+
+    expect(result.event.reason).toEqual('some reason | second=b | first=a')
+  })
+
+  test('should not mutate the extra object supplied by the caller', () => {
+    const extra = { strategy: 'entra', issuer: null }
+    buildAuthFailureLog('some reason', mockRequest, extra)
+
+    expect(extra).toEqual({ strategy: 'entra', issuer: null })
+  })
+
+  test('should set client.address to undefined when the remote address is absent', () => {
+    const result = buildAuthFailureLog('some reason', { ...mockRequest, info: {} })
+
+    expect(result.client.address).toBeUndefined()
+  })
+
+  test('should set the event type and outcome regardless of the reason supplied', () => {
+    const result = buildAuthFailureLog('any reason at all', mockRequest, { strategy: 'cognito' })
+
+    expect(result.event.type).toEqual('auth_validation_failure')
+    expect(result.event.outcome).toEqual('failure')
+  })
+
   test('should fold tokenType and strategy into the reason', () => {
     const result = buildAuthFailureLog('Provided token is not an access token', mockRequest, {
       tokenType: 'refresh',

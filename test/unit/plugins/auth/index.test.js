@@ -75,6 +75,65 @@ describe('auth plugin register', () => {
     expect(server.auth.default).not.toHaveBeenCalled()
   })
 
+  test('warns that routes are unauthenticated when both providers are disabled', async () => {
+    const { auth } = await import('../../../../src/plugins/auth/index.js')
+    await auth.plugin.register(server)
+
+    expect(mockLogger.warn).toHaveBeenCalledWith({
+      msg: 'Authentication is disabled; every route will serve unauthenticated requests',
+      event: {
+        type: 'auth_disabled',
+        outcome: 'unknown',
+        reason: 'entraEnabled=false | cognitoEnabled=false'
+      }
+    })
+  })
+  test('does not log a configuration failure when both providers are deliberately disabled', async () => {
+    const { auth } = await import('../../../../src/plugins/auth/index.js')
+    await auth.plugin.register(server)
+
+    expect(mockLogger.error).not.toHaveBeenCalled()
+  })
+
+  test('logs an error when entra is enabled but no tenants are configured', async () => {
+    mockConfigGet = vi.fn((key) => {
+      switch (key) {
+        case 'auth.entra.enabled': return true
+        case 'auth.cognito.enabled': return false
+        case 'auth.entra.tenants': return []
+        default: return undefined
+      }
+    })
+
+    const { auth } = await import('../../../../src/plugins/auth/index.js')
+    await auth.plugin.register(server)
+
+    expect(mockLogger.error).toHaveBeenCalledWith({
+      msg: 'Authentication is enabled but no provider could be configured; every route will serve unauthenticated requests',
+      event: {
+        type: 'auth_configuration_failure',
+        outcome: 'failure',
+        reason: 'entraEnabled=true | cognitoEnabled=false | entraTenantCount=0'
+      }
+    })
+  })
+
+  test('does not log a configuration failure when a provider is configured', async () => {
+    mockConfigGet = vi.fn((key) => {
+      switch (key) {
+        case 'auth.entra.enabled': return true
+        case 'auth.cognito.enabled': return false
+        case 'auth.entra.tenants': return [{ tenantId: 't1', allowedGroupIds: ['group-1'] }]
+        default: return undefined
+      }
+    })
+
+    const { auth } = await import('../../../../src/plugins/auth/index.js')
+    await auth.plugin.register(server)
+
+    expect(mockLogger.error).not.toHaveBeenCalled()
+  })
+
   test('registers a single bearer strategy covering all configured tenants', async () => {
     mockConfigGet = vi.fn((key) => {
       switch (key) {
