@@ -1,5 +1,5 @@
 import { config } from '../config/index.js'
-import { db } from '../data/db.js'
+import { getDb } from '../data/db.js'
 
 const sessionsCollection = 'mongo.collections.sessions'
 
@@ -11,7 +11,7 @@ const insertSession = async ({ uploadId, journeyId, metadata, timestamp }) => {
   // written before the field existed.
   const document = { uploadId, metadata, timestamp, ...(journeyId ? { journeyId } : {}) }
 
-  const result = await db.collection(collection).insertOne(document)
+  const result = await getDb().collection(collection).insertOne(document)
 
   if (!result.acknowledged) {
     throw new Error('Failed to insert session record')
@@ -25,7 +25,7 @@ const insertSession = async ({ uploadId, journeyId, metadata, timestamp }) => {
 const getSessionByJourneyId = async (journeyId) => {
   const collection = config.get(sessionsCollection)
 
-  return db.collection(collection)
+  return getDb().collection(collection)
     .findOne({ journeyId }, { projection: { uploadId: 1, metadata: 1 } })
 }
 
@@ -33,7 +33,7 @@ const getSessionByUploadId = async (uploadId, session = undefined) => {
   const collection = config.get(sessionsCollection)
 
   const options = { projection: { journeyId: 1, metadata: 1 }, ...(session ? { session } : {}) }
-  return db.collection(collection).findOne({ uploadId }, options)
+  return getDb().collection(collection).findOne({ uploadId }, options)
 }
 
 export { insertSession, getSessionByJourneyId, getSessionByUploadId }
