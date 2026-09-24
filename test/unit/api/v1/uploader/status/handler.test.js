@@ -70,10 +70,11 @@ vi.mock('../../../../../../src/repos/outbox.js', () => ({
   getOutboxStatusesByFileIds: mockGetOutboxStatusesByFileIds
 }))
 
-vi.mock('../../../../../../src/data/db.js', () => ({
-  db: { collection: vi.fn() },
-  client: { startSession: vi.fn(() => ({ endSession: vi.fn() })) }
-}))
+vi.mock('../../../../../../src/data/db.js', () => {
+  const db = { collection: vi.fn() }
+  const client = { startSession: vi.fn(() => ({ endSession: vi.fn() })) }
+  return { getDb: () => db, getClient: () => client }
+})
 
 // Import after mocks are established
 const { uploaderStatusRoute } = await import('../../../../../../src/api/v1/uploader/status/index.js')

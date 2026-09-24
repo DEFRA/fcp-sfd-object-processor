@@ -2,9 +2,20 @@ import { randomUUID } from 'node:crypto'
 import { constants as httpConstants } from 'node:http2'
 import { vi, describe, test, expect, beforeAll, beforeEach, afterAll } from 'vitest'
 
-import { db } from '../../../../src/data/db.js'
+import { getDb, connectDb, closeDb } from '../../../../src/data/db.js'
 import { config } from '../../../../src/config'
 import { createServer } from '../../../../src/api'
+
+let db
+
+beforeAll(async () => {
+  await connectDb()
+  db = getDb()
+})
+
+afterAll(async () => {
+  await closeDb()
+})
 
 let server
 let originalCollection

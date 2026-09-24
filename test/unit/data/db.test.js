@@ -31,6 +31,14 @@ vi.mock('../../../src/logging/logger.js', () => ({
   })
 }))
 
+const importDb = () => import('../../../src/data/db.js')
+
+const connect = async (secureContext) => {
+  const dbModule = await importDb()
+  await dbModule.connectDb(secureContext)
+  return dbModule
+}
+
 describe('data/db', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -63,7 +71,7 @@ describe('data/db', () => {
   })
 
   test('creates status, metadata, sessions and outbox indexes on connect', async () => {
-    await import('../../../src/data/db.js')
+    await connect()
 
     expect(mocks.collection).toHaveBeenNthCalledWith(1, 'status')
     expect(mocks.collection).toHaveBeenNthCalledWith(2, 'uploadMetadata')
@@ -113,7 +121,7 @@ describe('data/db', () => {
       expireAfterSeconds: 86400
     }])
 
-    await import('../../../src/data/db.js')
+    await connect()
 
     expect(mocks.command).toHaveBeenCalledWith({
       collMod: 'outbox',
@@ -147,7 +155,7 @@ describe('data/db', () => {
     notFoundError.code = 26
     mocks.indexes.mockRejectedValue(notFoundError)
 
-    await import('../../../src/data/db.js')
+    await connect()
 
     expect(mocks.command).not.toHaveBeenCalled()
     expect(mocks.createIndexes).toHaveBeenLastCalledWith([
@@ -172,7 +180,7 @@ describe('data/db', () => {
       expireAfterSeconds: 604800
     }])
 
-    await import('../../../src/data/db.js')
+    await connect()
 
     expect(mocks.command).not.toHaveBeenCalled()
     expect(mocks.dropIndex).not.toHaveBeenCalled()
@@ -186,7 +194,7 @@ describe('data/db', () => {
       expireAfterSeconds: 604800
     }])
 
-    await import('../../../src/data/db.js')
+    await connect()
 
     expect(mocks.dropIndex).toHaveBeenCalledWith('outbox_sent_ttl_idx')
     expect(mocks.command).not.toHaveBeenCalled()
@@ -220,60 +228,102 @@ describe('data/db', () => {
       // no expireAfterSeconds: this is not actually a TTL index
     }])
 
-    await import('../../../src/data/db.js')
+    await connect()
 
     expect(mocks.dropIndex).toHaveBeenCalledWith('outbox_sent_ttl_idx')
     expect(mocks.command).not.toHaveBeenCalled()
   })
 
-  test('rethrows unexpected errors from indexes() instead of treating them as no indexes', async () => {
+  test('rethrows unexpected errors from indexes() and discards the half-initialised connection', async () => {
     const authError = new Error('not authorized on test-db to execute command')
     authError.code = 13
     authError.codeName = 'Unauthorized'
     mocks.indexes.mockRejectedValue(authError)
 
-    await expect(import('../../../src/data/db.js')).rejects.toThrow(authError)
+    const { connectDb, getClient, getDb } = await importDb()
+
+    await expect(connectDb()).rejects.toThrow(authError)
     expect(mocks.command).not.toHaveBeenCalled()
+    expect(mocks.close).toHaveBeenCalledWith(true)
+    expect(getClient()).toBeUndefined()
+    expect(getDb()).toBeUndefined()
   })
 
-  test('exports the connected client and db instance', async () => {
-    const mockDbInstance = { collection: mocks.collection }
+  test('does not connect when the module is imported', async () => {
+    const { getClient, getDb } = await importDb()
+
+    expect(mocks.connect).not.toHaveBeenCalled()
+    expect(getClient()).toBeUndefined()
+    expect(getDb()).toBeUndefined()
+  })
+
+  test('getClient and getDb return the connected client and db instance', async () => {
+    const mockDbInstance = { collection: mocks.collection, command: mocks.command }
     const mockClientInstance = { db: mocks.db, close: mocks.close }
     mocks.db.mockReturnValue(mockDbInstance)
     mocks.connect.mockResolvedValue(mockClientInstance)
 
-    const { db, client } = await import('../../../src/data/db.js')
+    const { getDb, getClient } = await connect()
 
-    expect(client).toBe(mockClientInstance)
-    expect(db).toBe(mockDbInstance)
+    expect(getClient()).toBe(mockClientInstance)
+    expect(getDb()).toBe(mockDbInstance)
   })
 
   test('passes a secure context through to MongoClient.connect when provided', async () => {
     const secureContext = { context: true }
 
-    const { connectDb } = await import('../../../src/data/db.js')
-    await connectDb(secureContext)
+    await connect(secureContext)
 
-    expect(mocks.connect).toHaveBeenLastCalledWith('mongodb://localhost:27017', {
+    expect(mocks.connect).toHaveBeenCalledWith('mongodb://localhost:27017', {
       retryWrites: false,
       readPreference: 'primary',
       secureContext
     })
   })
 
-  test('connectDb closes the previous client before reconnecting', async () => {
-    const { connectDb } = await import('../../../src/data/db.js')
-    await connectDb({ context: true })
-
-    expect(mocks.close).toHaveBeenCalledTimes(1)
-  })
-
   test('omits secureContext when none is provided', async () => {
-    await import('../../../src/data/db.js')
+    await connect()
 
     expect(mocks.connect).toHaveBeenCalledWith('mongodb://localhost:27017', {
       retryWrites: false,
       readPreference: 'primary'
     })
+  })
+
+  test('keeps the existing connection when connectDb is called again', async () => {
+    const { connectDb, getClient } = await connect()
+    const firstClient = getClient()
+
+    await connectDb({ context: true })
+
+    expect(mocks.connect).toHaveBeenCalledTimes(1)
+    expect(mocks.close).not.toHaveBeenCalled()
+    expect(getClient()).toBe(firstClient)
+  })
+
+  test('closeDb closes the client and clears the connection', async () => {
+    const { closeDb, getClient, getDb } = await connect()
+
+    await closeDb()
+
+    expect(mocks.close).toHaveBeenCalledWith(true)
+    expect(getClient()).toBeUndefined()
+    expect(getDb()).toBeUndefined()
+  })
+
+  test('closeDb does nothing when there is no connection', async () => {
+    const { closeDb } = await importDb()
+
+    await expect(closeDb()).resolves.toBeUndefined()
+    expect(mocks.close).not.toHaveBeenCalled()
+  })
+
+  test('connectDb opens a new connection after closeDb', async () => {
+    const { connectDb, closeDb } = await connect()
+    await closeDb()
+
+    await connectDb()
+
+    expect(mocks.connect).toHaveBeenCalledTimes(2)
   })
 })

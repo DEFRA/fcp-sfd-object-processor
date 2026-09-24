@@ -1,6 +1,6 @@
 import { config } from '../config/index.js'
 import { NotFoundError } from '../errors/not-found-error.js'
-import { db } from '../data/db.js'
+import { getDb } from '../data/db.js'
 import { normaliseFormFields } from '../utils/normalise-form-fields.js'
 import { assertCorrelationId } from '../utils/assert-correlation-id.js'
 
@@ -9,7 +9,7 @@ const noDocumentsFoundError = 'No documents found'
 
 const getS3ReferenceAndSbiByFileId = async (fileId) => {
   const collection = config.get(metadataCollection)
-  const document = await db.collection(collection)
+  const document = await getDb().collection(collection)
     .findOne(
       { 'file.fileId': fileId },
       { projection: { s3: 1, 'metadata.sbi': 1 } }) // return s3 plus SBI for read-audit attribution
@@ -23,7 +23,7 @@ const getS3ReferenceAndSbiByFileId = async (fileId) => {
 
 const getMetadataByFileId = async (fileId) => {
   const collection = config.get(metadataCollection)
-  const document = await db.collection(collection)
+  const document = await getDb().collection(collection)
     .findOne(
       { 'file.fileId': fileId },
       { projection: { messaging: 1 } })
@@ -87,7 +87,7 @@ const formatInboundMetadata = (payload, correlationId) => {
 const getMetadataBySbi = async (sbi) => {
   const collection = config.get(metadataCollection)
 
-  const documents = await db.collection(collection)
+  const documents = await getDb().collection(collection)
     .find({ 'metadata.sbi': sbi })
     .project({ metadata: 1, file: 1 }) // only return the metadata and file keys
     .toArray()
@@ -102,7 +102,7 @@ const getMetadataBySbi = async (sbi) => {
 const persistMetadata = async (documents, session) => {
   const collection = config.get(metadataCollection)
 
-  const result = await db.collection(collection).insertMany(documents, { session })
+  const result = await getDb().collection(collection).insertMany(documents, { session })
 
   if (!result.acknowledged) {
     throw new Error('Failed to insert, no acknowledgement from database')
@@ -121,7 +121,7 @@ const bulkUpdatePublishedAtDate = async (session, fileIds) => {
       'messaging.publishedAt': new Date()
     }
   }
-  const updateResult = await db.collection(collection).updateMany(filter, updateDoc, { session })
+  const updateResult = await getDb().collection(collection).updateMany(filter, updateDoc, { session })
 
   if (!updateResult.acknowledged) {
     throw new Error('Failed to update publishedAt status')
@@ -137,7 +137,7 @@ const getMetadataMessagingByFileIds = async (fileIds, session = undefined) => {
 
   const collection = config.get(metadataCollection)
 
-  return db.collection(collection)
+  return getDb().collection(collection)
     .find({ 'file.fileId': { $in: fileIds } }, ...(session ? [{ session }] : []))
     .project({ _id: 0, 'file.fileId': 1, 'messaging.publishedAt': 1 })
     .toArray()

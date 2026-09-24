@@ -10,12 +10,15 @@ import {
   getMetadataMessagingByFileIds
 } from '../../../../src/repos/metadata.js'
 import { mockScanAndUploadResponse } from '../../../mocks/cdp-uploader.js'
-import { db } from '../../../../src/data/db.js'
+import { getDb } from '../../../../src/data/db.js'
 import { NotFoundError } from '../../../../src/errors/not-found-error.js'
 
-vi.mock('../../../../src/data/db.js', () => ({
-  db: { collection: vi.fn() }
-}))
+const db = getDb()
+
+vi.mock('../../../../src/data/db.js', () => {
+  const db = { collection: vi.fn() }
+  return { getDb: () => db }
+})
 
 vi.mock('../../../../src/config/index.js', () => ({
   config: {

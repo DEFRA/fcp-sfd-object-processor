@@ -17,10 +17,6 @@ vi.mock('../../../../../src/api/index.js', () => ({
   createServer: vi.fn()
 }))
 
-vi.mock('../../../../../src/data/db.js', () => ({
-  connectDb: vi.fn()
-}))
-
 const mockLogger = createLogger()
 
 const mockServer = {
@@ -59,13 +55,8 @@ describe('#startServer', () => {
       createServer.mockRejectedValue(Error('Server failed to start'))
     })
 
-    test('Should log failed startup message', async () => {
-      await startServer()
-
-      expect(mockLogger.info).toHaveBeenCalledWith('Server failed to start :(')
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        Error('Server failed to start')
-      )
+    test('Should reject so the process does not continue without a server', async () => {
+      await expect(startServer()).rejects.toThrow('Server failed to start')
     })
   })
 })

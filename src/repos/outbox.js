@@ -1,6 +1,6 @@
 import { config } from '../config/index.js'
 import { PENDING, PROCESSING, DELIVERY_OUTCOME, PERMANENT_FAILURE, SENT } from '../constants/outbox.js'
-import { db } from '../data/db.js'
+import { getDb } from '../data/db.js'
 import { createLogger } from '../logging/logger.js'
 import { sendAuditEvent } from '../messaging/outbound/audit/send-audit-event.js'
 import { runWithCorrelationId } from '../logging/correlation-id-store.js'
@@ -24,12 +24,12 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
     attempts: { $gte: maxAttemptsVal }
   }
 
-  const potentialCount = await db.collection(collectionName).countDocuments(potentialTerminalFilter, { session: sess })
+  const potentialCount = await getDb().collection(collectionName).countDocuments(potentialTerminalFilter, { session: sess })
   if (potentialCount === 0) {
     return
   }
 
-  const terminalDocs = await db.collection(collectionName)
+  const terminalDocs = await getDb().collection(collectionName)
     .find(terminalFilter, { session: sess })
     .toArray()
 
@@ -98,7 +98,7 @@ const createOutboxEntries = async (ids, documents, session) => {
     return {}
   }
 
-  const { acknowledged, insertedIds } = await db.collection(collection).insertMany(outboxDocsToInsert, { session })
+  const { acknowledged, insertedIds } = await getDb().collection(collection).insertMany(outboxDocsToInsert, { session })
   if (!acknowledged) {
     throw new Error('Failed to insert outbox entries')
   }
@@ -132,7 +132,7 @@ const claimProcessableOutboxEntries = async (instanceId, now = new Date()) => {
   }
 
   for (let index = 0; index < queryLimit; index++) {
-    const entry = await db.collection(collection).findOneAndUpdate(filter, update, {
+    const entry = await getDb().collection(collection).findOneAndUpdate(filter, update, {
       sort: { createdAt: 1 },
       returnDocument: 'before'
     })
@@ -213,7 +213,7 @@ const finalizeClaimedOutboxEntries = async (
   const options = session ? { session } : {}
 
   if (deliveryOutcome === DELIVERY_OUTCOME.SUCCEEDED) {
-    const updateResult = await db.collection(collection).updateMany(filter, {
+    const updateResult = await getDb().collection(collection).updateMany(filter, {
       $set: {
         status: SENT,
         lastAttemptedAt: now
@@ -233,7 +233,7 @@ const finalizeClaimedOutboxEntries = async (
     return updateResult
   } else if (deliveryOutcome === DELIVERY_OUTCOME.FAILED) {
     // Use updateMany with aggregation pipeline to compute terminal status per doc
-    const updateResult = await db.collection(collection).updateMany(
+    const updateResult = await getDb().collection(collection).updateMany(
       filter,
       buildClaimedFailurePipeline(maxAttempts, error, now),
       options
@@ -256,7 +256,7 @@ const getOutboxStatusesByFileIds = async (fileIds, session = undefined) => {
 
   const collection = config.get(outboxCollection)
 
-  return db.collection(collection)
+  return getDb().collection(collection)
     .find({ 'payload.file.fileId': { $in: fileIds } }, ...(session ? [{ session }] : []))
     .project({ _id: 0, status: 1, 'payload.file.fileId': 1 })
     .toArray()

@@ -1,6 +1,17 @@
-import { afterEach, describe, test, expect } from 'vitest'
-import { db, createIndexes } from '../../../../src/data/db.js'
+import { afterEach, describe, test, expect, beforeAll, afterAll } from 'vitest'
+import { getDb, connectDb, closeDb, createIndexes } from '../../../../src/data/db.js'
 import { config } from '../../../../src/config/index.js'
+
+let db
+
+beforeAll(async () => {
+  await connectDb()
+  db = getDb()
+})
+
+afterAll(async () => {
+  await closeDb()
+})
 
 describe('Create Mongo client', () => {
   test('should return an instance of database client', async () => {
