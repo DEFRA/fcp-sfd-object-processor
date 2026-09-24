@@ -233,10 +233,8 @@ const publishPendingMessages = async () => {
 
       logger.info(`Outbox processing complete. Total: ${finalizedSuccessful.length} sent, ${finalizedFailed.length} failed, ${rejected.length} rejected`)
     }
-  } catch (error) {
-    logger.error(error, 'Error publishing pending outbox messages')
-    throw error
   } finally {
+    // Failures propagate to the outbox loop (src/messaging/outbound/index.js), which logs them once.
     await session.endSession()
   }
 }

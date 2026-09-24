@@ -133,6 +133,20 @@ npm run lint                           # ESLint only
 
 **Integration Test Pattern:**
 ```javascript
+import { getDb, connectDb, closeDb } from '../../../../src/data/db.js'
+
+// Nothing connects on import: open the connection first, close it last
+let db
+
+beforeAll(async () => {
+  await connectDb()
+  db = getDb()
+})
+
+afterAll(async () => {
+  await closeDb()
+})
+
 // Always set unique collection in beforeAll to avoid test interference
 beforeAll(async () => {
   originalCollection = config.get('mongo.collections.uploadMetadata')
@@ -166,6 +180,14 @@ const mockSession = {
 }
 client.startSession.mockReturnValue(mockSession)
 ```
+- `src/data/db.js` exports `getDb()`, `getClient()`, `connectDb()` and `closeDb()`, not `db` and `client`. Return a stable object from the mock factory:
+```javascript
+vi.mock('../../../src/data/db.js', () => {
+  const client = { startSession: vi.fn() }
+  return { getClient: () => client }
+})
+```
+- Tests that boot `createServer()` without MongoDB must mock `connectDb` and `closeDb` as well
 - Mock pattern for auth config (see [test/unit/plugins/auth/index.test.js](../test/unit/plugins/auth/index.test.js) and [test/unit/plugins/auth/entra-options.test.js](../test/unit/plugins/auth/entra-options.test.js)):
 ```javascript
 const mockConfigGet = vi.fn()

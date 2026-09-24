@@ -4,8 +4,16 @@ import hapiPino from 'hapi-pino'
 import hapiPulse from 'hapi-pulse'
 import { tracing } from '@defra/hapi-tracing'
 
-vi.mock('../../../src/logging/logger.js', () => ({
+vi.mock('../../../../../src/logging/logger.js', () => ({
   createLogger: () => ({ info: vi.fn(), error: vi.fn() })
+}))
+
+vi.mock('../../../../../src/data/db.js', () => ({
+  closeDb: vi.fn()
+}))
+
+vi.mock('../../../../../src/messaging/outbound/index.js', () => ({
+  stopOutbox: vi.fn()
 }))
 
 describe('API helper exports', () => {
@@ -29,5 +37,23 @@ describe('API helper exports', () => {
     expect(pulse.plugin).toBe(hapiPulse)
     expect(pulse.options).toHaveProperty('logger')
     expect(pulse.options).toHaveProperty('timeout')
+  })
+
+  test('pulse closes the MongoDB client after the server stops on shutdown', async () => {
+    const { pulse } = await import('../../../../../src/api/common/helpers/pulse.js')
+    const { closeDb } = await import('../../../../../src/data/db.js')
+
+    await pulse.options.postServerStop()
+
+    expect(closeDb).toHaveBeenCalledTimes(1)
+  })
+
+  test('pulse cancels the outbox poll loop before the server drains on shutdown', async () => {
+    const { pulse } = await import('../../../../../src/api/common/helpers/pulse.js')
+    const { stopOutbox } = await import('../../../../../src/messaging/outbound/index.js')
+
+    await pulse.options.preServerStop()
+
+    expect(stopOutbox).toHaveBeenCalledTimes(1)
   })
 })

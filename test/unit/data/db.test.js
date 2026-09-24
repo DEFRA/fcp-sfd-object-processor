@@ -10,7 +10,8 @@ const mocks = vi.hoisted(() => ({
   command: vi.fn(),
   dropIndex: vi.fn(),
   configGet: vi.fn(),
-  loggerInfo: vi.fn()
+  loggerInfo: vi.fn(),
+  loggerWarn: vi.fn()
 }))
 
 vi.mock('mongodb', () => ({
@@ -27,7 +28,8 @@ vi.mock('../../../src/config/index.js', () => ({
 
 vi.mock('../../../src/logging/logger.js', () => ({
   createLogger: () => ({
-    info: mocks.loggerInfo
+    info: mocks.loggerInfo,
+    warn: mocks.loggerWarn
   })
 }))
 
@@ -301,12 +303,52 @@ describe('data/db', () => {
     expect(getClient()).toBe(firstClient)
   })
 
+  test('warns that a secure context was ignored when the connection is already open', async () => {
+    const { connectDb } = await connect()
+
+    await connectDb({ context: true })
+
+    expect(mocks.loggerWarn).toHaveBeenCalledWith({
+      event: {
+        type: 'mongo_connect',
+        action: 'connect',
+        outcome: 'success',
+        reason: 'connection already open, supplied secure context ignored'
+      }
+    }, 'connectDb called with a secure context after the connection was opened')
+  })
+
+  test('does not warn when connectDb is called again without a secure context', async () => {
+    const { connectDb } = await connect()
+
+    await connectDb()
+
+    expect(mocks.connect).toHaveBeenCalledTimes(1)
+    expect(mocks.loggerWarn).not.toHaveBeenCalled()
+  })
+
   test('closeDb closes the client and clears the connection', async () => {
     const { closeDb, getClient, getDb } = await connect()
 
     await closeDb()
 
     expect(mocks.close).toHaveBeenCalledWith(true)
+    expect(getClient()).toBeUndefined()
+    expect(getDb()).toBeUndefined()
+  })
+
+  test('closeDb logs and swallows a close failure so shutdown is not aborted', async () => {
+    const closeError = new Error('connection reset by peer')
+    mocks.close.mockRejectedValue(closeError)
+
+    const { closeDb, getClient, getDb } = await connect()
+
+    await expect(closeDb()).resolves.toBeUndefined()
+
+    expect(mocks.loggerWarn).toHaveBeenCalledWith({
+      err: closeError,
+      event: { type: 'mongo_close', action: 'close', outcome: 'failure' }
+    }, 'Failed to close the MongoDB client')
     expect(getClient()).toBeUndefined()
     expect(getDb()).toBeUndefined()
   })
