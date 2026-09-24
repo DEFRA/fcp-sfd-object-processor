@@ -11,9 +11,10 @@ vi.mock('../../../src/config/index.js', () => {
   })
   return { config: { get } }
 })
-vi.mock('../../../src/data/db.js', () => ({
-  db: { collection: vi.fn() }
-}))
+vi.mock('../../../src/data/db.js', () => {
+  const db = { collection: vi.fn() }
+  return { getDb: () => db }
+})
 
 const { mockLoggerError, mockLoggerWarn } = vi.hoisted(() => ({
   mockLoggerError: vi.fn(),
@@ -31,7 +32,8 @@ vi.mock('../../../src/messaging/outbound/audit/send-audit-event.js', () => ({
 }))
 
 const { config } = await import('../../../src/config/index.js')
-const { db } = await import('../../../src/data/db.js')
+const { getDb } = await import('../../../src/data/db.js')
+const db = getDb()
 const {
   createOutboxEntries,
   logTerminalFailuresIfAny,

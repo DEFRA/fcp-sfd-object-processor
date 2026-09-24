@@ -37,9 +37,10 @@ vi.mock('../../../../src/messaging/outbound/outbox-worker-id.js', () => ({
   outboxWorkerId: 'worker-1'
 }))
 
-vi.mock('../../../../src/data/db.js', () => ({
-  client: { startSession: mocks.startSession }
-}))
+vi.mock('../../../../src/data/db.js', () => {
+  const client = { startSession: mocks.startSession }
+  return { getClient: () => client }
+})
 
 vi.mock('../../../../src/config/index.js', () => ({
   config: { get: mocks.configGet }
