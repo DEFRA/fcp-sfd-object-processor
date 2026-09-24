@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   connect: vi.fn(),
+  close: vi.fn(),
   db: vi.fn(),
   collection: vi.fn(),
   createIndexes: vi.fn(),
@@ -65,7 +66,8 @@ describe('data/db createIndexes', () => {
       dropIndex: mocks.dropIndex
     })
     mocks.db.mockReturnValue({ collection: mocks.collection, command: mocks.command })
-    mocks.connect.mockResolvedValue({ db: mocks.db })
+    mocks.close.mockResolvedValue(undefined)
+    mocks.connect.mockResolvedValue({ db: mocks.db, close: mocks.close })
   })
 
   test('creates status, metadata, sessions and outbox indexes on startup', async () => {
@@ -242,9 +244,18 @@ describe('data/db createIndexes', () => {
     expect(mocks.command).not.toHaveBeenCalled()
   })
 
+  test('closes the connection when index creation fails, so no half-initialised client is kept', async () => {
+    const authError = new Error('not authorized on test-db to execute command')
+    mocks.indexes.mockRejectedValue(authError)
+
+    await expect(import('../../../src/data/db.js')).rejects.toThrow(authError)
+
+    expect(mocks.close).toHaveBeenCalledWith(true)
+  })
+
   test('exports the connected client and db instance', async () => {
-    const mockDbInstance = { collection: mocks.collection }
-    const mockClientInstance = { db: mocks.db }
+    const mockDbInstance = { collection: mocks.collection, command: mocks.command }
+    const mockClientInstance = { db: mocks.db, close: mocks.close }
     mocks.db.mockReturnValue(mockDbInstance)
     mocks.connect.mockResolvedValue(mockClientInstance)
 
@@ -252,6 +263,63 @@ describe('data/db createIndexes', () => {
 
     expect(client).toBe(mockClientInstance)
     expect(db).toBe(mockDbInstance)
+  })
+
+  test('getClient and getDb return the connected client and db instance', async () => {
+    const mockDbInstance = { collection: mocks.collection, command: mocks.command }
+    const mockClientInstance = { db: mocks.db, close: mocks.close }
+    mocks.db.mockReturnValue(mockDbInstance)
+    mocks.connect.mockResolvedValue(mockClientInstance)
+
+    const { getDb, getClient } = await import('../../../src/data/db.js')
+
+    expect(getClient()).toBe(mockClientInstance)
+    expect(getDb()).toBe(mockDbInstance)
+  })
+
+  test('connectDb keeps the existing connection when called again', async () => {
+    const { connectDb, getClient } = await import('../../../src/data/db.js')
+    const firstClient = getClient()
+
+    await connectDb({ context: true })
+
+    expect(mocks.connect).toHaveBeenCalledTimes(1)
+    expect(mocks.close).not.toHaveBeenCalled()
+    expect(getClient()).toBe(firstClient)
+  })
+
+  test('closeDb closes the client and clears the connection', async () => {
+    const { closeDb, getClient, getDb } = await import('../../../src/data/db.js')
+
+    await closeDb()
+
+    expect(mocks.close).toHaveBeenCalledWith(true)
+    expect(getClient()).toBeUndefined()
+    expect(getDb()).toBeUndefined()
+  })
+
+  test('closeDb does nothing when there is no connection', async () => {
+    const { closeDb } = await import('../../../src/data/db.js')
+    await closeDb()
+    mocks.close.mockClear()
+
+    await expect(closeDb()).resolves.toBeUndefined()
+    expect(mocks.close).not.toHaveBeenCalled()
+  })
+
+  test('connectDb opens a new connection after closeDb, using the secure context given', async () => {
+    const secureContext = { context: true }
+    const { connectDb, closeDb } = await import('../../../src/data/db.js')
+    await closeDb()
+
+    await connectDb(secureContext)
+
+    expect(mocks.connect).toHaveBeenCalledTimes(2)
+    expect(mocks.connect).toHaveBeenLastCalledWith('mongodb://localhost:27017', {
+      retryWrites: false,
+      readPreference: 'primary',
+      secureContext
+    })
   })
 
   test('passes a secure context when createSecureContext returns one', async () => {
@@ -265,6 +333,18 @@ describe('data/db createIndexes', () => {
       readPreference: 'primary',
       secureContext
     })
+  })
+
+  test('omits secureContext when createSecureContext returns null because it is disabled', async () => {
+    mocks.createSecureContext.mockReturnValue(null)
+
+    await import('../../../src/data/db.js')
+
+    expect(mocks.connect).toHaveBeenCalledWith('mongodb://localhost:27017', {
+      retryWrites: false,
+      readPreference: 'primary'
+    })
+    expect(mocks.connect.mock.calls[0][1]).not.toHaveProperty('secureContext')
   })
 
   test('omits secureContext when createSecureContext returns undefined', async () => {
