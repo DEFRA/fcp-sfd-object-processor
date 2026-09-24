@@ -4,12 +4,15 @@ import { ObjectId } from 'mongodb'
 import { createOutboxEntries } from '../../../../src/repos/outbox.js'
 import { mockMetadataResponse as documents } from '../../../mocks/metadata.js'
 import { PENDING } from '../../../../src/constants/outbox.js'
-import { db } from '../../../../src/data/db.js'
+import { getDb } from '../../../../src/data/db.js'
 
-vi.mock('../../../../src/data/db.js', () => ({
-  db: { collection: vi.fn() },
-  client: {}
-}))
+const db = getDb()
+
+vi.mock('../../../../src/data/db.js', () => {
+  const db = { collection: vi.fn() }
+  const client = {}
+  return { getDb: () => db, getClient: () => client }
+})
 
 vi.mock('../../../../src/config/index.js', () => ({
   config: {
