@@ -19,9 +19,10 @@ vi.mock('../../../src/config/index.js', () => ({
   config: { get: mocks.configGet }
 }))
 
-vi.mock('../../../src/data/db.js', () => ({
-  db: { collection: mocks.collection }
-}))
+vi.mock('../../../src/data/db.js', () => {
+  const db = { collection: mocks.collection }
+  return { getDb: () => db }
+})
 
 vi.mock('../../../src/logging/logger.js', () => ({
   createLogger: () => ({ error: vi.fn(), info: vi.fn(), warn: mocks.loggerWarn })

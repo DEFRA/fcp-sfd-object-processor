@@ -37,9 +37,10 @@ vi.mock('../../../../src/messaging/outbound/outbox-worker-id.js', () => ({
   outboxWorkerId: 'worker-1'
 }))
 
-vi.mock('../../../../src/data/db.js', () => ({
-  client: { startSession: mocks.startSession }
-}))
+vi.mock('../../../../src/data/db.js', () => {
+  const client = { startSession: mocks.startSession }
+  return { getClient: () => client }
+})
 
 vi.mock('../../../../src/config/index.js', () => ({
   config: { get: mocks.configGet }
@@ -209,15 +210,12 @@ describe('publishPendingMessages', () => {
     )
   })
 
-  test('ends the session and rethrows claim errors', async () => {
+  test('ends the session and rethrows claim errors without logging them', async () => {
     mocks.claim.mockRejectedValue(new Error('Mongo unavailable'))
 
     await expect(publishPendingMessages()).rejects.toThrow('Mongo unavailable')
 
-    expect(mocks.loggerError).toHaveBeenCalledWith(
-      expect.any(Error),
-      'Error publishing pending outbox messages'
-    )
+    expect(mocks.loggerError).not.toHaveBeenCalled()
     expect(session.endSession).toHaveBeenCalledOnce()
   })
 })

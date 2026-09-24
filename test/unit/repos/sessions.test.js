@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { insertSession, getSessionByJourneyId } from '../../../src/repos/sessions.js'
-import { db } from '../../../src/data/db.js'
+import { getDb } from '../../../src/data/db.js'
 
-vi.mock('../../../src/data/db.js', () => ({
-  db: { collection: vi.fn() }
-}))
+const db = getDb()
+
+vi.mock('../../../src/data/db.js', () => {
+  const db = { collection: vi.fn() }
+  return { getDb: () => db }
+})
 
 vi.mock('../../../src/config/index.js', () => ({
   config: {

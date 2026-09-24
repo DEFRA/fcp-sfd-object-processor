@@ -1,4 +1,4 @@
-import { vi, describe, test, expect, beforeAll } from 'vitest'
+import { vi, describe, test, expect, beforeAll, beforeEach } from 'vitest'
 
 import { config } from '../../../../../src/config/index.js'
 import { createLogger } from '../../../../../src/logging/logger.js'
@@ -22,7 +22,8 @@ const mockLogger = createLogger()
 const mockServer = {
   start: vi.fn(),
   stop: vi.fn(),
-  logger: mockLogger
+  logger: mockLogger,
+  secureContext: {}
 }
 
 describe('#startServer', () => {
@@ -54,13 +55,39 @@ describe('#startServer', () => {
       createServer.mockRejectedValue(Error('Server failed to start'))
     })
 
-    test('Should log failed startup message', async () => {
-      await startServer()
+    // Cleared per test so the assertions below can pin the exact call rather than
+    // matching one left behind by an earlier test in this file.
+    beforeEach(() => {
+      mockLogger.error.mockClear()
+    })
 
-      expect(mockLogger.info).toHaveBeenCalledWith('Server failed to start :(')
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        Error('Server failed to start')
-      )
+    test('Should reject so the process does not continue without a server', async () => {
+      await expect(startServer()).rejects.toThrow('Server failed to start')
+    })
+
+    test('Should log the failure with the error under err and approved ECS event fields', async () => {
+      const startError = new Error('Server failed to start')
+      createServer.mockRejectedValueOnce(startError)
+
+      await expect(startServer()).rejects.toBe(startError)
+
+      expect(mockLogger.error).toHaveBeenCalledTimes(1)
+      expect(mockLogger.error).toHaveBeenCalledWith({
+        err: startError,
+        event: {
+          type: 'server_start',
+          action: 'start',
+          outcome: 'failure'
+        }
+      }, 'Server failed to start')
+    })
+
+    test('Should leave error.type, error.message and error.stack_trace to the ECS serialiser', async () => {
+      await expect(startServer()).rejects.toThrow()
+
+      const [logContext] = mockLogger.error.mock.calls[0]
+
+      expect(logContext).not.toHaveProperty('error')
     })
   })
 })

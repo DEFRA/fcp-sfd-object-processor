@@ -106,12 +106,6 @@ export const serverConfig = {
     default: null,
     env: 'HTTP_PROXY'
   },
-  isSecureContextEnabled: {
-    doc: 'Enable Secure Context',
-    format: Boolean,
-    default: isProduction,
-    env: 'ENABLE_SECURE_CONTEXT'
-  },
   isMetricsEnabled: {
     doc: 'Enable metrics reporting',
     format: Boolean,
@@ -138,6 +132,12 @@ export const serverConfig = {
       doc: 'Interval in milliseconds between outbox processing runs',
       format: 'int',
       default: 30000
+    },
+    outboxDrainTimeoutMs: {
+      doc: 'Maximum time in milliseconds to wait on shutdown for an in-flight outbox run to finish before abandoning it. Must leave room within the platform termination grace period for the server drain that follows. 0 disables the wait',
+      format: 'nat',
+      default: 5000,
+      env: 'OUTBOX_DRAIN_TIMEOUT_MS'
     },
     outboxMaxAttempts: {
       doc: 'Maximum number of delivery attempts for an outbox entry',

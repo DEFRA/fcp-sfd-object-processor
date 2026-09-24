@@ -4,16 +4,17 @@ import hapiSwagger from 'hapi-swagger'
 import Inert from '@hapi/inert'
 import Vision from '@hapi/vision'
 import Jwt from '@hapi/jwt'
+import { secureContext } from '@defra/hapi-secure-context'
 
 import { config } from '../config/index.js'
 import { router } from './router.js'
 import { correlationScope } from './common/helpers/correlation-scope.js'
 import { requestLogger } from './common/helpers/request-logger.js'
-import { secureContext } from './common/helpers/secure-context/secure-context.js'
 import { pulse } from './common/helpers/pulse.js'
 import { requestTracing } from './common/helpers/request-tracing.js'
 import { setupProxy } from './common/helpers/proxy/setup-proxy.js'
 import { auth } from '../plugins/auth/index.js'
+import { mongoDb } from '../plugins/mongodb.js'
 
 const createServer = async () => {
   setupProxy()
@@ -56,6 +57,8 @@ const createServer = async () => {
     requestLogger,
     requestTracing,
     secureContext,
+    // mongoDb must follow secureContext so the connection trusts the CDP CA certificates.
+    mongoDb,
     pulse,
     router,
     Inert,

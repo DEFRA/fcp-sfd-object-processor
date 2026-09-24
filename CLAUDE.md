@@ -36,10 +36,10 @@ npx vitest run test/unit/path/to/file.test.js
 src/api/          → Routes, handlers, Joi schemas (call services, never repos)
 src/services/     → Business logic, orchestrates repos, manages MongoDB transactions
 src/repos/        → Database operations (accept session parameter for transactions)
-src/data/         → MongoDB client
+src/data/         → MongoDB connection (opened by the mongoDb plugin; read via getDb()/getClient())
 src/messaging/    → SNS publishing (outbound/) and client (sns/)
 src/config/       → Convict-based config split by concern (server, database, auth, aws, uploader)
-src/plugins/      → Hapi plugins (auth via Microsoft Entra ID JWT)
+src/plugins/      → Hapi plugins (auth via Microsoft Entra ID JWT; mongodb, registered after secureContext)
 ```
 
 ### Key Patterns
@@ -65,6 +65,7 @@ src/plugins/      → Hapi plugins (auth via Microsoft Entra ID JWT)
 - **Shared mocks**: `test/mocks/` — reuse these, especially `cdp-uploader.js` and `base-data.js`
 - Never mock `mongodb` directly — mock `src/data/db.js` instead
 - Integration tests must set a unique collection name in `beforeAll` and clean up in `afterAll`
+- Nothing connects to MongoDB when `src/data/db.js` is imported. Integration tests that use the database directly must call `connectDb()` in `beforeAll` and `closeDb()` in `afterAll`, and read it through `getDb()`/`getClient()`. Tests that boot `createServer()` are connected by the `mongoDb` plugin
 - Use `server.inject()` for API testing (call `server.initialize()` first)
 - **Every branch of every inline conditional must have an explicit test.** For `a || b`, test when `a` is truthy (uses `a`), when `a` is falsy and `b` is truthy (falls back to `b`), and when both are falsy. For `a ?? b`, test when `a` is non-nullish and when `a` is null/undefined. For `a ?? b ?? c`, test all three arms. Do not stop after covering the happy path and one fallback.
 

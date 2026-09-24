@@ -8,7 +8,7 @@ import {
 import { bulkUpdatePublishedAtDate } from '../../../../repos/metadata.js'
 import { publishDocumentUploadMessageBatch } from './publish-document-upload-message-batch.js'
 import { PENDING, SENT, DELIVERY_OUTCOME, PERMANENT_FAILURE, BATCH_SIZE } from '../../../../constants/outbox.js'
-import { client } from '../../../../data/db.js'
+import { getClient } from '../../../../data/db.js'
 import { outboxWorkerId } from '../../outbox-worker-id.js'
 import { runWithCorrelationId } from '../../../../logging/correlation-id-store.js'
 
@@ -159,7 +159,7 @@ const logTerminalFailures = (entries, failedResults) => {
 }
 
 const publishPendingMessages = async () => {
-  const session = client.startSession()
+  const session = getClient().startSession()
 
   try {
     const pendingMessages = await claimProcessableOutboxEntries(outboxWorkerId)
@@ -233,10 +233,8 @@ const publishPendingMessages = async () => {
 
       logger.info(`Outbox processing complete. Total: ${finalizedSuccessful.length} sent, ${finalizedFailed.length} failed, ${rejected.length} rejected`)
     }
-  } catch (error) {
-    logger.error(error, 'Error publishing pending outbox messages')
-    throw error
   } finally {
+    // Failures propagate to the outbox loop (src/messaging/outbound/index.js), which logs them once.
     await session.endSession()
   }
 }
