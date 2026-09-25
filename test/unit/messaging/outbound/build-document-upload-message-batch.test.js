@@ -129,6 +129,23 @@ describe('buildDocumentUploadMessageBatch', () => {
       expect(result[0].data.file.contentType).toBe(file.contentType)
     })
 
+    test('should omit data.file.contentType when it is absent', () => {
+      const messageWithoutContentType = {
+        ...mockPendingMessages[0],
+        payload: {
+          ...mockPendingMessages[0].payload,
+          file: {
+            ...mockPendingMessages[0].payload.file,
+            contentType: undefined
+          }
+        }
+      }
+
+      const resultWithoutContentType = buildDocumentUploadMessageBatch([messageWithoutContentType])
+
+      expect(resultWithoutContentType[0].data.file).not.toHaveProperty('contentType')
+    })
+
     test('should set data.file.url from file.fileId', () => {
       expect(result[0].data.file.url).toBe(`https://mock-public-api-base-url/api/v1/blob/${file.fileId}`)
     })
