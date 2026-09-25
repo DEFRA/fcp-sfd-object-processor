@@ -14,7 +14,7 @@ const EMPTY_FIELD_MESSAGE = '"{#label}" cannot be empty'
  * Shared conditional rules for file status validation.
  * Applied to both the callback schema and the status endpoint schema.
  */
-export function applyFileStatusConditionals(schema) {
+export function applyFileStatusConditionals (schema) {
   return schema
     .when(Joi.object({ fileStatus: Joi.valid('complete').required() }).unknown(), {
       then: Joi.object({
