@@ -135,7 +135,7 @@ const fileUploadBaseSchema = Joi.object({
     .description('S3 bucket name where the file is stored')
     .messages({ 'string.empty': EMPTY_FIELD_MESSAGE })
     .example(schemaConsts.S3_BUCKET_EXAMPLE).label('s3Bucket')
-}).custom((value, helpers) => {
+}).custom((value) => {
   if (value.detectedContentType != null && value.contentType == null) {
     value.contentType = value.detectedContentType
   }
