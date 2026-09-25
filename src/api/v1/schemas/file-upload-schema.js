@@ -14,7 +14,7 @@ const EMPTY_FIELD_MESSAGE = '"{#label}" cannot be empty'
  * Shared conditional rules for file status validation.
  * Applied to both the callback schema and the status endpoint schema.
  */
-export function applyFileStatusConditionals (schema) {
+export function applyFileStatusConditionals(schema) {
   return schema
     .when(Joi.object({ fileStatus: Joi.valid('complete').required() }).unknown(), {
       then: Joi.object({
@@ -71,7 +71,8 @@ const fileUploadBaseSchema = Joi.object({
 
   contentType: Joi.string()
     .valid(...allowedMimeTypes)
-    .required()
+    .optional()
+    .allow(null)
     .description('MIME type of the uploaded file')
     .messages({
       'any.only': '"contentType" must be one of the allowed MIME types'
@@ -134,7 +135,13 @@ const fileUploadBaseSchema = Joi.object({
     .description('S3 bucket name where the file is stored')
     .messages({ 'string.empty': EMPTY_FIELD_MESSAGE })
     .example(schemaConsts.S3_BUCKET_EXAMPLE).label('s3Bucket')
-})
+}).custom((value, helpers) => {
+  if (value.detectedContentType != null && value.contentType == null) {
+    value.contentType = value.detectedContentType
+  }
+
+  return value
+}, 'Set contentType from detectedContentType if missing')
 
 export const fileUploadSchema = applyFileStatusConditionals(fileUploadBaseSchema)
   .strict()
