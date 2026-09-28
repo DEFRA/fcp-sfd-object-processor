@@ -17,11 +17,10 @@ const openApiSpec = JSON.parse(readFileSync(openApiPath, 'utf8'))
 // Notes:
 // - /api/v1/callback has auth disabled and persists validation failures as 201,
 //   so it never returns 401, 404 or 422.
-// - /api/v1/status/{correlationId} and /api/v1/uploader/initiate never return 404.
+// - /api/v1/uploader/initiate never returns 404.
 // - No endpoint returns 422 (validation failures are persisted, not rejected).
 const expectedResponseCodes = {
   '/api/v1/blob/{fileId}': { get: ['200', '400', '401', '404', '500'] },
-  '/api/v1/status/{correlationId}': { get: ['200', '400', '401', '500'] },
   '/api/v1/metadata/sbi/{sbi}': { get: ['200', '400', '401', '404', '500'] },
   '/api/v1/uploader/status/{uploadId}': { get: ['200', '400', '401', '404', '500', '502', '504'] },
   '/api/v1/callback': { post: ['200', '201', '400', '500'] },
@@ -103,7 +102,6 @@ describe('OpenAPI Response Codes', () => {
         '/api/v1/blob/{fileId}',
         '/api/v1/callback',
         '/api/v1/metadata/sbi/{sbi}',
-        '/api/v1/status/{correlationId}',
         '/api/v1/uploader/initiate',
         '/api/v1/uploader/status/{uploadId}'
       ]
@@ -111,10 +109,6 @@ describe('OpenAPI Response Codes', () => {
       expectedRoutes.forEach(route => {
         expect(openApiSpec.paths[route]).toBeDefined()
       })
-    })
-
-    test('should include the /api/v1/status endpoint in the OpenAPI spec', () => {
-      expect(openApiSpec.paths['/api/v1/status/{correlationId}']).toBeDefined()
     })
   })
 })
