@@ -102,3 +102,51 @@ describe('outbox sent TTL configuration', () => {
     expect(config.get('messaging.outboxSentTtlSeconds')).toBe(60)
   })
 })
+
+describe('outbox drain timeout configuration', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  test('waits up to five seconds by default', () => {
+    vi.stubEnv('OUTBOX_DRAIN_TIMEOUT_MS', undefined)
+
+    const config = createConfig()
+
+    expect(config.get('messaging.outboxDrainTimeoutMs')).toBe(5000)
+  })
+
+  test('reads the drain timeout from the environment', () => {
+    vi.stubEnv('OUTBOX_DRAIN_TIMEOUT_MS', '8000')
+
+    const config = createConfig()
+    config.validate({ allowed: 'strict' })
+
+    expect(config.get('messaging.outboxDrainTimeoutMs')).toBe(8000)
+  })
+
+  test('accepts zero, which disables the wait', () => {
+    vi.stubEnv('OUTBOX_DRAIN_TIMEOUT_MS', '0')
+
+    const config = createConfig()
+    config.validate({ allowed: 'strict' })
+
+    expect(config.get('messaging.outboxDrainTimeoutMs')).toBe(0)
+  })
+
+  test('rejects a non-integer drain timeout', () => {
+    vi.stubEnv('OUTBOX_DRAIN_TIMEOUT_MS', 'invalid')
+
+    const config = createConfig()
+
+    expect(() => config.validate({ allowed: 'strict' })).toThrow()
+  })
+
+  test('rejects a negative drain timeout', () => {
+    vi.stubEnv('OUTBOX_DRAIN_TIMEOUT_MS', '-1')
+
+    const config = createConfig()
+
+    expect(() => config.validate({ allowed: 'strict' })).toThrow()
+  })
+})
