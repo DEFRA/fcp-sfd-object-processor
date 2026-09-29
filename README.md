@@ -103,6 +103,7 @@ Delivery is retried, but not forever. An entry that exhausts `OUTBOX_MAX_ATTEMPT
 | `OUTBOX_MAX_ATTEMPTS` | `3` | Delivery attempts before an entry becomes `PERMANENT_FAILURE` |
 | `OUTBOX_CLAIM_LEASE_MS` | `300000` | How long a worker's claim on an entry stays valid before another worker may reclaim it |
 | `MONGO_OUTBOX_QUERY_LIMIT` | `100` | Maximum entries claimed in a single polling run |
+| `OUTBOX_DRAIN_TIMEOUT_MS` | `5000` | On shutdown, how long to wait for an in-flight polling run to finish before closing the MongoDB connection. `0` disables the wait. An abandoned run's claimed entries are retried once the claim expires |
 
 Two further values are not settable by environment variable: the polling interval, 30 seconds (`messaging.outboxIntervalMs` in [`src/config/server.js`](src/config/server.js)), and the SNS publish batch size of 10 (`BATCH_SIZE` in [`src/constants/outbox.js`](src/constants/outbox.js)).
 
