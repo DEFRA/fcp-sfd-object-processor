@@ -18,6 +18,8 @@ describe('entrypoint index.js', () => {
     vi.resetModules()
     mockInfo.mockClear()
     mockError.mockClear()
+    mockStartServer.mockClear()
+    mockStartOutbox.mockClear()
     mockStartServer.mockResolvedValue(undefined)
     mockStartOutbox.mockResolvedValue(undefined)
     // Ensure we don't accumulate unhandledRejection listeners across tests
@@ -30,6 +32,13 @@ describe('entrypoint index.js', () => {
     expect(mockStartServer).toHaveBeenCalled()
     expect(mockStartOutbox).toHaveBeenCalled()
     expect(mockInfo).toHaveBeenCalledWith('Outbox processor enabled.')
+  })
+
+  test('does not start the outbox when the server fails to start', async () => {
+    mockStartServer.mockRejectedValueOnce(new Error('boom'))
+
+    await expect(import('../../src/index.js')).rejects.toThrow('boom')
+    expect(mockStartOutbox).not.toHaveBeenCalled()
   })
 
   test('handles unhandledRejection by logging and setting exit code', async () => {
