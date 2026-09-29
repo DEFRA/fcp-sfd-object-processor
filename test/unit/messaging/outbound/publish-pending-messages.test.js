@@ -210,15 +210,12 @@ describe('publishPendingMessages', () => {
     )
   })
 
-  test('ends the session and rethrows claim errors', async () => {
+  test('ends the session and rethrows claim errors without logging them', async () => {
     mocks.claim.mockRejectedValue(new Error('Mongo unavailable'))
 
     await expect(publishPendingMessages()).rejects.toThrow('Mongo unavailable')
 
-    expect(mocks.loggerError).toHaveBeenCalledWith(
-      expect.any(Error),
-      'Error publishing pending outbox messages'
-    )
+    expect(mocks.loggerError).not.toHaveBeenCalled()
     expect(session.endSession).toHaveBeenCalledOnce()
   })
 })

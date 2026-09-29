@@ -386,12 +386,12 @@ describe('publishPendingMessages observability', () => {
     )
   })
 
-  test('logs error and rethrows when an unexpected error occurs', async () => {
+  test('rethrows an unexpected error without logging it, leaving the outbox loop to log it once', async () => {
     const boom = new Error('db exploded')
     mocks.claim.mockRejectedValue(boom)
 
     await expect(publishPendingMessages()).rejects.toThrow('db exploded')
-    expect(mocks.loggerError).toHaveBeenCalledWith(boom, 'Error publishing pending outbox messages')
+    expect(mocks.loggerError).not.toHaveBeenCalled()
   })
 
   test('logs processing summary after each batch', async () => {
