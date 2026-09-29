@@ -12,20 +12,21 @@ import {
 import { persistMetadata, formatInboundMetadata, getMetadataByFileId } from '../../../src/repos/metadata.js'
 import { createOutboxEntries } from '../../../src/repos/outbox.js'
 import { insertStatus } from '../../../src/repos/status.js'
-import { client } from '../../../src/data/db.js'
+import { getClient } from '../../../src/data/db.js'
 import { createLogger } from '../../../src/logging/logger.js'
 import { mockScanAndUploadResponseArray as rawDocuments, mockScanAndUploadResponse } from '../../mocks/cdp-uploader.js'
 import { mockFormattedDocuments as formattedDocuments } from '../../mocks/metadata.js'
 
+const client = getClient()
+
 vi.mock('../../../src/repos/metadata.js')
 vi.mock('../../../src/repos/outbox.js')
 vi.mock('../../../src/repos/status.js')
-vi.mock('../../../src/data/db.js', () => ({
-  db: { collection: vi.fn() },
-  client: {
-    startSession: vi.fn()
-  }
-}))
+vi.mock('../../../src/data/db.js', () => {
+  const db = { collection: vi.fn() }
+  const client = { startSession: vi.fn() }
+  return { getDb: () => db, getClient: () => client }
+})
 
 vi.mock('../../../src/logging/logger.js', () => ({
   createLogger: vi.fn().mockReturnValue({

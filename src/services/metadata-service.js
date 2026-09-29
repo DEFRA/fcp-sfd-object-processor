@@ -1,4 +1,4 @@
-import { client } from '../data/db.js'
+import { getClient } from '../data/db.js'
 import { persistMetadata, formatInboundMetadata, getMetadataByFileId } from '../repos/metadata.js'
 import { createOutboxEntries } from '../repos/outbox.js'
 import { insertStatus } from '../repos/status.js'
@@ -12,7 +12,7 @@ const logger = createLogger()
 const DUPLICATE_KEY_ERROR_CODE = 11000
 
 const persistMetadataWithOutbox = async (rawDocuments, correlationId) => {
-  const session = client.startSession()
+  const session = getClient().startSession()
 
   try {
     return await session.withTransaction(async () => {
