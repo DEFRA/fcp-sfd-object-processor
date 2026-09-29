@@ -84,13 +84,22 @@ const formatInboundMetadata = (payload, correlationId) => {
   })
 }
 
+// Throw-away hotfix: caps the read to test whether an unbounded result set (one audit event
+// and one response entry per document) is what stops the service. Not for merge.
+const MAX_METADATA_BY_SBI = 100
+
 const getMetadataBySbi = async (sbi) => {
   const collection = config.get(metadataCollection)
 
-  const documents = await getDb().collection(collection)
+  const newestFirst = await getDb().collection(collection)
     .find({ 'metadata.sbi': sbi })
     .project({ metadata: 1, file: 1 }) // only return the metadata and file keys
+    .sort({ _id: -1 })
+    .limit(MAX_METADATA_BY_SBI)
     .toArray()
+
+  // Returned oldest first, as before, so callers see the same order for up to 100 documents.
+  const documents = newestFirst.reverse()
 
   if (documents.length === 0) {
     throw new NotFoundError(noDocumentsFoundError)

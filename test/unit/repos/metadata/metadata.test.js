@@ -345,21 +345,27 @@ describe('getMetadataBySbi', () => {
   })
 
   test('returns documents when sbi matches', async () => {
-    const documents = [{ metadata: { sbi: '123' }, file: { fileId: 'f1' }, messaging: { correlationId: '123e4567-e89b-12d3-a456-426655440000' } }]
-    const toArray = vi.fn().mockResolvedValue(documents)
-    const project = vi.fn().mockReturnValue({ toArray })
+    const newestFirst = [{ file: { fileId: 'f2' } }, { file: { fileId: 'f1' } }]
+    const toArray = vi.fn().mockResolvedValue(newestFirst)
+    const limit = vi.fn().mockReturnValue({ toArray })
+    const sort = vi.fn().mockReturnValue({ limit })
+    const project = vi.fn().mockReturnValue({ sort })
     queryCollection.find.mockReturnValue({ project })
 
     const result = await getMetadataBySbi('123')
 
-    expect(result).toEqual(documents)
+    expect(result).toEqual([{ file: { fileId: 'f1' } }, { file: { fileId: 'f2' } }])
     expect(queryCollection.find).toHaveBeenCalledWith({ 'metadata.sbi': '123' })
     expect(project).toHaveBeenCalledWith({ metadata: 1, file: 1 })
+    expect(sort).toHaveBeenCalledWith({ _id: -1 })
+    expect(limit).toHaveBeenCalledWith(100)
   })
 
   test('throws NotFoundError when no documents match', async () => {
     const toArray = vi.fn().mockResolvedValue([])
-    const project = vi.fn().mockReturnValue({ toArray })
+    const limit = vi.fn().mockReturnValue({ toArray })
+    const sort = vi.fn().mockReturnValue({ limit })
+    const project = vi.fn().mockReturnValue({ sort })
     queryCollection.find.mockReturnValue({ project })
 
     await expect(getMetadataBySbi('missing')).rejects.toThrow(NotFoundError)
