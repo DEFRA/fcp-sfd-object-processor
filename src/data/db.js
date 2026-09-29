@@ -1,5 +1,4 @@
 import { MongoClient } from 'mongodb'
-import { createSecureContext } from '../api/common/helpers/secure-context/secure-context.js'
 import { config } from '../config/index.js'
 import { SENT } from '../constants/outbox.js'
 
@@ -9,8 +8,9 @@ const logger = createLogger()
 
 const OUTBOX_SENT_TTL_INDEX_NAME = 'outbox_sent_ttl_idx'
 
-// Holds the current connection. Read it through getClient() and getDb(), which
-// always return the connection as it is now rather than as it was at import.
+// Populated by connectDb(), which the mongoDb plugin calls after the secure
+// context plugin has loaded the TRUSTSTORE_ CA certificates. Read it through
+// getClient() and getDb(); nothing connects when this module is imported.
 const mongo = {}
 
 const getClient = () => mongo.client
@@ -121,6 +121,17 @@ const closeDb = async () => {
 // second caller cannot replace the client that repos and services already use.
 const connectDb = async (secureContext) => {
   if (mongo.client) {
+    if (secureContext) {
+      logger.warn({
+        event: {
+          type: 'mongo_connect',
+          action: 'connect',
+          outcome: 'success',
+          reason: 'connection already open, supplied secure context ignored'
+        }
+      }, 'connectDb called with a secure context after the connection was opened')
+    }
+
     return
   }
 
@@ -143,11 +154,4 @@ const connectDb = async (secureContext) => {
   logger.info('Connected to MongoDB')
 }
 
-await connectDb(createSecureContext(logger))
-
-// Bound once at import for modules not yet reading the connection through
-// getDb() and getClient(). Remove once no module imports them.
-const db = getDb()
-const client = getClient()
-
-export { db, client, getDb, getClient, connectDb, closeDb, createIndexes }
+export { getDb, getClient, connectDb, closeDb, createIndexes }

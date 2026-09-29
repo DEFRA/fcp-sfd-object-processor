@@ -14,6 +14,7 @@ import { pulse } from './common/helpers/pulse.js'
 import { requestTracing } from './common/helpers/request-tracing.js'
 import { setupProxy } from './common/helpers/proxy/setup-proxy.js'
 import { auth } from '../plugins/auth/index.js'
+import { mongoDb } from '../plugins/mongodb.js'
 
 const createServer = async () => {
   setupProxy()
@@ -56,6 +57,8 @@ const createServer = async () => {
     requestLogger,
     requestTracing,
     secureContext,
+    // mongoDb must follow secureContext so the connection trusts the CDP CA certificates.
+    mongoDb,
     pulse,
     router,
     Inert,
