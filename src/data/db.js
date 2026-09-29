@@ -9,13 +9,13 @@ const logger = createLogger()
 
 const OUTBOX_SENT_TTL_INDEX_NAME = 'outbox_sent_ttl_idx'
 
-const client = await MongoClient.connect(config.get('mongo.uri'), {
-  retryWrites: false,
-  readPreference: config.get('mongo.readPreference'),
-  ...(createSecureContext && { secureContext: createSecureContext(logger) })
-})
+// Holds the current connection. Read it through getClient() and getDb(), which
+// always return the connection as it is now rather than as it was at import.
+const mongo = {}
 
-const db = client.db(config.get('mongo.database'))
+const getClient = () => mongo.client
+
+const getDb = () => mongo.db
 
 const createIndexes = async () => {
   const statusCollection = config.get('mongo.collections.status')
@@ -23,19 +23,19 @@ const createIndexes = async () => {
   const sessionsCollection = config.get('mongo.collections.sessions')
   const outboxCollection = config.get('mongo.collections.outbox')
 
-  await db.collection(statusCollection).createIndexes([
+  await getDb().collection(statusCollection).createIndexes([
     { key: { correlationId: 1, timestamp: 1 }, name: 'status_correlationId_timestamp_idx' },
     { key: { sbi: 1 }, name: 'status_sbi_idx' },
     { key: { timestamp: -1 }, name: 'status_timestamp_idx' },
     { key: { sbi: 1, timestamp: -1 }, name: 'status_sbi_timestamp_idx' }
   ])
 
-  await db.collection(uploadMetadataCollection).createIndexes([
+  await getDb().collection(uploadMetadataCollection).createIndexes([
     { key: { 'file.fileId': 1 }, name: 'metadata_fileId_idx', unique: true },
     { key: { 'metadata.sbi': 1 }, name: 'metadata_sbi_idx' }
   ])
 
-  await db.collection(sessionsCollection).createIndexes([
+  await getDb().collection(sessionsCollection).createIndexes([
     { key: { uploadId: 1 }, name: 'sessions_uploadId_idx', unique: true },
     // sparse, because session records written before this field existed have no journeyId
     // and a non-sparse unique index would collide on those missing values.
@@ -43,7 +43,7 @@ const createIndexes = async () => {
     { key: { timestamp: -1 }, name: 'sessions_timestamp_idx' }
   ])
 
-  const outboxCollectionRef = db.collection(outboxCollection)
+  const outboxCollectionRef = getDb().collection(outboxCollection)
   const configuredOutboxSentTtlSeconds = config.get('messaging.outboxSentTtlSeconds')
   // indexes() rejects with code 26 (NamespaceNotFound) when the collection hasn't been created yet.
   const existingOutboxIndexes = await outboxCollectionRef.indexes().catch((error) => {
@@ -74,7 +74,7 @@ const createIndexes = async () => {
     } else if (outboxSentTtlIndex.expireAfterSeconds !== configuredOutboxSentTtlSeconds) {
       // collMod updates expireAfterSeconds in place; unlike drop+recreate it is safe
       // for concurrent instances to run and never leaves the collection without the index.
-      await db.command({
+      await getDb().command({
         collMod: outboxCollection,
         index: { name: OUTBOX_SENT_TTL_INDEX_NAME, expireAfterSeconds: configuredOutboxSentTtlSeconds }
       })
@@ -108,8 +108,46 @@ const createIndexes = async () => {
   logger.info('MongoDB indexes created')
 }
 
-await createIndexes()
+const closeDb = async () => {
+  const openClient = mongo.client
 
-logger.info('Connected to MongoDB')
+  mongo.client = undefined
+  mongo.db = undefined
 
-export { db, client, createIndexes }
+  await openClient?.close(true)
+}
+
+// Connects once per process. Later calls keep the existing connection, so a
+// second caller cannot replace the client that repos and services already use.
+const connectDb = async (secureContext) => {
+  if (mongo.client) {
+    return
+  }
+
+  const newClient = await MongoClient.connect(config.get('mongo.uri'), {
+    retryWrites: false,
+    readPreference: config.get('mongo.readPreference'),
+    ...(secureContext && { secureContext })
+  })
+
+  mongo.client = newClient
+  mongo.db = newClient.db(config.get('mongo.database'))
+
+  try {
+    await createIndexes()
+  } catch (error) {
+    await closeDb()
+    throw error
+  }
+
+  logger.info('Connected to MongoDB')
+}
+
+await connectDb(createSecureContext(logger))
+
+// Bound once at import for modules not yet reading the connection through
+// getDb() and getClient(). Remove once no module imports them.
+const db = getDb()
+const client = getClient()
+
+export { db, client, getDb, getClient, connectDb, closeDb, createIndexes }
