@@ -3,29 +3,11 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { createServer } from '../../../src/api/index.js'
 import { connectDb } from '../../../src/data/db.js'
 
-const { registeredSecureContext } = vi.hoisted(() => ({
-  registeredSecureContext: { context: 'from-secure-context-plugin' }
-}))
-
 vi.mock('../../../src/data/db.js', () => ({
   connectDb: vi.fn(),
   closeDb: vi.fn(),
   getDb: vi.fn(),
   getClient: vi.fn()
-}))
-
-// The real plugin decorates server.secureContext only when the secure context is
-// enabled, which it is not in tests. This stand-in always decorates a known object,
-// so the test fails if mongoDb is registered before it and receives undefined.
-vi.mock('../../../src/api/common/helpers/secure-context/secure-context.js', () => ({
-  secureContext: {
-    plugin: {
-      name: 'secure-context',
-      register (server) {
-        server.decorate('server', 'secureContext', registeredSecureContext)
-      }
-    }
-  }
 }))
 
 describe('createServer', () => {
@@ -39,10 +21,13 @@ describe('createServer', () => {
     await server?.stop({ timeout: 0 })
   })
 
+  // @defra/hapi-secure-context always decorates server.secureContext. If mongoDb
+  // were registered before it, connectDb would receive undefined and this fails.
   test('connects to MongoDB with the secure context registered before it', async () => {
     server = await createServer()
 
+    expect(server.secureContext).toBeDefined()
     expect(connectDb).toHaveBeenCalledTimes(1)
-    expect(connectDb).toHaveBeenCalledWith(registeredSecureContext)
+    expect(connectDb).toHaveBeenCalledWith(server.secureContext)
   })
 })
