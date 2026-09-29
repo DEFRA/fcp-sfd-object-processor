@@ -3,9 +3,20 @@ import { randomUUID } from 'node:crypto'
 import { vi, describe, test, expect, beforeAll, afterAll, afterEach } from 'vitest'
 
 import { createServer } from '../../../../../src/api/index.js'
-import { db } from '../../../../../src/data/db.js'
+import { getDb, connectDb, closeDb } from '../../../../../src/data/db.js'
 import { config } from '../../../../../src/config/index.js'
 import { PERMANENT_FAILURE } from '../../../../../src/constants/outbox.js'
+
+let db
+
+beforeAll(async () => {
+  await connectDb()
+  db = getDb()
+})
+
+afterAll(async () => {
+  await closeDb()
+})
 
 const { mockHttpClient } = vi.hoisted(() => ({ mockHttpClient: vi.fn() }))
 

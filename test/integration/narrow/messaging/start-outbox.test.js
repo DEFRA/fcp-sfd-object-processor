@@ -1,11 +1,22 @@
 import { ObjectId } from 'mongodb'
 import { vi, describe, test, expect, beforeAll, afterEach, afterAll, beforeEach } from 'vitest'
 import { config } from '../../../../src/config/index.js'
-import { db } from '../../../../src/data/db.js'
+import { getDb, connectDb, closeDb } from '../../../../src/data/db.js'
 import { PENDING, SENT, PERMANENT_FAILURE } from '../../../../src/constants/outbox.js'
 import { publishPendingMessages } from '../../../../src/messaging/outbound/crm/doc-upload/publish-pending-messages.js'
 import { mockPendingMessages } from '../../../mocks/outbox.js'
 import { publishBatch } from '../../../../src/messaging/sns/publish-batch.js'
+
+let db
+
+beforeAll(async () => {
+  await connectDb()
+  db = getDb()
+})
+
+afterAll(async () => {
+  await closeDb()
+})
 
 // Mock the SNS publish-batch to avoid actual AWS calls
 vi.mock('../../../../src/messaging/sns/publish-batch.js')
