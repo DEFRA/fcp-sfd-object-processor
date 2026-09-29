@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   dropIndex: vi.fn(),
   configGet: vi.fn(),
   loggerInfo: vi.fn(),
-  createSecureContext: vi.fn()
+  loggerWarn: vi.fn()
 }))
 
 vi.mock('mongodb', () => ({
@@ -28,20 +28,23 @@ vi.mock('../../../src/config/index.js', () => ({
 
 vi.mock('../../../src/logging/logger.js', () => ({
   createLogger: () => ({
-    info: mocks.loggerInfo
+    info: mocks.loggerInfo,
+    warn: mocks.loggerWarn
   })
 }))
 
-vi.mock('../../../src/api/common/helpers/secure-context/secure-context.js', () => ({
-  createSecureContext: mocks.createSecureContext
-}))
+const importDb = () => import('../../../src/data/db.js')
 
-describe('data/db createIndexes', () => {
+const connect = async (secureContext) => {
+  const dbModule = await importDb()
+  await dbModule.connectDb(secureContext)
+  return dbModule
+}
+
+describe('data/db', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.resetModules()
-
-    mocks.createSecureContext.mockReturnValue(undefined)
 
     mocks.configGet.mockImplementation((key) => {
       switch (key) {
@@ -66,12 +69,11 @@ describe('data/db createIndexes', () => {
       dropIndex: mocks.dropIndex
     })
     mocks.db.mockReturnValue({ collection: mocks.collection, command: mocks.command })
-    mocks.close.mockResolvedValue(undefined)
     mocks.connect.mockResolvedValue({ db: mocks.db, close: mocks.close })
   })
 
-  test('creates status, metadata, sessions and outbox indexes on startup', async () => {
-    await import('../../../src/data/db.js')
+  test('creates status, metadata, sessions and outbox indexes on connect', async () => {
+    await connect()
 
     expect(mocks.collection).toHaveBeenNthCalledWith(1, 'status')
     expect(mocks.collection).toHaveBeenNthCalledWith(2, 'uploadMetadata')
@@ -121,7 +123,7 @@ describe('data/db createIndexes', () => {
       expireAfterSeconds: 86400
     }])
 
-    await import('../../../src/data/db.js')
+    await connect()
 
     expect(mocks.command).toHaveBeenCalledWith({
       collMod: 'outbox',
@@ -155,7 +157,7 @@ describe('data/db createIndexes', () => {
     notFoundError.code = 26
     mocks.indexes.mockRejectedValue(notFoundError)
 
-    await import('../../../src/data/db.js')
+    await connect()
 
     expect(mocks.command).not.toHaveBeenCalled()
     expect(mocks.createIndexes).toHaveBeenLastCalledWith([
@@ -180,7 +182,7 @@ describe('data/db createIndexes', () => {
       expireAfterSeconds: 604800
     }])
 
-    await import('../../../src/data/db.js')
+    await connect()
 
     expect(mocks.command).not.toHaveBeenCalled()
     expect(mocks.dropIndex).not.toHaveBeenCalled()
@@ -194,7 +196,7 @@ describe('data/db createIndexes', () => {
       expireAfterSeconds: 604800
     }])
 
-    await import('../../../src/data/db.js')
+    await connect()
 
     expect(mocks.dropIndex).toHaveBeenCalledWith('outbox_sent_ttl_idx')
     expect(mocks.command).not.toHaveBeenCalled()
@@ -228,41 +230,33 @@ describe('data/db createIndexes', () => {
       // no expireAfterSeconds: this is not actually a TTL index
     }])
 
-    await import('../../../src/data/db.js')
+    await connect()
 
     expect(mocks.dropIndex).toHaveBeenCalledWith('outbox_sent_ttl_idx')
     expect(mocks.command).not.toHaveBeenCalled()
   })
 
-  test('rethrows unexpected errors from indexes() instead of treating them as no indexes', async () => {
+  test('rethrows unexpected errors from indexes() and discards the half-initialised connection', async () => {
     const authError = new Error('not authorized on test-db to execute command')
     authError.code = 13
     authError.codeName = 'Unauthorized'
     mocks.indexes.mockRejectedValue(authError)
 
-    await expect(import('../../../src/data/db.js')).rejects.toThrow(authError)
+    const { connectDb, getClient, getDb } = await importDb()
+
+    await expect(connectDb()).rejects.toThrow(authError)
     expect(mocks.command).not.toHaveBeenCalled()
-  })
-
-  test('closes the connection when index creation fails, so no half-initialised client is kept', async () => {
-    const authError = new Error('not authorized on test-db to execute command')
-    mocks.indexes.mockRejectedValue(authError)
-
-    await expect(import('../../../src/data/db.js')).rejects.toThrow(authError)
-
     expect(mocks.close).toHaveBeenCalledWith(true)
+    expect(getClient()).toBeUndefined()
+    expect(getDb()).toBeUndefined()
   })
 
-  test('exports the connected client and db instance', async () => {
-    const mockDbInstance = { collection: mocks.collection, command: mocks.command }
-    const mockClientInstance = { db: mocks.db, close: mocks.close }
-    mocks.db.mockReturnValue(mockDbInstance)
-    mocks.connect.mockResolvedValue(mockClientInstance)
+  test('does not connect when the module is imported', async () => {
+    const { getClient, getDb } = await importDb()
 
-    const { db, client } = await import('../../../src/data/db.js')
-
-    expect(client).toBe(mockClientInstance)
-    expect(db).toBe(mockDbInstance)
+    expect(mocks.connect).not.toHaveBeenCalled()
+    expect(getClient()).toBeUndefined()
+    expect(getDb()).toBeUndefined()
   })
 
   test('getClient and getDb return the connected client and db instance', async () => {
@@ -271,14 +265,35 @@ describe('data/db createIndexes', () => {
     mocks.db.mockReturnValue(mockDbInstance)
     mocks.connect.mockResolvedValue(mockClientInstance)
 
-    const { getDb, getClient } = await import('../../../src/data/db.js')
+    const { getDb, getClient } = await connect()
 
     expect(getClient()).toBe(mockClientInstance)
     expect(getDb()).toBe(mockDbInstance)
   })
 
-  test('connectDb keeps the existing connection when called again', async () => {
-    const { connectDb, getClient } = await import('../../../src/data/db.js')
+  test('passes a secure context through to MongoClient.connect when provided', async () => {
+    const secureContext = { context: true }
+
+    await connect(secureContext)
+
+    expect(mocks.connect).toHaveBeenCalledWith('mongodb://localhost:27017', {
+      retryWrites: false,
+      readPreference: 'primary',
+      secureContext
+    })
+  })
+
+  test('omits secureContext when none is provided', async () => {
+    await connect()
+
+    expect(mocks.connect).toHaveBeenCalledWith('mongodb://localhost:27017', {
+      retryWrites: false,
+      readPreference: 'primary'
+    })
+  })
+
+  test('keeps the existing connection when connectDb is called again', async () => {
+    const { connectDb, getClient } = await connect()
     const firstClient = getClient()
 
     await connectDb({ context: true })
@@ -288,8 +303,32 @@ describe('data/db createIndexes', () => {
     expect(getClient()).toBe(firstClient)
   })
 
+  test('warns that a secure context was ignored when the connection is already open', async () => {
+    const { connectDb } = await connect()
+
+    await connectDb({ context: true })
+
+    expect(mocks.loggerWarn).toHaveBeenCalledWith({
+      event: {
+        type: 'mongo_connect',
+        action: 'connect',
+        outcome: 'success',
+        reason: 'connection already open, supplied secure context ignored'
+      }
+    }, 'connectDb called with a secure context after the connection was opened')
+  })
+
+  test('does not warn when connectDb is called again without a secure context', async () => {
+    const { connectDb } = await connect()
+
+    await connectDb()
+
+    expect(mocks.connect).toHaveBeenCalledTimes(1)
+    expect(mocks.loggerWarn).not.toHaveBeenCalled()
+  })
+
   test('closeDb closes the client and clears the connection', async () => {
-    const { closeDb, getClient, getDb } = await import('../../../src/data/db.js')
+    const { closeDb, getClient, getDb } = await connect()
 
     await closeDb()
 
@@ -299,62 +338,18 @@ describe('data/db createIndexes', () => {
   })
 
   test('closeDb does nothing when there is no connection', async () => {
-    const { closeDb } = await import('../../../src/data/db.js')
-    await closeDb()
-    mocks.close.mockClear()
+    const { closeDb } = await importDb()
 
     await expect(closeDb()).resolves.toBeUndefined()
     expect(mocks.close).not.toHaveBeenCalled()
   })
 
-  test('connectDb opens a new connection after closeDb, using the secure context given', async () => {
-    const secureContext = { context: true }
-    const { connectDb, closeDb } = await import('../../../src/data/db.js')
+  test('connectDb opens a new connection after closeDb', async () => {
+    const { connectDb, closeDb } = await connect()
     await closeDb()
 
-    await connectDb(secureContext)
+    await connectDb()
 
     expect(mocks.connect).toHaveBeenCalledTimes(2)
-    expect(mocks.connect).toHaveBeenLastCalledWith('mongodb://localhost:27017', {
-      retryWrites: false,
-      readPreference: 'primary',
-      secureContext
-    })
-  })
-
-  test('passes a secure context when createSecureContext returns one', async () => {
-    const secureContext = { context: true }
-    mocks.createSecureContext.mockReturnValue(secureContext)
-
-    await import('../../../src/data/db.js')
-
-    expect(mocks.connect).toHaveBeenCalledWith('mongodb://localhost:27017', {
-      retryWrites: false,
-      readPreference: 'primary',
-      secureContext
-    })
-  })
-
-  test('omits secureContext when createSecureContext returns null because it is disabled', async () => {
-    mocks.createSecureContext.mockReturnValue(null)
-
-    await import('../../../src/data/db.js')
-
-    expect(mocks.connect).toHaveBeenCalledWith('mongodb://localhost:27017', {
-      retryWrites: false,
-      readPreference: 'primary'
-    })
-    expect(mocks.connect.mock.calls[0][1]).not.toHaveProperty('secureContext')
-  })
-
-  test('omits secureContext when createSecureContext returns undefined', async () => {
-    mocks.createSecureContext.mockReturnValue(undefined)
-
-    await import('../../../src/data/db.js')
-
-    expect(mocks.connect).toHaveBeenCalledWith('mongodb://localhost:27017', {
-      retryWrites: false,
-      readPreference: 'primary'
-    })
   })
 })
