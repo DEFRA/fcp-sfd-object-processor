@@ -119,6 +119,8 @@ No `.env` file is required for basic local development. All defaults are set in 
 
 ## Getting Started
 
+> Custom CA certificates for outbound TLS connections, including MongoDB, are loaded from `TRUSTSTORE_` environment variables by the shared `@defra/hapi-secure-context` plugin.
+
 1. Clone the repository:
    ```
    git clone https://github.com/DEFRA/fcp-sfd-object-processor.git
