@@ -1,7 +1,14 @@
-import { describe, test, expect, beforeAll, afterAll } from 'vitest'
+import { describe, test, expect, beforeAll, afterAll, vi } from 'vitest'
 
 import { createServer } from '../../../../../../src/api/index'
 import { StatusCodes } from 'http-status-codes'
+
+vi.mock('../../../../../../src/data/db.js', () => ({
+  connectDb: vi.fn(),
+  closeDb: vi.fn(),
+  getDb: vi.fn(),
+  getClient: vi.fn()
+}))
 
 describe('#healthHandler', () => {
   let server

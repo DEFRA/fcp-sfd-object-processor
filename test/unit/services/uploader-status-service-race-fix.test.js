@@ -23,6 +23,11 @@ vi.mock('../../../src/repos/outbox.js', () => ({
   getOutboxStatusesByFileIds: mockGetOutboxStatusesByFileIds
 }))
 
+vi.mock('../../../src/data/db.js', () => {
+  const client = { startSession: vi.fn(() => ({ endSession: vi.fn() })) }
+  return { getClient: () => client }
+})
+
 const { getLocalVerdictByUploadId } = await import('../../../src/services/uploader-status-service.js')
 
 describe('getLocalVerdictByUploadId - race condition fix', () => {
