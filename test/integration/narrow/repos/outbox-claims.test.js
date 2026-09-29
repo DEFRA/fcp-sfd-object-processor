@@ -2,12 +2,23 @@ import { randomUUID } from 'node:crypto'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'vitest'
 
 import { config } from '../../../../src/config/index.js'
-import { db } from '../../../../src/data/db.js'
+import { getDb, connectDb, closeDb } from '../../../../src/data/db.js'
 import {
   claimProcessableOutboxEntries,
   finalizeClaimedOutboxEntries
 } from '../../../../src/repos/outbox.js'
 import { DELIVERY_OUTCOME, PENDING, PROCESSING, PERMANENT_FAILURE } from '../../../../src/constants/outbox.js'
+
+let db
+
+beforeAll(async () => {
+  await connectDb()
+  db = getDb()
+})
+
+afterAll(async () => {
+  await closeDb()
+})
 
 const originalCollectionName = config.get('mongo.collections.outbox')
 const collectionName = `${originalCollectionName}-claims-integration`

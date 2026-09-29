@@ -4,7 +4,7 @@ import { vi, describe, test, expect, beforeAll, afterAll, afterEach } from 'vite
 import hapi from '@hapi/hapi'
 import hapiPino from 'hapi-pino'
 
-import { db } from '../../../../src/data/db.js'
+import { getDb, connectDb, closeDb } from '../../../../src/data/db.js'
 import { config } from '../../../../src/config'
 import { mockScanAndUploadResponse, mockScanAndUploadResponseSingleFile } from '../../../mocks/cdp-uploader.js'
 import { baseMetadata, baseFileUpload2 } from '../../../mocks/base-data.js'
@@ -12,6 +12,17 @@ import { assertValidAuditEvent } from '../../../helpers/validate-audit-payload.j
 import { correlationScope } from '../../../../src/api/common/helpers/correlation-scope.js'
 import { loggerOptions } from '../../../../src/logging/logger-options.js'
 import { router } from '../../../../src/api/router.js'
+
+let db
+
+beforeAll(async () => {
+  await connectDb()
+  db = getDb()
+})
+
+afterAll(async () => {
+  await closeDb()
+})
 
 const capturedAuditEvents = []
 

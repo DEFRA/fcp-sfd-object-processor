@@ -2,8 +2,19 @@ import { constants as httpConstants } from 'node:http2'
 import { vi, describe, test, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { mockMetadataResponse } from '../../../mocks/metadata.js'
 import { config } from '../../../../src/config/index.js'
-import { db } from '../../../../src/data/db.js'
+import { getDb, connectDb, closeDb } from '../../../../src/data/db.js'
 import { assertValidAuditEvent } from '../../../helpers/validate-audit-payload.js'
+
+let db
+
+beforeAll(async () => {
+  await connectDb()
+  db = getDb()
+})
+
+afterAll(async () => {
+  await closeDb()
+})
 
 const capturedAuditEvents = []
 
