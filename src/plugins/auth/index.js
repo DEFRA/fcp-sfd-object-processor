@@ -11,6 +11,22 @@ import { buildAuthDisabledLog, buildAuthConfigurationFailureLog } from '../../ut
 
 const logger = createLogger()
 const tracingHeader = config.get('tracing.header')
+const blobRoutePattern = new RegExp(`^${config.get('baseUrl.v1')}/blob/([^/]+)$`)
+
+// Auth rejections happen before a document is identified for most routes, so the audit event
+// names the request itself (entity: 'request', entityid: the correlation id) following fcp-audit's
+// own api-audit convention of entityid-as-trace-id. On /v1/blob/{fileId} the file UUID is already
+// in the path, so a document entity is used instead. Agreed with the audit service owners as an
+// entity-naming convention rather than a schema requirement.
+const buildAuthFailureEntity = (request, correlationId) => {
+  const blobMatch = request.path.match(blobRoutePattern)
+
+  if (blobMatch) {
+    return { entity: 'document', action: 'failed', entityid: blobMatch[1] }
+  }
+
+  return { entity: 'request', action: 'failed', entityid: correlationId }
+}
 
 export const auth = {
   plugin: {
@@ -70,10 +86,11 @@ export const auth = {
 
         if (response.isBoom && response.output.statusCode === httpConstants.HTTP_STATUS_UNAUTHORIZED) {
           const sanitisedMessage = response.output.payload.message || 'authentication_failed'
+          const correlationId = request.headers[tracingHeader]
 
           logger.warn(buildAuthFailureResponseLog(request, sanitisedMessage))
           sendAuditEvent({
-            correlationid: request.headers[tracingHeader],
+            correlationid: correlationId,
             security: {
               pmccode: 'AUTH',
               priority: 1, // 1 marks this as a high-priority security event,
@@ -82,7 +99,7 @@ export const auth = {
               }
             },
             audit: {
-              entities: [{ entity: 'document', action: 'failed' }],
+              entities: [buildAuthFailureEntity(request, correlationId)],
               status: 'failure',
               details: { path: request.path, method: request.method }
             }

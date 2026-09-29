@@ -256,6 +256,7 @@ describe('auth plugin', () => {
         case 'auth.entra.tenants': return [{ tenantId: 'test-tenant-id', allowedGroupIds: ['group-1', 'group-2'] }]
         case 'auth.cognito.enabled': return false
         case 'tracing.header': return 'x-cdp-request-id'
+        case 'baseUrl.v1': return '/api/v1'
         default: return null
       }
     })
@@ -593,9 +594,29 @@ describe('auth plugin', () => {
               priority: 1
             }),
             audit: expect.objectContaining({
-              entities: [{ entity: 'document', action: 'failed' }],
+              entities: [{ entity: 'request', action: 'failed', entityid: 'test-correlation-id' }],
               status: 'failure',
               details: expect.objectContaining({ path: '/api/v1/metadata', method: 'GET' })
+            })
+          }),
+          expect.any(Object)
+        )
+      })
+
+      test('emits document entity with file UUID for auth failures on the blob route', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const blobRequest = {
+          ...build401Request(),
+          path: '/api/v1/blob/3f2504e0-4f89-41d3-9a0c-0305e82c3301'
+        }
+        await extensionHandler(blobRequest, { continue: Symbol('continue') })
+
+        expect(mockSendAuditEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            audit: expect.objectContaining({
+              entities: [{ entity: 'document', action: 'failed', entityid: '3f2504e0-4f89-41d3-9a0c-0305e82c3301' }]
             })
           }),
           expect.any(Object)
