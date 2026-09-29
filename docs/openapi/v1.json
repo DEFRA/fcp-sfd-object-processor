@@ -191,59 +191,6 @@
           }
         }
       },
-      "Model1": {
-        "type": "object",
-        "properties": {
-          "sbi": {
-            "type": "integer",
-            "nullable": true,
-            "minimum": 105000000,
-            "maximum": 999999999
-          },
-          "fileId": {
-            "type": "string",
-            "x-format": {
-              "guid": {
-                "version": [
-                  "uuidv4"
-                ]
-              }
-            }
-          },
-          "timestamp": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "validated": {
-            "type": "boolean"
-          },
-          "errors": {
-            "anyOf": [
-              {
-                "$ref": "#/x-alt-definitions/errors"
-              },
-              {
-                "type": "string",
-                "nullable": true
-              }
-            ]
-          }
-        }
-      },
-      "data": {
-        "type": "array",
-        "items": {
-          "$ref": "#/components/schemas/Model1"
-        }
-      },
-      "Model2": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "$ref": "#/components/schemas/data"
-          }
-        }
-      },
       "MetadataFields": {
         "type": "object",
         "description": "Metadata about the item",
@@ -352,7 +299,7 @@
           "file"
         ]
       },
-      "Model3": {
+      "data": {
         "type": "array",
         "items": {
           "$ref": "#/components/schemas/MetadataDocument"
@@ -362,7 +309,7 @@
         "type": "object",
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/Model3"
+            "$ref": "#/components/schemas/data"
           }
         }
       },
@@ -422,7 +369,7 @@
             "description": "Validation or delivery errors associated with the upload verdict",
             "allOf": [
               {
-                "$ref": "#/x-alt-definitions/Model3"
+                "$ref": "#/x-alt-definitions/errors"
               }
             ],
             "nullable": true
@@ -1038,75 +985,6 @@
         }
       }
     },
-    "/api/v1/status/{correlationId}": {
-      "get": {
-        "summary": "Retrieve persisted callback validation status by correlationId",
-        "operationId": "getApiV1StatusCorrelationid",
-        "description": "Returns the stored status records (validation outcome and any errors) for a given correlationId.",
-        "parameters": [
-          {
-            "name": "correlationId",
-            "in": "path",
-            "schema": {
-              "type": "string",
-              "x-format": {
-                "guid": {
-                  "version": [
-                    "uuidv4"
-                  ]
-                }
-              }
-            },
-            "required": true
-          }
-        ],
-        "tags": [
-          "status"
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Model2"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BadRequest"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Unauthorized"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ServerError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/metadata/sbi/{sbi}": {
       "get": {
         "operationId": "getApiV1MetadataSbiSbi",
@@ -1535,26 +1413,6 @@
         },
         "errorType": {
           "type": "string"
-        },
-        "receivedValue": {
-          "type": "string"
-        }
-      }
-    },
-    "errors": {
-      "type": "array",
-      "items": {
-        "$ref": "#/x-alt-definitions/Model1"
-      }
-    },
-    "Model2": {
-      "type": "object",
-      "properties": {
-        "field": {
-          "type": "string"
-        },
-        "errorType": {
-          "type": "string"
         }
       },
       "required": [
@@ -1562,10 +1420,10 @@
         "errorType"
       ]
     },
-    "Model3": {
+    "errors": {
       "type": "array",
       "items": {
-        "$ref": "#/x-alt-definitions/Model2"
+        "$ref": "#/x-alt-definitions/Model1"
       }
     }
   }

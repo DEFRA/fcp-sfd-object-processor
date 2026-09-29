@@ -267,12 +267,6 @@ Using the `/blob/{fileId}` endpoint will generate a short lived presigned url th
 
 Note: The `fileId` is returned from the `uploader/status/{uploadId}` endpoint or the `/metadata/sbi/{sbi}` endpoint.
 
-### Diagnosing a rejected callback
-
-A callback that fails validation is deliberately answered with `201 Created` rather than rejected, and the reason is persisted instead. If a file was uploaded but no metadata appears, retrieve the stored outcome:
-
-GET `/api/v1/status/{correlationId}`
-
 ## Audit events
 
 This service publishes audit events to the shared `fcp-audit` SNS topic via `@defra/fcp-audit-publisher`, alongside the document upload events it publishes for CRM.
