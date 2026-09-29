@@ -1,4 +1,4 @@
-import { client } from '../data/db.js'
+import { getClient } from '../data/db.js'
 import { getSessionByUploadId } from '../repos/sessions.js'
 import { getStatusByCorrelationId } from '../repos/status.js'
 import { getMetadataMessagingByFileIds } from '../repos/metadata.js'
@@ -34,7 +34,7 @@ const sanitiseErrorsForResponse = (errors) => {
 // unrelated connection. Without this, the driver gives no ordering guarantee between an
 // acknowledged write on one connection and an immediately following read on another.
 export const getLocalVerdictByUploadId = async (uploadId) => {
-  const dbSession = client.startSession({ causalConsistency: true })
+  const dbSession = getClient().startSession({ causalConsistency: true })
 
   try {
     const session = await getSessionByUploadId(uploadId, dbSession)
