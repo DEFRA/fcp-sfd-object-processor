@@ -114,7 +114,17 @@ const closeDb = async () => {
   mongo.client = undefined
   mongo.db = undefined
 
-  await openClient?.close(true)
+  try {
+    await openClient?.close(true)
+  } catch (error) {
+    // Swallowed deliberately: this runs as hapi-pulse's postServerStop, which
+    // exits the process with code 1 and skips preShutdown if a hook rejects.
+    // A connection we are discarding anyway is not worth failing shutdown over.
+    logger.warn({
+      err: error,
+      event: { type: 'mongo_close', action: 'close', outcome: 'failure' }
+    }, 'Failed to close the MongoDB client')
+  }
 }
 
 // Connects once per process. Later calls keep the existing connection, so a

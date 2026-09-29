@@ -337,6 +337,22 @@ describe('data/db', () => {
     expect(getDb()).toBeUndefined()
   })
 
+  test('closeDb logs and swallows a close failure so shutdown is not aborted', async () => {
+    const closeError = new Error('connection reset by peer')
+    mocks.close.mockRejectedValue(closeError)
+
+    const { closeDb, getClient, getDb } = await connect()
+
+    await expect(closeDb()).resolves.toBeUndefined()
+
+    expect(mocks.loggerWarn).toHaveBeenCalledWith({
+      err: closeError,
+      event: { type: 'mongo_close', action: 'close', outcome: 'failure' }
+    }, 'Failed to close the MongoDB client')
+    expect(getClient()).toBeUndefined()
+    expect(getDb()).toBeUndefined()
+  })
+
   test('closeDb does nothing when there is no connection', async () => {
     const { closeDb } = await importDb()
 
