@@ -89,7 +89,11 @@ describe('data/db', () => {
 
     expect(mocks.createIndexes).toHaveBeenNthCalledWith(2, [
       { key: { 'file.fileId': 1 }, name: 'metadata_fileId_idx', unique: true },
-      { key: { 'metadata.sbi': 1 }, name: 'metadata_sbi_idx' }
+      // metadata_sbi_idx is a prefix of metadata_sbi_id_idx but is retained deliberately.
+      // It is dropped in a separate change once metadata_sbi_id_idx is confirmed in use,
+      // so a rolled back deploy never leaves the collection without an SBI index.
+      { key: { 'metadata.sbi': 1 }, name: 'metadata_sbi_idx' },
+      { key: { 'metadata.sbi': 1, _id: -1 }, name: 'metadata_sbi_id_idx' }
     ])
 
     expect(mocks.createIndexes).toHaveBeenNthCalledWith(3, [

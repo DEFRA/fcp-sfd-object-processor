@@ -32,7 +32,9 @@ const createIndexes = async () => {
 
   await getDb().collection(uploadMetadataCollection).createIndexes([
     { key: { 'file.fileId': 1 }, name: 'metadata_fileId_idx', unique: true },
-    { key: { 'metadata.sbi': 1 }, name: 'metadata_sbi_idx' }
+    { key: { 'metadata.sbi': 1 }, name: 'metadata_sbi_idx' },
+    // Supports the SBI equality match and the _id descending sort in one bounded range scan.
+    { key: { 'metadata.sbi': 1, _id: -1 }, name: 'metadata_sbi_id_idx' }
   ])
 
   await getDb().collection(sessionsCollection).createIndexes([
