@@ -643,6 +643,23 @@ describe('auth plugin', () => {
         )
       })
 
+      test('generates a correlation id when the tracing header is absent', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const request = build401Request()
+        delete request.headers['x-cdp-request-id']
+        await extensionHandler(request, { continue: Symbol('continue') })
+
+        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+        const [payload] = mockSendAuditEvent.mock.calls[0]
+
+        expect(payload.correlationid).toMatch(uuidPattern)
+        expect(payload.audit.entities).toEqual([
+          { entity: 'request', action: 'failed', entityid: payload.correlationid }
+        ])
+      })
+
       test('does not emit audit event for non-boom (success) responses', async () => {
         await auth.plugin.register(mockServer)
 

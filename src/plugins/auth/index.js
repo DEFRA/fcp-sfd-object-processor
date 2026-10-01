@@ -1,4 +1,5 @@
 import Joi from 'joi'
+import { randomUUID } from 'node:crypto'
 import { config } from '../../config/index.js'
 import { createLogger } from '../../logging/logger.js'
 import { constants as httpConstants } from 'node:http2'
@@ -90,7 +91,7 @@ export const auth = {
 
         if (response.isBoom && response.output.statusCode === httpConstants.HTTP_STATUS_UNAUTHORIZED) {
           const sanitisedMessage = response.output.payload.message || 'authentication_failed'
-          const correlationId = request.headers[tracingHeader]
+          const correlationId = request.headers[tracingHeader] ?? randomUUID()
 
           logger.warn(buildAuthFailureResponseLog(request, sanitisedMessage))
           sendAuditEvent({
