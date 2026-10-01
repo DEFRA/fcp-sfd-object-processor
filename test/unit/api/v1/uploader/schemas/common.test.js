@@ -444,7 +444,7 @@ describe('Shared Schema Components', () => {
       expect(result.error).toBeUndefined()
     })
 
-    test('should allow contentType to be omitted', () => {
+    test('should require contentType for pending files', () => {
       const fileUpload = {
         ...baseFileUpload,
         fileStatus: 'pending',
@@ -452,10 +452,11 @@ describe('Shared Schema Components', () => {
       }
 
       const result = fileUploadSchema.validate(fileUpload)
-      expect(result.error).toBeUndefined()
+      expect(result.error).toBeDefined()
+      expect(result.error.message).toContain('contentType')
     })
 
-    test('should set contentType from detectedContentType when contentType is missing', () => {
+    test('should not infer contentType from detectedContentType', () => {
       const fileUpload = {
         ...baseFileUpload,
         fileStatus: 'pending',
@@ -464,8 +465,8 @@ describe('Shared Schema Components', () => {
       }
 
       const result = fileUploadSchema.validate(fileUpload)
-      expect(result.error).toBeUndefined()
-      expect(result.value.contentType).toBe('application/pdf')
+      expect(result.error).toBeDefined()
+      expect(result.error.message).toContain('contentType')
     })
 
     test('should validate fileId as UUID', () => {

@@ -46,7 +46,7 @@ export function applyFileStatusConditionals (schema) {
  * - rejected: must have hasError=true and non-empty errorMessage; must NOT have s3Key/s3Bucket;
  *             detectedContentType and checksumSha256 are allowed (CDP Uploader includes them);
  *             errorCode/errorParams are optional (CDP Uploader additive change, not yet present in every environment)
- * - pending: minimal constraints (fileId, filename, contentType, detectedContentType allowed)
+ * - pending: requires the declared contentType; detectedContentType is optional
  *
  * Exported as `fileUploadSchema` for reuse by callback, status, and initiate endpoints.
  */
@@ -69,11 +69,11 @@ const fileUploadBaseSchema = Joi.object({
     })
     .example(schemaConsts.FILENAME_EXAMPLE).label('filename'),
 
-  contentType: Joi.string()
-    .valid(...allowedMimeTypes)
-    .optional()
-    .allow(null)
-    .description('MIME type of the uploaded file')
+  contentType: Joi.alternatives().conditional('fileStatus', {
+    is: 'rejected',
+    then: Joi.string().min(1).description('MIME type declared on submission (any non-empty value for rejected files)'),
+    otherwise: Joi.string().valid(...allowedMimeTypes).required().description('MIME type declared on submission')
+  })
     .messages({
       'any.only': '"contentType" must be one of the allowed MIME types'
     })
@@ -135,13 +135,7 @@ const fileUploadBaseSchema = Joi.object({
     .description('S3 bucket name where the file is stored')
     .messages({ 'string.empty': EMPTY_FIELD_MESSAGE })
     .example(schemaConsts.S3_BUCKET_EXAMPLE).label('s3Bucket')
-}).custom((value) => {
-  if (value.detectedContentType != null && value.contentType == null) {
-    value.contentType = value.detectedContentType
-  }
-
-  return value
-}, 'Set contentType from detectedContentType if missing')
+})
 
 export const fileUploadSchema = applyFileStatusConditionals(fileUploadBaseSchema)
   .strict()
