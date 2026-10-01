@@ -291,6 +291,35 @@ describe('uploaderStatusRoute handler', () => {
       expect(data.numberOfRejectedFiles).toBeUndefined()
     })
 
+    test('returns rejection details when rejected file has no contentType', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ...validReadyResponse,
+          form: {
+            'file-field': {
+              fileId: 'a0b1c2d3-e4f5-4789-abcd-ef0123456789',
+              filename: 'notes.txt',
+              fileStatus: 'rejected',
+              hasError: true,
+              errorMessage: 'File type is not allowed',
+              errorCode: 'FILE_INVALID_TYPE'
+            }
+          },
+          numberOfRejectedFiles: 1
+        })
+      })
+
+      const { h, mockResponse } = buildMockH()
+      await handler(buildMockRequest(), h)
+
+      const [{ data }] = mockResponse.mock.calls[0]
+      expect(data.uploadStatus).toBe('failure')
+      expect(data.form['file-field'].errorMessage).toBe('File type is not allowed')
+      expect(data.errors).toEqual([{ field: 'notes.txt', errorType: 'FILE_INVALID_TYPE' }])
+    })
+
     test('returns 200 with data envelope for pending status', async () => {
       mockHttpClient.mockResolvedValue({
         ok: true,

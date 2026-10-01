@@ -475,13 +475,14 @@ describe('callbackPayloadSchema validation', () => {
       expect(error.details.some(d => d.path.includes('filename') && d.type === 'string.empty')).toBe(true)
     })
 
-    test('missing contentType passes validation', () => {
+    test('complete file missing contentType fails validation', () => {
       const { contentType, ...fileUpload } = validFileUpload
       const { error } = callbackPayloadSchema.validate({
         ...validPayload,
         form: { 'test-file': fileUpload }
       })
-      expect(error).toBeUndefined()
+      expect(error).toBeDefined()
+      expect(error.details.some(d => d.path.includes('contentType'))).toBe(true)
     })
 
     test('invalid contentType format fails validation', () => {
