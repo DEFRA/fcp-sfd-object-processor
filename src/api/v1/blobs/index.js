@@ -8,16 +8,16 @@ import { NotFoundError } from '../../../errors/not-found-error.js'
 import { config } from '../../../config/index.js'
 import { createLogger } from '../../../logging/logger.js'
 import { blobResponseSchema } from './schemas/responses.js'
+import { blobRoutePath } from './route-path.js'
 import { sendAuditEvent } from '../../../messaging/outbound/audit/send-audit-event.js'
 import { buildAuditAccounts } from '../../../utils/build-audit-accounts.js'
 
 const logger = createLogger()
-const baseUrl = config.get('baseUrl.v1')
 const tracingHeader = config.get('tracing.header')
 
 export const blobRoute = {
   method: 'GET',
-  path: `${baseUrl}/blob/{fileId}`,
+  path: blobRoutePath,
   options: {
     tags: ['api', 'blob'],
     validate: {

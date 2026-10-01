@@ -256,6 +256,7 @@ describe('auth plugin', () => {
         case 'auth.entra.tenants': return [{ tenantId: 'test-tenant-id', allowedGroupIds: ['group-1', 'group-2'] }]
         case 'auth.cognito.enabled': return false
         case 'tracing.header': return 'x-cdp-request-id'
+        case 'baseUrl.v1': return '/api/v1'
         default: return null
       }
     })
@@ -593,13 +594,93 @@ describe('auth plugin', () => {
               priority: 1
             }),
             audit: expect.objectContaining({
-              entities: [{ entity: 'document', action: 'failed' }],
+              entities: [{ entity: 'request', action: 'failed', entityid: 'test-correlation-id' }],
               status: 'failure',
               details: expect.objectContaining({ path: '/api/v1/metadata', method: 'GET' })
             })
           }),
           expect.any(Object)
         )
+      })
+
+      test('emits document entity with file UUID for auth failures on the blob route', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const blobRequest = {
+          ...build401Request(),
+          path: '/api/v1/blob/3f2504e0-4f89-41d3-9a0c-0305e82c3301',
+          route: { path: '/api/v1/blob/{fileId}' },
+          params: { fileId: '3f2504e0-4f89-41d3-9a0c-0305e82c3301' }
+        }
+        await extensionHandler(blobRequest, { continue: Symbol('continue') })
+
+        expect(mockSendAuditEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            audit: expect.objectContaining({
+              entities: [{ entity: 'document', action: 'failed', entityid: '3f2504e0-4f89-41d3-9a0c-0305e82c3301' }]
+            })
+          }),
+          expect.any(Object)
+        )
+      })
+
+      test('falls back to request entity when the blob path segment is not a valid file UUID', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const blobRequest = {
+          ...build401Request(),
+          path: '/api/v1/blob/not-a-uuid',
+          route: { path: '/api/v1/blob/{fileId}' },
+          params: { fileId: 'not-a-uuid' }
+        }
+        await extensionHandler(blobRequest, { continue: Symbol('continue') })
+
+        expect(mockSendAuditEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            audit: expect.objectContaining({
+              entities: [{ entity: 'request', action: 'failed', entityid: 'test-correlation-id' }]
+            })
+          }),
+          expect.any(Object)
+        )
+      })
+
+      test('keeps entityid within the publisher schema limit for an oversized blob path segment', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const blobRequest = {
+          ...build401Request(),
+          path: `/api/v1/blob/${'a'.repeat(200)}`,
+          route: { path: '/api/v1/blob/{fileId}' },
+          params: { fileId: 'a'.repeat(200) }
+        }
+        await extensionHandler(blobRequest, { continue: Symbol('continue') })
+
+        const [payload] = mockSendAuditEvent.mock.calls[0]
+        const [entity] = payload.audit.entities
+
+        expect(entity).toEqual({ entity: 'request', action: 'failed', entityid: 'test-correlation-id' })
+        expect(entity.entityid.length).toBeLessThanOrEqual(120)
+      })
+
+      test('generates a correlation id when the tracing header is absent', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const request = build401Request()
+        delete request.headers['x-cdp-request-id']
+        await extensionHandler(request, { continue: Symbol('continue') })
+
+        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+        const [payload] = mockSendAuditEvent.mock.calls[0]
+
+        expect(payload.correlationid).toMatch(uuidPattern)
+        expect(payload.audit.entities).toEqual([
+          { entity: 'request', action: 'failed', entityid: payload.correlationid }
+        ])
       })
 
       test('does not emit audit event for non-boom (success) responses', async () => {

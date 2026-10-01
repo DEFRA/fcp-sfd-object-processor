@@ -276,12 +276,15 @@ This service publishes audit events to the shared `fcp-audit` SNS topic via `@de
 
 | Emitted from | Entity / action | Outcome |
 |---|---|---|
-| Any authenticated route rejected with `401` | `document` / `failed` | failure, carries a `security` block (`pmccode: AUTH`, `priority: 1`) |
+| Any authenticated route rejected with `401` (other than `GET /api/v1/blob/{fileId}`) | `request` / `failed` | failure, carries a `security` block (`pmccode: AUTH`, `priority: 1`) |
+| `GET /api/v1/blob/{fileId}` rejected with `401` | `document` / `failed` | failure, carries a `security` block (`pmccode: AUTH`, `priority: 1`) |
 | `POST /api/v1/callback` | `document` / `created` | success, one per persisted file |
 | `POST /api/v1/callback` validation or persist failure | `document` / `failed` | failure |
 | `GET /api/v1/blob/{fileId}` | `document` / `read` | success |
 | `GET /api/v1/metadata/sbi/{sbi}` | `document` / `read` | success, one per document returned |
 | Outbox entry reaching `PERMANENT_FAILURE` | `document` / `failed` | failure |
+
+For every `document` entity, `entityid` is the file's UUID (`payload.file.fileId`), not the MongoDB `ObjectId`, so a document can be correlated across its whole lifecycle from a single id. The one stated exception is the auth failure event on routes other than `GET /api/v1/blob/{fileId}`: no document has been identified at the point a request is rejected for authentication, so the event uses `entity: 'request'` with `entityid` set to the correlation id instead of a document id. On `GET /api/v1/blob/{fileId}` the file UUID is already in the path, so that route keeps `entity: 'document'` even on auth failure. See [`src/plugins/auth/index.js`](src/plugins/auth/index.js).
 
 Every publish is fired through `Promise.allSettled` or an explicit `catch`, so an audit transport failure can never turn a successful request into a 500 or abort an outbox polling run. The topic ARN is set with `AUDIT_TOPIC_ARN`. The `application` field is set with `AUDIT_APPLICATION`, defaulting to `Single Front Door`; it names the programme rather than the service so that audit events group across the estate, and it must match every other Single Front Door service. See [`src/messaging/outbound/audit/send-audit-event.js`](src/messaging/outbound/audit/send-audit-event.js).
 
