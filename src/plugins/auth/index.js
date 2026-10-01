@@ -7,13 +7,13 @@ import { getEntraAuthProvider } from './entra-options.js'
 import { getCognitoAuthProvider } from './cognito-options.js'
 import { createAuthStrategy } from './create-auth-strategy.js'
 import { AUTH_STRATEGY_NAME } from '../../constants/auth.js'
+import { blobRoutePath } from '../../api/v1/blobs/route-path.js'
 import { sendAuditEvent } from '../../messaging/outbound/audit/send-audit-event.js'
 import { buildAuthFailureResponseLog } from '../../utils/build-auth-failure-response-log.js'
 import { buildAuthDisabledLog, buildAuthConfigurationFailureLog } from '../../utils/build-auth-configuration-log.js'
 
 const logger = createLogger()
 const tracingHeader = config.get('tracing.header')
-const blobRoutePattern = new RegExp(`^${config.get('baseUrl.v1')}/blob/([^/]+)$`)
 const fileIdSchema = Joi.string().guid({ version: ['uuidv4'] })
 
 // Auth rejections happen before a document is identified for most routes, so the audit event
@@ -21,10 +21,10 @@ const fileIdSchema = Joi.string().guid({ version: ['uuidv4'] })
 // own api-audit convention of entityid-as-trace-id. On /v1/blob/{fileId} the file UUID is already
 // in the path, so a document entity is used instead. Agreed with the audit service owners as an
 // entity-naming convention rather than a schema requirement.
-// Auth runs before route param validation, so the path segment is untrusted here: an oversized
-// value would fail the audit publisher's schema and discard the security event entirely.
+// Auth runs before route param validation, so `request.params.fileId` is untrusted here: an
+// oversized value would fail the audit publisher's schema and discard the security event entirely.
 const buildAuthFailureEntity = (request, correlationId) => {
-  const fileId = request.path.match(blobRoutePattern)?.[1]
+  const fileId = request.route?.path === blobRoutePath ? request.params?.fileId : undefined
 
   if (fileId && !fileIdSchema.validate(fileId).error) {
     return { entity: 'document', action: 'failed', entityid: fileId }

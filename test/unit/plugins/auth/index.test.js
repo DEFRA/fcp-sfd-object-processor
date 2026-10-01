@@ -609,7 +609,9 @@ describe('auth plugin', () => {
         const extensionHandler = mockServer.ext.mock.calls[0][1]
         const blobRequest = {
           ...build401Request(),
-          path: '/api/v1/blob/3f2504e0-4f89-41d3-9a0c-0305e82c3301'
+          path: '/api/v1/blob/3f2504e0-4f89-41d3-9a0c-0305e82c3301',
+          route: { path: '/api/v1/blob/{fileId}' },
+          params: { fileId: '3f2504e0-4f89-41d3-9a0c-0305e82c3301' }
         }
         await extensionHandler(blobRequest, { continue: Symbol('continue') })
 
@@ -629,7 +631,9 @@ describe('auth plugin', () => {
         const extensionHandler = mockServer.ext.mock.calls[0][1]
         const blobRequest = {
           ...build401Request(),
-          path: '/api/v1/blob/not-a-uuid'
+          path: '/api/v1/blob/not-a-uuid',
+          route: { path: '/api/v1/blob/{fileId}' },
+          params: { fileId: 'not-a-uuid' }
         }
         await extensionHandler(blobRequest, { continue: Symbol('continue') })
 
@@ -649,7 +653,9 @@ describe('auth plugin', () => {
         const extensionHandler = mockServer.ext.mock.calls[0][1]
         const blobRequest = {
           ...build401Request(),
-          path: `/api/v1/blob/${'a'.repeat(200)}`
+          path: `/api/v1/blob/${'a'.repeat(200)}`,
+          route: { path: '/api/v1/blob/{fileId}' },
+          params: { fileId: 'a'.repeat(200) }
         }
         await extensionHandler(blobRequest, { continue: Symbol('continue') })
 
