@@ -623,6 +623,26 @@ describe('auth plugin', () => {
         )
       })
 
+      test('falls back to request entity when the blob path segment is not a valid file UUID', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const blobRequest = {
+          ...build401Request(),
+          path: `/api/v1/blob/${'a'.repeat(200)}`
+        }
+        await extensionHandler(blobRequest, { continue: Symbol('continue') })
+
+        expect(mockSendAuditEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            audit: expect.objectContaining({
+              entities: [{ entity: 'request', action: 'failed', entityid: 'test-correlation-id' }]
+            })
+          }),
+          expect.any(Object)
+        )
+      })
+
       test('does not emit audit event for non-boom (success) responses', async () => {
         await auth.plugin.register(mockServer)
 

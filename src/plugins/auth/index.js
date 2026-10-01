@@ -1,3 +1,4 @@
+import Joi from 'joi'
 import { config } from '../../config/index.js'
 import { createLogger } from '../../logging/logger.js'
 import { constants as httpConstants } from 'node:http2'
@@ -12,17 +13,20 @@ import { buildAuthDisabledLog, buildAuthConfigurationFailureLog } from '../../ut
 const logger = createLogger()
 const tracingHeader = config.get('tracing.header')
 const blobRoutePattern = new RegExp(`^${config.get('baseUrl.v1')}/blob/([^/]+)$`)
+const fileIdSchema = Joi.string().guid({ version: ['uuidv4'] })
 
 // Auth rejections happen before a document is identified for most routes, so the audit event
 // names the request itself (entity: 'request', entityid: the correlation id) following fcp-audit's
 // own api-audit convention of entityid-as-trace-id. On /v1/blob/{fileId} the file UUID is already
 // in the path, so a document entity is used instead. Agreed with the audit service owners as an
 // entity-naming convention rather than a schema requirement.
+// Auth runs before route param validation, so the path segment is untrusted here: an oversized
+// value would fail the audit publisher's schema and discard the security event entirely.
 const buildAuthFailureEntity = (request, correlationId) => {
-  const blobMatch = request.path.match(blobRoutePattern)
+  const fileId = request.path.match(blobRoutePattern)?.[1]
 
-  if (blobMatch) {
-    return { entity: 'document', action: 'failed', entityid: blobMatch[1] }
+  if (fileId && !fileIdSchema.validate(fileId).error) {
+    return { entity: 'document', action: 'failed', entityid: fileId }
   }
 
   return { entity: 'request', action: 'failed', entityid: correlationId }
