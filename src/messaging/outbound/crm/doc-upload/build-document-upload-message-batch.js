@@ -14,12 +14,6 @@ export const buildDocumentUploadMessageBatch = (pendingMessages) => {
 
     const title = `${metadata.reference} - CRN ${metadata.crn} - ${uploadDate}`
 
-    const contentTypeRecord = {}
-
-    if (file.contentType) {
-      contentTypeRecord.contentType = file.contentType
-    }
-
     return {
       id: file.fileId,
       // using fileId for idempotency, uuid.
@@ -40,7 +34,7 @@ export const buildDocumentUploadMessageBatch = (pendingMessages) => {
         file: {
           fileId: file.fileId,
           fileName: file.filename,
-          ...contentTypeRecord,
+          contentType: file.contentType,
           url: `${baseUrl}/api/v1/blob/${file.fileId}`
         },
         sbi: metadata.sbi,
