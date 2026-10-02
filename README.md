@@ -320,6 +320,14 @@ Current key indexes include:
 
 The service uses MongoDB `createIndexes`, which is idempotent and safe to run repeatedly across restarts and deployments. If `OUTBOX_SENT_TTL_SECONDS` changes, the service detects the mismatch on startup and updates `outbox_sent_ttl_idx` in place via `collMod`. If the index's key or partial filter ever changes instead, the service drops and recreates the index automatically, so no manual index maintenance is required.
 
+### Query limits
+
+| Variable | Default | Description |
+|---|---|---|
+| `MONGO_METADATA_SBI_PAGE_SIZE` | `100` | Records returned per page by `GET /api/v1/metadata/sbi/{sbi}` when the caller does not supply a page size |
+| `MONGO_METADATA_SBI_MAX_PAGE_SIZE` | `200` | Largest page size a caller may request from `GET /api/v1/metadata/sbi/{sbi}` |
+| `MONGO_STATUS_QUERY_LIMIT` | `100` | Maximum status records read for a single correlation id |
+
 ### Test collections
 
 Most integration tests use dedicated test collection names and rely on the same startup index creation path. Where a test creates an isolated collection after startup (for example callback idempotency tests), create any required indexes explicitly in the test setup before assertions.

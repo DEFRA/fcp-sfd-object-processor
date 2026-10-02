@@ -1,3 +1,7 @@
+import { positiveInt } from './formats/positive-int.js'
+
+const POSITIVE_INT = positiveInt.name
+
 export const databaseConfig = {
   mongo: {
     uri: {
@@ -23,6 +27,24 @@ export const databaseConfig = {
       format: 'int',
       default: 100,
       env: 'MONGO_OUTBOX_QUERY_LIMIT'
+    },
+    metadataSbiPageSize: {
+      doc: 'Default number of metadata records returned per page when retrieving metadata by SBI, used when the caller does not supply a page size',
+      format: POSITIVE_INT,
+      default: 100,
+      env: 'MONGO_METADATA_SBI_PAGE_SIZE'
+    },
+    metadataSbiMaxPageSize: {
+      doc: 'Largest page size a caller may request when retrieving metadata by SBI',
+      format: POSITIVE_INT,
+      default: 200,
+      env: 'MONGO_METADATA_SBI_MAX_PAGE_SIZE'
+    },
+    statusQueryLimit: {
+      doc: 'Limit for number of status records to query at once for a single correlation id',
+      format: POSITIVE_INT,
+      default: 100,
+      env: 'MONGO_STATUS_QUERY_LIMIT'
     },
     collections: {
       uploadMetadata: {
