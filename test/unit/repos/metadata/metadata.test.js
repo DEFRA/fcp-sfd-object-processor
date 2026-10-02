@@ -1,4 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { ObjectId } from 'mongodb'
 
 import {
   formatInboundMetadata,
@@ -7,6 +8,7 @@ import {
   getS3ReferenceAndSbiByFileId,
   getMetadataByFileId,
   getMetadataBySbi,
+  getMetadataPageBySbi,
   getMetadataMessagingByFileIds
 } from '../../../../src/repos/metadata.js'
 import { mockScanAndUploadResponse } from '../../../mocks/cdp-uploader.js'
@@ -363,6 +365,123 @@ describe('getMetadataBySbi', () => {
     queryCollection.find.mockReturnValue({ project })
 
     await expect(getMetadataBySbi('missing')).rejects.toThrow(NotFoundError)
+  })
+})
+
+describe('getMetadataPageBySbi', () => {
+  let queryCollection
+  let mockFind
+  let mockProject
+  let mockSort
+  let mockLimit
+  let mockToArray
+
+  const sbi = 105000000
+  const pageSize = 2
+
+  const buildDocument = () => ({
+    _id: new ObjectId(),
+    metadata: { sbi },
+    file: { fileId: 'f1' }
+  })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+
+    mockToArray = vi.fn()
+    mockLimit = vi.fn().mockReturnValue({ toArray: mockToArray })
+    mockSort = vi.fn().mockReturnValue({ limit: mockLimit })
+    mockProject = vi.fn().mockReturnValue({ sort: mockSort })
+    mockFind = vi.fn().mockReturnValue({ project: mockProject })
+
+    queryCollection = { find: mockFind }
+    db.collection.mockReturnValue(queryCollection)
+  })
+
+  test('filters by sbi only when no cursor is supplied', async () => {
+    mockToArray.mockResolvedValue([buildDocument()])
+
+    await getMetadataPageBySbi(sbi, { pageSize })
+
+    expect(db.collection).toHaveBeenCalledWith('uploadMetadata')
+    expect(mockFind).toHaveBeenCalledWith({ 'metadata.sbi': sbi })
+  })
+
+  test('filters by sbi and documents older than the cursor when a cursor is supplied', async () => {
+    const after = new ObjectId()
+    mockToArray.mockResolvedValue([buildDocument()])
+
+    await getMetadataPageBySbi(sbi, { pageSize, after })
+
+    expect(mockFind).toHaveBeenCalledWith({ 'metadata.sbi': sbi, _id: { $lt: after } })
+  })
+
+  test('returns only the metadata and file keys', async () => {
+    mockToArray.mockResolvedValue([buildDocument()])
+
+    await getMetadataPageBySbi(sbi, { pageSize })
+
+    expect(mockProject).toHaveBeenCalledWith({ metadata: 1, file: 1 })
+  })
+
+  test('sorts newest first and requests one document more than the page size', async () => {
+    mockToArray.mockResolvedValue([buildDocument()])
+
+    await getMetadataPageBySbi(sbi, { pageSize })
+
+    expect(mockSort).toHaveBeenCalledWith({ _id: -1 })
+    expect(mockLimit).toHaveBeenCalledWith(pageSize + 1)
+  })
+
+  test('trims the extra document and reports more pages when more documents exist than the page size', async () => {
+    const documents = [buildDocument(), buildDocument(), buildDocument()]
+    mockToArray.mockResolvedValue(documents)
+
+    const result = await getMetadataPageBySbi(sbi, { pageSize })
+
+    expect(result.documents).toEqual(documents.slice(0, pageSize))
+    expect(result.hasMore).toBe(true)
+  })
+
+  test('sets the next cursor to the hex id of the last returned document when more pages exist', async () => {
+    const documents = [buildDocument(), buildDocument(), buildDocument()]
+    mockToArray.mockResolvedValue(documents)
+
+    const result = await getMetadataPageBySbi(sbi, { pageSize })
+
+    expect(result.nextCursor).toBe(documents[pageSize - 1]._id.toHexString())
+  })
+
+  test('reports no more pages and a null cursor when the documents exactly fill the page', async () => {
+    const documents = [buildDocument(), buildDocument()]
+    mockToArray.mockResolvedValue(documents)
+
+    const result = await getMetadataPageBySbi(sbi, { pageSize })
+
+    expect(result).toEqual({ documents, hasMore: false, nextCursor: null })
+  })
+
+  test('reports no more pages and a null cursor when fewer documents than the page size exist', async () => {
+    const documents = [buildDocument()]
+    mockToArray.mockResolvedValue(documents)
+
+    const result = await getMetadataPageBySbi(sbi, { pageSize })
+
+    expect(result).toEqual({ documents, hasMore: false, nextCursor: null })
+  })
+
+  test('throws NotFoundError when the first page is empty', async () => {
+    mockToArray.mockResolvedValue([])
+
+    await expect(getMetadataPageBySbi(sbi, { pageSize })).rejects.toThrow(NotFoundError)
+  })
+
+  test('returns an empty page rather than throwing when a cursor page is empty', async () => {
+    mockToArray.mockResolvedValue([])
+
+    const result = await getMetadataPageBySbi(sbi, { pageSize, after: new ObjectId() })
+
+    expect(result).toEqual({ documents: [], hasMore: false, nextCursor: null })
   })
 })
 
