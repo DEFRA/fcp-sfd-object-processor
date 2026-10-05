@@ -99,6 +99,39 @@ const getMetadataBySbi = async (sbi) => {
   return documents
 }
 
+/**
+ * Reads one page of upload metadata for an SBI, newest first.
+ * Requests one document more than the page size so that the presence of a further page
+ * is known without a separate count query.
+ * @param {number} sbi
+ * @param {{ pageSize: number, after?: import('mongodb').ObjectId }} options
+ * @returns {Promise<{ documents: object[], hasMore: boolean, nextCursor: string|null }>}
+ */
+const getMetadataPageBySbi = async (sbi, { pageSize, after }) => {
+  const collection = config.get(metadataCollection)
+
+  const results = await getDb().collection(collection)
+    .find({ 'metadata.sbi': sbi, ...(after && { _id: { $lt: after } }) })
+    .project({ metadata: 1, file: 1 }) // only return the metadata and file keys
+    .sort({ _id: -1 })
+    .limit(pageSize + 1)
+    .toArray()
+
+  // an empty first page means the SBI has no uploads; an empty cursor page is simply the end
+  if (results.length === 0 && !after) {
+    throw new NotFoundError(noDocumentsFoundError)
+  }
+
+  const hasMore = results.length > pageSize
+  const documents = hasMore ? results.slice(0, pageSize) : results
+
+  return {
+    documents,
+    hasMore,
+    nextCursor: hasMore ? documents.at(-1)._id.toHexString() : null
+  }
+}
+
 const persistMetadata = async (documents, session) => {
   const collection = config.get(metadataCollection)
 
@@ -145,6 +178,7 @@ const getMetadataMessagingByFileIds = async (fileIds, session = undefined) => {
 
 export {
   getMetadataBySbi,
+  getMetadataPageBySbi,
   persistMetadata,
   formatInboundMetadata,
   getS3ReferenceAndSbiByFileId,
