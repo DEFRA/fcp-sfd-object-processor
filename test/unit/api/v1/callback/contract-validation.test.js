@@ -64,6 +64,39 @@ describe('callback contract validation (fileStatus variants)', () => {
     expect(error).toBeUndefined()
   })
 
+  test('REJECTED file without contentType passes validation', () => {
+    const payload = { ...base }
+    const file = {
+      fileId: '550e8400-e29b-41d4-a716-446655440000',
+      filename: 'notes.txt',
+      fileStatus: 'rejected',
+      hasError: true,
+      errorMessage: 'File type is not allowed',
+      errorCode: 'FILE_INVALID_TYPE'
+    }
+    payload.form = { 'rejected-file': file }
+
+    const { error } = callbackPayloadSchema.validate(payload)
+    expect(error).toBeUndefined()
+  })
+
+  test('REJECTED file with a disallowed contentType passes validation', () => {
+    const payload = { ...base }
+    const file = {
+      fileId: '550e8400-e29b-41d4-a716-446655440000',
+      filename: 'archive.zip',
+      contentType: 'application/zip',
+      fileStatus: 'rejected',
+      hasError: true,
+      errorMessage: 'File type is not allowed',
+      errorCode: 'FILE_INVALID_TYPE'
+    }
+    payload.form = { 'rejected-file': file }
+
+    const { error } = callbackPayloadSchema.validate(payload)
+    expect(error).toBeUndefined()
+  })
+
   test('REJECTED file without errorMessage fails validation', () => {
     const payload = { ...base }
     const file = { ...payload.form['a-file-upload-field'], fileStatus: 'rejected', hasError: true }
@@ -145,6 +178,25 @@ describe('callback contract validation (fileStatus variants)', () => {
 
     const { error } = callbackPayloadSchema.validate(payload)
     expect(error).toBeUndefined()
+  })
+
+  test('COMPLETE file without contentType fails validation even when detectedContentType is present', () => {
+    const payload = { ...base }
+    const file = {
+      fileId: '550e8400-e29b-41d4-a716-446655440000',
+      filename: 'document.pdf',
+      detectedContentType: 'application/pdf',
+      fileStatus: 'complete',
+      s3Key: 'uploads/document.pdf',
+      s3Bucket: 'test-bucket',
+      checksumSha256: 'bng5jOVC6TxEgwTUlX4DikFtDEYEc8vQTsOP0ZAv21c=',
+      contentLength: 42
+    }
+    payload.form = { 'complete-file': file }
+
+    const { error } = callbackPayloadSchema.validate(payload)
+    expect(error).toBeDefined()
+    expect(error.details.some(d => d.path.join('.').includes('contentType'))).toBe(true)
   })
 
   test('COMPLETE file with an invalid detectedContentType still fails validation (allowedMimeTypes constraint preserved)', () => {

@@ -227,6 +227,30 @@ describe('cdpUploaderStatusResponseSchema', () => {
       expect(error).toBeUndefined()
     })
 
+    test('rejected file without contentType passes', () => {
+      const { contentType, ...fileWithoutContentType } = rejectedFile
+      const payload = {
+        uploadStatus: 'ready',
+        metadata: validMetadata,
+        form: { 'file-field': fileWithoutContentType },
+        numberOfRejectedFiles: 1
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeUndefined()
+    })
+
+    test('rejected file with empty contentType fails', () => {
+      const payload = {
+        uploadStatus: 'ready',
+        metadata: validMetadata,
+        form: { 'file-field': { ...rejectedFile, contentType: '' } },
+        numberOfRejectedFiles: 1
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeDefined()
+      expect(error.message).toContain('contentType')
+    })
+
     test('rejected file with detectedContentType and checksumSha256 passes (CDP Uploader includes them)', () => {
       const payload = {
         uploadStatus: 'ready',
@@ -325,6 +349,19 @@ describe('cdpUploaderStatusResponseSchema', () => {
         uploadStatus: 'ready',
         metadata: validMetadata,
         form: { 'file-field': completeZipFile },
+        numberOfRejectedFiles: 0
+      }
+      const { error } = cdpUploaderStatusResponseSchema.validate(payload)
+      expect(error).toBeDefined()
+      expect(error.message).toContain('contentType')
+    })
+
+    test('complete file without contentType fails', () => {
+      const { contentType, ...completeFileWithoutContentType } = completeFile
+      const payload = {
+        uploadStatus: 'ready',
+        metadata: validMetadata,
+        form: { 'file-field': completeFileWithoutContentType },
         numberOfRejectedFiles: 0
       }
       const { error } = cdpUploaderStatusResponseSchema.validate(payload)
