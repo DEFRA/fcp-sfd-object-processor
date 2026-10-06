@@ -3,6 +3,7 @@ import { constants as httpConstants } from 'node:http2'
 
 import { getMetadataBySbi } from '../../../repos/metadata.js'
 import { metadataParamSchema, metadataResponseSchema } from './schemas/index.js'
+import { responseFailAction } from '../../common/helpers/response-fail-action.js'
 import { NotFoundError } from '../../../errors/not-found-error.js'
 import { config } from '../../../config/index.js'
 import { sendAuditEvent } from '../../../messaging/outbound/audit/send-audit-event.js'
@@ -23,7 +24,8 @@ export const metadataRoute = {
       }
     },
     response: {
-      status: metadataResponseSchema
+      status: metadataResponseSchema,
+      failAction: responseFailAction
     }
   },
   handler: async (request, h) => {

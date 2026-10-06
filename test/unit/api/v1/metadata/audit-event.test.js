@@ -16,6 +16,10 @@ vi.mock('../../../../../src/config/index.js', () => ({
   config: { get: mockConfigGet }
 }))
 
+vi.mock('../../../../../src/logging/logger.js', () => ({
+  createLogger: () => ({ error: vi.fn(), warn: vi.fn() })
+}))
+
 vi.mock('../../../../../src/messaging/outbound/audit/send-audit-event.js', () => ({
   sendAuditEvent: mockPublishAuditEvent
 }))

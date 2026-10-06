@@ -157,6 +157,23 @@ describe('GET to the /api/v1/metadata/sbi route', () => {
       expect(response.result.message).toBe('Invalid SBI format')
     })
 
+    test('should return 500 without exposing the record when a stored record fails response validation', async () => {
+      const invalidCrn = 12345
+      await db.collection(collection).insertOne({
+        ...mockMetadataResponse[0],
+        metadata: { ...mockMetadataResponse[0].metadata, crn: invalidCrn }
+      })
+
+      const response = await server.inject({
+        method: 'GET',
+        url: `/api/v1/metadata/sbi/${mockMetadataResponse[0].metadata.sbi}`
+      })
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
+      expect(response.result.message).toBe('An internal server error occurred')
+      expect(response.payload).not.toContain(String(invalidCrn))
+    })
+
     test('should return 500 server error when db is unavailable', async () => {
       await db.client.close()
 
