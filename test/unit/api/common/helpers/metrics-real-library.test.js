@@ -29,6 +29,6 @@ describe('#metrics with the real @defra/cdp-metrics library', () => {
   })
 
   test('Should resolve without throwing', async () => {
-    await expect(metricsCounter('real-library-check')).resolves.not.toThrow()
+    await expect(metricsCounter('real-library-check')).resolves.toBeUndefined()
   })
 })

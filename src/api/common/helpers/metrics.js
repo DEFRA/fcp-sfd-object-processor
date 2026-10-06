@@ -25,7 +25,7 @@ const isMetricsEnabled = () => config.get('isMetricsEnabled')
 
 const metricsCounter = (metricName, value = 1, dimensions = {}) => {
   if (!isMetricsEnabled()) {
-    return
+    return undefined
   }
 
   return metrics.counter(metricName, value, sanitiseDimensions(dimensions))
@@ -33,7 +33,7 @@ const metricsCounter = (metricName, value = 1, dimensions = {}) => {
 
 const metricsGauge = (metricName, value, dimensions = {}) => {
   if (!isMetricsEnabled()) {
-    return
+    return undefined
   }
 
   return metrics.gauge(metricName, value, sanitiseDimensions(dimensions))
@@ -41,7 +41,7 @@ const metricsGauge = (metricName, value, dimensions = {}) => {
 
 const metricsMillis = (metricName, value, dimensions = {}) => {
   if (!isMetricsEnabled()) {
-    return
+    return undefined
   }
 
   return metrics.millis(metricName, value, sanitiseDimensions(dimensions))
