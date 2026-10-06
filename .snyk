@@ -8,3 +8,16 @@ ignore:
           ships a compatible upgrade.
         expires: 2026-12-17T00:00:00.000Z
         created: 2026-09-17T00:00:00.000Z
+  SNYK-JS-SPRINTFJS-20532016:
+    - '*':
+        reason: >-
+          No fixed version exists for sprintf-js (Snyk advisory: "There is no fixed
+          version"). Pulled in transitively via global-agent@3.0.0 > roarr@2.15.4 >
+          sprintf-js@1.1.3, used only to format global-agent's own internal debug
+          logging; no attacker-controlled format string reaches it in this service.
+          global-agent@4.0.0 cannot be used as a replacement: its published npm
+          package omits the dist/ build its own package.json main field points to,
+          breaking module resolution entirely. Re-review when either package
+          publishes a fix.
+        expires: 2026-12-17T00:00:00.000Z
+        created: 2026-10-06T00:00:00.000Z
