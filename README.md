@@ -311,6 +311,7 @@ Current key indexes include:
 - `uploadMetadata`
    - Unique `{"file.fileId": 1}` (`metadata_fileId_idx`)
    - `{"metadata.sbi": 1}` (`metadata_sbi_idx`)
+   - `{"metadata.sbi": 1, "_id": -1}` (`metadata_sbi_id_idx`), which serves the SBI match and the newest first sort in a single index range scan
 - `outbox`
    - `{"status": 1, "createdAt": 1}` (`outbox_status_createdAt_idx`)
    - `{"status": 1, "claimedUntil": 1}` (`outbox_status_claimedUntil_idx`)
@@ -319,6 +320,8 @@ Current key indexes include:
    - TTL `{"lastAttemptedAt": 1}` (`outbox_sent_ttl_idx`), partial on `status: "SENT"`, expiring after `messaging.outboxSentTtlSeconds` (`OUTBOX_SENT_TTL_SECONDS`, default 604800s / 7 days)
 
 The service uses MongoDB `createIndexes`, which is idempotent and safe to run repeatedly across restarts and deployments. If `OUTBOX_SENT_TTL_SECONDS` changes, the service detects the mismatch on startup and updates `outbox_sent_ttl_idx` in place via `collMod`. If the index's key or partial filter ever changes instead, the service drops and recreates the index automatically, so no manual index maintenance is required.
+
+The service waits for `createIndexes()` to finish before it completes startup. The MongoDB `createIndexes` command returns only when each build is complete, and if index creation fails the service closes its MongoDB connection and does not start. Adding an index to a large collection therefore delays the first startup after deployment, and a slow build can outlast the ECS health check grace period so that the task is replaced and the build restarts. Before deploying a change that adds an index, check the document count of the affected collection in each environment. Where the build would take more than a few seconds, create the index by hand through the CDP terminal first, with the same key and name as in `createIndexes()`. The startup call then finds the index already present and returns at once.
 
 ### Query limits
 

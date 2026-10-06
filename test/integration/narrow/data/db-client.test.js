@@ -53,6 +53,7 @@ describe('Create Mongo client', () => {
 
     expect(indexNames).toContain('metadata_fileId_idx')
     expect(indexNames).toContain('metadata_sbi_idx')
+    expect(indexNames).toContain('metadata_sbi_id_idx')
   })
 
   test('outbox collection should include required indexes', async () => {
