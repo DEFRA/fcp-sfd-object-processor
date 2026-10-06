@@ -71,6 +71,7 @@ Mock documents in internal storage format (how data is stored in MongoDB).
 - `mockMetadataResponse` - Array of 2 formatted documents
 - `mockMetadataResponseAlt` - Alternative submission documents
 - `mockFormattedMetadata` - Single document (for blob/metadata queries)
+- `createManyMetadataDocuments(count)` - Builds `count` formatted documents for the primary SBI, each with a random `file.fileId` and a strictly increasing `_id` (for many-document pagination tests)
 
 **When to use:**
 - Testing metadata queries (`/api/v1/metadata/sbi/{sbi}`)

@@ -365,7 +365,7 @@ The service waits for `createIndexes()` to finish before it completes startup. T
 
 ### Test collections
 
-Most integration tests use dedicated test collection names and rely on the same startup index creation path. Where a test creates an isolated collection after startup (for example callback idempotency tests), create any required indexes explicitly in the test setup before assertions.
+Most integration tests use dedicated test collection names and rely on the same startup index creation path. Where a test creates an isolated collection after startup (for example callback idempotency tests), create any required indexes explicitly in the test setup before assertions. [`test/integration/narrow/api/metadata-many-documents.test.js`](test/integration/narrow/api/metadata-many-documents.test.js) does this for the `uploadMetadata` indexes, then uses `explain('executionStats')` to confirm that the paged SBI query is served by an index scan on `metadata_sbi_id_idx` with no in-memory sort.
 
 ## Logging
 
