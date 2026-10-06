@@ -15,6 +15,7 @@ import { endpointPath } from './formats/endpoint-path.js'
 import { mimeTypeArray } from './formats/mime-types.js'
 import { documentTypeArray } from './formats/document-types.js'
 import { ttlSeconds } from './formats/ttl-seconds.js'
+import { positiveInt } from './formats/positive-int.js'
 
 convict.addFormat(securityGroupArray)
 convict.addFormat(entraTenantsArray)
@@ -23,6 +24,7 @@ convict.addFormat(endpointPath)
 convict.addFormat(mimeTypeArray)
 convict.addFormat(documentTypeArray)
 convict.addFormat(ttlSeconds)
+convict.addFormat(positiveInt)
 
 const config = convict({
   ...serverConfig,

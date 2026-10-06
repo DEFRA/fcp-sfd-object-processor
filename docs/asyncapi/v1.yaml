@@ -107,7 +107,7 @@ components:
 
     contentType:
       type: string
-      description: MIME type of the file
+      description: MIME type declared by the client on submission.
       example: "application/pdf"
       minLength: 1
       maxLength: 127
@@ -138,8 +138,8 @@ components:
       required:
         - fileId
         - fileName
-        - url
         - contentType
+        - url
       properties:
         fileId:
           $ref: "#/components/schemas/fileId"

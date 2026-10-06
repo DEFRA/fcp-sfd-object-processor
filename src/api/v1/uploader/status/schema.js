@@ -26,11 +26,9 @@ export const uploaderStatusParamsSchema = Joi.object({
  * - Unprocessed (initiated/early pending): only fileId, filename, contentType
  * - Pending scan: fileStatus: 'pending' added, other fields still absent
  * - Complete: all fields present
- * - Rejected: includes hasError, errorMessage, errorCode, errorParams.
- *   For wrong-MIME-type rejections, contentType will be the disallowed type
- *   (e.g. application/zip), so the allowedMimeTypes constraint is relaxed for
- *   rejected files. detectedContentType is absent (file was never uploaded),
- *   but is also relaxed in case cdp-uploader populates it in future.
+ * - Rejected: includes hasError, errorMessage, errorCode, errorParams; the
+ *   declared contentType may be absent or any non-empty value.
+ *   detectedContentType is absent when the file was never uploaded.
  */
 const cdpStatusFileBaseSchema = Joi.object({
   fileId: Joi.string()
@@ -47,8 +45,8 @@ const cdpStatusFileBaseSchema = Joi.object({
 
   contentType: Joi.alternatives().conditional('fileStatus', {
     is: 'rejected',
-    then: Joi.string().min(1).required().description('MIME type of the uploaded file (any value for rejected files)'),
-    otherwise: Joi.string().valid(...allowedMimeTypes).required().description('MIME type of the uploaded file')
+    then: Joi.string().min(1).description('MIME type declared on submission (any non-empty value for rejected files)'),
+    otherwise: Joi.string().valid(...allowedMimeTypes).required().description('MIME type declared on submission')
   }).label('contentType'),
 
   detectedContentType: Joi.alternatives().conditional('fileStatus', {

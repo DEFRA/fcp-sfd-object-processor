@@ -87,14 +87,26 @@ describe('callback handler — (document/created)', () => {
   })
 
   test('emits document/created for each inserted fileId on success', async () => {
-    const fileId1 = 'file-id-1'
-    const fileId2 = 'file-id-2'
+    const payloadFileId1 = '3f2504e0-4f89-41d3-9a0c-0305e82c3302'
+    const payloadFileId2 = '3f2504e0-4f89-41d3-9a0c-0305e82c3303'
+    const objectId1 = 'object-id-1'
+    const objectId2 = 'object-id-2'
     persistMetadataWithOutbox.mockResolvedValueOnce({
       insertedCount: 2,
-      insertedIds: { 0: { toString: () => fileId1 }, 1: { toString: () => fileId2 } }
+      insertedIds: { 0: { toString: () => objectId1 }, 1: { toString: () => objectId2 } }
     })
 
-    const request = buildMockRequest()
+    const request = buildMockRequest({
+      payload: {
+        metadata: { sbi: 105000000 },
+        form: {
+          file1: { fileId: payloadFileId1 },
+          file2: { fileId: payloadFileId2 }
+        },
+        uploadStatus: 'ready',
+        numberOfRejectedFiles: 0
+      }
+    })
     const h = buildMockH()
 
     await uploadCallback.options.handler(request, h)
@@ -104,7 +116,7 @@ describe('callback handler — (document/created)', () => {
       expect.objectContaining({
         correlationid: RESOLVED_ID,
         audit: expect.objectContaining({
-          entities: [{ entity: 'document', action: 'created', entityid: fileId1 }],
+          entities: [{ entity: 'document', action: 'created', entityid: payloadFileId1 }],
           accounts: { sbi: '105000000' },
           status: 'success',
           details: { reason: 'callback_successful' }

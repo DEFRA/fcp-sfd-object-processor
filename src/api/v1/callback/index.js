@@ -111,8 +111,9 @@ export const uploadCallback = {
         }
 
         const fileIds = Object.values(result.insertedIds).map(id => id.toString())
+        const auditFileIds = extractFileIdsFromPayload(request.payload)
 
-        await Promise.allSettled(fileIds.map(fileId => sendAuditEvent({
+        await Promise.allSettled(auditFileIds.map(fileId => sendAuditEvent({
           correlationid: correlationId,
           audit: {
             entities: [{ entity: 'document', action: 'created', entityid: fileId }],

@@ -276,12 +276,15 @@ This service publishes audit events to the shared `fcp-audit` SNS topic via `@de
 
 | Emitted from | Entity / action | Outcome |
 |---|---|---|
-| Any authenticated route rejected with `401` | `document` / `failed` | failure, carries a `security` block (`pmccode: AUTH`, `priority: 1`) |
+| Any authenticated route rejected with `401` (other than `GET /api/v1/blob/{fileId}`) | `request` / `failed` | failure, carries a `security` block (`pmccode: AUTH`, `priority: 1`) |
+| `GET /api/v1/blob/{fileId}` rejected with `401` | `document` / `failed` | failure, carries a `security` block (`pmccode: AUTH`, `priority: 1`) |
 | `POST /api/v1/callback` | `document` / `created` | success, one per persisted file |
 | `POST /api/v1/callback` validation or persist failure | `document` / `failed` | failure |
 | `GET /api/v1/blob/{fileId}` | `document` / `read` | success |
 | `GET /api/v1/metadata/sbi/{sbi}` | `document` / `read` | success, one per document returned |
 | Outbox entry reaching `PERMANENT_FAILURE` | `document` / `failed` | failure |
+
+For every `document` entity, `entityid` is the file's UUID (`payload.file.fileId`), not the MongoDB `ObjectId`, so a document can be correlated across its whole lifecycle from a single id. The one stated exception is the auth failure event on routes other than `GET /api/v1/blob/{fileId}`: no document has been identified at the point a request is rejected for authentication, so the event uses `entity: 'request'` with `entityid` set to the correlation id instead of a document id. On `GET /api/v1/blob/{fileId}` the file UUID is already in the path, so that route keeps `entity: 'document'` even on auth failure. See [`src/plugins/auth/index.js`](src/plugins/auth/index.js).
 
 Every publish is fired through `Promise.allSettled` or an explicit `catch`, so an audit transport failure can never turn a successful request into a 500 or abort an outbox polling run. The topic ARN is set with `AUDIT_TOPIC_ARN`. The `application` field is set with `AUDIT_APPLICATION`, defaulting to `Single Front Door`; it names the programme rather than the service so that audit events group across the estate, and it must match every other Single Front Door service. See [`src/messaging/outbound/audit/send-audit-event.js`](src/messaging/outbound/audit/send-audit-event.js).
 
@@ -319,6 +322,14 @@ Current key indexes include:
 The service uses MongoDB `createIndexes`, which is idempotent and safe to run repeatedly across restarts and deployments. If `OUTBOX_SENT_TTL_SECONDS` changes, the service detects the mismatch on startup and updates `outbox_sent_ttl_idx` in place via `collMod`. If the index's key or partial filter ever changes instead, the service drops and recreates the index automatically, so no manual index maintenance is required.
 
 The service waits for `createIndexes()` to finish before it completes startup. The MongoDB `createIndexes` command returns only when each build is complete, and if index creation fails the service closes its MongoDB connection and does not start. Adding an index to a large collection therefore delays the first startup after deployment, and a slow build can outlast the ECS health check grace period so that the task is replaced and the build restarts. Before deploying a change that adds an index, check the document count of the affected collection in each environment. Where the build would take more than a few seconds, create the index by hand through the CDP terminal first, with the same key and name as in `createIndexes()`. The startup call then finds the index already present and returns at once.
+
+### Query limits
+
+| Variable | Default | Description |
+|---|---|---|
+| `MONGO_METADATA_SBI_PAGE_SIZE` | `100` | Records returned per page by `GET /api/v1/metadata/sbi/{sbi}` when the caller does not supply a page size |
+| `MONGO_METADATA_SBI_MAX_PAGE_SIZE` | `200` | Largest page size a caller may request from `GET /api/v1/metadata/sbi/{sbi}` |
+| `MONGO_STATUS_QUERY_LIMIT` | `100` | Maximum status records read for a single correlation id |
 
 ### Test collections
 
