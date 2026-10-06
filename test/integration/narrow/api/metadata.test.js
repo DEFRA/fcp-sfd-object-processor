@@ -16,6 +16,7 @@ afterAll(async () => {
   await closeDb()
 })
 
+const PAGE_SIZE_CONFIG_KEY = 'mongo.metadataSbiPageSize'
 const capturedAuditEvents = []
 
 vi.mock('@defra/fcp-audit-publisher', async (importOriginal) => {
@@ -102,7 +103,7 @@ describe('GET to the /api/v1/metadata/sbi route', () => {
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
       expect(response.result.page).toStrictEqual({
-        pageSize: config.get('mongo.metadataSbiPageSize'),
+        pageSize: config.get(PAGE_SIZE_CONFIG_KEY),
         count: mockMetadataResponse.length,
         hasMore: false,
         nextCursor: null
@@ -171,7 +172,7 @@ describe('GET to the /api/v1/metadata/sbi route', () => {
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
       expect(response.result.data).toEqual([])
       expect(response.result.page).toStrictEqual({
-        pageSize: config.get('mongo.metadataSbiPageSize'),
+        pageSize: config.get(PAGE_SIZE_CONFIG_KEY),
         count: 0,
         hasMore: false,
         nextCursor: null
@@ -297,6 +298,15 @@ describe('GET to the /api/v1/metadata/sbi route', () => {
   })
 })
 
+const assertEmptyReadEvent = (event, sbi) => {
+  assertValidAuditEvent(event)
+  expect(event.audit.entities).toEqual([{ entity: 'document', action: 'read' }])
+  expect(event.audit.accounts).toEqual({ sbi: String(sbi) })
+  expect(event.audit.status).toBe('success')
+  expect(event.audit.details).toEqual({ count: 0, pageSize: config.get(PAGE_SIZE_CONFIG_KEY) })
+  expect(JSON.stringify(event)).not.toContain('crn')
+}
+
 describe('GET /api/v1/metadata/sbi/{sbi} — audit event schema validation', async () => {
   let auditServer
 
@@ -316,21 +326,74 @@ describe('GET /api/v1/metadata/sbi/{sbi} — audit event schema validation', asy
     await db.collection(collection).deleteMany({})
   })
 
-  test('emits schema-valid document/read events for each matched document', async () => {
+  test('emits exactly one schema-valid document/read event listing every returned document', async () => {
     capturedAuditEvents.length = 0
     const sbi = mockMetadataResponse[0].metadata.sbi
+
+    const response = await auditServer.inject({
+      method: 'GET',
+      url: `/api/v1/metadata/sbi/${sbi}`
+    })
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+    expect(capturedAuditEvents).toHaveLength(1)
+
+    const [event] = capturedAuditEvents
+    assertValidAuditEvent(event)
+    expect(event.audit.status).toBe('success')
+    expect(event.audit.accounts).toEqual({ sbi: String(sbi) })
+    expect(event.audit.details).toEqual({
+      count: mockMetadataResponse.length,
+      pageSize: config.get(PAGE_SIZE_CONFIG_KEY)
+    })
+    expect(event.audit.entities).toHaveLength(mockMetadataResponse.length)
+    expect(event.audit.entities).toEqual(
+      response.result.data.map(doc => ({ entity: 'document', action: 'read', entityid: doc.file.fileId }))
+    )
+  })
+
+  test('emits a document/read event that carries no CRN', async () => {
+    capturedAuditEvents.length = 0
+    const { sbi, crn } = mockMetadataResponse[0].metadata
 
     await auditServer.inject({
       method: 'GET',
       url: `/api/v1/metadata/sbi/${sbi}`
     })
 
-    expect(capturedAuditEvents.length).toBeGreaterThan(0)
-    capturedAuditEvents.forEach(event => {
-      assertValidAuditEvent(event)
-      expect(event.audit.entities[0].entity).toBe('document')
-      expect(event.audit.entities[0].action).toBe('read')
-      expect(event.audit.status).toBe('success')
+    expect(capturedAuditEvents).toHaveLength(1)
+    const serialised = JSON.stringify(capturedAuditEvents[0])
+    expect(serialised).not.toContain('crn')
+    expect(serialised).not.toContain(String(crn))
+  })
+
+  test('emits exactly one schema-valid empty read event for an empty page, which is still returned with 200', async () => {
+    capturedAuditEvents.length = 0
+    const sbi = mockMetadataResponse[0].metadata.sbi
+    const olderThanEveryRecord = '000000000000000000000000'
+
+    const response = await auditServer.inject({
+      method: 'GET',
+      url: `/api/v1/metadata/sbi/${sbi}?after=${olderThanEveryRecord}`
     })
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+    expect(response.result.data).toEqual([])
+    expect(capturedAuditEvents).toHaveLength(1)
+    assertEmptyReadEvent(capturedAuditEvents[0], sbi)
+  })
+
+  test('emits exactly one schema-valid empty read event for an SBI with no documents, which still returns 404', async () => {
+    capturedAuditEvents.length = 0
+    const unknownSbi = 123456789
+
+    const response = await auditServer.inject({
+      method: 'GET',
+      url: `/api/v1/metadata/sbi/${unknownSbi}`
+    })
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_NOT_FOUND)
+    expect(capturedAuditEvents).toHaveLength(1)
+    assertEmptyReadEvent(capturedAuditEvents[0], unknownSbi)
   })
 })
