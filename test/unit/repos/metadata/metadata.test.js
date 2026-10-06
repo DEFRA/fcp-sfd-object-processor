@@ -7,7 +7,6 @@ import {
   bulkUpdatePublishedAtDate,
   getS3ReferenceAndSbiByFileId,
   getMetadataByFileId,
-  getMetadataBySbi,
   getMetadataPageBySbi,
   getMetadataMessagingByFileIds
 } from '../../../../src/repos/metadata.js'
@@ -334,37 +333,6 @@ describe('getMetadataByFileId', () => {
     queryCollection.findOne.mockResolvedValue(null)
 
     await expect(getMetadataByFileId('missing')).rejects.toThrow(NotFoundError)
-  })
-})
-
-describe('getMetadataBySbi', () => {
-  let queryCollection
-
-  beforeEach(() => {
-    vi.clearAllMocks()
-    queryCollection = { find: vi.fn() }
-    db.collection.mockReturnValue(queryCollection)
-  })
-
-  test('returns documents when sbi matches', async () => {
-    const documents = [{ metadata: { sbi: '123' }, file: { fileId: 'f1' }, messaging: { correlationId: '123e4567-e89b-12d3-a456-426655440000' } }]
-    const toArray = vi.fn().mockResolvedValue(documents)
-    const project = vi.fn().mockReturnValue({ toArray })
-    queryCollection.find.mockReturnValue({ project })
-
-    const result = await getMetadataBySbi('123')
-
-    expect(result).toEqual(documents)
-    expect(queryCollection.find).toHaveBeenCalledWith({ 'metadata.sbi': '123' })
-    expect(project).toHaveBeenCalledWith({ metadata: 1, file: 1 })
-  })
-
-  test('throws NotFoundError when no documents match', async () => {
-    const toArray = vi.fn().mockResolvedValue([])
-    const project = vi.fn().mockReturnValue({ toArray })
-    queryCollection.find.mockReturnValue({ project })
-
-    await expect(getMetadataBySbi('missing')).rejects.toThrow(NotFoundError)
   })
 })
 

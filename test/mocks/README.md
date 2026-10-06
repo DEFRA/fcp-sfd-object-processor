@@ -73,7 +73,7 @@ Mock documents in internal storage format (how data is stored in MongoDB).
 - `mockFormattedMetadata` - Single document (for blob/metadata queries)
 
 **When to use:**
-- Testing metadata queries (`/api/v1/metadata/{sbi}`)
+- Testing metadata queries (`/api/v1/metadata/sbi/{sbi}`)
 - Testing blob queries (`/api/v1/blob/{fileId}`)
 - Seeding test database collections
 - Testing repos/services that read from MongoDB
@@ -86,8 +86,8 @@ import { mockMetadataResponse } from '../mocks/metadata.js'
 await db.collection('uploadMetadata').insertMany(mockMetadataResponse)
 
 // Query and verify
-const docs = await repo.getMetadataBySbi(105000000)
-expect(docs).toHaveLength(2)
+const { documents } = await repo.getMetadataPageBySbi(105000000, { pageSize: 100 })
+expect(documents).toHaveLength(2)
 ```
 
 ---
