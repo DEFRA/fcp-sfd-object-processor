@@ -36,5 +36,10 @@ export const schemaConsts = {
   DETECTED_CONTENT_TYPE_EXAMPLE: 'application/pdf',
   S3_KEY_EXAMPLE: 'scanned/folder/9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
   S3_BUCKET_EXAMPLE: 'fcp-sfd-object-processor-bucket',
-  NUMBER_OF_REJECTED_FILES_EXAMPLE: 0
+  NUMBER_OF_REJECTED_FILES_EXAMPLE: 0,
+
+  // Pagination cursor: the hex form of a MongoDB ObjectId
+  CURSOR_LENGTH: 24,
+  CURSOR_EXAMPLE: '66f9c1e2a3b4c5d6e7f80912',
+  PAGE_SIZE_EXAMPLE: 100
 }

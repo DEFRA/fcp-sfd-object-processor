@@ -264,6 +264,38 @@ Metadata relating to a given SBI (Single Business Identifier) can be retrieved b
 
 GET `/api/v1/metadata/sbi/{sbi}`
 
+Results are paginated and returned newest first. Each response holds at most one page of records, so a caller that needs every record for an SBI must follow the cursor until `page.hasMore` is `false`.
+
+| Query parameter | Required | Description |
+|---|---|---|
+| `pageSize` | No | Number of records to return. A whole number from 1 to `MONGO_METADATA_SBI_MAX_PAGE_SIZE` (default 200). Defaults to `MONGO_METADATA_SBI_PAGE_SIZE` (default 100). A value above the maximum is rejected with a 400 rather than reduced. |
+| `after` | No | The `page.nextCursor` value from the previous response. Returns the records older than it. Must be a 24 character hexadecimal string, otherwise the request is rejected with a 400. |
+
+Any other query parameter is rejected with a 400.
+
+```jsonc
+{
+  "data": [ /* metadata records, newest first, at most pageSize entries */ ],
+  "page": {
+    "pageSize": 100,                          // page size applied to this request
+    "count": 100,                             // number of records in data
+    "hasMore": true,                          // whether older records remain
+    "nextCursor": "66f9c1e2a3b4c5d6e7f80912"  // pass as ?after= for the next page; null when hasMore is false
+  }
+}
+```
+
+To read every record, request the first page, then repeat the request with `?after=<page.nextCursor>` until `page.hasMore` is `false`:
+
+```text
+GET /api/v1/metadata/sbi/105000000?pageSize=100
+GET /api/v1/metadata/sbi/105000000?pageSize=100&after=66f9c1e2a3b4c5d6e7f80912
+```
+
+Records written while a caller follows the cursor do not shift the pages, so no record that existed when the first page was read is repeated or skipped. An SBI with no records returns a 404. A cursor that reaches past the oldest record returns a 200 with an empty `data` array and `hasMore` set to `false`.
+
+If a stored record fails the response schema, the endpoint returns a 500 and logs `event.type` of `response_validation_failure` with the failing field paths in `event.reason`. The log line carries no value from the record.
+
 ### Accessing uploaded files
 
 Using the `/blob/{fileId}` endpoint will generate a short lived presigned url that will enable the file to be viewed/downloaded.

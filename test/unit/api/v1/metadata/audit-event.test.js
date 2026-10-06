@@ -5,6 +5,8 @@ const { mockConfigGet } = vi.hoisted(() => ({
     switch (key) {
       case 'baseUrl.v1': return '/api/v1'
       case 'tracing.header': return 'x-cdp-request-id'
+      case 'mongo.metadataSbiPageSize': return 100
+      case 'mongo.metadataSbiMaxPageSize': return 200
       default: return null
     }
   })
@@ -25,14 +27,15 @@ vi.mock('../../../../../src/messaging/outbound/audit/send-audit-event.js', () =>
 }))
 
 vi.mock('../../../../../src/repos/metadata.js', () => ({
-  getMetadataBySbi: vi.fn()
+  getMetadataPageBySbi: vi.fn()
 }))
 
 const { metadataRoute } = await import('../../../../../src/api/v1/metadata/index.js')
-const { getMetadataBySbi } = await import('../../../../../src/repos/metadata.js')
+const { getMetadataPageBySbi } = await import('../../../../../src/repos/metadata.js')
 
 const buildMockRequest = (sbi = '105000000') => ({
   params: { sbi },
+  query: { pageSize: 100 },
   headers: { 'x-cdp-request-id': 'test-correlation-id' },
   info: { remoteAddress: '1.2.3.4' },
   logger: { warn: vi.fn() }
@@ -49,12 +52,12 @@ describe('metadata handler — event 2 (document/read)', () => {
     mockPublishAuditEvent.mockResolvedValue(undefined)
   })
 
-  test('emits document/read for each returned document', async () => {
+  test('emits document/read for each document in the returned page', async () => {
     const docs = [
       { file: { fileId: 'file-1' }, metadata: { sbi: 105000000 } },
       { file: { fileId: 'file-2' }, metadata: { sbi: 105000000 } }
     ]
-    getMetadataBySbi.mockResolvedValueOnce(docs)
+    getMetadataPageBySbi.mockResolvedValueOnce({ documents: docs, hasMore: false, nextCursor: null })
 
     const request = buildMockRequest()
     const h = buildMockH()
@@ -77,7 +80,7 @@ describe('metadata handler — event 2 (document/read)', () => {
 
   test('still returns 200 with documents when sendAuditEvent rejects', async () => {
     const docs = [{ file: { fileId: 'file-1' }, metadata: { sbi: 105000000 } }]
-    getMetadataBySbi.mockResolvedValueOnce(docs)
+    getMetadataPageBySbi.mockResolvedValueOnce({ documents: docs, hasMore: false, nextCursor: null })
     mockPublishAuditEvent.mockRejectedValueOnce(new Error('broker down'))
 
     const request = buildMockRequest()
@@ -85,7 +88,7 @@ describe('metadata handler — event 2 (document/read)', () => {
 
     const result = await metadataRoute.handler(request, h)
 
-    expect(h.response).toHaveBeenCalledWith({ data: docs })
+    expect(h.response).toHaveBeenCalledWith(expect.objectContaining({ data: docs }))
     expect(result.code).toHaveBeenCalledWith(200)
   })
 })
