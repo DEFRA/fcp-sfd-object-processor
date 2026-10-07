@@ -262,10 +262,32 @@ const getOutboxStatusesByFileIds = async (fileIds, session = undefined) => {
     .toArray()
 }
 
+const getPendingOutboxMetrics = async () => {
+  const collection = config.get(outboxCollection)
+  const filter = { status: { $in: [PENDING, PROCESSING] } }
+
+  // Both queries are satisfied by outbox_status_createdAt_idx ({ status: 1, createdAt: 1 }):
+  // countDocuments uses it as a covered count, and the sort+limit(1) below returns the
+  // oldest createdAt without a collection scan.
+  const count = await getDb().collection(collection).countDocuments(filter)
+  const oldestEntry = await getDb().collection(collection)
+    .find(filter)
+    .sort({ createdAt: 1 })
+    .limit(1)
+    .project({ _id: 0, createdAt: 1 })
+    .next()
+
+  return {
+    count,
+    oldestCreatedAt: oldestEntry?.createdAt ?? null
+  }
+}
+
 export {
   createOutboxEntries,
   claimProcessableOutboxEntries,
   finalizeClaimedOutboxEntries,
   logTerminalFailuresIfAny,
-  getOutboxStatusesByFileIds
+  getOutboxStatusesByFileIds,
+  getPendingOutboxMetrics
 }

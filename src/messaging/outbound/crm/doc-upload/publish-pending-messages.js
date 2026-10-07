@@ -3,7 +3,8 @@ import { config } from '../../../../config/index.js'
 import {
   claimProcessableOutboxEntries,
   finalizeClaimedOutboxEntries,
-  logTerminalFailuresIfAny
+  logTerminalFailuresIfAny,
+  getPendingOutboxMetrics
 } from '../../../../repos/outbox.js'
 import { bulkUpdatePublishedAtDate } from '../../../../repos/metadata.js'
 import { publishDocumentUploadMessageBatch } from './publish-document-upload-message-batch.js'
@@ -11,11 +12,14 @@ import { PENDING, SENT, DELIVERY_OUTCOME, PERMANENT_FAILURE, BATCH_SIZE } from '
 import { getClient } from '../../../../data/db.js'
 import { outboxWorkerId } from '../../outbox-worker-id.js'
 import { runWithCorrelationId } from '../../../../logging/correlation-id-store.js'
+import { metricsGauge, metricsCounter } from '../../../../api/common/helpers/metrics.js'
+import { METRIC_OUTCOME, PUBLISH_FAILURE_OUTCOME } from '../../../../constants/metrics.js'
 
 const logger = createLogger()
 const publishFailureMessage = 'Failed to send message'
 const outboxMaxAttemptsConfig = 'messaging.outboxMaxAttempts'
 const millisecondsToNanoseconds = 1000000
+const millisecondsToSeconds = 1000
 
 const getEntryId = (entry) => entry?.payload?.file?.fileId || entry?.messageId
 
@@ -158,8 +162,20 @@ const logTerminalFailures = (entries, failedResults) => {
   })
 }
 
+const emitPollMetrics = async (outcome) => {
+  const { count, oldestCreatedAt } = await getPendingOutboxMetrics()
+  const oldestPendingAgeSeconds = oldestCreatedAt
+    ? Math.max(0, (Date.now() - new Date(oldestCreatedAt).getTime()) / millisecondsToSeconds)
+    : 0
+
+  await metricsGauge('outbox.pending_count', count)
+  await metricsGauge('outbox.oldest_pending_age_seconds', oldestPendingAgeSeconds)
+  await metricsCounter('outbox.poll', 1, { outcome })
+}
+
 const publishPendingMessages = async () => {
   const session = getClient().startSession()
+  let outcome = METRIC_OUTCOME.SUCCESS
 
   try {
     const pendingMessages = await claimProcessableOutboxEntries(outboxWorkerId)
@@ -217,6 +233,13 @@ const publishPendingMessages = async () => {
         const terminalEntries = finalizedFailed.filter(entry => entry.status === PERMANENT_FAILURE)
         const retryableEntries = finalizedFailed.filter(entry => entry.status !== PERMANENT_FAILURE)
 
+        if (retryableEntries.length > 0) {
+          await metricsCounter('outbox.publish_failed', retryableEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.RETRYABLE })
+        }
+        if (terminalEntries.length > 0) {
+          await metricsCounter('outbox.publish_failed', terminalEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.PERMANENT })
+        }
+
         logFinalizations(retryableEntries, PENDING, Failed)
         logFinalizations(terminalEntries, PERMANENT_FAILURE, Failed)
         logTerminalFailures(terminalEntries, Failed)
@@ -233,9 +256,13 @@ const publishPendingMessages = async () => {
 
       logger.info(`Outbox processing complete. Total: ${finalizedSuccessful.length} sent, ${finalizedFailed.length} failed, ${rejected.length} rejected`)
     }
+  } catch (error) {
+    outcome = METRIC_OUTCOME.FAILURE
+    throw error
   } finally {
     // Failures propagate to the outbox loop (src/messaging/outbound/index.js), which logs them once.
     await session.endSession()
+    await emitPollMetrics(outcome)
   }
 }
 
