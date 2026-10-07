@@ -2,6 +2,30 @@ import Joi from 'joi'
 import { generateResponseSchemas } from '../../schemas/responses.js'
 import { schemaConsts } from '../../../../constants/schemas.js'
 
+const metadataPageSchema = Joi.object({
+  pageSize: Joi.number()
+    .integer()
+    .required()
+    .description('Page size applied to this request')
+    .example(schemaConsts.PAGE_SIZE_EXAMPLE),
+  count: Joi.number()
+    .integer()
+    .required()
+    .description('Number of records in data')
+    .example(schemaConsts.PAGE_SIZE_EXAMPLE),
+  hasMore: Joi.boolean()
+    .required()
+    .description('Whether a further page of older records exists')
+    .example(true),
+  nextCursor: Joi.string()
+    .hex()
+    .length(schemaConsts.CURSOR_LENGTH)
+    .allow(null)
+    .required()
+    .description('Value to pass as the after query parameter to fetch the next page; null when hasMore is false')
+    .example(schemaConsts.CURSOR_EXAMPLE)
+}).required().label('MetadataPage').description('Pagination details for this response')
+
 const metadataSuccessSchema = Joi.object({
   data: Joi.array().items(
     Joi.object({
@@ -64,7 +88,8 @@ const metadataSuccessSchema = Joi.object({
       }).required().label('FileFields').description('File information')
 
     }).label('MetadataDocument')
-  )
+  ).description('Metadata records for the SBI, newest first'),
+  page: metadataPageSchema
 }).label('MetadataQueryResponse')
 
 export const metadataResponseSchema = generateResponseSchemas(metadataSuccessSchema)

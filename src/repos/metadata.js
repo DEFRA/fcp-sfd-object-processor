@@ -84,21 +84,6 @@ const formatInboundMetadata = (payload, correlationId) => {
   })
 }
 
-const getMetadataBySbi = async (sbi) => {
-  const collection = config.get(metadataCollection)
-
-  const documents = await getDb().collection(collection)
-    .find({ 'metadata.sbi': sbi })
-    .project({ metadata: 1, file: 1 }) // only return the metadata and file keys
-    .toArray()
-
-  if (documents.length === 0) {
-    throw new NotFoundError(noDocumentsFoundError)
-  }
-
-  return documents
-}
-
 /**
  * Reads one page of upload metadata for an SBI, newest first.
  * Requests one document more than the page size so that the presence of a further page
@@ -177,7 +162,6 @@ const getMetadataMessagingByFileIds = async (fileIds, session = undefined) => {
 }
 
 export {
-  getMetadataBySbi,
   getMetadataPageBySbi,
   persistMetadata,
   formatInboundMetadata,

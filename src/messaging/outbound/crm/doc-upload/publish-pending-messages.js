@@ -168,9 +168,9 @@ const emitPollMetrics = async (outcome) => {
     ? Math.max(0, (Date.now() - new Date(oldestCreatedAt).getTime()) / millisecondsToSeconds)
     : 0
 
-  await metricsGauge('outbox.pending_count', count)
-  await metricsGauge('outbox.oldest_pending_age_seconds', oldestPendingAgeSeconds)
-  await metricsCounter('outbox.poll', 1, { outcome })
+  metricsGauge('outbox.pending_count', count)
+  metricsGauge('outbox.oldest_pending_age_seconds', oldestPendingAgeSeconds)
+  metricsCounter('outbox.poll', 1, { outcome })
 }
 
 const publishPendingMessages = async () => {
@@ -234,10 +234,10 @@ const publishPendingMessages = async () => {
         const retryableEntries = finalizedFailed.filter(entry => entry.status !== PERMANENT_FAILURE)
 
         if (retryableEntries.length > 0) {
-          await metricsCounter('outbox.publish_failed', retryableEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.RETRYABLE })
+          metricsCounter('outbox.publish_failed', retryableEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.RETRYABLE })
         }
         if (terminalEntries.length > 0) {
-          await metricsCounter('outbox.publish_failed', terminalEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.PERMANENT })
+          metricsCounter('outbox.publish_failed', terminalEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.PERMANENT })
         }
 
         logFinalizations(retryableEntries, PENDING, Failed)

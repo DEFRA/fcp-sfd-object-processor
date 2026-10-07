@@ -264,6 +264,38 @@ Metadata relating to a given SBI (Single Business Identifier) can be retrieved b
 
 GET `/api/v1/metadata/sbi/{sbi}`
 
+Results are paginated and returned newest first. Each response holds at most one page of records, so a caller that needs every record for an SBI must follow the cursor until `page.hasMore` is `false`.
+
+| Query parameter | Required | Description |
+|---|---|---|
+| `pageSize` | No | Number of records to return. A whole number from 1 to `MONGO_METADATA_SBI_MAX_PAGE_SIZE` (default 200). Defaults to `MONGO_METADATA_SBI_PAGE_SIZE` (default 100). A value above the maximum is rejected with a 400 rather than reduced. |
+| `after` | No | The `page.nextCursor` value from the previous response. Returns the records older than it. Must be a 24 character hexadecimal string, otherwise the request is rejected with a 400. |
+
+Any other query parameter is rejected with a 400.
+
+```jsonc
+{
+  "data": [ /* metadata records, newest first, at most pageSize entries */ ],
+  "page": {
+    "pageSize": 100,                          // page size applied to this request
+    "count": 100,                             // number of records in data
+    "hasMore": true,                          // whether older records remain
+    "nextCursor": "66f9c1e2a3b4c5d6e7f80912"  // pass as ?after= for the next page; null when hasMore is false
+  }
+}
+```
+
+To read every record, request the first page, then repeat the request with `?after=<page.nextCursor>` until `page.hasMore` is `false`:
+
+```text
+GET /api/v1/metadata/sbi/105000000?pageSize=100
+GET /api/v1/metadata/sbi/105000000?pageSize=100&after=66f9c1e2a3b4c5d6e7f80912
+```
+
+Records written while a caller follows the cursor do not shift the pages, so no record that existed when the first page was read is repeated or skipped. An SBI with no records returns a 404. A cursor that reaches past the oldest record returns a 200 with an empty `data` array and `hasMore` set to `false`.
+
+If a stored record fails the response schema, the endpoint returns a 500 and logs `event.type` of `response_validation_failure` with the failing field paths in `event.reason`. The log line carries no value from the record.
+
 ### Accessing uploaded files
 
 Using the `/blob/{fileId}` endpoint will generate a short lived presigned url that will enable the file to be viewed/downloaded.
@@ -281,12 +313,12 @@ This service publishes audit events to the shared `fcp-audit` SNS topic via `@de
 | `POST /api/v1/callback` | `document` / `created` | success, one per persisted file |
 | `POST /api/v1/callback` validation or persist failure | `document` / `failed` | failure |
 | `GET /api/v1/blob/{fileId}` | `document` / `read` | success |
-| `GET /api/v1/metadata/sbi/{sbi}` | `document` / `read` | success, one per document returned |
+| `GET /api/v1/metadata/sbi/{sbi}` | `document` / `read` | success, one per request, listing the file ID of every document in the returned page as an entity, with `details` carrying `count` and `pageSize`. A read that returns no documents (an empty page with `200`, or `404` for an SBI with no documents) is audited as one entity with no `entityid` and `details.count` of `0` |
 | Outbox entry reaching `PERMANENT_FAILURE` | `document` / `failed` | failure |
 
-For every `document` entity, `entityid` is the file's UUID (`payload.file.fileId`), not the MongoDB `ObjectId`, so a document can be correlated across its whole lifecycle from a single id. The one stated exception is the auth failure event on routes other than `GET /api/v1/blob/{fileId}`: no document has been identified at the point a request is rejected for authentication, so the event uses `entity: 'request'` with `entityid` set to the correlation id instead of a document id. On `GET /api/v1/blob/{fileId}` the file UUID is already in the path, so that route keeps `entity: 'document'` even on auth failure. See [`src/plugins/auth/index.js`](src/plugins/auth/index.js).
+For every `document` entity, `entityid` is the file's UUID (`payload.file.fileId`), not the MongoDB `ObjectId`, so a document can be correlated across its whole lifecycle from a single id. There are two stated exceptions. The first is the auth failure event on routes other than `GET /api/v1/blob/{fileId}`: no document has been identified at the point a request is rejected for authentication, so the event uses `entity: 'request'` with `entityid` set to the correlation id instead of a document id. On `GET /api/v1/blob/{fileId}` the file UUID is already in the path, so that route keeps `entity: 'document'` even on auth failure. See [`src/plugins/auth/index.js`](src/plugins/auth/index.js). The second is a read on `GET /api/v1/metadata/sbi/{sbi}` that returns no documents: there is no file to name, so its single `document` entity omits `entityid`, which the audit schema permits when the id is not known. See [`src/api/v1/metadata/index.js`](src/api/v1/metadata/index.js).
 
-Every publish is fired through `Promise.allSettled` or an explicit `catch`, so an audit transport failure can never turn a successful request into a 500 or abort an outbox polling run. The topic ARN is set with `AUDIT_TOPIC_ARN`. The `application` field is set with `AUDIT_APPLICATION`, defaulting to `Single Front Door`; it names the programme rather than the service so that audit events group across the estate, and it must match every other Single Front Door service. See [`src/messaging/outbound/audit/send-audit-event.js`](src/messaging/outbound/audit/send-audit-event.js).
+`sendAuditEvent` catches and logs every publish failure and never rejects, so an audit transport failure can never turn a successful request into a 500 or abort an outbox polling run. Callers add a second guard as well: the callback route and the outbox fire their per document events through `Promise.allSettled`, and the auth plugin, `GET /api/v1/blob/{fileId}` and `GET /api/v1/metadata/sbi/{sbi}` attach a `catch` that logs a warning. The topic ARN is set with `AUDIT_TOPIC_ARN`. The `application` field is set with `AUDIT_APPLICATION`, defaulting to `Single Front Door`; it names the programme rather than the service so that audit events group across the estate, and it must match every other Single Front Door service. See [`src/messaging/outbound/audit/send-audit-event.js`](src/messaging/outbound/audit/send-audit-event.js).
 
 ## Local Infrastructure
 
@@ -333,7 +365,7 @@ The service waits for `createIndexes()` to finish before it completes startup. T
 
 ### Test collections
 
-Most integration tests use dedicated test collection names and rely on the same startup index creation path. Where a test creates an isolated collection after startup (for example callback idempotency tests), create any required indexes explicitly in the test setup before assertions.
+Most integration tests use dedicated test collection names and rely on the same startup index creation path. Where a test creates an isolated collection after startup (for example callback idempotency tests), create any required indexes explicitly in the test setup before assertions. [`test/integration/narrow/api/metadata-many-documents.test.js`](test/integration/narrow/api/metadata-many-documents.test.js) does this for the `uploadMetadata` indexes, then uses `explain('executionStats')` to confirm that the paged SBI query is served by an index scan on `metadata_sbi_id_idx` with no in-memory sort.
 
 ## Logging
 

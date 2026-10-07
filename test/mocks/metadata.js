@@ -6,6 +6,8 @@
  *
  * This is the INTERNAL STORAGE format in our MongoDB collections.
  */
+import { randomUUID } from 'node:crypto'
+import { ObjectId } from 'mongodb'
 import {
   baseMetadata,
   baseFileUpload1,
@@ -55,6 +57,40 @@ export const mockMetadataResponseAlt = [
     messaging: { correlationId: defaultCorrelationId }
   }
 ]
+
+const OBJECT_ID_TIMESTAMP_HEX_LENGTH = 8
+const OBJECT_ID_SUFFIX_HEX_LENGTH = 16
+const HEX_RADIX = 16
+const MILLISECONDS_PER_SECOND = 1000
+
+/**
+ * Builds many formatted documents for baseMetadata's SBI, each with a distinct
+ * random UUIDv4 file.fileId.
+ *
+ * Each _id is set explicitly: the current time in seconds followed by the
+ * document's position, so the _id values are strictly increasing in array
+ * order. Driver generated ObjectIds are only increasing until their counter
+ * wraps, which would make newest first assertions intermittently fail.
+ *
+ * @param {number} count number of documents to build
+ * @returns {Array<object>} documents in ascending _id order, oldest first
+ */
+export const createManyMetadataDocuments = (count) => {
+  const timestampHex = Math.floor(Date.now() / MILLISECONDS_PER_SECOND)
+    .toString(HEX_RADIX)
+    .padStart(OBJECT_ID_TIMESTAMP_HEX_LENGTH, '0')
+
+  return Array.from({ length: count }, (_, position) => ({
+    _id: ObjectId.createFromHexString(
+      `${timestampHex}${position.toString(HEX_RADIX).padStart(OBJECT_ID_SUFFIX_HEX_LENGTH, '0')}`
+    ),
+    ...createFormattedDocument(
+      baseMetadata,
+      { ...baseFileUpload1, fileId: randomUUID() },
+      { correlationId: defaultCorrelationId }
+    )
+  }))
+}
 
 // Single formatted document with all subdocuments (used for blob endpoint tests)
 export const mockFormattedMetadata = createFormattedDocument(

@@ -19,6 +19,10 @@ vi.mock('../../../../src/config/index.js', () => ({
   }
 }))
 
+vi.mock('../../../../src/logging/logger.js', () => ({
+  createLogger: () => ({ error: vi.fn(), info: vi.fn(), warn: vi.fn() })
+}))
+
 describe('Status Repository', () => {
   let mockCollection
   const mockSession = {}
