@@ -64,7 +64,7 @@ beforeAll(async () => {
     config.set('cdpUploaderMimeTypes', [...currentMimeTypes, 'text/plain'])
   }
   ; ({ createServer } = await import('../../../../src/api'))
-  ; ({ router } = await import('../../../../src/api/router.js'))
+    ; ({ router } = await import('../../../../src/api/router.js'))
   vi.restoreAllMocks()
   originalMetadataCollection = config.get('mongo.collections.uploadMetadata')
   originalOutboxCollection = config.get('mongo.collections.outbox')
@@ -1183,7 +1183,7 @@ describe('POST /api/v1/callback — response log carries transaction.id', () => 
 
     capturedLogs = []
     const captureStream = new Writable({
-      write (chunk, _encoding, callback) {
+      write(chunk, _encoding, callback) {
         captureJsonLines(chunk)
         callback()
       }
