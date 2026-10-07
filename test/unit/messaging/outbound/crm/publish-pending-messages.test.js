@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   claim: vi.fn(),
   finalize: vi.fn(),
   logTerminal: vi.fn(),
+  getPendingOutboxMetrics: vi.fn().mockResolvedValue({ count: 0, oldestCreatedAt: null }),
   updatePublishedAt: vi.fn(),
   publishBatch: vi.fn(),
   startSession: vi.fn(),
@@ -17,7 +18,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../../../../../src/repos/outbox.js', () => ({
   claimProcessableOutboxEntries: mocks.claim,
   finalizeClaimedOutboxEntries: mocks.finalize,
-  logTerminalFailuresIfAny: mocks.logTerminal
+  logTerminalFailuresIfAny: mocks.logTerminal,
+  getPendingOutboxMetrics: mocks.getPendingOutboxMetrics
 }))
 
 vi.mock('../../../../../src/repos/metadata.js', () => ({
