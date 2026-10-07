@@ -11,7 +11,6 @@ import { baseMetadata, baseFileUpload2 } from '../../../mocks/base-data.js'
 import { assertValidAuditEvent } from '../../../helpers/validate-audit-payload.js'
 import { correlationScope } from '../../../../src/api/common/helpers/correlation-scope.js'
 import { loggerOptions } from '../../../../src/logging/logger-options.js'
-import { router } from '../../../../src/api/router.js'
 
 let db
 
@@ -49,6 +48,7 @@ vi.mock('@defra/fcp-audit-publisher', async (importOriginal) => {
 
 let server
 let createServer
+let router
 let originalMetadataCollection
 let originalOutboxCollection
 let originalStatusCollection
@@ -64,6 +64,7 @@ beforeAll(async () => {
     config.set('cdpUploaderMimeTypes', [...currentMimeTypes, 'text/plain'])
   }
   ; ({ createServer } = await import('../../../../src/api'))
+    ; ({ router } = await import('../../../../src/api/router.js'))
   vi.restoreAllMocks()
   originalMetadataCollection = config.get('mongo.collections.uploadMetadata')
   originalOutboxCollection = config.get('mongo.collections.outbox')
@@ -1182,7 +1183,7 @@ describe('POST /api/v1/callback — response log carries transaction.id', () => 
 
     capturedLogs = []
     const captureStream = new Writable({
-      write (chunk, _encoding, callback) {
+      write(chunk, _encoding, callback) {
         captureJsonLines(chunk)
         callback()
       }

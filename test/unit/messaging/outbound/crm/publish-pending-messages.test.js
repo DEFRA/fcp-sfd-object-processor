@@ -1,23 +1,28 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { DELIVERY_OUTCOME } from '../../../../../src/constants/outbox.js'
+import { METRIC_OUTCOME, PUBLISH_FAILURE_OUTCOME } from '../../../../../src/constants/metrics.js'
 
 const mocks = vi.hoisted(() => ({
   claim: vi.fn(),
   finalize: vi.fn(),
   logTerminal: vi.fn(),
+  getPendingOutboxMetrics: vi.fn().mockResolvedValue({ count: 0, oldestCreatedAt: null }),
   updatePublishedAt: vi.fn(),
   publishBatch: vi.fn(),
   startSession: vi.fn(),
   loggerInfo: vi.fn(),
   loggerWarn: vi.fn(),
   loggerError: vi.fn(),
-  runWithCorrelationId: vi.fn((_correlationId, fn) => fn())
+  runWithCorrelationId: vi.fn((_correlationId, fn) => fn()),
+  metricsGauge: vi.fn(),
+  metricsCounter: vi.fn()
 }))
 
 vi.mock('../../../../../src/repos/outbox.js', () => ({
   claimProcessableOutboxEntries: mocks.claim,
   finalizeClaimedOutboxEntries: mocks.finalize,
-  logTerminalFailuresIfAny: mocks.logTerminal
+  logTerminalFailuresIfAny: mocks.logTerminal,
+  getPendingOutboxMetrics: mocks.getPendingOutboxMetrics
 }))
 
 vi.mock('../../../../../src/repos/metadata.js', () => ({
@@ -57,6 +62,11 @@ vi.mock('../../../../../src/logging/logger.js', () => ({
 
 vi.mock('../../../../../src/logging/correlation-id-store.js', () => ({
   runWithCorrelationId: mocks.runWithCorrelationId
+}))
+
+vi.mock('../../../../../src/api/common/helpers/metrics.js', () => ({
+  metricsGauge: mocks.metricsGauge,
+  metricsCounter: mocks.metricsCounter
 }))
 
 const {
@@ -392,6 +402,71 @@ describe('publishPendingMessages observability', () => {
 
     await expect(publishPendingMessages()).rejects.toThrow('db exploded')
     expect(mocks.loggerError).not.toHaveBeenCalled()
+  })
+
+  test('emits pending outbox gauges and a success poll counter after processing', async () => {
+    const entry = buildEntry('metrics-success', 1)
+    mocks.claim.mockResolvedValue([entry])
+    mocks.publishBatch.mockResolvedValue({
+      Successful: [{ Id: 'file-metrics-success' }],
+      Failed: []
+    })
+    mocks.getPendingOutboxMetrics.mockResolvedValue({
+      count: 3,
+      oldestCreatedAt: new Date(Date.now() - 5000)
+    })
+
+    await publishPendingMessages()
+
+    expect(mocks.metricsGauge).toHaveBeenCalledWith('outbox.pending_count', 3)
+    expect(mocks.metricsGauge).toHaveBeenCalledWith('outbox.oldest_pending_age_seconds', expect.any(Number))
+    expect(mocks.metricsCounter).toHaveBeenCalledWith('outbox.poll', 1, { outcome: METRIC_OUTCOME.SUCCESS })
+  })
+
+  test('emits zero oldest pending age when there is no oldestCreatedAt', async () => {
+    mocks.claim.mockResolvedValue([])
+    mocks.getPendingOutboxMetrics.mockResolvedValue({ count: 0, oldestCreatedAt: null })
+
+    await publishPendingMessages()
+
+    expect(mocks.metricsGauge).toHaveBeenCalledWith('outbox.pending_count', 0)
+    expect(mocks.metricsGauge).toHaveBeenCalledWith('outbox.oldest_pending_age_seconds', 0)
+    expect(mocks.metricsCounter).toHaveBeenCalledWith('outbox.poll', 1, { outcome: METRIC_OUTCOME.SUCCESS })
+  })
+
+  test('emits a failure poll counter when claiming entries throws', async () => {
+    mocks.claim.mockRejectedValue(new Error('db exploded'))
+    mocks.getPendingOutboxMetrics.mockResolvedValue({ count: 1, oldestCreatedAt: null })
+
+    await expect(publishPendingMessages()).rejects.toThrow('db exploded')
+
+    expect(mocks.metricsCounter).toHaveBeenCalledWith('outbox.poll', 1, { outcome: METRIC_OUTCOME.FAILURE })
+  })
+
+  test('emits a retryable publish_failed counter for non-terminal failures', async () => {
+    const entry = buildEntry('metrics-retryable', 1)
+    mocks.claim.mockResolvedValue([entry])
+    mocks.publishBatch.mockResolvedValue({
+      Successful: [],
+      Failed: [{ Id: 'file-metrics-retryable', Message: 'temporary failure' }]
+    })
+
+    await publishPendingMessages()
+
+    expect(mocks.metricsCounter).toHaveBeenCalledWith('outbox.publish_failed', 1, { outcome: PUBLISH_FAILURE_OUTCOME.RETRYABLE })
+  })
+
+  test('emits a permanent publish_failed counter for terminal failures', async () => {
+    const entry = buildEntry('metrics-terminal', 2)
+    mocks.claim.mockResolvedValue([entry])
+    mocks.publishBatch.mockResolvedValue({
+      Successful: [],
+      Failed: [{ Id: 'file-metrics-terminal', Code: 'terminal_failure' }]
+    })
+
+    await publishPendingMessages()
+
+    expect(mocks.metricsCounter).toHaveBeenCalledWith('outbox.publish_failed', 1, { outcome: PUBLISH_FAILURE_OUTCOME.PERMANENT })
   })
 
   test('logs processing summary after each batch', async () => {
