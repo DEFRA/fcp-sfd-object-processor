@@ -206,7 +206,6 @@ describe('GET /api/v1/metadata/sbi/{sbi} with several thousand documents for one
     const fetchAndRecordPage = async (query) => {
       capturedAuditEvents.length = 0
       const response = await requestPage(query)
-      requestCount += 1
 
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
       assertSingleReadEvent(response)
@@ -215,8 +214,9 @@ describe('GET /api/v1/metadata/sbi/{sbi} with several thousand documents for one
     }
 
     let response = await fetchAndRecordPage(`?pageSize=${maxPageSize}`)
+    requestCount += 1
     // the request count bound stops a cursor that never ends from looping for ever
-    while (response.result.page.hasMore && requestCount < expectedRequests) {
+    for (; response.result.page.hasMore && requestCount < expectedRequests; requestCount += 1) {
       response = await fetchAndRecordPage(`?pageSize=${maxPageSize}&after=${response.result.page.nextCursor}`)
     }
 
