@@ -301,17 +301,66 @@
       },
       "data": {
         "type": "array",
+        "description": "Metadata records for the SBI, newest first",
         "items": {
           "$ref": "#/components/schemas/MetadataDocument"
         }
+      },
+      "MetadataPage": {
+        "type": "object",
+        "description": "Pagination details for this response",
+        "properties": {
+          "pageSize": {
+            "type": "integer",
+            "description": "Page size applied to this request",
+            "example": 100
+          },
+          "count": {
+            "type": "integer",
+            "description": "Number of records in data",
+            "example": 100
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "Whether a further page of older records exists",
+            "example": true
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "Value to pass as the after query parameter to fetch the next page; null when hasMore is false",
+            "example": "66f9c1e2a3b4c5d6e7f80912",
+            "nullable": true,
+            "x-constraint": {
+              "length": 24
+            },
+            "x-format": {
+              "hex": {
+                "byteAligned": false,
+                "prefix": false
+              }
+            }
+          }
+        },
+        "required": [
+          "pageSize",
+          "count",
+          "hasMore",
+          "nextCursor"
+        ]
       },
       "MetadataQueryResponse": {
         "type": "object",
         "properties": {
           "data": {
             "$ref": "#/components/schemas/data"
+          },
+          "page": {
+            "$ref": "#/components/schemas/MetadataPage"
           }
-        }
+        },
+        "required": [
+          "page"
+        ]
       },
       "uploadStatus": {
         "type": "string",
@@ -1000,6 +1049,38 @@
               }
             },
             "required": true
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "description": "Maximum number of records to return in this page",
+              "example": 100,
+              "default": 100,
+              "minimum": 1,
+              "maximum": 200
+            },
+            "description": "Maximum number of records to return in this page"
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "description": "page.nextCursor from the previous response; returns the records older than it",
+              "example": "66f9c1e2a3b4c5d6e7f80912",
+              "x-constraint": {
+                "length": 24
+              },
+              "x-format": {
+                "hex": {
+                  "byteAligned": false,
+                  "prefix": false
+                }
+              }
+            },
+            "description": "page.nextCursor from the previous response; returns the records older than it"
           }
         ],
         "tags": [
