@@ -31,7 +31,8 @@
   "overrides": {
     "@defra/fcp-audit-publisher": {
       "joi": "18.2.9"
-    }
+    },
+    "handlebars": "4.7.10"
   },
   "author": "Defra DDTS",
   "contributors": [
