@@ -49,7 +49,6 @@ const createServer = async () => {
 
   await server.register([
     Jwt,
-
     auth,
     // correlationScope must be registered before requestLogger: it enters the correlation
     // store's async scope in onRequest so hapi-pino's own [response] log line, and every
