@@ -16,12 +16,9 @@ const buildOversizedRequestIdAuditEvent = (request) => {
   return {
     correlationid: correlationId,
     security: {
-      pmccode: 'AUTH',
-      priority: 1,
-      details: {
-        message: `${tracingHeader} header exceeds ${MAX_REQUEST_ID_LENGTH} characters`
-
-      }
+      pmccode: 'AUTH',//TODO this is a placeholder until we have been supplied with a proper PMCCODE for this event
+      priority: 5,
+      details: { path: request.path, method: request.method, reason: 'request_id_too_long' }
     },
     audit: {
       entities: [{ entity: 'request', action: 'failed', entityid: correlationId }],
