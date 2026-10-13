@@ -216,7 +216,7 @@ describe('GET /api/v1/metadata/sbi/{sbi} with several thousand documents for one
 
     let response = await fetchAndRecordPage(`?pageSize=${maxPageSize}`)
     // the request count bound stops a cursor that never ends from looping for ever
-    for (let remainingRequests = expectedRequests - requestCount; response.result.page.hasMore && remainingRequests > 0; remainingRequests -= 1) {
+    while (response.result.page.hasMore && requestCount < expectedRequests) {
       response = await fetchAndRecordPage(`?pageSize=${maxPageSize}&after=${response.result.page.nextCursor}`)
     }
 
