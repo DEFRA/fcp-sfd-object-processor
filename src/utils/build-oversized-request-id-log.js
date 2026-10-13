@@ -10,12 +10,12 @@ import { constants as httpConstants } from 'node:http2'
  *   The ECS-style event payload to log when the header exceeds the configured limit.
  */
 export const buildOversizedRequestIdLog = (request, headerLength, correlationId) => ({
-  event: {
-    type: 'request_id_too_long',
-    action: request.method,
-    category: request.path,
-    reason: `header_length=${headerLength}`,
-    outcome: 'failure',
-    kind: httpConstants.HTTP_STATUS_BAD_REQUEST
-  }
+    event: {
+        type: 'request_id_too_long',
+        action: request.method,
+        category: request.path,
+        reason: `header_length=${headerLength}`,
+        outcome: 'failure',
+        kind: httpConstants.HTTP_STATUS_BAD_REQUEST
+    }
 })
