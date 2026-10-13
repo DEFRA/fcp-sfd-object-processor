@@ -258,7 +258,7 @@ const publishPendingMessages = async () => {
       logFinalizations(finalizedSuccessful, SENT)
       logRejectedFinalizations(rejected)
 
-      await handleFailedEntries(finalizedFailed, Failed)
+      await handleFailedEntries(finalizedFailed, Failed) // NOSONAR: batches must run sequentially on one session
 
       logger.info(`Outbox processing complete. Total: ${finalizedSuccessful.length} sent, ${finalizedFailed.length} failed, ${rejected.length} rejected`)
     }
