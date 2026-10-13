@@ -35,7 +35,9 @@ vi.mock('@defra/fcp-audit-publisher', async (importOriginal) => {
         environment: config?.environment,
         ip: config?.ip || '0.0.0.0',
         correlationid: event.correlationid ?? (config?.generateCorrelationId ? crypto.randomUUID() : undefined),
-        audit: event.audit
+        security: event.security,
+        audit: event.audit,
+        reference: event.reference
       }
       capturedAuditEvents.push(enrichedEvent)
     })
@@ -70,6 +72,33 @@ const buildValidEntraToken = (privateKey) => {
   const signingInput = `${encodeBase64Url(JSON.stringify(header))}.${encodeBase64Url(JSON.stringify(payload))}`
   const signature = sign('RSA-SHA256', Buffer.from(signingInput), privateKey)
   return `${signingInput}.${Buffer.from(signature).toString('base64url')}`
+}
+
+const expectOversizedRequestAuditEvent = (event, path) => {
+  expect(event).toEqual({
+    datetime: expect.any(String),
+    version: expect.any(String),
+    application: expect.any(String),
+    component: expect.any(String),
+    environment: expect.any(String),
+    ip: expect.any(String),
+    correlationid: expect.any(String),
+    security: {
+      pmccode: 'AUTH',
+      priority: 5,
+      details: { path, method: 'get', reason: 'request_id_too_long' }
+    },
+    audit: {
+      entities: [{ entity: 'request', action: 'failed', entityid: expect.any(String) }],
+      status: 'failure',
+      details: { path, method: 'get' }
+    },
+    reference: { correlationid: expect.any(String) }
+  })
+
+  expect(event.correlationid).toMatch(/^[0-9a-f-]{36}$/i)
+  expect(event.audit.entities[0].entityid).toBe(event.correlationid)
+  expect(event.reference.correlationid).toBe(event.correlationid)
 }
 
 const buildMetadataServerWithAuth = async () => {
@@ -156,7 +185,9 @@ describe('GET to the /api/v1/metadata/sbi route', () => {
       }
 
       expect(capturedAuditEvents).toHaveLength(1)
-      if (expectedStatus === 400 || expectedStatus === 401) {
+      if (expectedStatus === 400) {
+        expectOversizedRequestAuditEvent(capturedAuditEvents[0], `/api/v1/metadata/sbi/${sbi}`)
+      } else if (expectedStatus === 401) {
         expect(capturedAuditEvents[0].audit.entities[0]).toMatchObject({ entity: 'request', action: 'failed' })
       } else {
         expect(capturedAuditEvents[0].audit.entities[0]).toMatchObject({ entity: 'document', action: 'read' })
