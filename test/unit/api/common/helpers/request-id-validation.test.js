@@ -42,7 +42,7 @@ describe('request-id validation', () => {
     },
     {
       name: 'unauthenticated route',
-      path: '/api/v1/health',
+      path: '/health',
       method: 'GET'
     }
   ]
