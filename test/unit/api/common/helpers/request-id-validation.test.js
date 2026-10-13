@@ -29,10 +29,6 @@ describe('request-id validation', () => {
     vi.clearAllMocks()
   })
 
-  afterEach(async () => {
-    // no-op: the helper does not require server lifecycle cleanup in these tests
-  })
-
   const routes = [
     {
       name: 'blob route',
