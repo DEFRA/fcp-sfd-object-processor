@@ -19,7 +19,8 @@ const buildOversizedRequestIdAuditEvent = (request) => {
       pmccode: 'AUTH',
       priority: 1,
       details: {
-        message: 'x-cdp-request-id header exceeds 50 characters'
+        message: `${tracingHeader} header exceeds ${MAX_REQUEST_ID_LENGTH} characters`
+
       }
     },
     audit: {
@@ -40,7 +41,7 @@ export const rejectOversizedRequestId = (request, h) => {
   const headerLength = requestId.length
   logger.warn(
     buildOversizedRequestIdLog(request, headerLength),
-    'Request rejected because x-cdp-request-id exceeds 50 characters'
+    `Request rejected because ${tracingHeader} exceeds ${MAX_REQUEST_ID_LENGTH} characters`
   )
 
   sendAuditEvent(buildOversizedRequestIdAuditEvent(request), request).catch((err) => {
@@ -48,7 +49,7 @@ export const rejectOversizedRequestId = (request, h) => {
   })
 
   return h.response({
-    message: 'x-cdp-request-id header must be 50 characters or fewer'
+    message: `${tracingHeader} header must be ${MAX_REQUEST_ID_LENGTH} characters or fewer`
   }).code(httpConstants.HTTP_STATUS_BAD_REQUEST).takeover()
 }
 
