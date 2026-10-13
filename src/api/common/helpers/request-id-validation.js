@@ -48,9 +48,7 @@ export const rejectOversizedRequestId = (request, h) => {
     logger.warn({ msg: 'Failed to send oversized request id audit event', err })
   })
 
-  return h.response({
-    message: `${tracingHeader} header must be ${MAX_REQUEST_ID_LENGTH} characters or fewer`
-  }).code(httpConstants.HTTP_STATUS_BAD_REQUEST).takeover()
+  throw Boom.badRequest(`${tracingHeader} header must be ${MAX_REQUEST_ID_LENGTH} characters or fewer`)
 }
 
 const requestIdValidation = {
