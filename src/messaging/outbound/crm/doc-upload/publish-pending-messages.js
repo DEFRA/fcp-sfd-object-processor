@@ -173,6 +173,36 @@ const emitPollMetrics = async (outcome) => {
   metricsCounter('outbox.poll', 1, { outcome })
 }
 
+const handleFailedEntries = async (finalizedFailed, failedResults) => {
+  if (finalizedFailed.length === 0) {
+    return
+  }
+
+  const maxAttempts = config.get(outboxMaxAttemptsConfig)
+  const terminalEntries = finalizedFailed.filter(entry => entry.status === PERMANENT_FAILURE)
+  const retryableEntries = finalizedFailed.filter(entry => entry.status !== PERMANENT_FAILURE)
+
+  if (retryableEntries.length > 0) {
+    metricsCounter('outbox.publish_failed', retryableEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.RETRYABLE })
+  }
+  if (terminalEntries.length > 0) {
+    metricsCounter('outbox.publish_failed', terminalEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.PERMANENT })
+  }
+
+  logFinalizations(retryableEntries, PENDING, failedResults)
+  logFinalizations(terminalEntries, PERMANENT_FAILURE, failedResults)
+  logTerminalFailures(terminalEntries, failedResults)
+
+  await logTerminalFailuresIfAny(
+    config.get('mongo.collections.outbox'),
+    finalizedFailed.map(getEntryId),
+    maxAttempts,
+    null,
+    publishFailureMessage,
+    outboxWorkerId
+  )
+}
+
 const publishPendingMessages = async () => {
   const session = getClient().startSession()
   let outcome = METRIC_OUTCOME.SUCCESS
@@ -228,31 +258,7 @@ const publishPendingMessages = async () => {
       logFinalizations(finalizedSuccessful, SENT)
       logRejectedFinalizations(rejected)
 
-      if (finalizedFailed.length > 0) {
-        const maxAttempts = config.get(outboxMaxAttemptsConfig)
-        const terminalEntries = finalizedFailed.filter(entry => entry.status === PERMANENT_FAILURE)
-        const retryableEntries = finalizedFailed.filter(entry => entry.status !== PERMANENT_FAILURE)
-
-        if (retryableEntries.length > 0) {
-          metricsCounter('outbox.publish_failed', retryableEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.RETRYABLE })
-        }
-        if (terminalEntries.length > 0) {
-          metricsCounter('outbox.publish_failed', terminalEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.PERMANENT })
-        }
-
-        logFinalizations(retryableEntries, PENDING, Failed)
-        logFinalizations(terminalEntries, PERMANENT_FAILURE, Failed)
-        logTerminalFailures(terminalEntries, Failed)
-
-        await logTerminalFailuresIfAny(
-          config.get('mongo.collections.outbox'),
-          finalizedFailed.map(getEntryId),
-          maxAttempts,
-          null,
-          publishFailureMessage,
-          outboxWorkerId
-        )
-      }
+      await handleFailedEntries(finalizedFailed, Failed)
 
       logger.info(`Outbox processing complete. Total: ${finalizedSuccessful.length} sent, ${finalizedFailed.length} failed, ${rejected.length} rejected`)
     }
