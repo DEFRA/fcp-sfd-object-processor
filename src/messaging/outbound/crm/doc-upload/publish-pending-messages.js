@@ -163,14 +163,22 @@ const logTerminalFailures = (entries, failedResults) => {
 }
 
 const emitPollMetrics = async (outcome) => {
-  const { count, oldestCreatedAt } = await getPendingOutboxMetrics()
-  const oldestPendingAgeSeconds = oldestCreatedAt
-    ? Math.max(0, (Date.now() - new Date(oldestCreatedAt).getTime()) / millisecondsToSeconds)
-    : 0
-
-  metricsGauge('outbox.pending_count', count)
-  metricsGauge('outbox.oldest_pending_age_seconds', oldestPendingAgeSeconds)
   metricsCounter('outbox.poll', 1, { outcome })
+
+  try {
+    const { count, oldestCreatedAt } = await getPendingOutboxMetrics()
+    const oldestPendingAgeSeconds = oldestCreatedAt
+      ? Math.max(0, (Date.now() - new Date(oldestCreatedAt).getTime()) / millisecondsToSeconds)
+      : 0
+
+    metricsGauge('outbox.pending_count', count)
+    metricsGauge('outbox.oldest_pending_age_seconds', oldestPendingAgeSeconds)
+  } catch (error) {
+    logger.warn({
+      event: { type: 'outbox_backlog_metrics', action: 'query_backlog', outcome: 'failure' },
+      error: { type: 'outbox_backlog_metrics_failure', message: error.message }
+    }, 'Failed to read outbox backlog for metrics')
+  }
 }
 
 const handleFailedEntries = async (finalizedFailed, failedResults) => {

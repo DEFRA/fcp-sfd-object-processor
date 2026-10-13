@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   loggerInfo: vi.fn(),
   loggerWarn: vi.fn(),
   loggerError: vi.fn(),
+  metricsCounter: vi.fn(),
+  metricsGauge: vi.fn(),
   configGet: vi.fn((key) => {
     if (key === 'messaging.outboxMaxAttempts') return 2
     if (key === 'mongo.collections.outbox') return 'outbox'
@@ -25,6 +27,11 @@ vi.mock('../../../../src/repos/outbox.js', () => ({
   finalizeClaimedOutboxEntries: mocks.finalize,
   logTerminalFailuresIfAny: mocks.logTerminal,
   getPendingOutboxMetrics: mocks.getPendingOutboxMetrics
+}))
+
+vi.mock('../../../../src/api/common/helpers/metrics.js', () => ({
+  metricsCounter: mocks.metricsCounter,
+  metricsGauge: mocks.metricsGauge
 }))
 
 vi.mock('../../../../src/repos/metadata.js', () => ({
@@ -219,5 +226,34 @@ describe('publishPendingMessages', () => {
 
     expect(mocks.loggerError).not.toHaveBeenCalled()
     expect(session.endSession).toHaveBeenCalledOnce()
+  })
+
+  test('preserves the original error and still emits outbox.poll when the backlog query fails on a failed poll', async () => {
+    mocks.claim.mockRejectedValue(new Error('SNS unavailable'))
+    mocks.getPendingOutboxMetrics.mockRejectedValueOnce(new Error('Mongo metrics unavailable'))
+
+    await expect(publishPendingMessages()).rejects.toThrow('SNS unavailable')
+
+    expect(mocks.metricsCounter).toHaveBeenCalledWith('outbox.poll', 1, { outcome: 'failure' })
+    expect(mocks.metricsGauge).not.toHaveBeenCalled()
+    expect(mocks.loggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: { type: 'outbox_backlog_metrics_failure', message: 'Mongo metrics unavailable' }
+      }),
+      'Failed to read outbox backlog for metrics'
+    )
+    expect(session.endSession).toHaveBeenCalledOnce()
+  })
+
+  test('resolves and still emits outbox.poll when the backlog query fails on a successful poll', async () => {
+    mocks.claim.mockResolvedValue([])
+    mocks.getPendingOutboxMetrics.mockRejectedValueOnce(new Error('Mongo metrics unavailable'))
+
+    await expect(publishPendingMessages()).resolves.toBeUndefined()
+
+    expect(mocks.metricsCounter).toHaveBeenCalledWith('outbox.poll', 1, { outcome: 'success' })
+    expect(mocks.metricsGauge).not.toHaveBeenCalled()
+    expect(mocks.loggerWarn).toHaveBeenCalledOnce()
+    expect(mocks.loggerError).not.toHaveBeenCalled()
   })
 })
