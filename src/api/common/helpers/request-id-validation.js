@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto'
-import { constants as httpConstants } from 'node:http2'
 
 import { config } from '../../../config/index.js'
 import { createLogger } from '../../../logging/logger.js'

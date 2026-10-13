@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import Hapi from '@hapi/hapi'
 
 const mockLoggerWarn = vi.fn()
