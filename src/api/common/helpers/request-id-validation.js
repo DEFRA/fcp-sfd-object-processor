@@ -9,14 +9,13 @@ import { buildOversizedRequestIdLog } from '../../../utils/build-oversized-reque
 const logger = createLogger()
 const tracingHeader = config.get('tracing.header')
 const MAX_REQUEST_ID_LENGTH = 50
+const correlationId = randomUUID()
 
-const buildOversizedRequestIdAuditEvent = (request) => {
-  const correlationId = randomUUID()
-
+const buildOversizedRequestIdAuditEvent = (request, correlationId) => {
   return {
     correlationid: correlationId,
     security: {
-      pmccode: 'AUTH',//TODO this is a placeholder until we have been supplied with a proper PMCCODE for this event
+      pmccode: 'AUTH', // TODO this is a placeholder until we have been supplied with a proper PMCCODE for this event
       priority: 5,
       details: { path: request.path, method: request.method, reason: 'request_id_too_long' }
     },
@@ -24,7 +23,8 @@ const buildOversizedRequestIdAuditEvent = (request) => {
       entities: [{ entity: 'request', action: 'failed', entityid: correlationId }],
       status: 'failure',
       details: { path: request.path, method: request.method }
-    }
+    },
+    reference: { correlationid: correlationId },
   }
 }
 
@@ -37,11 +37,11 @@ export const rejectOversizedRequestId = (request, h) => {
 
   const headerLength = requestId.length
   logger.warn(
-    buildOversizedRequestIdLog(request, headerLength),
+    buildOversizedRequestIdLog(request, headerLength, correlationId),
     `Request rejected because ${tracingHeader} exceeds ${MAX_REQUEST_ID_LENGTH} characters`
   )
 
-  sendAuditEvent(buildOversizedRequestIdAuditEvent(request), request).catch((err) => {
+  sendAuditEvent(buildOversizedRequestIdAuditEvent(request, correlationId), request).catch((err) => {
     logger.warn({ msg: 'Failed to send oversized request id audit event', err })
   })
 

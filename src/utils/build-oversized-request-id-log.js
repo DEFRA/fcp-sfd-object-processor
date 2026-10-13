@@ -5,10 +5,11 @@ import { constants as httpConstants } from 'node:http2'
  *
  * @param {object} request - The inbound HTTP request.
  * @param {number} headerLength - The offending `x-cdp-request-id` header length.
+ * @param {string} correlationId - The correlation ID for the request.
  * @returns {{ event: { type: string, action: string, category: string, reason: string, outcome: string, kind: number } }}
  *   The ECS-style event payload to log when the header exceeds the configured limit.
  */
-export const buildOversizedRequestIdLog = (request, headerLength) => ({
+export const buildOversizedRequestIdLog = (request, headerLength, correlationId) => ({
     event: {
         type: 'request_id_too_long',
         action: request.method,
