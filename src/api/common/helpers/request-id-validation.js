@@ -4,21 +4,11 @@ import { constants as httpConstants } from 'node:http2'
 import { config } from '../../../config/index.js'
 import { createLogger } from '../../../logging/logger.js'
 import { sendAuditEvent } from '../../../messaging/outbound/audit/send-audit-event.js'
+import { buildOversizedRequestIdLog } from '../../../utils/build-oversized-request-id-log.js'
 
 const logger = createLogger()
 const tracingHeader = config.get('tracing.header')
 const MAX_REQUEST_ID_LENGTH = 50
-
-const buildOversizedRequestIdLog = (request, headerLength) => ({
-  event: {
-    type: 'request_id_too_long',
-    action: request.method,
-    category: request.path,
-    reason: `header_length=${headerLength}`,
-    outcome: 'failure',
-    kind: httpConstants.HTTP_STATUS_BAD_REQUEST
-  }
-})
 
 const buildOversizedRequestIdAuditEvent = (request) => {
   const correlationId = randomUUID()
