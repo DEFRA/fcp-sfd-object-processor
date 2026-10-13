@@ -1,3 +1,4 @@
+import Boom from '@hapi/boom'
 import { randomUUID } from 'node:crypto'
 
 import { config } from '../../../config/index.js'
