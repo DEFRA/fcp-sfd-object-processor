@@ -9,7 +9,7 @@ import { buildOversizedRequestIdLog } from '../../../utils/build-oversized-reque
 const logger = createLogger()
 const tracingHeader = config.get('tracing.header')
 const MAX_REQUEST_ID_LENGTH = 50
-const correlationId = randomUUID()
+
 
 const buildOversizedRequestIdAuditEvent = (request, correlationId) => {
   return {
@@ -29,6 +29,7 @@ const buildOversizedRequestIdAuditEvent = (request, correlationId) => {
 }
 
 export const rejectOversizedRequestId = (request, h) => {
+  const correlationId = randomUUID()
   const requestId = request.headers?.[tracingHeader]
 
   if (typeof requestId !== 'string' || requestId.length <= MAX_REQUEST_ID_LENGTH) {
