@@ -187,6 +187,7 @@ const handleFailedEntries = async (finalizedFailed, failedResults) => {
   }
 
   const maxAttempts = config.get(outboxMaxAttemptsConfig)
+  // Counts finalised failures only; failed publishes with a rejected finalisation (expired claim) are logged, not counted.
   const terminalEntries = finalizedFailed.filter(entry => entry.status === PERMANENT_FAILURE)
   const retryableEntries = finalizedFailed.filter(entry => entry.status !== PERMANENT_FAILURE)
 
