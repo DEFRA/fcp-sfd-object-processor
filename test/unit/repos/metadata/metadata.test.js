@@ -5,7 +5,7 @@ import {
   formatInboundMetadata,
   persistMetadata,
   bulkUpdatePublishedAtDate,
-  getS3ReferenceAndSbiByFileId,
+  getS3ReferenceAndAccountsByFileId,
   getMetadataByFileId,
   getMetadataPageBySbi,
   getMetadataMessagingByFileIds
@@ -278,7 +278,7 @@ describe('Metadata Repository', () => {
   })
 })
 
-describe('getS3ReferenceAndSbiByFileId', () => {
+describe('getS3ReferenceAndAccountsByFileId', () => {
   let queryCollection
 
   beforeEach(() => {
@@ -288,22 +288,22 @@ describe('getS3ReferenceAndSbiByFileId', () => {
   })
 
   test('returns s3 projection when document exists', async () => {
-    const document = { s3: { key: 'k', bucket: 'b' }, metadata: { sbi: 105000000 } }
+    const document = { s3: { key: 'k', bucket: 'b' }, metadata: { sbi: 105000000, crn: 1050000000 } }
     queryCollection.findOne.mockResolvedValue(document)
 
-    const result = await getS3ReferenceAndSbiByFileId('file-1')
+    const result = await getS3ReferenceAndAccountsByFileId('file-1')
 
     expect(result).toEqual(document)
     expect(queryCollection.findOne).toHaveBeenCalledWith(
       { 'file.fileId': 'file-1' },
-      { projection: { s3: 1, 'metadata.sbi': 1 } }
+      { projection: { s3: 1, 'metadata.sbi': 1, 'metadata.crn': 1 } }
     )
   })
 
   test('throws NotFoundError when document is missing', async () => {
     queryCollection.findOne.mockResolvedValue(null)
 
-    await expect(getS3ReferenceAndSbiByFileId('missing')).rejects.toThrow(NotFoundError)
+    await expect(getS3ReferenceAndAccountsByFileId('missing')).rejects.toThrow(NotFoundError)
   })
 })
 

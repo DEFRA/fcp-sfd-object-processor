@@ -1,16 +1,36 @@
+import { schemaConsts } from '../constants/schemas.js'
+
 /**
  * Builds the optional `accounts` fragment of an audit event.
  *
- * Returns an empty object when the SBI is unknown, so the result can always be
- * spread into an audit payload without emitting an empty attribution.
+ * Returns an empty object when neither account identifier is valid, so the
+ * result can always be spread into an audit payload without empty attribution.
  *
- * @param {number|string|null|undefined} sbi Single Business Identifier, if known
- * @returns {{ accounts?: { sbi: string } }} audit accounts fragment
+ * @param {{ sbi?: number|string|null, crn?: number|string|null }} [identifiers]
+ * @returns {{ accounts?: { sbi?: string, crn?: string } }} audit accounts fragment
  */
-export const buildAuditAccounts = (sbi) => {
-  if (sbi === undefined || sbi === null || sbi === '') {
-    return {}
+const isValidCrn = (crn) => {
+  const isIntegerNumber = typeof crn === 'number' && Number.isInteger(crn)
+  const isDigitsString = typeof crn === 'string' && /^[0-9]+$/.test(crn)
+
+  if (!isIntegerNumber && !isDigitsString) {
+    return false
   }
 
-  return { accounts: { sbi: String(sbi) } }
+  const numericCrn = Number(crn)
+  return numericCrn >= schemaConsts.CRN_MIN && numericCrn <= schemaConsts.CRN_MAX
+}
+
+export const buildAuditAccounts = ({ sbi, crn } = {}) => {
+  const accounts = {}
+
+  if (sbi !== undefined && sbi !== null && sbi !== '') {
+    accounts.sbi = String(sbi)
+  }
+
+  if (isValidCrn(crn)) {
+    accounts.crn = String(Number(crn))
+  }
+
+  return Object.keys(accounts).length > 0 ? { accounts } : {}
 }

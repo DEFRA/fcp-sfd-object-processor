@@ -35,8 +35,9 @@ const buildReadEntities = (documents) => documents.length > 0
   : [{ ...READ_ENTITY }]
 
 /**
- * Sends one document/read audit event per request. The event carries the SBI
- * only: the CRN and the rest of each metadata object are deliberately left out.
+ * Sends one document/read audit event per request. It carries the SBI only:
+ * one CRN cannot unambiguously represent the many documents in a page. This
+ * follows decision B; link the Confluence decision record before PR 5 merges.
  *
  * sendAuditEvent already logs and swallows publish failures. The catch is kept
  * so that an audit failure can never change the status of the response.
@@ -52,7 +53,7 @@ const sendReadAuditEvent = async (request, sbi, documents, pageSize) => {
     correlationid: request.headers?.[tracingHeader],
     audit: {
       entities: buildReadEntities(documents),
-      ...buildAuditAccounts(sbi),
+      ...buildAuditAccounts({ sbi }),
       status: 'success',
       details: { count: documents.length, pageSize }
     }
