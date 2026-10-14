@@ -457,6 +457,34 @@ describe('publishPendingMessages observability', () => {
     expect(mocks.metricsGauge).toHaveBeenCalledWith('outbox.oldest_pending_age_seconds', 5)
   })
 
+  test('preserves the original error and still emits outbox.poll failure when the backlog query rejects on a failed poll', async () => {
+    mocks.claim.mockRejectedValue(new Error('SNS unavailable'))
+    mocks.getPendingOutboxMetrics.mockRejectedValueOnce(new Error('Mongo metrics unavailable'))
+
+    await expect(publishPendingMessages()).rejects.toThrow('SNS unavailable')
+
+    expect(mocks.metricsCounter).toHaveBeenCalledWith('outbox.poll', 1, { outcome: METRIC_OUTCOME.FAILURE })
+    expect(mocks.metricsGauge).not.toHaveBeenCalled()
+    expect(mocks.loggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: { type: 'outbox_backlog_metrics_failure', message: 'Mongo metrics unavailable' }
+      }),
+      'Failed to read outbox backlog for metrics'
+    )
+  })
+
+  test('resolves and still emits outbox.poll success when the backlog query rejects on a successful poll', async () => {
+    mocks.claim.mockResolvedValue([])
+    mocks.getPendingOutboxMetrics.mockRejectedValueOnce(new Error('Mongo metrics unavailable'))
+
+    await expect(publishPendingMessages()).resolves.toBeUndefined()
+
+    expect(mocks.metricsCounter).toHaveBeenCalledWith('outbox.poll', 1, { outcome: METRIC_OUTCOME.SUCCESS })
+    expect(mocks.metricsGauge).not.toHaveBeenCalled()
+    expect(mocks.loggerWarn).toHaveBeenCalledOnce()
+    expect(mocks.loggerError).not.toHaveBeenCalled()
+  })
+
   test('emits a retryable publish_failed counter for non-terminal failures', async () => {
     const entry = buildEntry('metrics-retryable', 1)
     mocks.claim.mockResolvedValue([entry])
