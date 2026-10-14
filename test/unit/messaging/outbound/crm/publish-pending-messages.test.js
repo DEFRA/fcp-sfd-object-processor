@@ -413,13 +413,19 @@ describe('publishPendingMessages observability', () => {
     })
     mocks.getPendingOutboxMetrics.mockResolvedValue({
       count: 3,
-      oldestCreatedAt: new Date(Date.now() - 5000)
+      oldestCreatedAt: new Date('2026-08-07T09:59:55.000Z')
     })
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-07T10:00:00.000Z'))
 
-    await publishPendingMessages()
+    try {
+      await publishPendingMessages()
+    } finally {
+      vi.useRealTimers()
+    }
 
     expect(mocks.metricsGauge).toHaveBeenCalledWith('outbox.pending_count', 3)
-    expect(mocks.metricsGauge).toHaveBeenCalledWith('outbox.oldest_pending_age_seconds', expect.any(Number))
+    expect(mocks.metricsGauge).toHaveBeenCalledWith('outbox.oldest_pending_age_seconds', 5)
     expect(mocks.metricsCounter).toHaveBeenCalledWith('outbox.poll', 1, { outcome: METRIC_OUTCOME.SUCCESS })
   })
 
@@ -436,11 +442,19 @@ describe('publishPendingMessages observability', () => {
 
   test('emits a failure poll counter when claiming entries throws', async () => {
     mocks.claim.mockRejectedValue(new Error('db exploded'))
-    mocks.getPendingOutboxMetrics.mockResolvedValue({ count: 1, oldestCreatedAt: null })
+    mocks.getPendingOutboxMetrics.mockResolvedValue({ count: 1, oldestCreatedAt: new Date('2026-08-07T09:59:55.000Z') })
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-07T10:00:00.000Z'))
 
-    await expect(publishPendingMessages()).rejects.toThrow('db exploded')
+    try {
+      await expect(publishPendingMessages()).rejects.toThrow('db exploded')
+    } finally {
+      vi.useRealTimers()
+    }
 
     expect(mocks.metricsCounter).toHaveBeenCalledWith('outbox.poll', 1, { outcome: METRIC_OUTCOME.FAILURE })
+    expect(mocks.metricsGauge).toHaveBeenCalledWith('outbox.pending_count', 1)
+    expect(mocks.metricsGauge).toHaveBeenCalledWith('outbox.oldest_pending_age_seconds', 5)
   })
 
   test('emits a retryable publish_failed counter for non-terminal failures', async () => {
