@@ -1,5 +1,6 @@
 import Boom from '@hapi/boom'
 import { randomUUID } from 'node:crypto'
+import PMCCODE from '../../../constants/pmccodes.js'
 
 import { config } from '../../../config/index.js'
 import { createLogger } from '../../../logging/logger.js'
@@ -9,7 +10,6 @@ import { buildOversizedRequestIdLog } from '../../../utils/build-oversized-reque
 const logger = createLogger()
 const tracingHeader = config.get('tracing.header')
 const MAX_REQUEST_ID_LENGTH = 50
-
 
 const buildOversizedRequestIdAuditEvent = (request, correlationId) => {
   return {

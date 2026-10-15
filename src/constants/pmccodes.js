@@ -1,5 +1,5 @@
 const PMCCODE = {
-    AUTH: 'AUTH'
+  AUTH: 'AUTH'
 }
 
 export default PMCCODE
