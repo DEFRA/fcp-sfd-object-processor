@@ -264,6 +264,7 @@ const getOutboxStatusesByFileIds = async (fileIds, session = undefined) => {
 
 const getPendingOutboxMetrics = async () => {
   const collection = config.get(outboxCollection)
+  // Includes PROCESSING entries stranded at attempts >= max (never reclaimed), so one stuck record keeps the age gauge rising.
   const filter = { status: { $in: [PENDING, PROCESSING] } }
 
   // Both queries are satisfied by outbox_status_createdAt_idx ({ status: 1, createdAt: 1 }):

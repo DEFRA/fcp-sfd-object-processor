@@ -163,7 +163,7 @@ const logTerminalFailures = (entries, failedResults) => {
 }
 
 const emitPollMetrics = async (outcome) => {
-  metricsCounter('outbox.poll', 1, { outcome })
+  await metricsCounter('outbox.poll', 1, { outcome })
 
   try {
     const { count, oldestCreatedAt } = await getPendingOutboxMetrics()
@@ -171,8 +171,10 @@ const emitPollMetrics = async (outcome) => {
       ? Math.max(0, (Date.now() - new Date(oldestCreatedAt).getTime()) / millisecondsToSeconds)
       : 0
 
-    metricsGauge('outbox.pending_count', count)
-    metricsGauge('outbox.oldest_pending_age_seconds', oldestPendingAgeSeconds)
+    await Promise.all([
+      metricsGauge('outbox.pending_count', count),
+      metricsGauge('outbox.oldest_pending_age_seconds', oldestPendingAgeSeconds)
+    ])
   } catch (error) {
     logger.warn({
       event: { type: 'outbox_backlog_metrics', action: 'query_backlog', outcome: 'failure' },
@@ -192,10 +194,10 @@ const handleFailedEntries = async (finalizedFailed, failedResults) => {
   const retryableEntries = finalizedFailed.filter(entry => entry.status !== PERMANENT_FAILURE)
 
   if (retryableEntries.length > 0) {
-    metricsCounter('outbox.publish_failed', retryableEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.RETRYABLE })
+    await metricsCounter('outbox.publish_failed', retryableEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.RETRYABLE })
   }
   if (terminalEntries.length > 0) {
-    metricsCounter('outbox.publish_failed', terminalEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.PERMANENT })
+    await metricsCounter('outbox.publish_failed', terminalEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.PERMANENT })
   }
 
   logFinalizations(retryableEntries, PENDING, failedResults)
