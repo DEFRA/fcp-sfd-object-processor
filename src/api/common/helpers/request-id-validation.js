@@ -15,7 +15,7 @@ const buildOversizedRequestIdAuditEvent = (request, correlationId) => {
   return {
     correlationid: correlationId,
     security: {
-      pmccode: 'AUTH', // TODO this is a placeholder until we have been supplied with a proper PMCCODE for this event
+      pmccode: PMCCODE.AUTH, // This is a placeholder until we have been supplied with a proper PMCCODE for this event
       priority: 5,
       details: { path: request.path, method: request.method, reason: 'request_id_too_long' }
     },
