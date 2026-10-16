@@ -55,9 +55,9 @@ const createServer = async () => {
     // handler line, can read a value once one is set. Registering it after requestLogger
     // would leave hapi-pino's onRequest handling running first, with no scope entered.
     correlationScope,
+    requestIdValidation,
     requestLogger,
     requestTracing,
-    requestIdValidation,
     secureContext,
     // mongoDb must follow secureContext so the connection trusts the CDP CA certificates.
     mongoDb,

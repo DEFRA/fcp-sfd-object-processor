@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import Hapi from '@hapi/hapi'
+import { getTraceId } from '@defra/hapi-tracing'
+import { requestTracing } from '../../../../../src/api/common/helpers/request-tracing.js'
 
 const mockLoggerWarn = vi.fn()
 
@@ -45,6 +47,16 @@ describe('request-id validation', () => {
   test.each(routes)('rejects oversized request ids before $name handles the request', async ({ path, method }) => {
     const server = Hapi.server()
     server.ext('onRequest', rejectOversizedRequestId)
+    let traceId
+    server.ext('onPreResponse', (request, h) => {
+      traceId = getTraceId()
+      return h.continue
+    })
+    server.ext('onPreResponse', (request, h) => {
+      expect(request.headers['x-cdp-request-id']).toBeUndefined()
+      return h.continue
+    })
+    await server.register(requestTracing)
     server.route({ method, path, handler: () => ({ ok: true }) })
     await server.initialize()
 
@@ -57,6 +69,8 @@ describe('request-id validation', () => {
     expect(response.statusCode).toBe(400)
     expect(response.result.message).toContain('x-cdp-request-id')
     expect(response.result.message).toContain('50')
+    expect(traceId).toBeUndefined()
+    expect(JSON.stringify(mockLoggerWarn.mock.calls)).not.toContain('a'.repeat(51))
     expect(mockLoggerWarn).toHaveBeenCalledWith(
       expect.objectContaining({
         event: expect.objectContaining({
@@ -84,7 +98,6 @@ describe('request-id validation', () => {
       url: path,
       headers: { 'x-cdp-request-id': 'b'.repeat(50) }
     })
-    expect(response.statusCode).toBe(200)
     expect(response.statusCode).toBe(200)
     expect(mockLoggerWarn).not.toHaveBeenCalled()
 
