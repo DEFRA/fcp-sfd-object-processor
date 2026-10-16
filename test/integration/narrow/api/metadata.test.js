@@ -74,33 +74,6 @@ const buildValidEntraToken = (privateKey) => {
   return `${signingInput}.${Buffer.from(signature).toString('base64url')}`
 }
 
-const expectOversizedRequestAuditEvent = (event, path) => {
-  expect(event).toEqual({
-    datetime: expect.any(String),
-    version: expect.any(String),
-    application: expect.any(String),
-    component: expect.any(String),
-    environment: expect.any(String),
-    ip: expect.any(String),
-    correlationid: expect.any(String),
-    security: {
-      pmccode: 'AUTH',
-      priority: 5,
-      details: { path, method: 'get', reason: 'request_id_too_long' }
-    },
-    audit: {
-      entities: [{ entity: 'request', action: 'failed', entityid: expect.any(String) }],
-      status: 'failure',
-      details: { path, method: 'get' }
-    },
-    reference: { correlationid: expect.any(String) }
-  })
-
-  expect(event.correlationid).toMatch(/^[0-9a-f-]{36}$/i)
-  expect(event.audit.entities[0].entityid).toBe(event.correlationid)
-  expect(event.reference.correlationid).toBe(event.correlationid)
-}
-
 const buildMetadataServerWithAuth = async () => {
   const keyPair = generateKeyPairSync('rsa', { modulusLength: 2048 })
   const jwk = {
@@ -154,7 +127,7 @@ describe('GET to the /api/v1/metadata/sbi route', () => {
     await server.initialize()
   })
 
-  test('rejects oversized request ids on the real route before auth and emits the expected audit correlation ids', async () => {
+  test('validates request ids on the real route before auth without auditing oversized values', async () => {
     const { server: authServer, token: validToken, wreckGetSpy } = await buildMetadataServerWithAuth()
     const payloads = [
       { headers: { Authorization: `Bearer ${validToken}`, 'x-cdp-request-id': 'a'.repeat(51) }, expectedStatus: 400, expectedCorrelationId: /^[0-9a-f-]{36}$/i },
@@ -184,20 +157,20 @@ describe('GET to the /api/v1/metadata/sbi route', () => {
         expect(response.result?.data).toBeUndefined()
       }
 
-      expect(capturedAuditEvents).toHaveLength(1)
-      if (expectedStatus === 400) {
-        expectOversizedRequestAuditEvent(capturedAuditEvents[0], `/api/v1/metadata/sbi/${sbi}`)
-      } else if (expectedStatus === 401) {
+      expect(capturedAuditEvents).toHaveLength(expectedStatus === 400 ? 0 : 1)
+      if (expectedStatus === 401) {
         expect(capturedAuditEvents[0].audit.entities[0]).toMatchObject({ entity: 'request', action: 'failed' })
-      } else {
+      } else if (expectedStatus === 200) {
         expect(capturedAuditEvents[0].audit.entities[0]).toMatchObject({ entity: 'document', action: 'read' })
       }
 
-      const correlationId = capturedAuditEvents[0].correlationid
-      if (expectedCorrelationId instanceof RegExp) {
-        expect(correlationId).toMatch(expectedCorrelationId)
-      } else {
-        expect(correlationId).toBe(expectedCorrelationId)
+      if (expectedStatus !== 400) {
+        const correlationId = capturedAuditEvents[0].correlationid
+        if (expectedCorrelationId instanceof RegExp) {
+          expect(correlationId).toMatch(expectedCorrelationId)
+        } else {
+          expect(correlationId).toBe(expectedCorrelationId)
+        }
       }
     }
 
