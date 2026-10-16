@@ -5,9 +5,10 @@ import { config } from '../../../../src/config/index.js'
 import { getDb, connectDb, closeDb } from '../../../../src/data/db.js'
 import {
   claimProcessableOutboxEntries,
-  finalizeClaimedOutboxEntries
+  finalizeClaimedOutboxEntries,
+  getPendingOutboxMetrics
 } from '../../../../src/repos/outbox.js'
-import { DELIVERY_OUTCOME, PENDING, PROCESSING, PERMANENT_FAILURE } from '../../../../src/constants/outbox.js'
+import { DELIVERY_OUTCOME, PENDING, PROCESSING, PERMANENT_FAILURE, SENT } from '../../../../src/constants/outbox.js'
 
 let db
 
@@ -263,5 +264,35 @@ describe('outbox claim repository concurrency', () => {
     expect(entries[1]).toMatchObject({ status: PERMANENT_FAILURE, attempts: 3, error: 'SNS unavailable' })
     expect(entries[0]).not.toHaveProperty('claimedBy')
     expect(entries[1]).not.toHaveProperty('claimedBy')
+  })
+})
+
+describe('getPendingOutboxMetrics', () => {
+  test('returns zero count and null oldestCreatedAt for an empty collection', async () => {
+    await expect(getPendingOutboxMetrics()).resolves.toEqual({ count: 0, oldestCreatedAt: null })
+  })
+
+  test('counts only PENDING and PROCESSING entries and returns the earliest of their createdAt values', async () => {
+    const testRunId = `${testRunPrefix}${randomUUID()}`
+    const oldestPendingAt = new Date(Date.UTC(2026, 7, 7, 10, 0, 2))
+    await db.collection(collectionName).insertMany([
+      buildEntry(testRunId, { status: SENT, createdAt: new Date(Date.UTC(2026, 7, 7, 10, 0, 0)) }),
+      buildEntry(testRunId, { status: PERMANENT_FAILURE, createdAt: new Date(Date.UTC(2026, 7, 7, 10, 0, 1)) }),
+      buildEntry(testRunId, { status: PENDING, createdAt: oldestPendingAt }),
+      buildEntry(testRunId, { status: PROCESSING, createdAt: new Date(Date.UTC(2026, 7, 7, 10, 0, 3)) })
+    ])
+
+    await expect(getPendingOutboxMetrics()).resolves.toEqual({ count: 2, oldestCreatedAt: oldestPendingAt })
+  })
+
+  test('returns the oldest createdAt from a PROCESSING entry when it predates PENDING entries', async () => {
+    const testRunId = `${testRunPrefix}${randomUUID()}`
+    const oldestProcessingAt = new Date(Date.UTC(2026, 7, 7, 10, 0, 0))
+    await db.collection(collectionName).insertMany([
+      buildEntry(testRunId, { status: PENDING, createdAt: new Date(Date.UTC(2026, 7, 7, 10, 0, 5)) }),
+      buildEntry(testRunId, { status: PROCESSING, createdAt: oldestProcessingAt })
+    ])
+
+    await expect(getPendingOutboxMetrics()).resolves.toEqual({ count: 2, oldestCreatedAt: oldestProcessingAt })
   })
 })
