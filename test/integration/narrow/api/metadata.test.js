@@ -1,4 +1,6 @@
+import { generateKeyPairSync, sign } from 'node:crypto'
 import { constants as httpConstants } from 'node:http2'
+import Wreck from '@hapi/wreck'
 import { vi, describe, test, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { mockMetadataResponse } from '../../../mocks/metadata.js'
 import { config } from '../../../../src/config/index.js'
@@ -32,8 +34,10 @@ vi.mock('@defra/fcp-audit-publisher', async (importOriginal) => {
         component: config?.component,
         environment: config?.environment,
         ip: config?.ip || '0.0.0.0',
-        correlationid: event.correlationid || config?.generateCorrelationId ? crypto.randomUUID() : undefined,
-        audit: event.audit
+        correlationid: event.correlationid ?? (config?.generateCorrelationId ? crypto.randomUUID() : undefined),
+        security: event.security,
+        audit: event.audit,
+        reference: event.reference
       }
       capturedAuditEvents.push(enrichedEvent)
     })
@@ -44,6 +48,54 @@ let server
 let createServer
 let originalCollection
 let collection
+
+const TEST_TENANT_ID = '11111111-1111-1111-1111-111111111111'
+const TEST_GROUP_ID = '22222222-2222-2222-2222-222222222222'
+const TEST_JWKS_KEY_ID = 'test-entra-kid'
+
+const encodeBase64Url = (value) => Buffer.from(value).toString('base64url')
+
+const buildValidEntraToken = (privateKey) => {
+  const issuer = `https://login.microsoftonline.com/${TEST_TENANT_ID}/v2.0`
+  const now = Math.floor(Date.now() / 1000)
+  const header = { alg: 'RS256', typ: 'JWT', kid: TEST_JWKS_KEY_ID }
+  const payload = {
+    iss: issuer,
+    aud: 'api://default',
+    typ: 'at+jwt',
+    nbf: now - 60,
+    exp: now + 60,
+    iat: now,
+    groups: [TEST_GROUP_ID]
+  }
+
+  const signingInput = `${encodeBase64Url(JSON.stringify(header))}.${encodeBase64Url(JSON.stringify(payload))}`
+  const signature = sign('RSA-SHA256', Buffer.from(signingInput), privateKey)
+  return `${signingInput}.${Buffer.from(signature).toString('base64url')}`
+}
+
+const buildMetadataServerWithAuth = async () => {
+  const keyPair = generateKeyPairSync('rsa', { modulusLength: 2048 })
+  const jwk = {
+    kty: 'RSA',
+    kid: TEST_JWKS_KEY_ID,
+    use: 'sig',
+    alg: 'RS256',
+    n: keyPair.publicKey.export({ format: 'jwk' }).n,
+    e: keyPair.publicKey.export({ format: 'jwk' }).e
+  }
+
+  config.set('auth.entra.enabled', true)
+  config.set('auth.entra.tenants', [{ tenantId: TEST_TENANT_ID, allowedGroupIds: [TEST_GROUP_ID] }])
+  config.set('auth.cognito.enabled', false)
+
+  const wreckGetSpy = vi.spyOn(Wreck, 'get').mockResolvedValue({ payload: { keys: [jwk] } })
+
+    ; ({ createServer } = await import('../../../../src/api'))
+  const server = await createServer()
+  await server.initialize()
+  return { server, token: buildValidEntraToken(keyPair.privateKey), wreckGetSpy }
+}
 
 // should be inserting the RAW metadata object including the 'raw' and 's3' keys to test that it successfully filters
 
@@ -73,6 +125,57 @@ describe('GET to the /api/v1/metadata/sbi route', () => {
   beforeAll(async () => {
     server = await createServer()
     await server.initialize()
+  })
+
+  test('validates request ids on the real route before auth without auditing oversized values', async () => {
+    const { server: authServer, token: validToken, wreckGetSpy } = await buildMetadataServerWithAuth()
+    const payloads = [
+      { headers: { Authorization: `Bearer ${validToken}`, 'x-cdp-request-id': 'a'.repeat(51) }, expectedStatus: 400, expectedCorrelationId: /^[0-9a-f-]{36}$/i },
+      { headers: { Authorization: `Bearer ${validToken}`, 'x-cdp-request-id': 'b'.repeat(50) }, expectedStatus: 200, expectedCorrelationId: 'b'.repeat(50) },
+      { headers: { Authorization: `Bearer ${validToken}` }, expectedStatus: 200, expectedCorrelationId: /^[0-9a-f-]{36}$/i },
+      { headers: { 'x-cdp-request-id': 'c'.repeat(51) }, expectedStatus: 400, expectedCorrelationId: /^[0-9a-f-]{36}$/i },
+      { headers: { 'x-cdp-request-id': 'd'.repeat(50) }, expectedStatus: 401, expectedCorrelationId: 'd'.repeat(50) },
+      { headers: {}, expectedStatus: 401, expectedCorrelationId: /^[0-9a-f-]{36}$/i }
+    ]
+
+    await db.collection(collection).insertMany(mockMetadataResponse)
+
+    for (const { headers, expectedStatus, expectedCorrelationId } of payloads) {
+      capturedAuditEvents.length = 0
+      const response = await authServer.inject({
+        method: 'GET',
+        url: `/api/v1/metadata/sbi/${sbi}`,
+        headers
+      })
+
+      expect(response.statusCode).toBe(expectedStatus)
+
+      if (expectedStatus === 200) {
+        expect(response.result.data).toHaveLength(2)
+        expect(response.result.page).toMatchObject({ count: 2 })
+      } else {
+        expect(response.result?.data).toBeUndefined()
+      }
+
+      expect(capturedAuditEvents).toHaveLength(expectedStatus === 400 ? 0 : 1)
+      if (expectedStatus === 401) {
+        expect(capturedAuditEvents[0].audit.entities[0]).toMatchObject({ entity: 'request', action: 'failed' })
+      } else if (expectedStatus === 200) {
+        expect(capturedAuditEvents[0].audit.entities[0]).toMatchObject({ entity: 'document', action: 'read' })
+      }
+
+      if (expectedStatus !== 400) {
+        const correlationId = capturedAuditEvents[0].correlationid
+        if (expectedCorrelationId instanceof RegExp) {
+          expect(correlationId).toMatch(expectedCorrelationId)
+        } else {
+          expect(correlationId).toBe(expectedCorrelationId)
+        }
+      }
+    }
+
+    await authServer.stop()
+    wreckGetSpy.mockRestore()
   })
 
   describe('when there is valid data in the database', async () => {
