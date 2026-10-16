@@ -310,7 +310,6 @@ This service publishes audit events to the shared `fcp-audit` SNS topic via `@de
 |---|---|---|
 | Any authenticated route rejected with `401` (other than `GET /api/v1/blob/{fileId}`) | `request` / `failed` | failure, carries a `security` block (`pmccode: AUTH`, `priority: 1`) |
 | `GET /api/v1/blob/{fileId}` rejected with `401` | `document` / `failed` | failure, carries a `security` block (`pmccode: AUTH`, `priority: 1`) |
-| Request with `x-cdp-request-id` longer than 50 characters (rejected with `400`) | `request` / `failed` | failure, generated UUID is used for both `correlationid` and `entityid`; carries a `security` block (`pmccode: AUTH`, `priority: 1`) |
 | `POST /api/v1/callback` | `document` / `created` | success, one per persisted file |
 | `POST /api/v1/callback` validation or persist failure | `document` / `failed` | failure |
 | `GET /api/v1/blob/{fileId}` | `document` / `read` | success |

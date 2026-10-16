@@ -16,6 +16,8 @@ export const rejectOversizedRequestId = (request, h) => {
   }
 
   const headerLength = requestId.length
+  delete request.headers[tracingHeader]
+
   logger.warn(
     buildOversizedRequestIdLog(request, headerLength),
     `Request rejected because ${tracingHeader} exceeds ${MAX_REQUEST_ID_LENGTH} characters`
