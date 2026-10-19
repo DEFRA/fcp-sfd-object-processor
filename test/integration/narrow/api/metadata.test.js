@@ -36,8 +36,7 @@ vi.mock('@defra/fcp-audit-publisher', async (importOriginal) => {
         ip: config?.ip || '0.0.0.0',
         correlationid: event.correlationid ?? (config?.generateCorrelationId ? crypto.randomUUID() : undefined),
         security: event.security,
-        audit: event.audit,
-        reference: event.reference
+        audit: event.audit
       }
       capturedAuditEvents.push(enrichedEvent)
     })
