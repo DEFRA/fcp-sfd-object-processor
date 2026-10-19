@@ -146,7 +146,7 @@ describe('GET to the /api/v1/blob/{fileId} route', () => {
     wreckGetSpy = authContext.wreckGetSpy
   })
 
-  afterAll(async () => {
+  afterEach(async () => {
     await authServer.stop()
     wreckGetSpy.mockRestore()
   })
