@@ -85,16 +85,28 @@ const buildMetadataServerWithAuth = async () => {
     e: keyPair.publicKey.export({ format: 'jwk' }).e
   }
 
+  const originalAuthConfig = {
+    entraEnabled: config.get('auth.entra.enabled'),
+    entraTenants: config.get('auth.entra.tenants'),
+    cognitoEnabled: config.get('auth.cognito.enabled')
+  }
+
   config.set('auth.entra.enabled', true)
   config.set('auth.entra.tenants', [{ tenantId: TEST_TENANT_ID, allowedGroupIds: [TEST_GROUP_ID] }])
   config.set('auth.cognito.enabled', false)
 
   const wreckGetSpy = vi.spyOn(Wreck, 'get').mockResolvedValue({ payload: { keys: [jwk] } })
 
+  try {
     ; ({ createServer } = await import('../../../../src/api'))
-  const server = await createServer()
-  await server.initialize()
-  return { server, token: buildValidEntraToken(keyPair.privateKey), wreckGetSpy }
+    const server = await createServer()
+    await server.initialize()
+    return { server, token: buildValidEntraToken(keyPair.privateKey), wreckGetSpy }
+  } finally {
+    config.set('auth.entra.enabled', originalAuthConfig.entraEnabled)
+    config.set('auth.entra.tenants', originalAuthConfig.entraTenants)
+    config.set('auth.cognito.enabled', originalAuthConfig.cognitoEnabled)
+  }
 }
 
 // should be inserting the RAW metadata object including the 'raw' and 's3' keys to test that it successfully filters
