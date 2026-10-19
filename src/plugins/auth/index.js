@@ -11,6 +11,7 @@ import { blobRoutePath } from '../../api/v1/blobs/route-path.js'
 import { sendAuditEvent } from '../../messaging/outbound/audit/send-audit-event.js'
 import { buildAuthFailureResponseLog } from '../../utils/build-auth-failure-response-log.js'
 import { buildAuthDisabledLog, buildAuthConfigurationFailureLog } from '../../utils/build-auth-configuration-log.js'
+import PMCCODE from '../../constants/pmccodes.js'
 
 const logger = createLogger()
 const tracingHeader = config.get('tracing.header')
