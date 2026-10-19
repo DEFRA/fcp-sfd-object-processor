@@ -20,12 +20,18 @@ afterAll(async () => {
 
 const PAGE_SIZE_CONFIG_KEY = 'mongo.metadataSbiPageSize'
 const capturedAuditEvents = []
+const rejectedAuditEvents = []
 
 vi.mock('@defra/fcp-audit-publisher', async (importOriginal) => {
   const actual = await importOriginal()
   return {
     ...actual,
     publishAuditEvent: vi.fn().mockImplementation(async (event, config) => {
+      if (typeof event.correlationid === 'string' && event.correlationid.length > 50) {
+        rejectedAuditEvents.push(event)
+        throw new Error('correlationid must be 50 characters or fewer')
+      }
+
       // Simulate what @defra/fcp-audit-publisher does: add required fields
       const enrichedEvent = {
         datetime: new Date().toISOString(),
@@ -153,6 +159,7 @@ describe('GET to the /api/v1/metadata/sbi route', () => {
 
     for (const { headers, expectedStatus, expectedCorrelationId } of payloads) {
       capturedAuditEvents.length = 0
+      rejectedAuditEvents.length = 0
       const response = await authServer.inject({
         method: 'GET',
         url: `/api/v1/metadata/sbi/${sbi}`,
@@ -160,6 +167,7 @@ describe('GET to the /api/v1/metadata/sbi route', () => {
       })
 
       expect(response.statusCode).toBe(expectedStatus)
+      expect(rejectedAuditEvents).toHaveLength(0)
 
       if (expectedStatus === 200) {
         expect(response.result.data).toHaveLength(2)

@@ -21,12 +21,18 @@ afterAll(async () => {
 })
 
 const capturedAuditEvents = []
+const rejectedAuditEvents = []
 
 vi.mock('@defra/fcp-audit-publisher', async (importOriginal) => {
   const actual = await importOriginal()
   return {
     ...actual,
     publishAuditEvent: vi.fn().mockImplementation(async (event, config) => {
+      if (typeof event.correlationid === 'string' && event.correlationid.length > 50) {
+        rejectedAuditEvents.push(event)
+        throw new Error('correlationid must be 50 characters or fewer')
+      }
+
       // Simulate what @defra/fcp-audit-publisher does: add required fields
       const enrichedEvent = {
         datetime: new Date().toISOString(),
@@ -146,7 +152,7 @@ describe('GET to the /api/v1/blob/{fileId} route', () => {
     wreckGetSpy = authContext.wreckGetSpy
   })
 
-  afterEach(async () => {
+  afterAll(async () => {
     await authServer.stop()
     wreckGetSpy.mockRestore()
   })
@@ -208,6 +214,7 @@ describe('GET to the /api/v1/blob/{fileId} route', () => {
     }
 
     capturedAuditEvents.length = 0
+    rejectedAuditEvents.length = 0
     const response = await authServer.inject({
       method: 'GET',
       url: `/api/v1/blob/${mockFormattedMetadata.file.fileId}`,
@@ -215,6 +222,7 @@ describe('GET to the /api/v1/blob/{fileId} route', () => {
     })
 
     expect(response.statusCode).toBe(expectedStatus)
+    expect(rejectedAuditEvents).toHaveLength(0)
 
     if (expectedStatus === 200) {
       expect(response.result.data.url).toContain(`/${mockFormattedMetadata.s3.key}`)
