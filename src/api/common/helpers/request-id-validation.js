@@ -6,7 +6,7 @@ import { buildOversizedRequestIdLog } from '../../../utils/build-oversized-reque
 
 const logger = createLogger()
 const tracingHeader = config.get('tracing.header')
-const MAX_REQUEST_ID_LENGTH = 50
+const MAX_REQUEST_ID_LENGTH = 50// fcp-audit-publisher Sets the max length for correlationid using Joi.string().max(50)
 
 export const rejectOversizedRequestId = (request, h) => {
   const requestId = request.headers?.[tracingHeader]
