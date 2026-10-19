@@ -97,7 +97,7 @@ export const auth = {
           sendAuditEvent({
             correlationid: correlationId,
             security: {
-              pmccode: 'AUTH',
+              pmccode: PMCCODE.AUTH,
               priority: 1, // 1 marks this as a high-priority security event,
               details: {
                 message: sanitisedMessage
