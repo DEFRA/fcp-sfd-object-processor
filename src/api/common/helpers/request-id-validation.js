@@ -16,6 +16,7 @@ export const rejectOversizedRequestId = (request, h) => {
   }
 
   const headerLength = requestId.length
+  // Hides the oversized id from later onRequest extensions.
   delete request.headers[tracingHeader]
 
   logger.warn(
