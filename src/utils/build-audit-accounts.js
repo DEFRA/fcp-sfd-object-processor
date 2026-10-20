@@ -11,7 +11,7 @@ import { schemaConsts } from '../constants/schemas.js'
  */
 const isValidCrn = (crn) => {
   const isIntegerNumber = typeof crn === 'number' && Number.isInteger(crn)
-  const isDigitsString = typeof crn === 'string' && /^[0-9]+$/.test(crn)
+  const isDigitsString = typeof crn === 'string' && /^\d+$/.test(crn)
 
   if (!isIntegerNumber && !isDigitsString) {
     return false
