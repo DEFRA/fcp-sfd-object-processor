@@ -603,7 +603,7 @@ describe('auth plugin', () => {
         )
       })
 
-      test('emits document entity with file UUID for auth failures on the blob route', async () => {
+      test('emits request entity for auth failures on the blob route', async () => {
         await auth.plugin.register(mockServer)
 
         const extensionHandler = mockServer.ext.mock.calls[0][1]
@@ -618,52 +618,11 @@ describe('auth plugin', () => {
         expect(mockSendAuditEvent).toHaveBeenCalledWith(
           expect.objectContaining({
             audit: expect.objectContaining({
-              entities: [{ entity: 'document', action: 'failed', entityid: '3f2504e0-4f89-41d3-9a0c-0305e82c3301' }]
-            })
-          }),
-          expect.any(Object)
-        )
-      })
-
-      test('falls back to request entity when the blob path segment is not a valid file UUID', async () => {
-        await auth.plugin.register(mockServer)
-
-        const extensionHandler = mockServer.ext.mock.calls[0][1]
-        const blobRequest = {
-          ...build401Request(),
-          path: '/api/v1/blob/not-a-uuid',
-          route: { path: '/api/v1/blob/{fileId}' },
-          params: { fileId: 'not-a-uuid' }
-        }
-        await extensionHandler(blobRequest, { continue: Symbol('continue') })
-
-        expect(mockSendAuditEvent).toHaveBeenCalledWith(
-          expect.objectContaining({
-            audit: expect.objectContaining({
               entities: [{ entity: 'request', action: 'failed', entityid: 'test-correlation-id' }]
             })
           }),
           expect.any(Object)
         )
-      })
-
-      test('keeps entityid within the publisher schema limit for an oversized blob path segment', async () => {
-        await auth.plugin.register(mockServer)
-
-        const extensionHandler = mockServer.ext.mock.calls[0][1]
-        const blobRequest = {
-          ...build401Request(),
-          path: `/api/v1/blob/${'a'.repeat(200)}`,
-          route: { path: '/api/v1/blob/{fileId}' },
-          params: { fileId: 'a'.repeat(200) }
-        }
-        await extensionHandler(blobRequest, { continue: Symbol('continue') })
-
-        const [payload] = mockSendAuditEvent.mock.calls[0]
-        const [entity] = payload.audit.entities
-
-        expect(entity).toEqual({ entity: 'request', action: 'failed', entityid: 'test-correlation-id' })
-        expect(entity.entityid.length).toBeLessThanOrEqual(120)
       })
 
       test('generates a correlation id when the tracing header is absent', async () => {

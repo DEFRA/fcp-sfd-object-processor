@@ -170,7 +170,7 @@ describe('GET to the /api/v1/blob/{fileId} route', () => {
 
     expect(capturedAuditEvents).toHaveLength(expectedStatus === 400 ? 0 : 1)
     if (expectedStatus === 401) {
-      expect(capturedAuditEvents[0].audit.entities[0]).toMatchObject({ entity: 'document', action: 'failed' })
+      expect(capturedAuditEvents[0].audit.entities[0]).toMatchObject({ entity: 'request', action: 'failed' })
     } else if (expectedStatus === 200) {
       expect(capturedAuditEvents[0].audit.entities[0]).toMatchObject({ entity: 'document', action: 'read' })
     }
