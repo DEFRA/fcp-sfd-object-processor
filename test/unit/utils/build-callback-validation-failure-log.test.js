@@ -94,6 +94,24 @@ describe('buildCallbackValidationFailureLog', () => {
     expect(log.error.code).toBe(422)
   })
 
+  test('masks the CRN in error messages and stack traces', () => {
+    const crn = '1050000001'
+    const request = {
+      ...mockRequest,
+      payload: { metadata: { crn } }
+    }
+    const validationError = Object.assign(
+      new Error(`Invalid CRN ${crn}`),
+      { stack: `Error: Invalid CRN ${crn}\n  at ...` }
+    )
+
+    const log = buildCallbackValidationFailureLog(request, validationError, mockCorrelationId)
+
+    expect(log.error.message).toBe('Invalid CRN ******0001')
+    expect(log.error.stack_trace).toContain('******0001')
+    expect(JSON.stringify(log)).not.toContain(crn)
+  })
+
   test('falls back to err.code when statusCode is absent', () => {
     const errWithCode = Object.assign(new Error('DB error'), { code: 'ECONNREFUSED' })
     const log = buildCallbackValidationFailureLog(mockRequest, errWithCode)

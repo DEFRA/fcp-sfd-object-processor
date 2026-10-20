@@ -1,7 +1,9 @@
+import { maskCrn, maskCrnInText } from '../../../utils/mask-crn.js'
+
 /**
  * Sanitizes a validation error value for logging
  * - Truncates strings longer than 100 characters
- * - Redacts sensitive fields (metadata.reference)
+ * - Masks CRN values and redacts metadata.reference
  * - Returns original value for non-sensitive, short values
  *
  * @param {string} fieldPath - The full field path (e.g., 'metadata.reference')
@@ -12,6 +14,10 @@ const sanitizeValue = (fieldPath, value) => {
   // Redact sensitive fields that may contain PII
   if (fieldPath === 'metadata.reference') {
     return '[REDACTED]'
+  }
+
+  if (fieldPath === 'crn' || fieldPath.endsWith('.crn')) {
+    return value === undefined || value === null ? value : maskCrn(value)
   }
 
   // Truncate long strings
@@ -45,12 +51,15 @@ const formatFieldPath = (pathArray) => {
 export const logValidationFailure = (logger, err, request) => {
   const validationErrors = err.details.map((detail) => {
     const field = formatFieldPath(detail.path)
+    const isCrn = field === 'crn' || field.endsWith('.crn')
 
     return {
       field,
       type: detail.type,
       value: sanitizeValue(field, detail.context?.value),
-      message: detail.message
+      message: isCrn
+        ? maskCrnInText(detail.message, detail.context?.value)
+        : detail.message
     }
   })
 

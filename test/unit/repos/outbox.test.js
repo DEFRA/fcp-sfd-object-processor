@@ -316,7 +316,7 @@ describe('logTerminalFailuresIfAny', () => {
     )
   })
 
-  test('redacts the CRN from terminal failure logs', async () => {
+  test('masks the CRN in terminal failure logs', async () => {
     const crn = '1050000000'
     const doc = {
       _id: { toString: () => 'outbox-doc-id' },
@@ -333,6 +333,7 @@ describe('logTerminalFailuresIfAny', () => {
     await logTerminalFailuresIfAny('outbox', ['file-id-1'], 2, null, 'SNS failure')
 
     expect(JSON.stringify(mockLoggerError.mock.calls)).not.toContain(crn)
+    expect(JSON.stringify(mockLoggerError.mock.calls)).toContain('******0000')
     expect(mockSendAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         audit: expect.objectContaining({

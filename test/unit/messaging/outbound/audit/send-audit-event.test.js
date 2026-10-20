@@ -228,7 +228,7 @@ describe('sendAuditEvent', () => {
     )
   })
 
-  test('redacts an invalid accounts.crn from the audit publish failure reason', async () => {
+  test('masks an invalid accounts.crn in the audit publish failure reason', async () => {
     const { publishAuditEvent } = await import('@defra/fcp-audit-publisher')
     const { sendAuditEvent } = await import('../../../../../src/messaging/outbound/audit/send-audit-event.js')
     const invalidCrn = '1049999999'
@@ -242,10 +242,11 @@ describe('sendAuditEvent', () => {
     })
 
     expect(mockLogger.error).toHaveBeenCalledWith(
-      { event: { type: 'audit_publish_failed', outcome: 'failure', reason: 'Invalid CRN [REDACTED]' } },
+      { event: { type: 'audit_publish_failed', outcome: 'failure', reason: 'Invalid CRN ******9999' } },
       'Failed to publish audit event'
     )
     expect(JSON.stringify(mockLogger.error.mock.calls)).not.toContain(invalidCrn)
+    expect(JSON.stringify(mockLogger.error.mock.calls)).toContain('******9999')
   })
 })
 

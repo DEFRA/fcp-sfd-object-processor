@@ -79,6 +79,22 @@ describe('#validation-logger', () => {
       expect(logCall.validationErrors[0].value).toBe('[REDACTED]')
     })
 
+    test('masks CRNs in the logged value and validation message', () => {
+      const crn = 1050000001
+      const schema = Joi.object({
+        metadata: Joi.object({
+          crn: Joi.number().max(1)
+        })
+      })
+      const { error } = schema.validate({ metadata: { crn } })
+
+      logValidationFailure(mockLogger, error, mockRequest)
+
+      const logged = JSON.stringify(mockLogger.error.mock.calls)
+      expect(logged).toContain('******0001')
+      expect(logged).not.toContain(String(crn))
+    })
+
     test('handles multiple validation errors', () => {
       const schema = Joi.object({
         name: Joi.string().required(),
@@ -118,6 +134,28 @@ describe('#validation-logger', () => {
 
       const logCall = mockLogger.error.mock.calls[0][0]
       expect(logCall.validationErrors[0].value).toBeUndefined()
+    })
+
+    test('preserves a missing CRN value from a required-field validation error', () => {
+      const schema = Joi.object({
+        crn: Joi.number().required()
+      })
+      const { error } = schema.validate({})
+
+      logValidationFailure(mockLogger, error, mockRequest)
+
+      expect(mockLogger.error.mock.calls[0][0].validationErrors[0].value).toBeUndefined()
+    })
+
+    test('preserves a null CRN value from a validation error', () => {
+      const schema = Joi.object({
+        crn: Joi.number().required()
+      })
+      const { error } = schema.validate({ crn: null })
+
+      logValidationFailure(mockLogger, error, mockRequest)
+
+      expect(mockLogger.error.mock.calls[0][0].validationErrors[0].value).toBeNull()
     })
 
     test('sanitizes nested field paths correctly', () => {
