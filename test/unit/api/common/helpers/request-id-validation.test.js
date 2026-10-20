@@ -48,12 +48,10 @@ describe('request-id validation', () => {
     const server = Hapi.server()
     server.ext('onRequest', rejectOversizedRequestId)
     let traceId
+    let requestId
     server.ext('onPreResponse', (request, h) => {
       traceId = getTraceId()
-      return h.continue
-    })
-    server.ext('onPreResponse', (request, h) => {
-      expect(request.headers['x-cdp-request-id']).toBeUndefined()
+      requestId = request.headers['x-cdp-request-id']
       return h.continue
     })
     await server.register(requestTracing)
@@ -70,6 +68,7 @@ describe('request-id validation', () => {
     expect(response.result.message).toContain('x-cdp-request-id')
     expect(response.result.message).toContain('50')
     expect(traceId).toBeUndefined()
+    expect(requestId).toBeUndefined()
     expect(JSON.stringify(mockLoggerWarn.mock.calls)).not.toContain('a'.repeat(51))
     expect(mockLoggerWarn).toHaveBeenCalledWith(
       expect.objectContaining({
