@@ -1,13 +1,12 @@
 import { schemaConsts } from '../constants/schemas.js'
 
 /**
- * Builds the optional `accounts` fragment of an audit event.
+ * Validates a CRN (Company Registration Number) value.
  *
- * Returns an empty object when neither account identifier is valid, so the
- * result can always be spread into an audit payload without empty attribution.
+ * Returns `true` if the CRN is a valid integer number or a string of digits within the defined range, otherwise returns `false`.
  *
- * @param {{ sbi?: number|string|null, crn?: number|string|null }} [identifiers]
- * @returns {{ accounts?: { sbi?: string, crn?: string } }} audit accounts fragment
+ * @param {string|number|null|undefined} crn
+ * @returns {boolean}
  */
 const isValidCrn = (crn) => {
   const isIntegerNumber = typeof crn === 'number' && Number.isInteger(crn)
@@ -21,6 +20,15 @@ const isValidCrn = (crn) => {
   return numericCrn >= schemaConsts.CRN_MIN && numericCrn <= schemaConsts.CRN_MAX
 }
 
+/**
+ * Builds the optional `accounts` fragment of an audit event.
+ *
+ * Returns an empty object when neither account identifier is valid, so the
+ * result can always be spread into an audit payload without empty attribution.
+ *
+ * @param {{ sbi?: number|string|null, crn?: number|string|null }} [identifiers]
+ * @returns {{ accounts?: { sbi?: string, crn?: string } }} audit accounts fragment
+ */
 export const buildAuditAccounts = ({ sbi, crn } = {}) => {
   const accounts = {}
 
