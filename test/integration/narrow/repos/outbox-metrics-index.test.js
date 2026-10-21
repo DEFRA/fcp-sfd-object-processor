@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 
 import { config } from '../../../../src/config/index.js'
-import { getDb, connectDb, closeDb } from '../../../../src/data/db.js'
+import { getDb, connectDb, closeDb, createIndexes } from '../../../../src/data/db.js'
 import { PENDING, PROCESSING, SENT, PERMANENT_FAILURE } from '../../../../src/constants/outbox.js'
 import { buildPendingOutboxCountCursor, buildOldestPendingOutboxCursor } from '../../../../src/repos/outbox.js'
 
@@ -43,11 +43,7 @@ beforeAll(async () => {
   collection = db.collection(collectionName)
 
   await collection.drop().catch(() => { })
-  await collection.createIndexes([
-    { key: { status: 1, createdAt: 1 }, name: INDEX_NAME },
-    { key: { status: 1, claimedUntil: 1 }, name: 'outbox_status_claimedUntil_idx' },
-    { key: { status: 1, attempts: 1 }, name: 'outbox_status_attempts_idx' }
-  ])
+  await createIndexes()
 
   const statuses = [PENDING, PROCESSING, SENT, PERMANENT_FAILURE]
   const now = Date.now()
@@ -75,6 +71,7 @@ describe('outbox pending metrics queries', () => {
 
   test('pending count aggregation uses outbox_status_createdAt_idx without fetching documents', async () => {
     const explain = await buildPendingOutboxCountCursor(collection).explain('executionStats')
+    // Aggregation explain nests the query plan under stages[0].$cursor; the shape can vary by MongoDB version.
     const cursorStage = explain.stages?.[0]?.$cursor ?? explain
 
     expectIndexOnlyPlan(cursorStage)
