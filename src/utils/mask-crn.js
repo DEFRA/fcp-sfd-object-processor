@@ -9,7 +9,7 @@ export const maskCrn = (crn) => {
     return value
   }
 
-  const maskedLength = Math.max(0, value.length - 4)
+  const maskedLength = value.length - 4
 
   return '*'.repeat(maskedLength) + value.slice(maskedLength)
 }
