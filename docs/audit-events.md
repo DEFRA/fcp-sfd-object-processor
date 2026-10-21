@@ -27,7 +27,7 @@ Per-upload events (`created`, both callback `failed` reasons, blob `read`, and o
 
 A CRN is included only when it is an integer number or a string containing digits only, and its numeric value is between `CRN_MIN` and `CRN_MAX` in [`src/constants/schemas.js`](../src/constants/schemas.js). The emitted value is canonicalized as `String(Number(crn))`; invalid, missing, or out-of-range values are omitted without preventing the audit event from being published.
 
-The `GET /api/v1/metadata/sbi/{sbi}` event remains SBI-only. It is one event per request and can list multiple documents, while `accounts.crn` can hold only one value; assigning one document's CRN would misattribute the others. This is decision B; its Confluence decision record must be linked here before PR 5 merges.
+The `GET /api/v1/metadata/sbi/{sbi}` event remains SBI-only. It is one event per request and can list multiple documents, while `accounts.crn` can hold only one value; assigning one document's CRN would misattribute the others. See the following [decision record](https://eaflood.atlassian.net/wiki/spaces/SFD/pages/6622516459?xpis=eyJicmlkZ2UiOiJzbWFydExpbmtzIiwiaWQiOiIxNzkyNTkxODAyMzgxIiwic291cmNlIjoiY29uZmx1ZW5jZSJ9)
 
 The `401` authentication events carry no `accounts`, because no upload metadata is available. CRNs are not written to service logs; CRNs included on audit events are redacted from audit publish failure reasons. The
 redaction format is that all characters are substituted for asterix '*' except for the last 4 digits.

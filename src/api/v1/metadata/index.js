@@ -36,8 +36,7 @@ const buildReadEntities = (documents) => documents.length > 0
 
 /**
  * Sends one document/read audit event per request. It carries the SBI only:
- * one CRN cannot unambiguously represent the many documents in a page. This
- * follows decision B; link the Confluence decision record before PR 5 merges.
+ * one CRN cannot unambiguously represent the many documents in a page. See the following [decision record](https://eaflood.atlassian.net/wiki/spaces/SFD/pages/6622516459?xpis=eyJicmlkZ2UiOiJzbWFydExpbmtzIiwiaWQiOiIxNzkyNTkxODAyMzgxIiwic291cmNlIjoiY29uZmx1ZW5jZSJ9)
  *
  * sendAuditEvent already logs and swallows publish failures. The catch is kept
  * so that an audit failure can never change the status of the response.
