@@ -29,7 +29,8 @@ A CRN is included only when it is an integer number or a string containing digit
 
 The `GET /api/v1/metadata/sbi/{sbi}` event remains SBI-only. It is one event per request and can list multiple documents, while `accounts.crn` can hold only one value; assigning one document's CRN would misattribute the others. This is decision B; its Confluence decision record must be linked here before PR 5 merges.
 
-The `401` authentication events carry no `accounts`, because no upload metadata is available. CRNs are not written to service logs; CRNs included on audit events are redacted from audit publish failure reasons.
+The `401` authentication events carry no `accounts`, because no upload metadata is available. CRNs are not written to service logs; CRNs included on audit events are redacted from audit publish failure reasons. The
+redaction format is that all characters are substituted for asterix '*' except for the last 4 digits.
 
 ## Configuration
 
