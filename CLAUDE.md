@@ -50,7 +50,7 @@ src/plugins/      → Hapi plugins (auth via Microsoft Entra ID JWT; mongodb, re
 
 ## Tech Stack
 
-- Node.js v22+ with ESM (`type: "module"` — always use `.js` extensions in imports)
+- Node.js v24+ with ESM (`type: "module"` — always use `.js` extensions in imports)
 - Hapi.js framework
 - MongoDB 7+ with replica sets (required for transactions)
 - Vitest (NOT Jest) — use `vi.fn()`, `vi.mock()`
