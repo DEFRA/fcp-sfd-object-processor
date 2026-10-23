@@ -63,7 +63,7 @@ const { RESOLVED_ID } = vi.hoisted(() => ({ RESOLVED_ID: '3f2504e0-4f89-41d3-9a0
 
 const buildMockRequest = (overrides = {}) => ({
   payload: {
-    metadata: { sbi: 105000000 },
+    metadata: { sbi: 105000000, crn: 1050000000 },
     form: { file1: { fileId: 'payload-file-id-1' } },
     uploadStatus: 'ready',
     numberOfRejectedFiles: 0
@@ -100,7 +100,7 @@ describe('callback handler — event 4 (document/failed on processing error)', (
         correlationid: RESOLVED_ID,
         audit: expect.objectContaining({
           entities: [{ entity: 'document', action: 'failed', entityid: 'payload-file-id-1' }],
-          accounts: { sbi: '105000000' },
+          accounts: { sbi: '105000000', crn: '1050000000' },
           status: 'failure',
           details: { reason: 'callback_processing_failure' }
         })
@@ -266,7 +266,7 @@ describe('callback handler — event 5 (document/failed on Joi validation failur
         correlationid: RESOLVED_ID,
         audit: expect.objectContaining({
           entities: [{ entity: 'document', action: 'failed', entityid: 'payload-file-id-1' }],
-          accounts: { sbi: '105000000' },
+          accounts: { sbi: '105000000', crn: '1050000000' },
           status: 'failure',
           details: { reason: 'payload_validation_failure' }
         })

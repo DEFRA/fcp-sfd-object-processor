@@ -1,4 +1,5 @@
 import { extractFileIdsFromPayload } from '../mappers/status.js'
+import { maskCrnInText } from './mask-crn.js'
 
 /**
  * Builds the structured log context for a Joi schema validation failure on the callback endpoint.
@@ -13,6 +14,8 @@ import { extractFileIdsFromPayload } from '../mappers/status.js'
  * @param {string} correlationId - Correlation identifier resolved for this callback
  */
 export const buildCallbackValidationFailureLog = (request, err, correlationId) => {
+  const crn = request.payload?.metadata?.crn
+
   return {
     'cdp-uploader': {
       fileIds: extractFileIdsFromPayload(request.payload)
@@ -26,8 +29,8 @@ export const buildCallbackValidationFailureLog = (request, err, correlationId) =
     },
     error: {
       code: err.statusCode ?? err.code ?? null,
-      message: err.message,
-      stack_trace: err.stack,
+      message: maskCrnInText(err.message, crn),
+      stack_trace: maskCrnInText(err.stack, crn),
       type: err?.constructor?.name || err?.name || 'Error'
     }
   }

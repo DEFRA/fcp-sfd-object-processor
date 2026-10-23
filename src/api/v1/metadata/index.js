@@ -35,8 +35,8 @@ const buildReadEntities = (documents) => documents.length > 0
   : [{ ...READ_ENTITY }]
 
 /**
- * Sends one document/read audit event per request. The event carries the SBI
- * only: the CRN and the rest of each metadata object are deliberately left out.
+ * Sends one document/read audit event per request. It carries the SBI only:
+ * one CRN cannot unambiguously represent the many documents in a page. See the following [decision record](https://eaflood.atlassian.net/wiki/spaces/SFD/pages/6622516459?xpis=eyJicmlkZ2UiOiJzbWFydExpbmtzIiwiaWQiOiIxNzkyNTkxODAyMzgxIiwic291cmNlIjoiY29uZmx1ZW5jZSJ9)
  *
  * sendAuditEvent already logs and swallows publish failures. The catch is kept
  * so that an audit failure can never change the status of the response.
@@ -52,7 +52,7 @@ const sendReadAuditEvent = async (request, sbi, documents, pageSize) => {
     correlationid: request.headers?.[tracingHeader],
     audit: {
       entities: buildReadEntities(documents),
-      ...buildAuditAccounts(sbi),
+      ...buildAuditAccounts({ sbi }),
       status: 'success',
       details: { count: documents.length, pageSize }
     }

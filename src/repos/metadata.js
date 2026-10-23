@@ -7,12 +7,12 @@ import { assertCorrelationId } from '../utils/assert-correlation-id.js'
 const metadataCollection = 'mongo.collections.uploadMetadata'
 const noDocumentsFoundError = 'No documents found'
 
-const getS3ReferenceAndSbiByFileId = async (fileId) => {
+const getS3ReferenceAndAccountsByFileId = async (fileId) => {
   const collection = config.get(metadataCollection)
   const document = await getDb().collection(collection)
     .findOne(
       { 'file.fileId': fileId },
-      { projection: { s3: 1, 'metadata.sbi': 1 } }) // return s3 plus SBI for read-audit attribution
+      { projection: { s3: 1, 'metadata.sbi': 1, 'metadata.crn': 1 } }) // return s3 and account identifiers for read-audit attribution
 
   if (document === null) {
     throw new NotFoundError(noDocumentsFoundError)
@@ -165,7 +165,7 @@ export {
   getMetadataPageBySbi,
   persistMetadata,
   formatInboundMetadata,
-  getS3ReferenceAndSbiByFileId,
+  getS3ReferenceAndAccountsByFileId,
   getMetadataByFileId,
   bulkUpdatePublishedAtDate,
   getMetadataMessagingByFileIds

@@ -3,6 +3,7 @@ import { publishAuditEvent } from '@defra/fcp-audit-publisher'
 import { snsClient } from '../../sns/client.js'
 import { config } from '../../../config/index.js'
 import { createLogger } from '../../../logging/logger.js'
+import { maskCrnInText } from '../../../utils/mask-crn.js'
 
 const logger = createLogger()
 
@@ -117,8 +118,11 @@ export const sendAuditEvent = async (event, request) => {
   try {
     await publishAuditEvent(sanitisedEvent, { ...auditPublishConfig, ip: extractIp(request) })
   } catch (err) {
+    const crn = sanitisedEvent.audit?.accounts?.crn
+    const errorMessage = typeof err?.message === 'string' ? err.message : String(err)
+    const reason = maskCrnInText(errorMessage, crn)
     logger.error(
-      { event: { type: 'audit_publish_failed', outcome: 'failure', reason: err.message } },
+      { event: { type: 'audit_publish_failed', outcome: 'failure', reason } },
       'Failed to publish audit event'
     )
   }

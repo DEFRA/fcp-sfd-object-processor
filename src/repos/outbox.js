@@ -5,6 +5,7 @@ import { createLogger } from '../logging/logger.js'
 import { sendAuditEvent } from '../messaging/outbound/audit/send-audit-event.js'
 import { runWithCorrelationId } from '../logging/correlation-id-store.js'
 import { buildAuditAccounts } from '../utils/build-audit-accounts.js'
+import { maskCrnInText } from '../utils/mask-crn.js'
 
 const logger = createLogger()
 
@@ -38,20 +39,22 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
     const attempts = doc.attempts
     const failure = doc.error || {}
     const reason = failure.message || errMsg || 'terminal_failure'
+    const crn = doc.payload?.metadata?.crn
+    const logReason = maskCrnInText(reason, crn)
     runWithCorrelationId(doc.payload?.messaging?.correlationId, () => logger.error({
       event: {
         type: 'outbox_terminal_failure',
         action: 'terminal_failure',
         reference: doc._id?.toString(),
         outcome: 'failure',
-        reason
+        reason: logReason
       },
       ...(workerId && { process: { name: workerId } }),
       error: {
         type: 'outbox_terminal_failure',
         ...(entryId && { id: entryId }),
         ...(failure.code && { code: failure.code }),
-        message: reason
+        message: logReason
       }
     }, `Outbox entry reached PERMANENT_FAILURE after max attempts; entryId=${entryId}; attempt=${attempts}`))
   })
@@ -63,6 +66,7 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
     () => {
       const entryId = doc.payload?.file?.fileId || null
       const sbi = doc.payload?.metadata?.sbi
+      const crn = doc.payload?.metadata?.crn
       const attempts = doc.attempts
       const failure = doc.error || {}
       const reason = failure.message || errMsg || 'terminal_failure'
@@ -70,7 +74,7 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
         correlationid: doc.payload?.messaging?.correlationId,
         audit: {
           entities: [{ entity: 'document', action: 'failed', entityid: entryId ?? doc._id?.toString() ?? '' }],
-          ...buildAuditAccounts(sbi),
+          ...buildAuditAccounts({ sbi, crn }),
           status: 'failure',
           details: { reason, ...(failure.code && { code: failure.code }), attempts }
         }
