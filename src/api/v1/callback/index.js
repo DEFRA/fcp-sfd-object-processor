@@ -69,13 +69,14 @@ export const uploadCallback = {
         }
 
         const failedFileIds = extractFileIdsFromPayload(request.payload)
+        const { sbi, crn } = request.payload?.metadata ?? {}
         // Promise.allSettled fires audit events concurrently and never rejects,
         // so a broker/network failure can't turn this into a 500 or block the response.
         await Promise.allSettled(failedFileIds.map(fileId => sendAuditEvent({
           correlationid: correlationId,
           audit: {
             entities: [{ entity: 'document', action: 'failed', entityid: fileId }],
-            ...buildAuditAccounts(request.payload?.metadata?.sbi),
+            ...buildAuditAccounts({ sbi, crn }),
             status: 'failure',
             details: { reason: 'payload_validation_failure' }
           }
@@ -90,6 +91,7 @@ export const uploadCallback = {
     handler: async (request, h) => {
       const { correlationId, payload } = await resolveCallbackCorrelation(request.payload)
       setCorrelationId(correlationId)
+      const { sbi, crn } = request.payload?.metadata ?? {}
 
       try {
         const validationError = await validateCallbackPayload(payload, h, correlationId)
@@ -117,7 +119,7 @@ export const uploadCallback = {
           correlationid: correlationId,
           audit: {
             entities: [{ entity: 'document', action: 'created', entityid: fileId }],
-            ...buildAuditAccounts(request.payload?.metadata?.sbi),
+            ...buildAuditAccounts({ sbi, crn }),
             status: 'success',
             details: { reason: 'callback_successful' }
           }
@@ -136,7 +138,7 @@ export const uploadCallback = {
           correlationid: correlationId,
           audit: {
             entities: [{ entity: 'document', action: 'failed', entityid: fileId }],
-            ...buildAuditAccounts(request.payload?.metadata?.sbi),
+            ...buildAuditAccounts({ sbi, crn }),
             status: 'failure',
             details: { reason: 'callback_processing_failure' }
           }

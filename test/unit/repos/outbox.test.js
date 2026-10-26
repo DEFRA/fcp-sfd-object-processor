@@ -171,7 +171,7 @@ describe('logTerminalFailuresIfAny', () => {
       _id: { toString: () => 'outbox-doc-id' },
       payload: {
         file: { fileId: 'file-id-1' },
-        metadata: { sbi: 105000000 },
+        metadata: { sbi: 105000000, crn: 1050000000 },
         messaging: { correlationId: 'corr-123' }
       },
       attempts: 2
@@ -183,7 +183,30 @@ describe('logTerminalFailuresIfAny', () => {
     expect(mockSendAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         audit: expect.objectContaining({
-          accounts: { sbi: '105000000' }
+          accounts: { sbi: '105000000', crn: '1050000000' }
+        })
+      })
+    )
+  })
+
+  test('includes accounts.crn when terminal doc metadata has only a CRN', async () => {
+    const doc = {
+      _id: { toString: () => 'outbox-doc-id' },
+      payload: {
+        file: { fileId: 'file-id-1' },
+        metadata: { crn: 1050000000 },
+        messaging: { correlationId: 'corr-123' }
+      },
+      attempts: 2
+    }
+    db.collection.mockReturnValue(buildCollectionMock([doc]))
+
+    await logTerminalFailuresIfAny('outbox', ['file-id-1'], 2, null, 'error')
+
+    expect(mockSendAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        audit: expect.objectContaining({
+          accounts: { crn: '1050000000' }
         })
       })
     )
@@ -290,6 +313,33 @@ describe('logTerminalFailuresIfAny', () => {
         }
       },
       'Outbox entry reached PERMANENT_FAILURE after max attempts; entryId=f1; attempt=2'
+    )
+  })
+
+  test('masks the CRN in terminal failure logs', async () => {
+    const crn = '1050000000'
+    const doc = {
+      _id: { toString: () => 'outbox-doc-id' },
+      payload: {
+        file: { fileId: 'file-id-1' },
+        metadata: { crn },
+        messaging: { correlationId: 'corr-123' }
+      },
+      attempts: 2,
+      error: { message: `Failed while processing CRN ${crn}` }
+    }
+    db.collection.mockReturnValue(buildCollectionMock([doc]))
+
+    await logTerminalFailuresIfAny('outbox', ['file-id-1'], 2, null, 'SNS failure')
+
+    expect(JSON.stringify(mockLoggerError.mock.calls)).not.toContain(crn)
+    expect(JSON.stringify(mockLoggerError.mock.calls)).toContain('******0000')
+    expect(mockSendAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        audit: expect.objectContaining({
+          details: expect.objectContaining({ reason: `Failed while processing CRN ${crn}` })
+        })
+      })
     )
   })
 

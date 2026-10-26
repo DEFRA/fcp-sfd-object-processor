@@ -282,7 +282,10 @@ describe('GET /api/v1/blob/{fileId} — audit event schema validation', async ()
     assertValidAuditEvent(capturedAuditEvents[0])
     expect(capturedAuditEvents[0].audit.entities[0].entity).toBe('document')
     expect(capturedAuditEvents[0].audit.entities[0].action).toBe('read')
-    expect(capturedAuditEvents[0].audit.accounts).toEqual({ sbi: String(mockFormattedMetadata.metadata.sbi) })
+    expect(capturedAuditEvents[0].audit.accounts).toEqual({
+      sbi: String(mockFormattedMetadata.metadata.sbi),
+      crn: String(mockFormattedMetadata.metadata.crn)
+    })
     expect(capturedAuditEvents[0].audit.status).toBe('success')
 
     const serialised = JSON.stringify(capturedAuditEvents[0])
@@ -290,7 +293,7 @@ describe('GET /api/v1/blob/{fileId} — audit event schema validation', async ()
     expect(serialised).not.toContain('presigned')
   })
 
-  test('still emits a schema-valid audit event when SBI is not present on the document', async () => {
+  test('emits CRN attribution when SBI is not present on the document', async () => {
     capturedAuditEvents.length = 0
 
     const documentWithoutSbi = {
@@ -316,6 +319,6 @@ describe('GET /api/v1/blob/{fileId} — audit event schema validation', async ()
     expect(capturedAuditEvents.length).toBe(1)
     assertValidAuditEvent(capturedAuditEvents[0])
     expect(capturedAuditEvents[0].audit.entities[0].action).toBe('read')
-    expect(capturedAuditEvents[0].audit.accounts).toBeUndefined()
+    expect(capturedAuditEvents[0].audit.accounts).toEqual({ crn: String(documentWithoutSbi.metadata.crn) })
   })
 })
