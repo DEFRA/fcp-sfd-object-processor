@@ -12,6 +12,8 @@ import { correlationScope } from './common/helpers/correlation-scope.js'
 import { requestLogger } from './common/helpers/request-logger.js'
 import { pulse } from './common/helpers/pulse.js'
 import { requestTracing } from './common/helpers/request-tracing.js'
+// Must run before requestLogger and requestTracing so they never see an oversized request id.
+import { requestIdValidation } from './common/helpers/request-id-validation.js'
 import { setupProxy } from './common/helpers/proxy/setup-proxy.js'
 import { auth } from '../plugins/auth/index.js'
 import { mongoDb } from '../plugins/mongodb.js'
@@ -54,6 +56,7 @@ const createServer = async () => {
     // handler line, can read a value once one is set. Registering it after requestLogger
     // would leave hapi-pino's onRequest handling running first, with no scope entered.
     correlationScope,
+    requestIdValidation,
     requestLogger,
     requestTracing,
     secureContext,
