@@ -32,6 +32,10 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "chore"
+    ignore:
+      # global-agent is pinned to 3.0.0. Outbound HTTPS through the CDP proxy began
+      # failing TLS hostname checks on the Cognito JWKS fetch after the move to 4.x.
+      - dependency-name: "global-agent"
     groups:
       npm-security:
         applies-to: security-updates
