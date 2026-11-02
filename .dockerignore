@@ -3,4 +3,3 @@ Dockerfile
 coverage
 **/*.test.js
 .secrets.baseline
-.pre-commit-config.yaml
