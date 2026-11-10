@@ -186,7 +186,8 @@ describe('publishPendingMessages', () => {
         error: {
           type: 'outbox_claim_ownership_error',
           message: 'claim_expired_or_ownership_lost'
-        }
+        },
+        tenant: { message: null }
       },
       'Outbox entry could not be finalized by this worker; entryId=file-rejected'
     )

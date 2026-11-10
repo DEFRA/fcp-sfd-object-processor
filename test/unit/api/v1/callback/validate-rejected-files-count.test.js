@@ -68,11 +68,29 @@ describe('numberOfRejectedFiles mismatch check', () => {
           reference: baseMetadata.uosr,
           expected: 0,
           actual: 1
-        }
+        },
+        tenant: { message: `sourceSystem=${baseMetadata.service}` }
       },
       'numberOfRejectedFiles mismatch: declared=0, actual=1'
     )
     expect(metricsModule.metricsCounter).toHaveBeenCalledWith('op.callback.rejected_files_mismatch')
+  })
+
+  test('omits sourceSystem from tenant.message when metadata.service is absent', async () => {
+    const { service, ...metadataWithoutService } = baseMetadata
+    const payload = {
+      uploadStatus: 'ready',
+      metadata: metadataWithoutService,
+      numberOfRejectedFiles: 0,
+      form: { 'bad-file': rejectedFile, 'text-field': 'some text' }
+    }
+
+    await validateCallbackPayload(payload, mockH, CORRELATION_ID)
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ tenant: { message: null } }),
+      'numberOfRejectedFiles mismatch: declared=0, actual=1'
+    )
   })
 
   test('mismatch (declared=2, actual=1) logs warning with correct expected/actual values', async () => {

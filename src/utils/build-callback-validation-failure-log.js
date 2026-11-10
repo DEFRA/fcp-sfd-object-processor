@@ -1,5 +1,6 @@
 import { extractFileIdsFromPayload } from '../mappers/status.js'
 import { maskCrnInText } from './mask-crn.js'
+import { toTenantMessage, sanitizeSourceSystem } from '../logging/tenant-message.js'
 
 /**
  * Builds the structured log context for a Joi schema validation failure on the callback endpoint.
@@ -15,6 +16,7 @@ import { maskCrnInText } from './mask-crn.js'
  */
 export const buildCallbackValidationFailureLog = (request, err, correlationId) => {
   const crn = request.payload?.metadata?.crn
+  const sourceSystem = sanitizeSourceSystem(request.payload?.metadata?.service)
 
   return {
     'cdp-uploader': {
@@ -32,6 +34,9 @@ export const buildCallbackValidationFailureLog = (request, err, correlationId) =
       message: maskCrnInText(err.message, crn),
       stack_trace: maskCrnInText(err.stack, crn),
       type: err?.constructor?.name || err?.name || 'Error'
+    },
+    tenant: {
+      message: toTenantMessage({ sourceSystem })
     }
   }
 }
@@ -55,5 +60,8 @@ export const buildCallbackPersistFailureLog = (request, persistError, correlatio
     message: persistError.message,
     stack_trace: persistError.stack,
     type: persistError?.constructor?.name || persistError?.name || 'Error'
+  },
+  tenant: {
+    message: toTenantMessage({ sourceSystem: sanitizeSourceSystem(request.payload?.metadata?.service) })
   }
 })

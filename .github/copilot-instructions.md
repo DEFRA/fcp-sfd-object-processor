@@ -335,6 +335,8 @@ This service uses Pino with [Elastic Common Schema (ECS)](https://www.elastic.co
 - Follow the pattern in [src/utils/build-uploader-status-log.js](../src/utils/build-uploader-status-log.js)
 - Duration values must be converted to nanoseconds: `duration * 1_000_000`
 - Add unit tests for every log builder function (see [test/unit/utils/](../test/unit/utils/))
+- CDP's log ingestion pipeline only indexes a fixed ECS-compatible allow list of fields; any other top-level key is dropped before it reaches OpenSearch. `tenant.message` is the one tenant-definable field on that allow list, so free-form, per-log context belongs there, rendered as space-separated `key=value` pairs via `toTenantMessage()` from `src/logging/tenant-message.js`
+- The source system that originated an upload (e.g. `fcp-sfd-frontend`, `rps-portal`, from `metadata.service`) is logged as `sourceSystem=<value>` inside `tenant.message` on the callback, initiate, validation failure and outbox log lines wherever upload metadata is in scope — never as a new top-level `sourceSystem` key, which the ingestion pipeline would silently drop. Use `sanitizeSourceSystem()` to omit the pair (rather than logging `sourceSystem=undefined`) when the value is missing or not a string
 
 **Example:**
 ```javascript

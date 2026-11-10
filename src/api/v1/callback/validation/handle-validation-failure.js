@@ -1,6 +1,7 @@
 import { constants as httpConstants } from 'node:http2'
 import { createLogger } from '../../../../logging/logger.js'
 import { persistValidationFailureStatus } from '../../../../services/metadata-service.js'
+import { toTenantMessage, sanitizeSourceSystem } from '../../../../logging/tenant-message.js'
 
 const logger = createLogger()
 
@@ -16,15 +17,20 @@ const logger = createLogger()
  * @returns {Promise<Object>} Hapi response with 201 status
  */
 export async function handleValidationFailure (payload, error, file, h, correlationId) {
+  const sourceSystem = sanitizeSourceSystem(payload?.metadata?.service)
+
   try {
     await persistValidationFailureStatus(payload, error, correlationId)
   } catch (persistErr) {
-    logger.error(persistErr, 'Failed to persist status for semantic validation failure')
+    logger.error({ err: persistErr, tenant: { message: toTenantMessage({ sourceSystem }) } }, 'Failed to persist status for semantic validation failure')
   }
 
   if (file?.fileId) {
     logger.error(
-      { file: { id: file.fileId, fileStatus: file.fileStatus, error: error.message } },
+      {
+        file: { id: file.fileId, fileStatus: file.fileStatus, error: error.message },
+        tenant: { message: toTenantMessage({ sourceSystem }) }
+      },
       'File upload contract validation failed'
     )
   }
