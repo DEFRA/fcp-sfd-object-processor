@@ -58,6 +58,7 @@ const { uploadCallback } = await import('../../../../../src/api/v1/callback/inde
 const { resolveJourneyId } = await import('../../../../../src/services/journey-correlation-service.js')
 const { persistMetadataWithOutbox, persistValidationFailureStatus } = await import('../../../../../src/services/metadata-service.js')
 const { buildCallbackValidationFailureLog } = await import('../../../../../src/utils/build-callback-validation-failure-log.js')
+const { validateCallbackPayload } = await import('../../../../../src/api/v1/callback/validation/validate-callback-payload.js')
 
 const { RESOLVED_ID } = vi.hoisted(() => ({ RESOLVED_ID: '3f2504e0-4f89-41d3-9a0c-0305e82c3301' }))
 
@@ -209,6 +210,66 @@ describe('callback handler — event 4 (document/failed on processing error)', (
     await uploadCallback.options.handler(request, h)
 
     expect(mockSendAuditEvent).not.toHaveBeenCalled()
+  })
+
+  test('includes sourceSystem in tenant.message when persistMetadataWithOutbox throws and metadata.service is present', async () => {
+    persistMetadataWithOutbox.mockRejectedValueOnce(new Error('DB failure'))
+
+    const request = buildMockRequest({
+      payload: { metadata: { sbi: 850000000, service: 'fcp-sfd-frontend' }, form: { file1: { fileId: 'payload-file-id-1' } }, uploadStatus: 'ready', numberOfRejectedFiles: 0 }
+    })
+    const h = buildMockH()
+
+    await uploadCallback.options.handler(request, h)
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ tenant: { message: 'sourceSystem=fcp-sfd-frontend' } }),
+      'Failed to persist callback metadata'
+    )
+  })
+
+  test('omits sourceSystem from tenant.message when persistMetadataWithOutbox throws and metadata.service is absent', async () => {
+    persistMetadataWithOutbox.mockRejectedValueOnce(new Error('DB failure'))
+
+    const request = buildMockRequest()
+    const h = buildMockH()
+
+    await uploadCallback.options.handler(request, h)
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ tenant: { message: null } }),
+      'Failed to persist callback metadata'
+    )
+  })
+
+  test('includes sourceSystem in tenant.message when validateCallbackPayload throws (Post-Joi validation error)', async () => {
+    validateCallbackPayload.mockRejectedValueOnce(new Error('Semantic validation blew up'))
+
+    const request = buildMockRequest({
+      payload: { metadata: { sbi: 850000000, service: 'rps-portal' }, form: { file1: { fileId: 'payload-file-id-1' } }, uploadStatus: 'ready', numberOfRejectedFiles: 0 }
+    })
+    const h = buildMockH()
+
+    await uploadCallback.options.handler(request, h)
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ tenant: { message: 'sourceSystem=rps-portal' } }),
+      'Post-Joi validation error'
+    )
+  })
+
+  test('omits sourceSystem from tenant.message when validateCallbackPayload throws and metadata.service is absent', async () => {
+    validateCallbackPayload.mockRejectedValueOnce(new Error('Semantic validation blew up'))
+
+    const request = buildMockRequest()
+    const h = buildMockH()
+
+    await uploadCallback.options.handler(request, h)
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ tenant: { message: null } }),
+      'Post-Joi validation error'
+    )
   })
 })
 

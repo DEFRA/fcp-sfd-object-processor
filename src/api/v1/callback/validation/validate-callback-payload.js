@@ -3,6 +3,7 @@ import { metricsCounter } from '../../../common/helpers/metrics.js'
 import { validateFormFiles } from './validate-form-files.js'
 import { handleValidationFailure } from './handle-validation-failure.js'
 import { flattenFormValues } from '../../../../utils/flatten-form-files.js'
+import { toTenantMessage, sanitizeSourceSystem } from '../../../../logging/tenant-message.js'
 
 const logger = createLogger()
 
@@ -50,6 +51,9 @@ export async function validateCallbackPayload (payload, h, correlationId) {
           reference: requestPayload.metadata?.uosr,
           expected: declaredRejectedCount,
           actual: actualRejectedCount
+        },
+        tenant: {
+          message: toTenantMessage({ sourceSystem: sanitizeSourceSystem(requestPayload.metadata?.service) })
         }
       },
       `numberOfRejectedFiles mismatch: declared=${declaredRejectedCount}, actual=${actualRejectedCount}`
