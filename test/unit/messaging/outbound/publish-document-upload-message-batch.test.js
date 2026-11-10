@@ -85,11 +85,49 @@ describe('Publish Received Message', () => {
 
     const result = await publishDocumentUploadMessageBatch(mockPendingMessages)
 
-    expect(mockLogger.error).toHaveBeenCalledWith(mockError, 'Error publishing document upload batch')
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      { err: mockError, tenant: { message: null } },
+      'Error publishing document upload batch'
+    )
     expect(result).toEqual({
       Successful: [],
       Failed: [{ Id: 'metadata-id-1', Code: 'Error', Message: 'Publish error' }]
     })
+  })
+
+  test('logs the distinct source systems in the batch under sourceSystems when the publish fails', async () => {
+    const messages = [
+      { messageId: 'm1', payload: { metadata: { service: 'fcp-sfd-frontend' } } },
+      { messageId: 'm2', payload: { metadata: { service: 'rps-portal' } } },
+      { messageId: 'm3', payload: { metadata: { service: 'fcp-sfd-frontend' } } }
+    ]
+    const mockError = new Error('sns down')
+    publishBatch.mockRejectedValue(mockError)
+    buildDocumentUploadMessageBatch.mockReturnValue([])
+
+    await publishDocumentUploadMessageBatch(messages)
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      { err: mockError, tenant: { message: 'sourceSystems=fcp-sfd-frontend,rps-portal' } },
+      'Error publishing document upload batch'
+    )
+  })
+
+  test('omits source systems that are not on the allow list from the batch failure line', async () => {
+    const messages = [
+      { messageId: 'm1', payload: { metadata: { service: 'rps-portal' } } },
+      { messageId: 'm2', payload: { metadata: { service: 'x sourceSystem=fcp-sfd-frontend' } } }
+    ]
+    const mockError = new Error('sns down')
+    publishBatch.mockRejectedValue(mockError)
+    buildDocumentUploadMessageBatch.mockReturnValue([])
+
+    await publishDocumentUploadMessageBatch(messages)
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      { err: mockError, tenant: { message: 'sourceSystems=rps-portal' } },
+      'Error publishing document upload batch'
+    )
   })
 
   test('synthesised Failed entry uses payload.file.fileId as Id when present', async () => {

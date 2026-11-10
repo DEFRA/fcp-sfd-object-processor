@@ -74,11 +74,12 @@ const {
   buildEntryError
 } = await import('../../../../../src/messaging/outbound/crm/doc-upload/publish-pending-messages.js')
 
-const buildEntry = (id, attempts) => ({
+const buildEntry = (id, attempts, service) => ({
   _id: `outbox-${id}`,
   payload: {
     file: { fileId: `file-${id}` },
-    messaging: { correlationId: `correlation-${id}` }
+    messaging: { correlationId: `correlation-${id}` },
+    ...(service && { metadata: { service } })
   },
   attempts,
   claimedBy: 'worker-observability',
@@ -114,7 +115,8 @@ describe('publishPendingMessages observability', () => {
           created: entry.claimedAt,
           duration: 300000000000
         },
-        process: { name: 'worker-observability' }
+        process: { name: 'worker-observability' },
+        tenant: { message: null }
       },
       'Outbox entry claimed for processing; entryId=file-claimed; attempt=1'
     )
@@ -154,7 +156,8 @@ describe('publishPendingMessages observability', () => {
         error: {
           type: 'outbox_publish_failure',
           message: 'temporary failure'
-        }
+        },
+        tenant: { message: null }
       },
       'Outbox entry finalized as PENDING; entryId=file-retryable; attempt=1'
     )
@@ -172,7 +175,8 @@ describe('publishPendingMessages observability', () => {
           type: 'outbox_publish_failure',
           code: 'terminal_failure',
           message: 'terminal_failure'
-        }
+        },
+        tenant: { message: null }
       },
       'Outbox entry finalized as PERMANENT_FAILURE; entryId=file-terminal; attempt=2'
     )
@@ -190,7 +194,8 @@ describe('publishPendingMessages observability', () => {
           type: 'outbox_publish_failure',
           code: 'terminal_failure',
           message: 'terminal_failure'
-        }
+        },
+        tenant: { message: null }
       },
       'Outbox entry will reach PERMANENT_FAILURE after this attempt; entryId=file-terminal; attempt=2'
     )
@@ -229,7 +234,8 @@ describe('publishPendingMessages observability', () => {
         error: {
           type: 'outbox_claim_ownership_error',
           message: 'claim_expired_or_ownership_lost'
-        }
+        },
+        tenant: { message: null }
       },
       'Outbox entry could not be finalized by this worker; entryId=file-expired'
     )
@@ -524,6 +530,120 @@ describe('publishPendingMessages observability', () => {
     expect(mocks.loggerInfo).toHaveBeenCalledWith(
       'Outbox processing complete. Total: 1 sent, 0 failed, 0 rejected'
     )
+  })
+
+  describe('source system in tenant.message', () => {
+    test('includes sourceSystem on the claimed entry log line when present', async () => {
+      const entry = buildEntry('claimed-src', 1, 'fcp-sfd-frontend')
+      mocks.claim.mockResolvedValue([entry])
+      mocks.publishBatch.mockResolvedValue({ Successful: [], Failed: [] })
+
+      await publishPendingMessages()
+
+      expect(mocks.loggerInfo).toHaveBeenCalledWith(
+        expect.objectContaining({ tenant: { message: 'sourceSystem=fcp-sfd-frontend' } }),
+        'Outbox entry claimed for processing; entryId=file-claimed-src; attempt=1'
+      )
+    })
+
+    test('omits sourceSystem on the claimed entry log line when absent', async () => {
+      const entry = buildEntry('claimed-nosrc', 1)
+      mocks.claim.mockResolvedValue([entry])
+      mocks.publishBatch.mockResolvedValue({ Successful: [], Failed: [] })
+
+      await publishPendingMessages()
+
+      expect(mocks.loggerInfo).toHaveBeenCalledWith(
+        expect.objectContaining({ tenant: { message: null } }),
+        'Outbox entry claimed for processing; entryId=file-claimed-nosrc; attempt=1'
+      )
+    })
+
+    test('includes sourceSystem on the finalized entry log line when present', async () => {
+      const entry = buildEntry('finalize-src', 1, 'rps-portal')
+      mocks.claim.mockResolvedValue([entry])
+      mocks.publishBatch.mockResolvedValue({ Successful: [{ Id: 'file-finalize-src' }], Failed: [] })
+
+      await publishPendingMessages()
+
+      expect(mocks.loggerInfo).toHaveBeenCalledWith(
+        expect.objectContaining({ tenant: { message: 'sourceSystem=rps-portal' } }),
+        'Outbox entry finalized as SENT; entryId=file-finalize-src; attempt=1'
+      )
+    })
+
+    test('omits sourceSystem on the finalized entry log line when absent', async () => {
+      const entry = buildEntry('finalize-nosrc', 1)
+      mocks.claim.mockResolvedValue([entry])
+      mocks.publishBatch.mockResolvedValue({ Successful: [{ Id: 'file-finalize-nosrc' }], Failed: [] })
+
+      await publishPendingMessages()
+
+      expect(mocks.loggerInfo).toHaveBeenCalledWith(
+        expect.objectContaining({ tenant: { message: null } }),
+        'Outbox entry finalized as SENT; entryId=file-finalize-nosrc; attempt=1'
+      )
+    })
+
+    test('includes sourceSystem on the rejected finalization log line when present', async () => {
+      const entry = buildEntry('rejected-src', 1, 'fcp-sfd-frontend')
+      mocks.claim.mockResolvedValue([entry])
+      mocks.publishBatch.mockResolvedValue({ Successful: [], Failed: [{ Id: 'file-rejected-src' }] })
+      mocks.finalize.mockResolvedValue({ acknowledged: true, matchedCount: 0 })
+
+      await publishPendingMessages()
+
+      expect(mocks.loggerWarn).toHaveBeenCalledWith(
+        expect.objectContaining({ tenant: { message: 'sourceSystem=fcp-sfd-frontend' } }),
+        'Outbox entry could not be finalized by this worker; entryId=file-rejected-src'
+      )
+    })
+
+    test('omits sourceSystem on the rejected finalization log line when absent', async () => {
+      const entry = buildEntry('rejected-nosrc', 1)
+      mocks.claim.mockResolvedValue([entry])
+      mocks.publishBatch.mockResolvedValue({ Successful: [], Failed: [{ Id: 'file-rejected-nosrc' }] })
+      mocks.finalize.mockResolvedValue({ acknowledged: true, matchedCount: 0 })
+
+      await publishPendingMessages()
+
+      expect(mocks.loggerWarn).toHaveBeenCalledWith(
+        expect.objectContaining({ tenant: { message: null } }),
+        'Outbox entry could not be finalized by this worker; entryId=file-rejected-nosrc'
+      )
+    })
+
+    test('includes sourceSystem on the terminal failure log line when present', async () => {
+      const entry = buildEntry('terminal-src', 2, 'rps-portal')
+      mocks.claim.mockResolvedValue([entry])
+      mocks.publishBatch.mockResolvedValue({
+        Successful: [],
+        Failed: [{ Id: 'file-terminal-src', Code: 'terminal_failure' }]
+      })
+
+      await publishPendingMessages()
+
+      expect(mocks.loggerError).toHaveBeenCalledWith(
+        expect.objectContaining({ tenant: { message: 'sourceSystem=rps-portal' } }),
+        'Outbox entry will reach PERMANENT_FAILURE after this attempt; entryId=file-terminal-src; attempt=2'
+      )
+    })
+
+    test('omits sourceSystem on the terminal failure log line when absent', async () => {
+      const entry = buildEntry('terminal-nosrc', 2)
+      mocks.claim.mockResolvedValue([entry])
+      mocks.publishBatch.mockResolvedValue({
+        Successful: [],
+        Failed: [{ Id: 'file-terminal-nosrc', Code: 'terminal_failure' }]
+      })
+
+      await publishPendingMessages()
+
+      expect(mocks.loggerError).toHaveBeenCalledWith(
+        expect.objectContaining({ tenant: { message: null } }),
+        'Outbox entry will reach PERMANENT_FAILURE after this attempt; entryId=file-terminal-nosrc; attempt=2'
+      )
+    })
   })
 })
 

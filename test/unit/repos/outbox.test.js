@@ -284,7 +284,8 @@ describe('logTerminalFailuresIfAny', () => {
         error: {
           type: 'outbox_terminal_failure',
           message: 'terminal_failure'
-        }
+        },
+        tenant: { message: null }
       },
       'Outbox entry reached PERMANENT_FAILURE after max attempts; entryId=null; attempt=2'
     )
@@ -310,7 +311,8 @@ describe('logTerminalFailuresIfAny', () => {
           type: 'outbox_terminal_failure',
           id: 'f1',
           message: 'publish error'
-        }
+        },
+        tenant: { message: null }
       },
       'Outbox entry reached PERMANENT_FAILURE after max attempts; entryId=f1; attempt=2'
     )
@@ -369,7 +371,8 @@ describe('logTerminalFailuresIfAny', () => {
           id: 'file-kms',
           code: 'KMSAccessDenied',
           message: 'KMS key denied'
-        }
+        },
+        tenant: { message: null }
       },
       'Outbox entry reached PERMANENT_FAILURE after max attempts; entryId=file-kms; attempt=2'
     )
@@ -424,6 +427,40 @@ describe('logTerminalFailuresIfAny', () => {
     ).resolves.not.toThrow()
 
     expect(mockSendAuditEvent).toHaveBeenCalledTimes(2)
+  })
+
+  describe('source system in tenant.message', () => {
+    test('includes sourceSystem in the terminal failure log line when present', async () => {
+      const doc = {
+        _id: { toString: () => 'outbox-src' },
+        payload: { file: { fileId: 'file-src' }, metadata: { service: 'fcp-sfd-frontend' } },
+        attempts: 2
+      }
+      db.collection.mockReturnValue(buildCollectionMock([doc]))
+
+      await logTerminalFailuresIfAny('outbox', ['file-src'], 2, null, 'publish error', 'worker-1')
+
+      expect(mockLoggerError).toHaveBeenCalledWith(
+        expect.objectContaining({ tenant: { message: 'sourceSystem=fcp-sfd-frontend' } }),
+        expect.any(String)
+      )
+    })
+
+    test('omits sourceSystem in the terminal failure log line when absent', async () => {
+      const doc = {
+        _id: { toString: () => 'outbox-nosrc' },
+        payload: { file: { fileId: 'file-nosrc' } },
+        attempts: 2
+      }
+      db.collection.mockReturnValue(buildCollectionMock([doc]))
+
+      await logTerminalFailuresIfAny('outbox', ['file-nosrc'], 2, null, 'publish error', 'worker-1')
+
+      expect(mockLoggerError).toHaveBeenCalledWith(
+        expect.objectContaining({ tenant: { message: null } }),
+        expect.any(String)
+      )
+    })
   })
 })
 

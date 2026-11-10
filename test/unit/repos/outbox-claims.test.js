@@ -133,10 +133,64 @@ describe('outbox claims', () => {
           duration: 300000000000,
           reason: 'expired_claim previousOwner=worker-old previousClaimedUntil=2026-08-07T09:59:00.000Z'
         },
-        process: { name: 'worker-new' }
+        process: { name: 'worker-new' },
+        tenant: { message: null }
       },
       'Reclaimed expired outbox claim; entryId=file-1'
     )
+  })
+
+  describe('source system in tenant.message', () => {
+    test('includes sourceSystem in the reclaimed claim log line when present', async () => {
+      const expiredClaim = {
+        _id: { toString: () => 'entry-src' },
+        status: 'PROCESSING',
+        payload: {
+          file: { fileId: 'file-src' },
+          metadata: { service: 'rps-portal' },
+          messaging: { correlationId: 'correlation-src' }
+        },
+        claimedBy: 'worker-old',
+        claimedUntil: new Date('2026-08-07T09:59:00.000Z')
+      }
+      mocks.collection.mockReturnValue({
+        findOneAndUpdate: vi.fn()
+          .mockResolvedValueOnce(expiredClaim)
+          .mockResolvedValueOnce(null)
+      })
+
+      await claimProcessableOutboxEntries('worker-new', new Date('2026-08-07T10:00:00.000Z'))
+
+      expect(mocks.loggerWarn).toHaveBeenCalledWith(
+        expect.objectContaining({ tenant: { message: 'sourceSystem=rps-portal' } }),
+        expect.any(String)
+      )
+    })
+
+    test('omits sourceSystem in the reclaimed claim log line when absent', async () => {
+      const expiredClaim = {
+        _id: { toString: () => 'entry-nosrc' },
+        status: 'PROCESSING',
+        payload: {
+          file: { fileId: 'file-nosrc' },
+          messaging: { correlationId: 'correlation-nosrc' }
+        },
+        claimedBy: 'worker-old',
+        claimedUntil: new Date('2026-08-07T09:59:00.000Z')
+      }
+      mocks.collection.mockReturnValue({
+        findOneAndUpdate: vi.fn()
+          .mockResolvedValueOnce(expiredClaim)
+          .mockResolvedValueOnce(null)
+      })
+
+      await claimProcessableOutboxEntries('worker-new', new Date('2026-08-07T10:00:00.000Z'))
+
+      expect(mocks.loggerWarn).toHaveBeenCalledWith(
+        expect.objectContaining({ tenant: { message: null } }),
+        expect.any(String)
+      )
+    })
   })
 
   test('finalizes successful entries only while the worker owns a valid claim', async () => {
