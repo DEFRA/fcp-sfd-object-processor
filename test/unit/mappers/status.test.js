@@ -172,8 +172,33 @@ describe('Status Mappers', () => {
       })
 
       expect(result).toEqual([
-        { field: 'metadata.crn', errorType: 'unknown', receivedValue: 'test' }
+        { field: 'metadata.crn', errorType: 'unknown', receivedValue: '' }
       ])
+    })
+
+    test.each([
+      ['out-of-range string', '1049999999'],
+      ['out-of-range number', 1049999999],
+      ['object', { value: 1050000001 }],
+      ['array', [1050000001]]
+    ])('should omit a rejected metadata.crn %s', (_label, value) => {
+      const result = mapValidationErrors({
+        details: [{ path: ['metadata', 'crn'], type: 'number.min', context: { value } }]
+      })
+
+      expect(result).toEqual([
+        { field: 'metadata.crn', errorType: 'number.min', receivedValue: '' }
+      ])
+      expect(JSON.stringify(result)).not.toContain('1049999999')
+      expect(JSON.stringify(result)).not.toContain('1050000001')
+    })
+
+    test('should keep the rejected value for fields other than metadata.crn', () => {
+      const result = mapValidationErrors({
+        details: [{ path: ['metadata', 'sbi'], type: 'number.min', context: { value: 1049999999 } }]
+      })
+
+      expect(result[0].receivedValue).toBe('1049999999')
     })
 
     test('should sanitise string values longer than 256 characters', () => {
