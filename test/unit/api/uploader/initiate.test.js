@@ -490,7 +490,7 @@ describe('uploader initiate handler', () => {
       ).rejects.toThrow(mockErr)
 
       expect(mockLogger.error).toHaveBeenCalledWith(
-        { error: { message: mockErr.message } },
+        { error: { message: mockErr.message }, tenant: { message: null } },
         '/uploader/initiate validation failed'
       )
     })
@@ -507,6 +507,64 @@ describe('uploader initiate handler', () => {
       await expect(
         uploaderInitiateRoute.options.validate.failAction(null, null, mockErr)
       ).rejects.toThrow(mockErr)
+    })
+
+    test('includes sourceSystem in tenant.message when metadata.service is present', async () => {
+      const request = { payload: { metadata: { service: 'rps-portal' } } }
+
+      await expect(
+        uploaderInitiateRoute.options.validate.failAction(request, null, mockErr)
+      ).rejects.toThrow(mockErr)
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        { error: { message: mockErr.message }, tenant: { message: 'sourceSystem=rps-portal' } },
+        '/uploader/initiate validation failed'
+      )
+    })
+  })
+
+  describe('source system in tenant.message on handler log lines', () => {
+    const mockRequest = { payload: mockValidPayload }
+    let mockH
+
+    beforeEach(() => {
+      mockH = { response: vi.fn().mockReturnValue({ code: vi.fn() }) }
+    })
+
+    test('includes sourceSystem on the "Forwarding initiate request" log line when present', async () => {
+      mockHttpClient.mockResolvedValue({ ok: true, json: async () => mockCdpUploaderResponse })
+
+      await uploaderInitiateRoute.options.handler(mockRequest, mockH)
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        expect.objectContaining({ tenant: { message: `sourceSystem=${mockValidPayload.metadata.service}` } }),
+        'Forwarding initiate request to Upstream service'
+      )
+    })
+
+    test('omits sourceSystem on the "Forwarding initiate request" log line when absent', async () => {
+      mockHttpClient.mockResolvedValue({ ok: true, json: async () => mockCdpUploaderResponse })
+      const { service, ...metadataWithoutService } = mockValidPayload.metadata
+      const requestWithoutService = { payload: { ...mockValidPayload, metadata: metadataWithoutService } }
+
+      await uploaderInitiateRoute.options.handler(requestWithoutService, mockH)
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        expect.objectContaining({ tenant: { message: null } }),
+        'Forwarding initiate request to Upstream service'
+      )
+    })
+
+    test('includes sourceSystem on the session-persist-failure log line when present', async () => {
+      mockHttpClient.mockResolvedValue({ ok: true, json: async () => mockCdpUploaderResponse })
+      mockInsertSession.mockRejectedValue(new Error('DB connection error'))
+
+      await expect(uploaderInitiateRoute.options.handler(mockRequest, mockH)).rejects.toMatchObject({ isBoom: true })
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ tenant: { message: `sourceSystem=${mockValidPayload.metadata.service}` } }),
+        'Failed to persist upload session record'
+      )
     })
   })
 })

@@ -335,6 +335,8 @@ This service uses Pino with [Elastic Common Schema (ECS)](https://www.elastic.co
 - Follow the pattern in [src/utils/build-uploader-status-log.js](../src/utils/build-uploader-status-log.js)
 - Duration values must be converted to nanoseconds: `duration * 1_000_000`
 - Add unit tests for every log builder function (see [test/unit/utils/](../test/unit/utils/))
+- CDP's log ingestion pipeline only indexes a fixed ECS-compatible allow list of fields; any other top-level key is dropped before it reaches OpenSearch. `tenant.message` is the one tenant-definable field on that allow list, so free-form, per-log context belongs there, rendered as space-separated `key=value` pairs via `toTenantMessage()` from `src/logging/tenant-message.js`
+- The source system that originated an upload (e.g. `fcp-sfd-frontend`, `rps-portal`, from `metadata.service`) is logged as `sourceSystem=<value>` inside `tenant.message` on log lines wherever upload metadata is in scope — never as a new top-level `sourceSystem` key, which the ingestion pipeline would silently drop. Always pass the value through `sanitizeSourceSystem()`, which omits the pair unless the value is on the `schemaConsts.SERVICE_EXAMPLES` allow list. `toTenantMessage()` does not escape values, and several log sites read `metadata.service` before Joi validation, so an unchecked value could forge extra `key=value` pairs
 
 **Example:**
 ```javascript
