@@ -1,5 +1,7 @@
 import { flattenFormValues } from '../utils/flatten-form-files.js'
 
+const CRN_FIELD = 'metadata.crn'
+
 const sanitiseReceivedValue = (value) => {
   if (value === undefined || value === null) {
     return ''
@@ -38,11 +40,16 @@ const mapValidationErrors = (validationError) => {
     return [buildFallbackValidationError(validationError)]
   }
 
-  return validationError.details.map((detail) => ({
-    field: Array.isArray(detail.path) ? detail.path.join('.') : 'unknown',
-    errorType: detail.type ?? 'unknown',
-    receivedValue: sanitiseReceivedValue(detail.context?.value)
-  }))
+  return validationError.details.map((detail) => {
+    const field = Array.isArray(detail.path) ? detail.path.join('.') : 'unknown'
+
+    return {
+      field,
+      errorType: detail.type ?? 'unknown',
+      // A rejected CRN can't be masked reliably (any type, may be nested), so it is never stored
+      receivedValue: field === CRN_FIELD ? '' : sanitiseReceivedValue(detail.context?.value)
+    }
+  })
 }
 
 const getSbiFromPayload = (payload) => {
