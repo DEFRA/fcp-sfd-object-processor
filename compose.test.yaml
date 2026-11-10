@@ -11,7 +11,10 @@ services:
     environment:
       PORT: 3004
       NODE_ENV: development
-      MONGO_URI: mongodb://mongodb:27017/
+      # Replica set is required: the service uses multi-document transactions.
+      # Naming it here makes the driver fail fast if it connects to a node that
+      # is not a member of rs0, rather than silently rejecting transactions.
+      MONGO_URI: mongodb://mongodb:27017/?replicaSet=rs0
       AUTH_ENTRA_ENABLED: false
       # Optional: JSON array of Entra tenants
       AUTH_ENTRA_TENANTS: ${AUTH_ENTRA_TENANTS}
@@ -59,7 +62,19 @@ services:
       - ./vitest.config.js:/home/node/vitest.config.js
       - ./coverage:/home/node/coverage
     depends_on:
-    - mongodb
-    - cdp-uploader
-    - redis
-    - floci-init
+      mongodb:
+        condition: service_healthy
+      cdp-uploader:
+        condition: service_started
+      redis:
+        condition: service_started
+      floci-init:
+        condition: service_completed_successfully
+
+# The shared "fcp-sfd" network is used by every Defra SFD service stack running
+# locally, and each one aliases its database as "mongodb". When more than one
+# stack is up, DNS round-robins between them and test connections can land on
+# another service's database. The test stack therefore gets its own network.
+networks:
+  fcp-sfd:
+    name: fcp-sfd-object-processor-test
