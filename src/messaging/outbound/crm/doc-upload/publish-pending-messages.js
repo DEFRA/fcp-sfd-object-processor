@@ -14,6 +14,7 @@ import { outboxWorkerId } from '../../outbox-worker-id.js'
 import { runWithCorrelationId } from '../../../../logging/correlation-id-store.js'
 import { metricsGauge, metricsCounter } from '../../../../api/common/helpers/metrics.js'
 import { METRIC_OUTCOME, PUBLISH_FAILURE_OUTCOME } from '../../../../constants/metrics.js'
+import { toTenantMessage, sanitizeSourceSystem } from '../../../../logging/tenant-message.js'
 
 const logger = createLogger()
 const publishFailureMessage = 'Failed to send message'
@@ -22,6 +23,7 @@ const millisecondsToNanoseconds = 1000000
 const millisecondsToSeconds = 1000
 
 const getEntryId = (entry) => entry?.payload?.file?.fileId || entry?.messageId
+const getEntrySourceSystem = (entry) => sanitizeSourceSystem(entry?.payload?.metadata?.service)
 
 // Mirrors the status buildClaimedFailurePipeline computes in the database. The
 // driver's UpdateResult reports only counts, so the status has to be derived
@@ -120,7 +122,8 @@ const logRejectedFinalizations = (entries) => {
       error: {
         type: 'outbox_claim_ownership_error',
         message: 'claim_expired_or_ownership_lost'
-      }
+      },
+      tenant: { message: toTenantMessage({ sourceSystem: getEntrySourceSystem(entry) }) }
     }, `Outbox entry could not be finalized by this worker; entryId=${getEntryId(entry)}`))
   })
 }
@@ -138,7 +141,8 @@ const logFinalizations = (entries, status, failedResults = []) => {
         ...(failureDetails && { reason: failureDetails.reason })
       },
       process: { name: outboxWorkerId },
-      ...(failureDetails && { error: failureDetails.error })
+      ...(failureDetails && { error: failureDetails.error }),
+      tenant: { message: toTenantMessage({ sourceSystem: getEntrySourceSystem(entry) }) }
     }, `Outbox entry finalized as ${status}; entryId=${getEntryId(entry)}; attempt=${attempts}`))
   })
 }
@@ -157,7 +161,8 @@ const logTerminalFailures = (entries, failedResults) => {
         reason: failureDetails.reason
       },
       process: { name: outboxWorkerId },
-      error: failureDetails.error
+      error: failureDetails.error,
+      tenant: { message: toTenantMessage({ sourceSystem: getEntrySourceSystem(entry) }) }
     }, `Outbox entry will reach PERMANENT_FAILURE after this attempt; entryId=${getEntryId(entry)}; attempt=${attempts}`))
   })
 }
@@ -238,7 +243,8 @@ const publishPendingMessages = async () => {
           created: entry.claimedAt,
           duration: Math.max(0, claimDurationMs) * millisecondsToNanoseconds
         },
-        process: { name: entry.claimedBy }
+        process: { name: entry.claimedBy },
+        tenant: { message: toTenantMessage({ sourceSystem: getEntrySourceSystem(entry) }) }
       }, `Outbox entry claimed for processing; entryId=${getEntryId(entry)}; attempt=${entry.attempts}`))
     })
 

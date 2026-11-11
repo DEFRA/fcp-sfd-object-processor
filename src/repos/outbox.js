@@ -6,6 +6,7 @@ import { sendAuditEvent } from '../messaging/outbound/audit/send-audit-event.js'
 import { runWithCorrelationId } from '../logging/correlation-id-store.js'
 import { buildAuditAccounts } from '../utils/build-audit-accounts.js'
 import { maskCrnInText } from '../utils/mask-crn.js'
+import { toTenantMessage, sanitizeSourceSystem } from '../logging/tenant-message.js'
 
 const logger = createLogger()
 
@@ -55,7 +56,8 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
         ...(entryId && { id: entryId }),
         ...(failure.code && { code: failure.code }),
         message: logReason
-      }
+      },
+      tenant: { message: toTenantMessage({ sourceSystem: sanitizeSourceSystem(doc.payload?.metadata?.service) }) }
     }, `Outbox entry reached PERMANENT_FAILURE after max attempts; entryId=${entryId}; attempt=${attempts}`))
   })
 
@@ -159,7 +161,8 @@ const claimProcessableOutboxEntries = async (instanceId, now = new Date()) => {
           duration: leaseTimeoutMs * 1000000,
           reason
         },
-        process: { name: instanceId }
+        process: { name: instanceId },
+        tenant: { message: toTenantMessage({ sourceSystem: sanitizeSourceSystem(entry.payload?.metadata?.service) }) }
       }, `Reclaimed expired outbox claim; entryId=${entry.payload?.file?.fileId || entry.messageId}`))
     }
 
