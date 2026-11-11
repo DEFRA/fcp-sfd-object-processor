@@ -14,6 +14,7 @@ import { extractFileIdsFromPayload } from '../../../mappers/status.js'
 import { splitJourneyId } from '../../../utils/split-journey-id.js'
 import { resolveJourneyId } from '../../../services/journey-correlation-service.js'
 import { setCorrelationId } from '../../../logging/correlation-id-store.js'
+import { toTenantMessage, sanitizeSourceSystem } from '../../../logging/tenant-message.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -92,6 +93,7 @@ export const uploadCallback = {
       const { correlationId, payload } = await resolveCallbackCorrelation(request.payload)
       setCorrelationId(correlationId)
       const { sbi, crn } = request.payload?.metadata ?? {}
+      const sourceSystem = sanitizeSourceSystem(request.payload?.metadata?.service)
 
       try {
         const validationError = await validateCallbackPayload(payload, h, correlationId)
@@ -99,7 +101,7 @@ export const uploadCallback = {
           return validationError
         }
       } catch (validationErr) {
-        logger.error(validationErr, 'Post-Joi validation error')
+        logger.error({ err: validationErr, tenant: { message: toTenantMessage({ sourceSystem }) } }, 'Post-Joi validation error')
         return Boom.internal(validationErr)
       }
 
@@ -131,7 +133,7 @@ export const uploadCallback = {
           ids: fileIds
         }).code(httpConstants.HTTP_STATUS_CREATED)
       } catch (err) {
-        logger.error(err)
+        logger.error({ err, tenant: { message: toTenantMessage({ sourceSystem }) } }, 'Failed to persist callback metadata')
 
         const errorFileIds = extractFileIdsFromPayload(request.payload)
         await Promise.allSettled(errorFileIds.map(fileId => sendAuditEvent({

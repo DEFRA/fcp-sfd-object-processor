@@ -144,6 +144,29 @@ describe('buildCallbackValidationFailureLog', () => {
     expect(log.event.reason).toBeUndefined()
     expect(Object.keys(log.event)).not.toContain('reason')
   })
+
+  test('includes sourceSystem in tenant.message when metadata.service is present', () => {
+    const request = {
+      ...mockRequest,
+      payload: { metadata: { uosr: 'sub-123', service: 'fcp-sfd-frontend' } }
+    }
+    const log = buildCallbackValidationFailureLog(request, err, mockCorrelationId)
+    expect(log.tenant.message).toBe('sourceSystem=fcp-sfd-frontend')
+  })
+
+  test('omits tenant when metadata.service is absent', () => {
+    const log = buildCallbackValidationFailureLog(mockRequest, err, mockCorrelationId)
+    expect(log).not.toHaveProperty('tenant')
+  })
+
+  test('omits tenant when metadata.service is not a string', () => {
+    const request = {
+      ...mockRequest,
+      payload: { metadata: { uosr: 'sub-123', service: 123 } }
+    }
+    const log = buildCallbackValidationFailureLog(request, err, mockCorrelationId)
+    expect(log).not.toHaveProperty('tenant')
+  })
 })
 
 describe('buildCallbackPersistFailureLog', () => {
@@ -222,5 +245,19 @@ describe('buildCallbackPersistFailureLog', () => {
     const log = buildCallbackPersistFailureLog(mockRequest, persistError)
     expect(log.event.reason).toBeUndefined()
     expect(Object.keys(log.event)).not.toContain('reason')
+  })
+
+  test('includes sourceSystem in tenant.message when metadata.service is present', () => {
+    const request = {
+      ...mockRequest,
+      payload: { metadata: { uosr: 'sub-123', service: 'rps-portal' } }
+    }
+    const log = buildCallbackPersistFailureLog(request, persistError, mockCorrelationId)
+    expect(log.tenant.message).toBe('sourceSystem=rps-portal')
+  })
+
+  test('omits tenant when metadata.service is absent', () => {
+    const log = buildCallbackPersistFailureLog(mockRequest, persistError, mockCorrelationId)
+    expect(log).not.toHaveProperty('tenant')
   })
 })

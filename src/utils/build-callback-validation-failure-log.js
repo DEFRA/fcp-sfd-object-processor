@@ -1,5 +1,6 @@
 import { extractFileIdsFromPayload } from '../mappers/status.js'
 import { maskCrnInText } from './mask-crn.js'
+import { toTenantMessage, sanitizeSourceSystem } from '../logging/tenant-message.js'
 
 /**
  * Builds the structured log context for a Joi schema validation failure on the callback endpoint.
@@ -15,6 +16,7 @@ import { maskCrnInText } from './mask-crn.js'
  */
 export const buildCallbackValidationFailureLog = (request, err, correlationId) => {
   const crn = request.payload?.metadata?.crn
+  const tenantMessage = toTenantMessage({ sourceSystem: sanitizeSourceSystem(request.payload?.metadata?.service) })
 
   return {
     'cdp-uploader': {
@@ -32,7 +34,8 @@ export const buildCallbackValidationFailureLog = (request, err, correlationId) =
       message: maskCrnInText(err.message, crn),
       stack_trace: maskCrnInText(err.stack, crn),
       type: err?.constructor?.name || err?.name || 'Error'
-    }
+    },
+    ...(tenantMessage && { tenant: { message: tenantMessage } })
   }
 }
 /**
@@ -42,18 +45,23 @@ export const buildCallbackValidationFailureLog = (request, err, correlationId) =
  * @param {Error} persistError - Error thrown by the persist operation
  * @param {string} correlationId - Correlation identifier resolved for this callback
  */
-export const buildCallbackPersistFailureLog = (request, persistError, correlationId) => ({
-  event: {
-    type: 'callback_validation_persist_failure',
-    action: request.method,
-    category: request.path,
-    outcome: 'failure',
-    reference: correlationId
-  },
-  error: {
-    code: persistError.statusCode ?? persistError.code ?? null,
-    message: persistError.message,
-    stack_trace: persistError.stack,
-    type: persistError?.constructor?.name || persistError?.name || 'Error'
+export const buildCallbackPersistFailureLog = (request, persistError, correlationId) => {
+  const tenantMessage = toTenantMessage({ sourceSystem: sanitizeSourceSystem(request.payload?.metadata?.service) })
+
+  return {
+    event: {
+      type: 'callback_validation_persist_failure',
+      action: request.method,
+      category: request.path,
+      outcome: 'failure',
+      reference: correlationId
+    },
+    error: {
+      code: persistError.statusCode ?? persistError.code ?? null,
+      message: persistError.message,
+      stack_trace: persistError.stack,
+      type: persistError?.constructor?.name || persistError?.name || 'Error'
+    },
+    ...(tenantMessage && { tenant: { message: tenantMessage } })
   }
-})
+}

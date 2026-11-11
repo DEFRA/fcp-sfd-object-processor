@@ -9,13 +9,15 @@ vi.mock('../../../../../../src/services/metadata-service.js', () => ({
   persistMetadataWithOutbox: vi.fn()
 }))
 
+const mockLogger = vi.hoisted(() => ({
+  error: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  debug: vi.fn()
+}))
+
 vi.mock('../../../../../../src/logging/logger.js', () => ({
-  createLogger: () => ({
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    debug: vi.fn()
-  })
+  createLogger: () => mockLogger
 }))
 
 const CORRELATION_ID = '550e8400-e29b-41d4-a716-446655440000'
@@ -115,5 +117,45 @@ describe('handleValidationFailure', () => {
       status: 201,
       body: { message: 'Validation failure persisted' }
     })
+  })
+
+  test('includes sourceSystem in tenant.message on the file-validation-failed log when present', async () => {
+    const payload = { uploadStatus: 'ready', metadata: { service: 'fcp-sfd-frontend' } }
+    const error = new Error('checksum invalid')
+    const file = { fileId: 'abc-123', fileStatus: 'complete' }
+
+    await handleValidationFailure(payload, error, file, mockH, CORRELATION_ID)
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ tenant: { message: 'sourceSystem=fcp-sfd-frontend' } }),
+      'File upload contract validation failed'
+    )
+  })
+
+  test('omits sourceSystem from tenant.message on the file-validation-failed log when absent', async () => {
+    const payload = { uploadStatus: 'ready', metadata: {} }
+    const error = new Error('checksum invalid')
+    const file = { fileId: 'abc-123', fileStatus: 'complete' }
+
+    await handleValidationFailure(payload, error, file, mockH, CORRELATION_ID)
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ tenant: { message: null } }),
+      'File upload contract validation failed'
+    )
+  })
+
+  test('includes sourceSystem in tenant.message when persistValidationFailureStatus rejects', async () => {
+    persistValidationFailureStatus.mockRejectedValueOnce(new Error('DB error'))
+
+    const payload = { uploadStatus: 'ready', metadata: { service: 'rps-portal' } }
+    const error = new Error('test error')
+
+    await handleValidationFailure(payload, error, undefined, mockH, CORRELATION_ID)
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ tenant: { message: 'sourceSystem=rps-portal' } }),
+      'Failed to persist status for semantic validation failure'
+    )
   })
 })
