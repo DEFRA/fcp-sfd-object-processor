@@ -661,6 +661,7 @@ Use synthetic identifiers only: CRNs from `9000000000` to `9999999999` and SBIs 
 | Port 3004 already in use | Another service is using the port. Stop it or change the port in `compose.yaml`. |
 | `pre-commit` hook blocks commit with detect-secrets false positive | Add the false positive to `.secrets.baseline` by running `detect-secrets scan --baseline .secrets.baseline`. |
 | Tests pass in Docker but fail locally | Local tests require a MongoDB instance with replica set support. Use `npm run docker:test` for a fully containerised run. |
+| Intermittent `Transaction numbers are only allowed on a replica set member or mongos`, or unexplained 500s in integration tests | Another SFD stack sharing the `fcp-sfd` network also aliases its database as `mongodb`, so DNS can resolve to the wrong instance. `npm run docker:test` runs on its own isolated network to avoid this; if you see it during `docker compose up`, stop the other service's stack. |
 | `docker compose up` hangs | Check Docker Desktop is running and has sufficient resources allocated (recommend at least 4GB RAM). |
 
 ## Related Repositories
