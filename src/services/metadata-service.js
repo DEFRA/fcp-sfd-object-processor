@@ -6,6 +6,7 @@ import { createLogger } from '../logging/logger.js'
 import { buildValidatedStatusDocuments, buildValidationFailureStatusDocuments } from '../mappers/status.js'
 import { flattenFormValues } from '../utils/flatten-form-files.js'
 import { assertCorrelationId } from '../utils/assert-correlation-id.js'
+import { toTenantMessage, sanitizeSourceSystem } from '../logging/tenant-message.js'
 
 const logger = createLogger()
 
@@ -13,6 +14,7 @@ const DUPLICATE_KEY_ERROR_CODE = 11000
 
 const persistMetadataWithOutbox = async (rawDocuments, correlationId) => {
   const session = getClient().startSession()
+  const sourceSystem = sanitizeSourceSystem(rawDocuments?.metadata?.service)
 
   try {
     return await session.withTransaction(async () => {
@@ -36,7 +38,7 @@ const persistMetadataWithOutbox = async (rawDocuments, correlationId) => {
         .map(val => val.fileId)
 
       if (fileIds.length === 0) {
-        logger.error(error, 'Duplicate key error but no fileIds found in payload')
+        logger.error({ err: error, tenant: { message: toTenantMessage({ sourceSystem }) } }, 'Duplicate key error but no fileIds found in payload')
         throw error
       }
 
@@ -54,7 +56,8 @@ const persistMetadataWithOutbox = async (rawDocuments, correlationId) => {
             type: 'duplicate_callback',
             outcome: 'success',
             reference: existingCorrelationId
-          }
+          },
+          tenant: { message: toTenantMessage({ sourceSystem }) }
         },
         'Duplicate callback received — returning existing correlationId'
       )
@@ -62,7 +65,7 @@ const persistMetadataWithOutbox = async (rawDocuments, correlationId) => {
       return { duplicate: true, correlationId: existingCorrelationId }
     }
 
-    logger.error(error, 'Failed to persist metadata with outbox')
+    logger.error({ err: error, tenant: { message: toTenantMessage({ sourceSystem }) } }, 'Failed to persist metadata with outbox')
     throw error
   } finally {
     await session.endSession()
@@ -80,7 +83,7 @@ const persistValidationFailureStatus = async (payload, validationError, correlat
     const statusDocuments = buildValidationFailureStatusDocuments(payload, validationError, correlationId)
     return await insertStatus(statusDocuments)
   } catch (error) {
-    logger.error(error, 'Failed to persist status records for validation failure')
+    logger.error({ err: error, tenant: { message: toTenantMessage({ sourceSystem: sanitizeSourceSystem(payload?.metadata?.service) }) } }, 'Failed to persist status records for validation failure')
     throw error
   }
 }
