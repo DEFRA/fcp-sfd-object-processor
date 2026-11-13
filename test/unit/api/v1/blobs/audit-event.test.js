@@ -26,7 +26,7 @@ vi.mock('../../../../../src/messaging/outbound/audit/send-audit-event.js', () =>
 }))
 
 vi.mock('../../../../../src/repos/metadata.js', () => ({
-  getS3ReferenceAndSbiByFileId: vi.fn()
+  getS3ReferenceAndAccountsByFileId: vi.fn()
 }))
 
 vi.mock('../../../../../src/repos/s3.js', () => ({
@@ -34,7 +34,7 @@ vi.mock('../../../../../src/repos/s3.js', () => ({
 }))
 
 const { blobRoute } = await import('../../../../../src/api/v1/blobs/index.js')
-const { getS3ReferenceAndSbiByFileId } = await import('../../../../../src/repos/metadata.js')
+const { getS3ReferenceAndAccountsByFileId } = await import('../../../../../src/repos/metadata.js')
 const { generatePresignedUrl } = await import('../../../../../src/repos/s3.js')
 
 const buildMockRequest = (fileId = 'test-file-id') => ({
@@ -53,7 +53,7 @@ describe('blob handler — event 3 (document/read)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockPublishAuditEvent.mockResolvedValue(undefined)
-    getS3ReferenceAndSbiByFileId.mockResolvedValue({ s3: { key: 'some-key', bucket: 'some-bucket' }, metadata: { sbi: 105000000 } })
+    getS3ReferenceAndAccountsByFileId.mockResolvedValue({ s3: { key: 'some-key', bucket: 'some-bucket' }, metadata: { sbi: 105000000, crn: 1050000000 } })
     generatePresignedUrl.mockResolvedValue({ url: 'https://s3.example.com/presigned' })
   })
 
@@ -69,7 +69,7 @@ describe('blob handler — event 3 (document/read)', () => {
         correlationid: 'test-correlation-id',
         audit: expect.objectContaining({
           entities: [{ entity: 'document', action: 'read', entityid: 'test-file-id' }],
-          accounts: { sbi: '105000000' },
+          accounts: { sbi: '105000000', crn: '1050000000' },
           status: 'success'
         })
       }),
@@ -78,7 +78,7 @@ describe('blob handler — event 3 (document/read)', () => {
   })
 
   test('omits accounts when SBI cannot be determined from lookup result', async () => {
-    getS3ReferenceAndSbiByFileId.mockResolvedValueOnce({ s3: { key: 'some-key', bucket: 'some-bucket' } })
+    getS3ReferenceAndAccountsByFileId.mockResolvedValueOnce({ s3: { key: 'some-key', bucket: 'some-bucket' } })
 
     const request = buildMockRequest('test-file-id')
     const h = buildMockH()
@@ -96,7 +96,7 @@ describe('blob handler — event 3 (document/read)', () => {
   })
 
   test('omits accounts when lookup metadata.sbi is null', async () => {
-    getS3ReferenceAndSbiByFileId.mockResolvedValueOnce({
+    getS3ReferenceAndAccountsByFileId.mockResolvedValueOnce({
       s3: { key: 'some-key', bucket: 'some-bucket' },
       metadata: { sbi: null }
     })

@@ -34,7 +34,8 @@ vi.mock('../../../src/messaging/outbound/audit/send-audit-event.js', () => ({
 
 const {
   claimProcessableOutboxEntries,
-  finalizeClaimedOutboxEntries
+  finalizeClaimedOutboxEntries,
+  getPendingOutboxMetrics
 } = await import('../../../src/repos/outbox.js')
 
 describe('outbox claims', () => {
@@ -132,10 +133,64 @@ describe('outbox claims', () => {
           duration: 300000000000,
           reason: 'expired_claim previousOwner=worker-old previousClaimedUntil=2026-08-07T09:59:00.000Z'
         },
-        process: { name: 'worker-new' }
+        process: { name: 'worker-new' },
+        tenant: { message: null }
       },
       'Reclaimed expired outbox claim; entryId=file-1'
     )
+  })
+
+  describe('source system in tenant.message', () => {
+    test('includes sourceSystem in the reclaimed claim log line when present', async () => {
+      const expiredClaim = {
+        _id: { toString: () => 'entry-src' },
+        status: 'PROCESSING',
+        payload: {
+          file: { fileId: 'file-src' },
+          metadata: { service: 'rps-portal' },
+          messaging: { correlationId: 'correlation-src' }
+        },
+        claimedBy: 'worker-old',
+        claimedUntil: new Date('2026-08-07T09:59:00.000Z')
+      }
+      mocks.collection.mockReturnValue({
+        findOneAndUpdate: vi.fn()
+          .mockResolvedValueOnce(expiredClaim)
+          .mockResolvedValueOnce(null)
+      })
+
+      await claimProcessableOutboxEntries('worker-new', new Date('2026-08-07T10:00:00.000Z'))
+
+      expect(mocks.loggerWarn).toHaveBeenCalledWith(
+        expect.objectContaining({ tenant: { message: 'sourceSystem=rps-portal' } }),
+        expect.any(String)
+      )
+    })
+
+    test('omits sourceSystem in the reclaimed claim log line when absent', async () => {
+      const expiredClaim = {
+        _id: { toString: () => 'entry-nosrc' },
+        status: 'PROCESSING',
+        payload: {
+          file: { fileId: 'file-nosrc' },
+          messaging: { correlationId: 'correlation-nosrc' }
+        },
+        claimedBy: 'worker-old',
+        claimedUntil: new Date('2026-08-07T09:59:00.000Z')
+      }
+      mocks.collection.mockReturnValue({
+        findOneAndUpdate: vi.fn()
+          .mockResolvedValueOnce(expiredClaim)
+          .mockResolvedValueOnce(null)
+      })
+
+      await claimProcessableOutboxEntries('worker-new', new Date('2026-08-07T10:00:00.000Z'))
+
+      expect(mocks.loggerWarn).toHaveBeenCalledWith(
+        expect.objectContaining({ tenant: { message: null } }),
+        expect.any(String)
+      )
+    })
   })
 
   test('finalizes successful entries only while the worker owns a valid claim', async () => {
@@ -237,5 +292,61 @@ describe('outbox claims', () => {
       'worker-1',
       DELIVERY_OUTCOME.SUCCEEDED
     )).rejects.toThrow('Failed to finalize claimed outbox entries')
+  })
+
+  test('throws when failed-attempt finalization is not acknowledged', async () => {
+    mocks.collection.mockReturnValue({
+      updateMany: vi.fn().mockResolvedValue({ acknowledged: false })
+    })
+
+    await expect(finalizeClaimedOutboxEntries(
+      null,
+      ['entry-1'],
+      'worker-1',
+      DELIVERY_OUTCOME.FAILED
+    )).rejects.toThrow('Failed to finalize claimed outbox entries')
+  })
+})
+
+describe('getPendingOutboxMetrics', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  test('returns count and oldest pending entry timestamp', async () => {
+    const oldestCreatedAt = new Date('2026-08-07T09:00:00.000Z')
+    const next = vi.fn().mockResolvedValue({ createdAt: oldestCreatedAt })
+    const project = vi.fn().mockReturnValue({ next })
+    const limit = vi.fn().mockReturnValue({ project })
+    const sort = vi.fn().mockReturnValue({ limit })
+    const find = vi.fn().mockReturnValue({ sort })
+    const aggregate = vi.fn().mockReturnValue({ next: vi.fn().mockResolvedValue({ n: 3 }) })
+    mocks.collection.mockReturnValue({ aggregate, find })
+
+    await expect(getPendingOutboxMetrics()).resolves.toEqual({
+      count: 3,
+      oldestCreatedAt
+    })
+    expect(find).toHaveBeenCalledWith({ status: { $in: ['PENDING', 'PROCESSING'] } })
+    expect(sort).toHaveBeenCalledWith({ createdAt: 1 })
+    expect(limit).toHaveBeenCalledWith(1)
+    expect(project).toHaveBeenCalledWith({ _id: 0, createdAt: 1 })
+  })
+
+  test('returns null timestamp when no pending entry exists', async () => {
+    const next = vi.fn().mockResolvedValue(null)
+    const project = vi.fn().mockReturnValue({ next })
+    const limit = vi.fn().mockReturnValue({ project })
+    const sort = vi.fn().mockReturnValue({ limit })
+    const find = vi.fn().mockReturnValue({ sort })
+    mocks.collection.mockReturnValue({
+      aggregate: vi.fn().mockReturnValue({ next: vi.fn().mockResolvedValue(null) }),
+      find
+    })
+
+    await expect(getPendingOutboxMetrics()).resolves.toEqual({
+      count: 0,
+      oldestCreatedAt: null
+    })
   })
 })

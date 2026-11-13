@@ -126,6 +126,24 @@ describe('buildCallbackValidationFailureLog', () => {
     expect(log.error.code).toBe(422)
   })
 
+  test('masks the CRN in error messages and stack traces', () => {
+    const crn = '1050000001'
+    const request = {
+      ...mockRequest,
+      payload: { metadata: { crn } }
+    }
+    const validationError = Object.assign(
+      new Error(`Invalid CRN ${crn}`),
+      { stack: `Error: Invalid CRN ${crn}\n  at ...` }
+    )
+
+    const log = buildCallbackValidationFailureLog(request, validationError, mockCorrelationId)
+
+    expect(log.error.message).toBe('Invalid CRN ******0001')
+    expect(log.error.stack_trace).toContain('******0001')
+    expect(JSON.stringify(log)).not.toContain(crn)
+  })
+
   test('falls back to err.code when statusCode is absent', () => {
     const errWithCode = Object.assign(new Error('DB error'), { code: 'ECONNREFUSED' })
     const log = buildCallbackValidationFailureLog(mockRequest, errWithCode)
@@ -157,6 +175,29 @@ describe('buildCallbackValidationFailureLog', () => {
     const log = buildCallbackValidationFailureLog(mockRequest, err)
     expect(log.event.reason).toBeUndefined()
     expect(Object.keys(log.event)).not.toContain('reason')
+  })
+
+  test('includes sourceSystem in tenant.message when metadata.service is present', () => {
+    const request = {
+      ...mockRequest,
+      payload: { metadata: { uosr: 'sub-123', service: 'fcp-sfd-frontend' } }
+    }
+    const log = buildCallbackValidationFailureLog(request, err, mockCorrelationId)
+    expect(log.tenant.message).toBe('sourceSystem=fcp-sfd-frontend')
+  })
+
+  test('omits tenant when metadata.service is absent', () => {
+    const log = buildCallbackValidationFailureLog(mockRequest, err, mockCorrelationId)
+    expect(log).not.toHaveProperty('tenant')
+  })
+
+  test('omits tenant when metadata.service is not a string', () => {
+    const request = {
+      ...mockRequest,
+      payload: { metadata: { uosr: 'sub-123', service: 123 } }
+    }
+    const log = buildCallbackValidationFailureLog(request, err, mockCorrelationId)
+    expect(log).not.toHaveProperty('tenant')
   })
 })
 
@@ -236,5 +277,19 @@ describe('buildCallbackPersistFailureLog', () => {
     const log = buildCallbackPersistFailureLog(mockRequest, persistError)
     expect(log.event.reason).toBeUndefined()
     expect(Object.keys(log.event)).not.toContain('reason')
+  })
+
+  test('includes sourceSystem in tenant.message when metadata.service is present', () => {
+    const request = {
+      ...mockRequest,
+      payload: { metadata: { uosr: 'sub-123', service: 'rps-portal' } }
+    }
+    const log = buildCallbackPersistFailureLog(request, persistError, mockCorrelationId)
+    expect(log.tenant.message).toBe('sourceSystem=rps-portal')
+  })
+
+  test('omits tenant when metadata.service is absent', () => {
+    const log = buildCallbackPersistFailureLog(mockRequest, persistError, mockCorrelationId)
+    expect(log).not.toHaveProperty('tenant')
   })
 })

@@ -318,6 +318,8 @@ This service publishes audit events to the shared `fcp-audit` SNS topic via `@de
 
 For every `document` entity, `entityid` is the file's UUID (`payload.file.fileId`), not the MongoDB `ObjectId`, so a document can be correlated across its whole lifecycle from a single id. There are two stated exceptions. The first is the auth failure event on routes other than `GET /api/v1/blob/{fileId}`: no document has been identified at the point a request is rejected for authentication, so the event uses `entity: 'request'` with `entityid` set to the correlation id instead of a document id. On `GET /api/v1/blob/{fileId}` the file UUID is already in the path, so that route keeps `entity: 'document'` even on auth failure. See [`src/plugins/auth/index.js`](src/plugins/auth/index.js). The second is a read on `GET /api/v1/metadata/sbi/{sbi}` that returns no documents: there is no file to name, so its single `document` entity omits `entityid`, which the audit schema permits when the id is not known. See [`src/api/v1/metadata/index.js`](src/api/v1/metadata/index.js).
 
+See [Audit event accounts](docs/audit-events.md#accounts) for account attribution, CRN validation, and the SBI-only metadata read decision.
+
 `sendAuditEvent` catches and logs every publish failure and never rejects, so an audit transport failure can never turn a successful request into a 500 or abort an outbox polling run. Callers add a second guard as well: the callback route and the outbox fire their per document events through `Promise.allSettled`, and the auth plugin, `GET /api/v1/blob/{fileId}` and `GET /api/v1/metadata/sbi/{sbi}` attach a `catch` that logs a warning. The topic ARN is set with `AUDIT_TOPIC_ARN`. The `application` field is set with `AUDIT_APPLICATION`, defaulting to `Single Front Door`; it names the programme rather than the service so that audit events group across the estate, and it must match every other Single Front Door service. See [`src/messaging/outbound/audit/send-audit-event.js`](src/messaging/outbound/audit/send-audit-event.js).
 
 ## Local Infrastructure
@@ -630,20 +632,26 @@ The script uploads results for the current branch and prints:
 
 Exit code is `0` when the gate passes and all suppressed issues are commented, `1` otherwise.
 
-## Pre-commit Hooks
+## Pre-commit hook
 
-For local development, this repository includes [`pre-commit` hooks](https://pre-commit.com/). These hooks allow for early identification of issues and vulnerabilities so that the developer can resolve any issues before pushing up to the public repository on GitHub. The hooks include:
+A [Husky](https://typicode.github.io/husky/) pre-commit hook runs:
 
-- [`detect-secrets`](https://github.com/Yelp/detect-secrets): for detecting and preventing secrets in the codebase being pushed to public/open-source repositories.
-- `eslint-fix`: a custom hook for running the linter, ESLint + [neostandard](https://www.npmjs.com/package/neostandard?activeTab=readme), to ensure consistent code formatting and styling and additionally uses the `--fix` option to automatically fix any identified issues where possible to reduce the need for manual correction.
+- [`sfd-id-check`](https://github.com/DEFRA/fcp-sfd-core/tree/main/scripts/check-synthetic-ids): blocks commits that add real-looking CRNs or SBIs. Pull requests run the same check.
+- [`detect-secrets`](https://github.com/Yelp/detect-secrets): scans staged files for secrets against [`.secrets.baseline`](.secrets.baseline). If it isn't installed, the hook warns and skips it. Install it with `pip3 install detect-secrets`.
+- `npm run lint:fix`: runs ESLint with neostandard and `--fix`.
 
-To see the full output of the above hooks it is recommended to commit via the command line as using the source control panel does not provide the same feedback and loses sight of the `pre-commit` logs. All `pre-commit` hooks are listed in the [`.pre-commit-config.yaml`](.pre-commit-config.yaml) configuration file.
+Commit from the command line to see the full hook output.
 
-For these hooks to successfully apply during local development ensure  Python and its package manager, `pip3`, are installed on your machine. Installation of `pre-commit` can then be completed via `pip3`:
+Enable the hook once per clone:
 
+```bash
+npm install
+npm run setup:husky
 ```
-pip3 install pre-commit
-```
+
+This replaces the previous `pre-commit` framework hooks. If you installed them, run `pre-commit uninstall` first.
+
+Use synthetic identifiers only: CRNs from `9000000000` to `9999999999` and SBIs from `800000000` to `899999999`. If a flagged number isn't a CRN or SBI, such as a timestamp, add `sfd-id-check: allow` in a comment on the same line, or list it in `.sfd-id-check-allow`. See the [`sfd-id-check` README](https://github.com/DEFRA/fcp-sfd-core/tree/main/scripts/check-synthetic-ids) for details.
 
 ## Troubleshooting
 

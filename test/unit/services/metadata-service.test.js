@@ -355,6 +355,86 @@ describe('Metadata Service', () => {
       await expect(persistMetadataWithOutbox(payloadWithEmptyArray, CORRELATION_ID)).rejects.toThrow('E11000 duplicate key error')
       expect(getMetadataByFileId).not.toHaveBeenCalled()
     })
+
+    describe('source system in tenant.message', () => {
+      test('includes sourceSystem on the duplicate-callback log line when present', async () => {
+        const existingCorrelationId = '123e4567-e89b-12d3-a456-426655440000'
+        const duplicateKeyError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+
+        mockSession.withTransaction.mockRejectedValue(duplicateKeyError)
+        getMetadataByFileId.mockResolvedValue({ messaging: { correlationId: existingCorrelationId } })
+
+        await persistMetadataWithOutbox(mockScanAndUploadResponse, CORRELATION_ID)
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.objectContaining({ tenant: { message: `sourceSystem=${mockScanAndUploadResponse.metadata.service}` } }),
+          'Duplicate callback received — returning existing correlationId'
+        )
+      })
+
+      test('includes sourceSystem on the no-fileIds-found error log line when present', async () => {
+        const duplicateKeyError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+        const payloadWithNoFiles = {
+          uploadStatus: 'ready',
+          metadata: { crn: 9000000001, service: 'rps-portal' },
+          form: { 'text-field': 'just a string' }
+        }
+
+        mockSession.withTransaction.mockRejectedValue(duplicateKeyError)
+
+        await expect(persistMetadataWithOutbox(payloadWithNoFiles, CORRELATION_ID)).rejects.toThrow('E11000 duplicate key error')
+
+        expect(logger.error).toHaveBeenCalledWith(
+          expect.objectContaining({ tenant: { message: 'sourceSystem=rps-portal' } }),
+          'Duplicate key error but no fileIds found in payload'
+        )
+      })
+
+      test('omits sourceSystem on the no-fileIds-found error log line when absent', async () => {
+        const duplicateKeyError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+        const payloadWithNoFiles = {
+          uploadStatus: 'ready',
+          metadata: { crn: 9000000001 },
+          form: { 'text-field': 'just a string' }
+        }
+
+        mockSession.withTransaction.mockRejectedValue(duplicateKeyError)
+
+        await expect(persistMetadataWithOutbox(payloadWithNoFiles, CORRELATION_ID)).rejects.toThrow('E11000 duplicate key error')
+
+        expect(logger.error).toHaveBeenCalledWith(
+          expect.objectContaining({ tenant: { message: null } }),
+          'Duplicate key error but no fileIds found in payload'
+        )
+      })
+
+      test('includes sourceSystem on the generic persistence failure log line when present', async () => {
+        const genericError = new Error('Some other database error')
+
+        mockSession.withTransaction.mockRejectedValue(genericError)
+
+        await expect(persistMetadataWithOutbox(mockScanAndUploadResponse, CORRELATION_ID)).rejects.toThrow('Some other database error')
+
+        expect(logger.error).toHaveBeenCalledWith(
+          expect.objectContaining({ tenant: { message: `sourceSystem=${mockScanAndUploadResponse.metadata.service}` } }),
+          'Failed to persist metadata with outbox'
+        )
+      })
+
+      test('omits sourceSystem on the generic persistence failure log line when absent', async () => {
+        const genericError = new Error('Some other database error')
+        const payloadWithoutService = { uploadStatus: 'ready', metadata: { crn: 9000000001 }, form: {} }
+
+        mockSession.withTransaction.mockRejectedValue(genericError)
+
+        await expect(persistMetadataWithOutbox(payloadWithoutService, CORRELATION_ID)).rejects.toThrow('Some other database error')
+
+        expect(logger.error).toHaveBeenCalledWith(
+          expect.objectContaining({ tenant: { message: null } }),
+          'Failed to persist metadata with outbox'
+        )
+      })
+    })
   })
 
   describe('persistValidationFailureStatus', () => {
@@ -467,6 +547,43 @@ describe('Metadata Service', () => {
           .rejects.toThrow(/must be a v4 UUID/)
 
         expect(logger.error).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('source system in tenant.message', () => {
+      const validationError = {
+        details: [
+          {
+            path: ['metadata', 'crn'],
+            type: 'any.required',
+            context: { value: undefined }
+          }
+        ]
+      }
+
+      test('includes sourceSystem on the persist-failure error log when present', async () => {
+        insertStatus.mockRejectedValueOnce(new Error('DB write failed'))
+
+        await expect(persistValidationFailureStatus(mockScanAndUploadResponse, validationError, CORRELATION_ID))
+          .rejects.toThrow('DB write failed')
+
+        expect(logger.error).toHaveBeenCalledWith(
+          expect.objectContaining({ tenant: { message: `sourceSystem=${mockScanAndUploadResponse.metadata.service}` } }),
+          'Failed to persist status records for validation failure'
+        )
+      })
+
+      test('omits sourceSystem on the persist-failure error log when absent', async () => {
+        insertStatus.mockRejectedValueOnce(new Error('DB write failed'))
+        const payloadWithoutService = { uploadStatus: 'ready', metadata: { crn: 9000000001 }, form: {} }
+
+        await expect(persistValidationFailureStatus(payloadWithoutService, validationError, CORRELATION_ID))
+          .rejects.toThrow('DB write failed')
+
+        expect(logger.error).toHaveBeenCalledWith(
+          expect.objectContaining({ tenant: { message: null } }),
+          'Failed to persist status records for validation failure'
+        )
       })
     })
   })

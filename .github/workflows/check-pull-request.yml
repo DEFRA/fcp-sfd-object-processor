@@ -23,13 +23,31 @@ jobs:
         with:
           fetch-depth: 0 # Full history required for SonarCloud to detect changes
 
+      - name: Check for real-looking CRNs and SBIs
+        uses: DEFRA/fcp-sfd-core/.github/actions/check-synthetic-ids@95f58ade56b2d0dd0f15bdcba6a5f37a54bcc939 # main
+
       - name: Test code and Create Test Coverage Reports
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: |
           npm ci
+
+      # global-agent 4.x broke outbound HTTPS through the CDP proxy; see .github/dependabot.yml
+      - name: Check global-agent Pin
+        env:
+          GLOBAL_AGENT_VERSION: 3.0.0
+        run: |
+          node -e '
+            const expected = process.env.GLOBAL_AGENT_VERSION
+            const declared = require("./package.json").dependencies["global-agent"]
+            const installed = require("global-agent/package.json").version
+            if (declared !== expected || installed !== expected) {
+              console.error(`global-agent must be ${expected} (package.json: ${declared}, installed: ${installed})`)
+              process.exit(1)
+            }
+          '
 
       - name: Build Docker Image
         run: |
@@ -53,7 +71,7 @@ jobs:
           fi
 
       - name: SonarQubeScan
-        uses: SonarSource/sonarqube-scan-action@ba9859eae8dd6bd29e412f25ddbbef3d032000f4 # v8
+        uses: SonarSource/sonarqube-scan-action@e805d875275f728fac1885b413934be6d7c63f65 # v8
         if: github.actor != 'dependabot[bot]'
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -62,7 +80,7 @@ jobs:
 
       - name: Snyk Scan
         if: github.actor != 'dependabot[bot]'
-        uses: snyk/actions/node@12140f4059e244892ae643824a95459a102120dd # master
+        uses: snyk/actions/node@11b673cfb4b0dc0d860a1323caa199d54950dcce # master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:

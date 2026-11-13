@@ -10,6 +10,7 @@ import { metricsCounter } from '../../../../api/common/helpers/metrics.js'
 import { insertSession } from '../../../../repos/sessions.js'
 import { JOURNEY_ID_KEY } from '../../../../constants/correlation.js'
 import { setCorrelationId } from '../../../../logging/correlation-id-store.js'
+import { toTenantMessage, sanitizeSourceSystem } from '../../../../logging/tenant-message.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -53,8 +54,9 @@ export const uploaderInitiateRoute = {
     validate: {
       payload: initiatePayloadSchema,
       options: { abortEarly: false },
-      failAction: async (_request, _h, err) => {
-        logger.error({ error: { message: err.message } }, '/uploader/initiate validation failed')
+      failAction: async (request, _h, err) => {
+        const sourceSystem = sanitizeSourceSystem(request?.payload?.metadata?.service)
+        logger.error({ error: { message: err.message }, tenant: { message: toTenantMessage({ sourceSystem }) } }, '/uploader/initiate validation failed')
         await metricsCounter('initiate_validation_failures')
         throw err
       }
@@ -73,13 +75,15 @@ export const uploaderInitiateRoute = {
       // here on, including hapi-pino's own [response] line, carries it as transaction.id.
       setCorrelationId(journeyId)
 
+      const sourceSystem = sanitizeSourceSystem(request.payload?.metadata?.service)
+
       const uploaderUrl = config.get('uploaderUrl')
       const initiateEndpoint = config.get('uploaderInitiateEndpoint')
       const url = `${uploaderUrl}${initiateEndpoint}`
 
       const payload = buildCdpUploaderPayload(request.payload, journeyId)
 
-      logger.info({ url }, 'Forwarding initiate request to Upstream service')
+      logger.info({ url, tenant: { message: toTenantMessage({ sourceSystem }) } }, 'Forwarding initiate request to Upstream service')
 
       let response
 
@@ -91,17 +95,17 @@ export const uploaderInitiateRoute = {
         })
       } catch (err) {
         if (err instanceof TimeoutError) {
-          logger.error({ url, retry: err.retryMetadata ?? null }, 'Upstream service request timed out')
+          logger.error({ url, retry: err.retryMetadata ?? null, tenant: { message: toTenantMessage({ sourceSystem }) } }, 'Upstream service request timed out')
           throw Boom.gatewayTimeout('Upstream service request timed out')
         }
-        logger.error({ error: { message: err.message }, url, retry: err.retryMetadata ?? null }, 'Upstream service request failed')
+        logger.error({ error: { message: err.message }, url, retry: err.retryMetadata ?? null, tenant: { message: toTenantMessage({ sourceSystem }) } }, 'Upstream service request failed')
         throw Boom.badGateway('Upstream service request failed')
       }
 
       if (!response.ok) {
         const body = await response.text().catch(() => 'Unable to read response body')
         logger.error(
-          { statusCode: response.status, body, url },
+          { statusCode: response.status, body, url, tenant: { message: toTenantMessage({ sourceSystem }) } },
           'Upstream service returned non-2xx response'
         )
         throw Boom.badGateway(`Upstream service returned ${response.status}`)
@@ -111,12 +115,12 @@ export const uploaderInitiateRoute = {
       try {
         cdpResponse = await response.json()
       } catch (err) {
-        logger.error({ error: { message: err.message }, url }, 'Failed to parse Upstream service response')
+        logger.error({ error: { message: err.message }, url, tenant: { message: toTenantMessage({ sourceSystem }) } }, 'Failed to parse Upstream service response')
         throw Boom.badGateway('Invalid response from Upstream service')
       }
 
       if (!cdpResponse?.uploadId) {
-        logger.error({ cdpResponse, url }, 'Upstream service response missing uploadId')
+        logger.error({ cdpResponse, url, tenant: { message: toTenantMessage({ sourceSystem }) } }, 'Upstream service response missing uploadId')
         throw Boom.badGateway('Invalid response from Upstream service')
       }
 
@@ -137,7 +141,8 @@ export const uploaderInitiateRoute = {
             reference: journeyId
           },
           error: { message: sessionErr.message },
-          'cdp-uploader': { uploadId: cdpResponse.uploadId }
+          'cdp-uploader': { uploadId: cdpResponse.uploadId },
+          tenant: { message: toTenantMessage({ sourceSystem }) }
         }, 'Failed to persist upload session record')
 
         throw Boom.serverUnavailable('Unable to initiate upload session')

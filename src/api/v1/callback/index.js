@@ -14,6 +14,7 @@ import { extractFileIdsFromPayload } from '../../../mappers/status.js'
 import { splitJourneyId } from '../../../utils/split-journey-id.js'
 import { resolveJourneyId } from '../../../services/journey-correlation-service.js'
 import { setCorrelationId } from '../../../logging/correlation-id-store.js'
+import { toTenantMessage, sanitizeSourceSystem } from '../../../logging/tenant-message.js'
 
 const logger = createLogger()
 const baseUrl = config.get('baseUrl.v1')
@@ -69,13 +70,14 @@ export const uploadCallback = {
         }
 
         const failedFileIds = extractFileIdsFromPayload(request.payload)
+        const { sbi, crn } = request.payload?.metadata ?? {}
         // Promise.allSettled fires audit events concurrently and never rejects,
         // so a broker/network failure can't turn this into a 500 or block the response.
         await Promise.allSettled(failedFileIds.map(fileId => sendAuditEvent({
           correlationid: correlationId,
           audit: {
             entities: [{ entity: 'document', action: 'failed', entityid: fileId }],
-            ...buildAuditAccounts(request.payload?.metadata?.sbi),
+            ...buildAuditAccounts({ sbi, crn }),
             status: 'failure',
             details: { reason: 'payload_validation_failure' }
           }
@@ -90,6 +92,8 @@ export const uploadCallback = {
     handler: async (request, h) => {
       const { correlationId, payload } = await resolveCallbackCorrelation(request.payload)
       setCorrelationId(correlationId)
+      const { sbi, crn } = request.payload?.metadata ?? {}
+      const sourceSystem = sanitizeSourceSystem(request.payload?.metadata?.service)
 
       try {
         const validationError = await validateCallbackPayload(payload, h, correlationId)
@@ -97,7 +101,7 @@ export const uploadCallback = {
           return validationError
         }
       } catch (validationErr) {
-        logger.error(validationErr, 'Post-Joi validation error')
+        logger.error({ err: validationErr, tenant: { message: toTenantMessage({ sourceSystem }) } }, 'Post-Joi validation error')
         return Boom.internal(validationErr)
       }
 
@@ -117,7 +121,7 @@ export const uploadCallback = {
           correlationid: correlationId,
           audit: {
             entities: [{ entity: 'document', action: 'created', entityid: fileId }],
-            ...buildAuditAccounts(request.payload?.metadata?.sbi),
+            ...buildAuditAccounts({ sbi, crn }),
             status: 'success',
             details: { reason: 'callback_successful' }
           }
@@ -129,14 +133,14 @@ export const uploadCallback = {
           ids: fileIds
         }).code(httpConstants.HTTP_STATUS_CREATED)
       } catch (err) {
-        logger.error(err)
+        logger.error({ err, tenant: { message: toTenantMessage({ sourceSystem }) } }, 'Failed to persist callback metadata')
 
         const errorFileIds = extractFileIdsFromPayload(request.payload)
         await Promise.allSettled(errorFileIds.map(fileId => sendAuditEvent({
           correlationid: correlationId,
           audit: {
             entities: [{ entity: 'document', action: 'failed', entityid: fileId }],
-            ...buildAuditAccounts(request.payload?.metadata?.sbi),
+            ...buildAuditAccounts({ sbi, crn }),
             status: 'failure',
             details: { reason: 'callback_processing_failure' }
           }

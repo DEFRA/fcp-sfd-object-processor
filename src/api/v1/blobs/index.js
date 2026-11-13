@@ -1,7 +1,7 @@
 import Boom from '@hapi/boom'
 import { constants as httpConstants } from 'node:http2'
 
-import { getS3ReferenceAndSbiByFileId } from '../../../repos/metadata.js'
+import { getS3ReferenceAndAccountsByFileId } from '../../../repos/metadata.js'
 import { blobParamSchema } from './schemas/params.js'
 import { generatePresignedUrl } from '../../../repos/s3.js'
 import { NotFoundError } from '../../../errors/not-found-error.js'
@@ -34,8 +34,7 @@ export const blobRoute = {
     try {
       const { fileId } = request.params
 
-      const { s3: s3Reference, metadata } = await getS3ReferenceAndSbiByFileId(fileId)
-      const sbi = metadata?.sbi
+      const { s3: s3Reference, metadata } = await getS3ReferenceAndAccountsByFileId(fileId)
 
       const { url } = await generatePresignedUrl(s3Reference)
 
@@ -45,7 +44,7 @@ export const blobRoute = {
         correlationid: request?.headers?.[tracingHeader],
         audit: {
           entities: [{ entity: 'document', action: 'read', entityid: fileId }],
-          ...buildAuditAccounts(sbi),
+          ...buildAuditAccounts({ sbi: metadata?.sbi, crn: metadata?.crn }),
           status: 'success',
           details: {}
         }
