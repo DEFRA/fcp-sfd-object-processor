@@ -1,9 +1,4 @@
 import { vi, describe, test, expect, beforeEach } from 'vitest'
-
-const { mockLoggerError } = vi.hoisted(() => ({
-  mockLoggerError: vi.fn()
-}))
-
 import { handleValidationFailure } from '../../../../../../src/api/v1/callback/validation/handle-validation-failure.js'
 import { persistValidationFailureStatus } from '../../../../../../src/services/metadata-service.js'
 
@@ -13,20 +8,15 @@ vi.mock('../../../../../../src/services/metadata-service.js', () => ({
   persistMetadataWithOutbox: vi.fn()
 }))
 
-vi.mock('../../../../../../src/logging/logger.js', () => ({
-  createLogger: () => ({
-    error: mockLoggerError,
-    info: vi.fn(),
-    warn: vi.fn(),
-    debug: vi.fn()
-  })
-}))
-
 const mockLogger = vi.hoisted(() => ({
   error: vi.fn(),
   info: vi.fn(),
   warn: vi.fn(),
   debug: vi.fn()
+}))
+
+vi.mock('../../../../../../src/logging/logger.js', () => ({
+  createLogger: () => mockLogger
 }))
 
 const CORRELATION_ID = '550e8400-e29b-41d4-a716-446655440000'
@@ -71,14 +61,15 @@ describe('handleValidationFailure', () => {
     await handleValidationFailure(payload, error, file, mockH, CORRELATION_ID)
 
     expect(persistValidationFailureStatus).toHaveBeenCalledWith(payload, error, CORRELATION_ID)
-    expect(mockLoggerError).toHaveBeenCalledWith({
+    expect(mockLogger.error).toHaveBeenCalledWith({
       event: {
         type: 'callback_contract_validation_failure',
         outcome: 'failure',
         reference: 'abc-123',
         reason: 'rejected'
       },
-      error: { message: "fileStatus must be 'complete' but was 'rejected'" }
+      error: { message: "fileStatus must be 'complete' but was 'rejected'" },
+      tenant: { message: null }
     }, 'File upload contract validation failed')
   })
 
@@ -88,14 +79,15 @@ describe('handleValidationFailure', () => {
 
     await handleValidationFailure(payload, error, undefined, mockH, CORRELATION_ID)
 
-    expect(mockLoggerError).toHaveBeenCalledWith({
+    expect(mockLogger.error).toHaveBeenCalledWith({
       event: {
         type: 'callback_contract_validation_failure',
         outcome: 'failure',
         reference: undefined,
         reason: 'pending'
       },
-      error: { message: "uploadStatus must be 'ready' but was 'pending'" }
+      error: { message: "uploadStatus must be 'ready' but was 'pending'" },
+      tenant: { message: null }
     }, 'File upload contract validation failed')
   })
 

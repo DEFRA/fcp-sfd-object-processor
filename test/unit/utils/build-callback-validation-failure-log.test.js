@@ -21,28 +21,30 @@ describe('buildCallbackContractValidationFailureLog', () => {
     const err = new Error("fileStatus must be 'complete' but was 'rejected'")
     const file = { fileId: 'file-123', fileStatus: 'rejected' }
 
-    expect(buildCallbackContractValidationFailureLog(err, file, 'ready')).toEqual({
+    expect(buildCallbackContractValidationFailureLog(err, file, { uploadStatus: 'ready' })).toEqual({
       event: {
         type: 'callback_contract_validation_failure',
         outcome: 'failure',
         reference: 'file-123',
         reason: 'rejected'
       },
-      error: { message: "fileStatus must be 'complete' but was 'rejected'" }
+      error: { message: "fileStatus must be 'complete' but was 'rejected'" },
+      tenant: { message: null }
     })
   })
 
   test('includes upload status when no file is available and does not include payload data', () => {
     const err = new Error("uploadStatus must be 'ready' but was 'pending'")
 
-    expect(buildCallbackContractValidationFailureLog(err, undefined, 'pending')).toEqual({
+    expect(buildCallbackContractValidationFailureLog(err, undefined, { uploadStatus: 'pending' })).toEqual({
       event: {
         type: 'callback_contract_validation_failure',
         outcome: 'failure',
         reference: undefined,
         reason: 'pending'
       },
-      error: { message: "uploadStatus must be 'ready' but was 'pending'" }
+      error: { message: "uploadStatus must be 'ready' but was 'pending'" },
+      tenant: { message: null }
     })
   })
 })

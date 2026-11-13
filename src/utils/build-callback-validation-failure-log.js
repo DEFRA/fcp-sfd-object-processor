@@ -7,19 +7,26 @@ import { toTenantMessage, sanitizeSourceSystem } from '../logging/tenant-message
  *
  * @param {Error} err - The callback validation error
  * @param {object|undefined} file - The file that failed validation, if applicable
- * @param {string|undefined} uploadStatus - The callback upload status
+ * @param {object|undefined} payload - The callback payload
  */
-export const buildCallbackContractValidationFailureLog = (err, file, uploadStatus) => ({
-  event: {
-    type: 'callback_contract_validation_failure',
-    outcome: 'failure',
-    reference: file?.fileId,
-    reason: file ? file.fileStatus : uploadStatus
-  },
-  error: {
-    message: err.message
+export const buildCallbackContractValidationFailureLog = (err, file, payload) => {
+  const tenantMessage = toTenantMessage({
+    sourceSystem: sanitizeSourceSystem(payload?.metadata?.service)
+  })
+
+  return {
+    event: {
+      type: 'callback_contract_validation_failure',
+      outcome: 'failure',
+      reference: file?.fileId,
+      reason: file ? file.fileStatus : payload?.uploadStatus
+    },
+    error: {
+      message: err.message
+    },
+    ...(payload && { tenant: { message: tenantMessage } })
   }
-})
+}
 
 /**
  * Builds the structured log context for a Joi schema validation failure on the callback endpoint.

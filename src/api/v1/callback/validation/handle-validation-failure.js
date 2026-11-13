@@ -27,7 +27,7 @@ export async function handleValidationFailure (payload, error, file, h, correlat
   }
 
   logger.error(
-    buildCallbackContractValidationFailureLog(error, file, payload.uploadStatus),
+    buildCallbackContractValidationFailureLog(error, file, payload),
     'File upload contract validation failed'
   )
 
