@@ -1,5 +1,4 @@
 import { vi, describe, test, expect, beforeEach } from 'vitest'
-
 import { handleValidationFailure } from '../../../../../../src/api/v1/callback/validation/handle-validation-failure.js'
 import { persistValidationFailureStatus } from '../../../../../../src/services/metadata-service.js'
 
@@ -56,13 +55,40 @@ describe('handleValidationFailure', () => {
 
   test('logs file details when file with fileId is provided', async () => {
     const payload = { uploadStatus: 'ready' }
-    const error = new Error('checksum invalid')
-    const file = { fileId: 'abc-123', fileStatus: 'complete' }
+    const error = new Error("fileStatus must be 'complete' but was 'rejected'")
+    const file = { fileId: 'abc-123', fileStatus: 'rejected' }
 
-    // Should not throw
     await handleValidationFailure(payload, error, file, mockH, CORRELATION_ID)
 
     expect(persistValidationFailureStatus).toHaveBeenCalledWith(payload, error, CORRELATION_ID)
+    expect(mockLogger.error).toHaveBeenCalledWith({
+      event: {
+        type: 'callback_contract_validation_failure',
+        outcome: 'failure',
+        reference: 'abc-123',
+        reason: 'rejected'
+      },
+      error: { message: "fileStatus must be 'complete' but was 'rejected'" },
+      tenant: { message: null }
+    }, 'File upload contract validation failed')
+  })
+
+  test('logs upload status when no file is provided', async () => {
+    const payload = { uploadStatus: 'pending' }
+    const error = new Error("uploadStatus must be 'ready' but was 'pending'")
+
+    await handleValidationFailure(payload, error, undefined, mockH, CORRELATION_ID)
+
+    expect(mockLogger.error).toHaveBeenCalledWith({
+      event: {
+        type: 'callback_contract_validation_failure',
+        outcome: 'failure',
+        reference: undefined,
+        reason: 'pending'
+      },
+      error: { message: "uploadStatus must be 'ready' but was 'pending'" },
+      tenant: { message: null }
+    }, 'File upload contract validation failed')
   })
 
   test('does not throw when file is undefined', async () => {

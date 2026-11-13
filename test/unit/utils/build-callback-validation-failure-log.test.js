@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'vitest'
 
 import {
+  buildCallbackContractValidationFailureLog,
   buildCallbackValidationFailureLog,
   buildCallbackPersistFailureLog
 } from '../../../src/utils/build-callback-validation-failure-log.js'
@@ -14,6 +15,39 @@ const mockRequest = {
 }
 
 const mockCorrelationId = '550e8400-e29b-41d4-a716-446655440000'
+
+describe('buildCallbackContractValidationFailureLog', () => {
+  test('includes permitted ECS fields for a failed file', () => {
+    const err = new Error("fileStatus must be 'complete' but was 'rejected'")
+    const file = { fileId: 'file-123', fileStatus: 'rejected' }
+
+    expect(buildCallbackContractValidationFailureLog(err, file, { uploadStatus: 'ready' })).toEqual({
+      event: {
+        type: 'callback_contract_validation_failure',
+        outcome: 'failure',
+        reference: 'file-123',
+        reason: 'rejected'
+      },
+      error: { message: "fileStatus must be 'complete' but was 'rejected'" },
+      tenant: { message: null }
+    })
+  })
+
+  test('includes upload status when no file is available and does not include payload data', () => {
+    const err = new Error("uploadStatus must be 'ready' but was 'pending'")
+
+    expect(buildCallbackContractValidationFailureLog(err, undefined, { uploadStatus: 'pending' })).toEqual({
+      event: {
+        type: 'callback_contract_validation_failure',
+        outcome: 'failure',
+        reference: undefined,
+        reason: 'pending'
+      },
+      error: { message: "uploadStatus must be 'ready' but was 'pending'" },
+      tenant: { message: null }
+    })
+  })
+})
 
 describe('buildCallbackValidationFailureLog', () => {
   const err = Object.assign(new Error('Validation failed'), { stack: 'Error: Validation failed\n  at ...' })
