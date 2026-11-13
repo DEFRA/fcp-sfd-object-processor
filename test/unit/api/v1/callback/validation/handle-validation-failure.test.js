@@ -22,6 +22,13 @@ vi.mock('../../../../../../src/logging/logger.js', () => ({
   })
 }))
 
+const mockLogger = vi.hoisted(() => ({
+  error: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  debug: vi.fn()
+}))
+
 const CORRELATION_ID = '550e8400-e29b-41d4-a716-446655440000'
 
 describe('handleValidationFailure', () => {
