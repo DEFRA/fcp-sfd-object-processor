@@ -1,6 +1,25 @@
 import { extractFileIdsFromPayload } from '../mappers/status.js'
 
 /**
+ * Builds the structured log context for a callback contract validation failure.
+ *
+ * @param {Error} err - The callback validation error
+ * @param {object|undefined} file - The file that failed validation, if applicable
+ * @param {string|undefined} uploadStatus - The callback upload status
+ */
+export const buildCallbackContractValidationFailureLog = (err, file, uploadStatus) => ({
+  event: {
+    type: 'callback_contract_validation_failure',
+    outcome: 'failure',
+    reference: file?.fileId,
+    reason: file ? file.fileStatus : uploadStatus
+  },
+  error: {
+    message: err.message
+  }
+})
+
+/**
  * Builds the structured log context for a Joi schema validation failure on the callback endpoint.
  * Uses CDP's approved cdp-uploader.*, event.* and error.* fields.
  *

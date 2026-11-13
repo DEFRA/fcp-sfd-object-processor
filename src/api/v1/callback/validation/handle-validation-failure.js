@@ -1,6 +1,7 @@
 import { constants as httpConstants } from 'node:http2'
 import { createLogger } from '../../../../logging/logger.js'
 import { persistValidationFailureStatus } from '../../../../services/metadata-service.js'
+import { buildCallbackContractValidationFailureLog } from '../../../../utils/build-callback-validation-failure-log.js'
 
 const logger = createLogger()
 
@@ -22,12 +23,10 @@ export async function handleValidationFailure (payload, error, file, h, correlat
     logger.error(persistErr, 'Failed to persist status for semantic validation failure')
   }
 
-  if (file?.fileId) {
-    logger.error(
-      { file: { id: file.fileId, fileStatus: file.fileStatus, error: error.message } },
-      'File upload contract validation failed'
-    )
-  }
+  logger.error(
+    buildCallbackContractValidationFailureLog(error, file, payload.uploadStatus),
+    'File upload contract validation failed'
+  )
 
   if (h && typeof h.response === 'function') {
     return h.response({ message: 'Validation failure persisted' }).code(httpConstants.HTTP_STATUS_CREATED)
