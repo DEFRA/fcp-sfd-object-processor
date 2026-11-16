@@ -4,7 +4,8 @@ import {
   claimProcessableOutboxEntries,
   finalizeClaimedOutboxEntries,
   logTerminalFailuresIfAny,
-  getPendingOutboxMetrics
+  getPendingOutboxMetrics,
+  failExhaustedAbandonedOutboxEntries
 } from '../../../../repos/outbox.js'
 import { bulkUpdatePublishedAtDate } from '../../../../repos/metadata.js'
 import { publishDocumentUploadMessageBatch } from './publish-document-upload-message-batch.js'
@@ -224,6 +225,10 @@ const publishPendingMessages = async () => {
   let outcome = METRIC_OUTCOME.SUCCESS
 
   try {
+    // Clear stranded entries first: sweep exhausted abandoned claims before processing new messages.
+    // Failures in audit events must not stop the poll, so Promise.allSettled is used in reportTerminalFailures.
+    await failExhaustedAbandonedOutboxEntries(outboxWorkerId)
+
     const pendingMessages = await claimProcessableOutboxEntries(outboxWorkerId)
 
     // Poll and batch summaries can span multiple journeys, so they intentionally have no transaction.id.
