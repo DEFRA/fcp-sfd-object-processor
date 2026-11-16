@@ -13,6 +13,52 @@ const logger = createLogger()
 const outboxCollection = 'mongo.collections.outbox'
 const outboxMaxAttemptsConfig = 'messaging.outboxMaxAttempts'
 
+const reportTerminalFailures = async (documents, reason, workerId) => {
+  documents.forEach(doc => {
+    const entryId = doc.payload?.file?.fileId || null
+    const attempts = doc.attempts
+    const crn = doc.payload?.metadata?.crn
+    const logReason = maskCrnInText(reason, crn)
+    runWithCorrelationId(doc.payload?.messaging?.correlationId, () => logger.error({
+      event: {
+        type: 'outbox_terminal_failure',
+        action: 'terminal_failure',
+        reference: doc._id?.toString(),
+        outcome: 'failure',
+        reason: logReason
+      },
+      ...(workerId && { process: { name: workerId } }),
+      error: {
+        type: 'outbox_terminal_failure',
+        ...(entryId && { id: entryId }),
+        message: logReason
+      },
+      tenant: { message: toTenantMessage({ sourceSystem: sanitizeSourceSystem(doc.payload?.metadata?.service) }) }
+    }, `Outbox entry reached PERMANENT_FAILURE after max attempts; entryId=${entryId}; attempt=${attempts}`))
+  })
+
+  // Promise.allSettled fires audit events concurrently and never rejects, so an
+  // audit publish failure can't abort the outbox poller's remaining batches.
+  await Promise.allSettled(documents.map(doc => runWithCorrelationId(
+    doc.payload?.messaging?.correlationId,
+    () => {
+      const entryId = doc.payload?.file?.fileId || null
+      const sbi = doc.payload?.metadata?.sbi
+      const crn = doc.payload?.metadata?.crn
+      const attempts = doc.attempts
+      return sendAuditEvent({
+        correlationid: doc.payload?.messaging?.correlationId,
+        audit: {
+          entities: [{ entity: 'document', action: 'failed', entityid: entryId ?? doc._id?.toString() ?? '' }],
+          ...buildAuditAccounts({ sbi, crn }),
+          status: 'failure',
+          details: { reason, attempts }
+        }
+      })
+    }
+  )))
+}
+
 const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsVal, sess, errMsg, workerId) => {
   const terminalFilter = {
     'payload.file.fileId': { $in: fileIdsArr },
@@ -35,54 +81,8 @@ const logTerminalFailuresIfAny = async (collectionName, fileIdsArr, maxAttemptsV
     .find(terminalFilter, { session: sess })
     .toArray()
 
-  terminalDocs.forEach(doc => {
-    const entryId = doc.payload?.file?.fileId || null
-    const attempts = doc.attempts
-    const failure = doc.error || {}
-    const reason = failure.message || errMsg || 'terminal_failure'
-    const crn = doc.payload?.metadata?.crn
-    const logReason = maskCrnInText(reason, crn)
-    runWithCorrelationId(doc.payload?.messaging?.correlationId, () => logger.error({
-      event: {
-        type: 'outbox_terminal_failure',
-        action: 'terminal_failure',
-        reference: doc._id?.toString(),
-        outcome: 'failure',
-        reason: logReason
-      },
-      ...(workerId && { process: { name: workerId } }),
-      error: {
-        type: 'outbox_terminal_failure',
-        ...(entryId && { id: entryId }),
-        ...(failure.code && { code: failure.code }),
-        message: logReason
-      },
-      tenant: { message: toTenantMessage({ sourceSystem: sanitizeSourceSystem(doc.payload?.metadata?.service) }) }
-    }, `Outbox entry reached PERMANENT_FAILURE after max attempts; entryId=${entryId}; attempt=${attempts}`))
-  })
-
-  // Promise.allSettled fires audit events concurrently and never rejects, so an
-  // audit publish failure can't abort the outbox poller's remaining batches.
-  await Promise.allSettled(terminalDocs.map(doc => runWithCorrelationId(
-    doc.payload?.messaging?.correlationId,
-    () => {
-      const entryId = doc.payload?.file?.fileId || null
-      const sbi = doc.payload?.metadata?.sbi
-      const crn = doc.payload?.metadata?.crn
-      const attempts = doc.attempts
-      const failure = doc.error || {}
-      const reason = failure.message || errMsg || 'terminal_failure'
-      return sendAuditEvent({
-        correlationid: doc.payload?.messaging?.correlationId,
-        audit: {
-          entities: [{ entity: 'document', action: 'failed', entityid: entryId ?? doc._id?.toString() ?? '' }],
-          ...buildAuditAccounts({ sbi, crn }),
-          status: 'failure',
-          details: { reason, ...(failure.code && { code: failure.code }), attempts }
-        }
-      })
-    }
-  )))
+  const reason = errMsg || 'terminal_failure'
+  await reportTerminalFailures(terminalDocs, reason, workerId)
 }
 
 const createOutboxEntries = async (ids, documents, session) => {
@@ -333,6 +333,11 @@ const failExhaustedAbandonedOutboxEntries = async (instanceId, now = new Date())
     }
 
     updatedEntries.push(updatedEntry)
+  }
+
+  if (updatedEntries.length > 0) {
+    const reason = 'claim expired at maximum attempts'
+    await reportTerminalFailures(updatedEntries, reason, instanceId)
   }
 
   return updatedEntries
