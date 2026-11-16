@@ -301,11 +301,13 @@ const failExhaustedAbandonedOutboxEntries = async (instanceId, now = new Date())
   const collection = config.get(outboxCollection)
   const queryLimit = config.get('mongo.outboxQueryLimit')
   const maxAttempts = config.get(outboxMaxAttemptsConfig)
+  const gracePeriodMs = config.get('messaging.outboxFailureGracePeriodMs')
+  const failureThreshold = new Date(now.getTime() - gracePeriodMs)
   const updatedEntries = []
 
   const filter = {
     status: PROCESSING,
-    claimedUntil: { $lt: now },
+    claimedUntil: { $lt: failureThreshold },
     attempts: { $gte: maxAttempts }
   }
 
