@@ -297,6 +297,45 @@ const getPendingOutboxMetrics = async () => {
   }
 }
 
+const failExhaustedAbandonedOutboxEntries = async (instanceId, now = new Date()) => {
+  const collection = config.get(outboxCollection)
+  const queryLimit = config.get('mongo.outboxQueryLimit')
+  const maxAttempts = config.get(outboxMaxAttemptsConfig)
+  const updatedEntries = []
+
+  const filter = {
+    status: PROCESSING,
+    claimedUntil: { $lt: now },
+    attempts: { $gte: maxAttempts }
+  }
+
+  const update = {
+    $set: {
+      status: PERMANENT_FAILURE,
+      lastAttemptedAt: now
+    },
+    $unset: {
+      claimedAt: '',
+      claimedUntil: '',
+      claimedBy: ''
+    }
+  }
+
+  for (let index = 0; index < queryLimit; index++) {
+    const updatedEntry = await getDb().collection(collection).findOneAndUpdate(filter, update, {
+      returnDocument: 'after'
+    })
+
+    if (!updatedEntry) {
+      break
+    }
+
+    updatedEntries.push(updatedEntry)
+  }
+
+  return updatedEntries
+}
+
 export {
   createOutboxEntries,
   claimProcessableOutboxEntries,
@@ -305,5 +344,6 @@ export {
   getOutboxStatusesByFileIds,
   getPendingOutboxMetrics,
   buildPendingOutboxCountCursor,
-  buildOldestPendingOutboxCursor
+  buildOldestPendingOutboxCursor,
+  failExhaustedAbandonedOutboxEntries
 }
