@@ -4,15 +4,20 @@ import { DELIVERY_OUTCOME } from '../../../../src/constants/outbox.js'
 const mocks = vi.hoisted(() => ({
   collection: vi.fn(),
   loggerWarn: vi.fn(),
+  loggerError: vi.fn(),
+  sendAuditEvent: vi.fn(),
   configGet: vi.fn((key) => {
     switch (key) {
       case 'mongo.collections.outbox': return 'outbox'
       case 'mongo.outboxQueryLimit': return 2
       case 'messaging.outboxMaxAttempts': return 3
       case 'messaging.outboxClaimLeaseMs': return 300000
+      case 'messaging.outboxFailureGracePeriodMs': return 30000
       default: return null
     }
-  })
+  }),
+  sendAuditEvent: vi.fn(),
+  loggerError: vi.fn()
 }))
 
 vi.mock('../../../src/config/index.js', () => ({
@@ -25,17 +30,18 @@ vi.mock('../../../src/data/db.js', () => {
 })
 
 vi.mock('../../../src/logging/logger.js', () => ({
-  createLogger: () => ({ error: vi.fn(), info: vi.fn(), warn: mocks.loggerWarn })
+  createLogger: () => ({ error: mocks.loggerError, info: vi.fn(), warn: mocks.loggerWarn })
 }))
 
 vi.mock('../../../src/messaging/outbound/audit/send-audit-event.js', () => ({
-  sendAuditEvent: vi.fn()
+  sendAuditEvent: mocks.sendAuditEvent
 }))
 
 const {
   claimProcessableOutboxEntries,
   finalizeClaimedOutboxEntries,
-  getPendingOutboxMetrics
+  getPendingOutboxMetrics,
+  failExhaustedAbandonedOutboxEntries
 } = await import('../../../src/repos/outbox.js')
 
 describe('outbox claims', () => {
@@ -305,6 +311,252 @@ describe('outbox claims', () => {
       'worker-1',
       DELIVERY_OUTCOME.FAILED
     )).rejects.toThrow('Failed to finalize claimed outbox entries')
+  })
+})
+
+describe('failExhaustedAbandonedOutboxEntries sweep', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  test('marks PROCESSING entries with expired claims and exhausted attempts as PERMANENT_FAILURE', async () => {
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    const expiredClaimedUntil = new Date('2026-08-07T09:50:00.000Z')
+    const failureThreshold = new Date(now.getTime() - 30000)
+    const updatedEntry = {
+      _id: 'entry-1',
+      status: 'PERMANENT_FAILURE',
+      payload: {
+        file: { fileId: 'file-1' },
+        messaging: { correlationId: 'corr-1' },
+        metadata: { crn: 123456789 }
+      },
+      attempts: 3,
+      lastAttemptedAt: now
+    }
+    const findOneAndUpdate = vi.fn()
+      .mockResolvedValueOnce(updatedEntry)
+      .mockResolvedValueOnce(null)
+    mocks.collection.mockReturnValue({ findOneAndUpdate })
+
+    const result = await failExhaustedAbandonedOutboxEntries('worker-sweep', now)
+
+    expect(findOneAndUpdate).toHaveBeenCalledWith({
+      status: 'PROCESSING',
+      claimedUntil: { $lt: failureThreshold },
+      attempts: { $gte: 3 }
+    }, {
+      $set: {
+        status: 'PERMANENT_FAILURE',
+        lastAttemptedAt: now
+      },
+      $unset: {
+        claimedAt: '',
+        claimedUntil: '',
+        claimedBy: ''
+      }
+    }, { returnDocument: 'after' })
+    expect(result).toEqual([updatedEntry])
+  })
+
+  test('applies grace period to claim expiry time', async () => {
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    const failureThreshold = new Date('2026-08-07T09:59:30.000Z')
+    mocks.collection.mockReturnValue({ findOneAndUpdate: vi.fn().mockResolvedValueOnce(null) })
+
+    await failExhaustedAbandonedOutboxEntries('worker-sweep', now)
+
+    expect(mocks.collection().findOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        claimedUntil: { $lt: failureThreshold }
+      }),
+      expect.any(Object),
+      expect.any(Object)
+    )
+  })
+
+  test('stops sweeping when no entry matches', async () => {
+    mocks.collection.mockReturnValue({
+      findOneAndUpdate: vi.fn().mockResolvedValueOnce(null)
+    })
+
+    const result = await failExhaustedAbandonedOutboxEntries('worker-sweep')
+
+    expect(result).toEqual([])
+    expect(mocks.collection().findOneAndUpdate).toHaveBeenCalledTimes(1)
+  })
+
+  test('respects queryLimit for bounded iteration', async () => {
+    mocks.collection.mockReturnValue({
+      findOneAndUpdate: vi.fn()
+        .mockResolvedValueOnce({ _id: 'entry-1', status: 'PERMANENT_FAILURE' })
+        .mockResolvedValueOnce({ _id: 'entry-2', status: 'PERMANENT_FAILURE' })
+        .mockResolvedValueOnce({ _id: 'entry-3', status: 'PERMANENT_FAILURE' })
+    })
+
+    const result = await failExhaustedAbandonedOutboxEntries('worker-sweep')
+
+    // queryLimit is set to 2 in mocks
+    expect(result).toHaveLength(2)
+    expect(mocks.collection().findOneAndUpdate).toHaveBeenCalledTimes(2)
+  })
+
+  test('emits terminal failure log and audit events for each updated entry', async () => {
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    const updatedEntry = {
+      _id: { toString: () => 'entry-id-1' },
+      status: 'PERMANENT_FAILURE',
+      payload: {
+        file: { fileId: 'file-1' },
+        messaging: { correlationId: 'corr-1' },
+        metadata: { crn: 123456789, sbi: 123456, service: 'fcp-sfd-frontend' }
+      },
+      attempts: 3,
+      lastAttemptedAt: now
+    }
+    mocks.collection.mockReturnValue({
+      findOneAndUpdate: vi.fn()
+        .mockResolvedValueOnce(updatedEntry)
+        .mockResolvedValueOnce(null)
+    })
+    mocks.sendAuditEvent.mockResolvedValue({})
+
+    await failExhaustedAbandonedOutboxEntries('worker-sweep', now)
+
+    // Check that terminal failure log was emitted
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: expect.objectContaining({
+          type: 'outbox_terminal_failure',
+          reason: 'claim expired at maximum attempts'
+        }),
+        process: { name: 'worker-sweep' },
+        error: expect.objectContaining({
+          type: 'outbox_terminal_failure',
+          id: 'file-1',
+          message: 'claim expired at maximum attempts'
+        })
+      }),
+      expect.stringContaining('entryId=file-1; attempt=3')
+    )
+
+    // Check that audit event was sent
+    expect(mocks.sendAuditEvent).toHaveBeenCalledWith({
+      correlationid: 'corr-1',
+      audit: expect.objectContaining({
+        entities: [{ entity: 'document', action: 'failed', entityid: 'file-1' }],
+        status: 'failure',
+        details: { reason: 'claim expired at maximum attempts', attempts: 3 }
+      })
+    })
+  })
+
+  test('does not stop poll when audit event fails', async () => {
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    const updatedEntry = {
+      _id: 'entry-1',
+      status: 'PERMANENT_FAILURE',
+      payload: {
+        file: { fileId: 'file-1' },
+        messaging: { correlationId: 'corr-1' },
+        metadata: { crn: 123456789, sbi: 123456 }
+      },
+      attempts: 3
+    }
+    mocks.collection.mockReturnValue({
+      findOneAndUpdate: vi.fn()
+        .mockResolvedValueOnce(updatedEntry)
+        .mockResolvedValueOnce(null)
+    })
+    // Simulate audit event failure
+    mocks.sendAuditEvent.mockRejectedValue(new Error('Audit service unavailable'))
+
+    // Should not throw even though audit failed
+    const result = await failExhaustedAbandonedOutboxEntries('worker-sweep', now)
+
+    expect(result).toHaveLength(1)
+    expect(mocks.loggerError).toHaveBeenCalled()
+    expect(mocks.sendAuditEvent).toHaveBeenCalled()
+  })
+
+  test('returns only documents changed in this invocation', async () => {
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    const entry1 = {
+      _id: 'entry-1',
+      status: 'PERMANENT_FAILURE',
+      payload: {
+        file: { fileId: 'file-1' },
+        messaging: { correlationId: 'corr-1' },
+        metadata: { crn: 123456789, sbi: 123456 }
+      },
+      attempts: 3
+    }
+    const entry2 = {
+      _id: 'entry-2',
+      status: 'PERMANENT_FAILURE',
+      payload: {
+        file: { fileId: 'file-2' },
+        messaging: { correlationId: 'corr-2' },
+        metadata: { crn: 987654321, sbi: 654321 }
+      },
+      attempts: 3
+    }
+    mocks.collection.mockReturnValue({
+      findOneAndUpdate: vi.fn()
+        .mockResolvedValueOnce(entry1)
+        .mockResolvedValueOnce(entry2)
+        .mockResolvedValueOnce(null)
+    })
+    mocks.sendAuditEvent.mockResolvedValue({})
+
+    const result = await failExhaustedAbandonedOutboxEntries('worker-sweep', now)
+
+    expect(result).toEqual([entry1, entry2])
+    expect(result).toHaveLength(2)
+  })
+
+  test('allows concurrent sweeps to process without overlap due to atomic filter-update', async () => {
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    const entry1 = {
+      _id: 'entry-1',
+      status: 'PERMANENT_FAILURE',
+      payload: {
+        file: { fileId: 'file-1' },
+        messaging: { correlationId: 'corr-1' },
+        metadata: { crn: 123456789, sbi: 123456 }
+      },
+      attempts: 3
+    }
+    const entry2 = {
+      _id: 'entry-2',
+      status: 'PERMANENT_FAILURE',
+      payload: {
+        file: { fileId: 'file-2' },
+        messaging: { correlationId: 'corr-2' },
+        metadata: { crn: 987654321, sbi: 654321 }
+      },
+      attempts: 3
+    }
+
+    // Simulate two concurrent sweeps each claiming one entry
+    mocks.collection.mockReturnValue({
+      findOneAndUpdate: vi.fn()
+        .mockResolvedValueOnce(entry1)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(entry2)
+        .mockResolvedValueOnce(null)
+    })
+    mocks.sendAuditEvent.mockResolvedValue({})
+
+    const sweep1Promise = failExhaustedAbandonedOutboxEntries('worker-1', now)
+    const sweep2Promise = failExhaustedAbandonedOutboxEntries('worker-2', now)
+
+    const [result1, result2] = await Promise.all([sweep1Promise, sweep2Promise])
+
+    // Each sweep processes its own entries; the atomic filter-update ensures no overlap
+    expect(result1).toHaveLength(1)
+    expect(result2).toHaveLength(1)
+    expect(result1[0]._id).not.toBe(result2[0]._id)
   })
 })
 
