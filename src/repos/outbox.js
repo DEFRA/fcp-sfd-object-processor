@@ -18,7 +18,9 @@ const reportTerminalFailures = async (documents, reason, workerId) => {
     const entryId = doc.payload?.file?.fileId || null
     const attempts = doc.attempts
     const crn = doc.payload?.metadata?.crn
-    const logReason = maskCrnInText(reason, crn)
+    // If doc has an error, use its message as the reason; otherwise use the passed-in reason
+    const effectiveReason = doc.error?.message || reason
+    const logReason = maskCrnInText(effectiveReason, crn)
     runWithCorrelationId(doc.payload?.messaging?.correlationId, () => logger.error({
       event: {
         type: 'outbox_terminal_failure',
@@ -31,6 +33,7 @@ const reportTerminalFailures = async (documents, reason, workerId) => {
       error: {
         type: 'outbox_terminal_failure',
         ...(entryId && { id: entryId }),
+        ...(doc.error?.code && { code: doc.error.code }),
         message: logReason
       },
       tenant: { message: toTenantMessage({ sourceSystem: sanitizeSourceSystem(doc.payload?.metadata?.service) }) }
@@ -46,13 +49,19 @@ const reportTerminalFailures = async (documents, reason, workerId) => {
       const sbi = doc.payload?.metadata?.sbi
       const crn = doc.payload?.metadata?.crn
       const attempts = doc.attempts
+      // If doc has an error, use its message as the reason; otherwise use the passed-in reason
+      const effectiveReason = doc.error?.message || reason
       return sendAuditEvent({
         correlationid: doc.payload?.messaging?.correlationId,
         audit: {
           entities: [{ entity: 'document', action: 'failed', entityid: entryId ?? doc._id?.toString() ?? '' }],
           ...buildAuditAccounts({ sbi, crn }),
           status: 'failure',
-          details: { reason, attempts }
+          details: {
+            reason: effectiveReason,
+            ...(doc.error?.code && { code: doc.error.code }),
+            attempts
+          }
         }
       })
     }

@@ -5,7 +5,6 @@ const mocks = vi.hoisted(() => ({
   collection: vi.fn(),
   loggerWarn: vi.fn(),
   loggerError: vi.fn(),
-  sendAuditEvent: vi.fn(),
   configGet: vi.fn((key) => {
     switch (key) {
       case 'mongo.collections.outbox': return 'outbox'
@@ -16,8 +15,7 @@ const mocks = vi.hoisted(() => ({
       default: return null
     }
   }),
-  sendAuditEvent: vi.fn(),
-  loggerError: vi.fn()
+  sendAuditEvent: vi.fn()
 }))
 
 vi.mock('../../../src/config/index.js', () => ({
@@ -321,7 +319,6 @@ describe('failExhaustedAbandonedOutboxEntries sweep', () => {
 
   test('marks PROCESSING entries with expired claims and exhausted attempts as PERMANENT_FAILURE', async () => {
     const now = new Date('2026-08-07T10:00:00.000Z')
-    const expiredClaimedUntil = new Date('2026-08-07T09:50:00.000Z')
     const failureThreshold = new Date(now.getTime() - 30000)
     const updatedEntry = {
       _id: 'entry-1',
@@ -538,13 +535,16 @@ describe('failExhaustedAbandonedOutboxEntries sweep', () => {
       attempts: 3
     }
 
-    // Simulate two concurrent sweeps each claiming one entry
+    // Simulate atomic behavior where each findOneAndUpdate atomically claims an entry
+    // Once claimed, subsequent calls return null for that entry even from different sweeps
+    const availableEntries = [entry1, entry2]
     mocks.collection.mockReturnValue({
-      findOneAndUpdate: vi.fn()
-        .mockResolvedValueOnce(entry1)
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(entry2)
-        .mockResolvedValueOnce(null)
+      findOneAndUpdate: vi.fn(async () => {
+        if (availableEntries.length > 0) {
+          return availableEntries.shift()
+        }
+        return null
+      })
     })
     mocks.sendAuditEvent.mockResolvedValue({})
 
