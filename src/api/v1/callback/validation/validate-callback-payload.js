@@ -46,8 +46,8 @@ export async function validateCallbackPayload (payload, h, correlationId) {
         event: {
           type: 'rejected_files_count_mismatch',
           action: 'callback_validation',
-          category: 'observability',
-          outcome: 'mismatch',
+          category: 'api',
+          outcome: 'failure',
           reference: requestPayload.metadata?.uosr,
           expected: declaredRejectedCount,
           actual: actualRejectedCount

@@ -79,6 +79,7 @@ describe('httpClient — successful requests', () => {
         event: expect.objectContaining({
           type: 'http_retry_decision',
           action: 'retry_decision',
+          category: 'network',
           reason: 'http_404'
         }),
         retry: expect.objectContaining({
@@ -334,9 +335,11 @@ describe('httpClient — unknown errors', () => {
         event: expect.objectContaining({
           type: 'http_retry_terminal',
           action: 'request_failed',
+          category: 'network',
           outcome: 'failure',
           reason: 'mystery failure'
         }),
+        error: expect.objectContaining({ type: expect.any(String) }),
         retry: expect.objectContaining({
           attempts: 2,
           category: 'unknown',
@@ -345,6 +348,10 @@ describe('httpClient — unknown errors', () => {
       }),
       expect.any(String)
     )
+    const terminalLog = mockLogger.error.mock.calls[0][0]
+    expect(terminalLog.event).not.toHaveProperty('kind')
+    expect(terminalLog.error.type).toBe('RetryLimitError')
+    expect(terminalLog.event.category).toBe('network')
   })
 
   test('does NOT log recovery for immediate success (attempts=1)', async () => {

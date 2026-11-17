@@ -28,10 +28,17 @@ export const buildAuthFailureResponseLog = (request, sanitisedMessage) => {
     event: {
       type: 'auth_failure',
       action: request.method,
-      category: request.path,
+      category: 'authentication',
       reason,
-      outcome: 'failure',
-      kind: httpConstants.HTTP_STATUS_UNAUTHORIZED
+      outcome: 'failure'
+    },
+    http: {
+      response: {
+        status_code: httpConstants.HTTP_STATUS_UNAUTHORIZED
+      }
+    },
+    url: {
+      path: request.path
     },
     client: {
       address: request.info.remoteAddress

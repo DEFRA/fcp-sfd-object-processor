@@ -62,10 +62,11 @@ describe('buildCallbackValidationFailureLog', () => {
       event: {
         type: 'callback_validation_failure',
         action: 'post',
-        category: '/api/v1/callback',
+        category: 'api',
         outcome: 'failure',
         reference: mockCorrelationId
       },
+      url: { path: '/api/v1/callback' },
       error: {
         code: null,
         message: 'Validation failed',
@@ -73,6 +74,9 @@ describe('buildCallbackValidationFailureLog', () => {
         type: 'Error'
       }
     })
+    expect(log.event.category).toBe('api')
+    expect(log.event.category).not.toBe(mockRequest.path)
+    expect(log.url.path).toBe(mockRequest.path)
   })
 
   test('includes fileIds extracted from payload form', () => {
@@ -213,10 +217,11 @@ describe('buildCallbackPersistFailureLog', () => {
       event: {
         type: 'callback_validation_persist_failure',
         action: 'post',
-        category: '/api/v1/callback',
+        category: 'api',
         outcome: 'failure',
         reference: mockCorrelationId
       },
+      url: { path: '/api/v1/callback' },
       error: {
         code: null,
         message: 'DB write failed',

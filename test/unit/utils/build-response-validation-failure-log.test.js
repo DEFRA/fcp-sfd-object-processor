@@ -41,15 +41,19 @@ describe('buildResponseValidationFailureLog', () => {
       event: {
         type: 'response_validation_failure',
         action: 'get',
-        category: '/api/v1/metadata/sbi/105000000',
+        category: 'api',
         outcome: 'failure',
         reason: 'data.0.metadata.crn, data.1.file.fileId'
       },
+      url: { path: '/api/v1/metadata/sbi/105000000' },
       error: {
         type: 'ResponseValidationError',
         message: RESPONSE_VALIDATION_FAILED
       }
     })
+    expect(log.event.category).toBe('api')
+    expect(log.event.category).not.toBe(mockRequest.path)
+    expect(log.url.path).toBe(mockRequest.path)
   })
 
   test('does not include any value, message or stack from the validation error', () => {
