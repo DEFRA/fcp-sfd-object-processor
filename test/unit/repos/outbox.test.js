@@ -462,6 +462,63 @@ describe('logTerminalFailuresIfAny', () => {
       )
     })
   })
+
+  test('omits process.name when workerId is not provided', async () => {
+    const doc = {
+      _id: { toString: () => 'outbox-noworker' },
+      payload: { file: { fileId: 'file-noworker' } },
+      attempts: 2
+    }
+    db.collection.mockReturnValue(buildCollectionMock([doc]))
+
+    await logTerminalFailuresIfAny('outbox', ['file-noworker'], 2, null, 'publish error')
+
+    // Check that the logger was called without process.name field
+    const calls = mockLoggerError.mock.calls
+    expect(calls).toHaveLength(1)
+    const [logObject] = calls[0]
+    expect(logObject).toHaveProperty('event.type', 'outbox_terminal_failure')
+    expect(logObject).not.toHaveProperty('process')
+  })
+
+  test('omits error.id when fileId is missing from payload', async () => {
+    const doc = {
+      _id: { toString: () => 'outbox-noid' },
+      payload: { file: {} }, // Missing fileId
+      attempts: 2
+    }
+    db.collection.mockReturnValue(buildCollectionMock([doc]))
+
+    await logTerminalFailuresIfAny('outbox', ['some-id'], 2, null, 'publish error', 'worker-1')
+
+    // Check that the error object doesn't have id field
+    const calls = mockLoggerError.mock.calls
+    expect(calls).toHaveLength(1)
+    const [logObject] = calls[0]
+    expect(logObject.error).not.toHaveProperty('id')
+    expect(logObject.error).toHaveProperty('message', 'publish error')
+  })
+
+  test('omits metadata fields when missing from payload', async () => {
+    const doc = {
+      _id: { toString: () => 'outbox-nometa' },
+      payload: { file: { fileId: 'file-nometa' } }, // No metadata
+      attempts: 2
+    }
+    db.collection.mockReturnValue(buildCollectionMock([doc]))
+
+    await logTerminalFailuresIfAny('outbox', ['file-nometa'], 2, null, 'publish error', 'worker-1')
+
+    // Audit event should still be called but with minimal entities
+    expect(mockSendAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        correlationid: undefined,
+        audit: expect.objectContaining({
+          entities: [{ entity: 'document', action: 'failed', entityid: 'file-nometa' }]
+        })
+      })
+    )
+  })
 })
 
 describe('getOutboxStatusesByFileIds', () => {

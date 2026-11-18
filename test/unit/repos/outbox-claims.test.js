@@ -600,6 +600,99 @@ describe('failExhaustedAbandonedOutboxEntries sweep', () => {
     expect(result2).toHaveLength(1)
     expect(result1[0]._id).not.toBe(result2[0]._id)
   })
+
+  test('handles entries without file metadata', async () => {
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    const entryWithoutFile = {
+      _id: { toString: () => 'entry-nofile' },
+      status: 'PERMANENT_FAILURE',
+      payload: {
+        file: {}, // Missing fileId
+        messaging: { correlationId: 'corr-nofile' },
+        metadata: { crn: 123456789 }
+      },
+      attempts: 3
+    }
+    mocks.collection.mockReturnValue({
+      findOneAndUpdate: vi.fn()
+        .mockResolvedValueOnce(entryWithoutFile)
+        .mockResolvedValueOnce(null)
+    })
+    mocks.sendAuditEvent.mockResolvedValue({})
+
+    const result = await failExhaustedAbandonedOutboxEntries('worker-sweep', now)
+
+    expect(result).toHaveLength(1)
+    // Verify audit event still gets called with fallback entityid
+    expect(mocks.sendAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        audit: expect.objectContaining({
+          entities: [expect.objectContaining({ entityid: 'entry-nofile' })]
+        })
+      })
+    )
+  })
+
+  test('handles entries without messaging correlationId', async () => {
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    const entryWithoutCorr = {
+      _id: { toString: () => 'entry-nocorr' },
+      status: 'PERMANENT_FAILURE',
+      payload: {
+        file: { fileId: 'file-nocorr' },
+        messaging: {}, // Missing correlationId
+        metadata: { crn: 123456789 }
+      },
+      attempts: 3
+    }
+    mocks.collection.mockReturnValue({
+      findOneAndUpdate: vi.fn()
+        .mockResolvedValueOnce(entryWithoutCorr)
+        .mockResolvedValueOnce(null)
+    })
+    mocks.sendAuditEvent.mockResolvedValue({})
+
+    const result = await failExhaustedAbandonedOutboxEntries('worker-sweep', now)
+
+    expect(result).toHaveLength(1)
+    // Verify audit event is still called even without correlationId
+    expect(mocks.sendAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        correlationid: undefined
+      })
+    )
+  })
+
+  test('handles entries without error or metadata', async () => {
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    const minimalEntry = {
+      _id: { toString: () => 'entry-minimal' },
+      status: 'PERMANENT_FAILURE',
+      payload: {
+        file: { fileId: 'file-minimal' }
+      },
+      attempts: 3
+    }
+    mocks.collection.mockReturnValue({
+      findOneAndUpdate: vi.fn()
+        .mockResolvedValueOnce(minimalEntry)
+        .mockResolvedValueOnce(null)
+    })
+    mocks.sendAuditEvent.mockResolvedValue({})
+
+    const result = await failExhaustedAbandonedOutboxEntries('worker-sweep', now)
+
+    expect(result).toHaveLength(1)
+    // Verify log was emitted with reason fallback
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          message: 'claim expired at maximum attempts'
+        })
+      }),
+      expect.any(String)
+    )
+  })
 })
 
 describe('getPendingOutboxMetrics', () => {
