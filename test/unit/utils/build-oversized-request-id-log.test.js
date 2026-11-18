@@ -6,7 +6,7 @@ describe('buildOversizedRequestIdLog', () => {
   test('returns the request path, HTTP status and header length in ECS fields', () => {
     const request = {
       method: 'GET',
-      path: '/api/v1/metadata/sbi/105000000'
+      path: '/api/v1/metadata/sbi/805000000'
     }
 
     const log = buildOversizedRequestIdLog(request, 51)
@@ -20,7 +20,7 @@ describe('buildOversizedRequestIdLog', () => {
         outcome: 'failure'
       },
       http: { response: { status_code: 400 } },
-      url: { path: '/api/v1/metadata/sbi/105000000' }
+      url: { path: '/api/v1/metadata/sbi/805000000' }
     })
     expect(log.http.response.status_code).toBeTypeOf('number')
     expect(log.url.path).toBe(request.path)
