@@ -306,7 +306,7 @@ const getPendingOutboxMetrics = async () => {
   }
 }
 
-const failExhaustedAbandonedOutboxEntries = async (_instanceId, now = new Date()) => {
+const failExhaustedAbandonedOutboxEntries = async (instanceId, now = new Date()) => {
   const collection = config.get(outboxCollection)
   const queryLimit = config.get('mongo.outboxQueryLimit')
   const maxAttempts = config.get(outboxMaxAttemptsConfig)
@@ -346,7 +346,7 @@ const failExhaustedAbandonedOutboxEntries = async (_instanceId, now = new Date()
 
   if (updatedEntries.length > 0) {
     const reason = 'claim expired at maximum attempts'
-    await reportTerminalFailures(updatedEntries, reason, _instanceId)
+    await reportTerminalFailures(updatedEntries, reason, instanceId)
   }
 
   return updatedEntries
