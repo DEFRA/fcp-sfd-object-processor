@@ -219,10 +219,11 @@ describe('auth plugin register', () => {
       event: {
         type: 'auth_failure',
         action: 'GET',
-        category: '/x',
+        category: 'authentication',
         outcome: 'failure',
-        kind: 401
       },
+      http: { response: { status_code: 401 } },
+      url: { path: '/x' },
       client: { address: '1.2.3.4' },
       user_agent: { original: 'ua' }
     })

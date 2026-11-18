@@ -67,7 +67,7 @@ describe('httpClient hook edge cases', () => {
     )
   })
 
-  test('onComplete logs non-Error terminal failures with generic kind', () => {
+  test('onComplete logs non-Error terminal failures with generic error type', () => {
     const request = { url: 'http://test-upstream/string-error' }
     options().hooks.before(request)
     options().hooks.onComplete(request, null, 'terminal string failure')
@@ -76,9 +76,10 @@ describe('httpClient hook edge cases', () => {
       expect.objectContaining({
         event: expect.objectContaining({
           type: 'http_retry_terminal',
-          kind: 'error'
+          category: 'network'
         }),
         error: {
+          type: 'error',
           message: 'terminal string failure'
         }
       }),

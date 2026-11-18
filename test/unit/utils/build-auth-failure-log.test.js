@@ -23,9 +23,12 @@ describe('buildAuthFailureLog', () => {
       event: {
         type: 'auth_validation_failure',
         action: 'GET',
-        category: '/test',
+        category: 'authentication',
         reason: 'some reason',
         outcome: 'failure'
+      },
+      url: {
+        path: '/test'
       },
       client: {
         address: '127.0.0.1'
@@ -39,7 +42,7 @@ describe('buildAuthFailureLog', () => {
   test('should not emit any flat top-level context keys', () => {
     const result = buildAuthFailureLog('some reason', mockRequest, { strategy: 'entra' })
 
-    expect(Object.keys(result)).toEqual(['msg', 'event', 'client', 'user_agent'])
+    expect(Object.keys(result)).toEqual(['msg', 'event', 'url', 'client', 'user_agent'])
   })
 
   test('should default extra to empty object when not provided', () => {
@@ -126,6 +129,13 @@ describe('buildAuthFailureLog', () => {
 
     expect(result.event.type).toEqual('auth_validation_failure')
     expect(result.event.outcome).toEqual('failure')
+  })
+
+  test('should not put the request path in event.category', () => {
+    const result = buildAuthFailureLog('some reason', mockRequest)
+
+    expect(result.event.category).toBe('authentication')
+    expect(result.url.path).toBe(mockRequest.path)
   })
 
   test('should fold tokenType and strategy into the reason', () => {

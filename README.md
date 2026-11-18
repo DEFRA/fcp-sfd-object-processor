@@ -379,13 +379,15 @@ This service uses [Pino](https://getpino.io/) with [Elastic Common Schema (ECS)]
 |---|---|---|
 | `event.type` | text | Specific event name (e.g. `status_check`) |
 | `event.action` | text | Action taken — use for HTTP method or operation |
-| `event.category` | text | Broad category — use for request path |
+| `event.category` | keyword | ECS event category, such as `api`, `authentication` or `network` |
 | `event.reference` | text | Reference ID tied to the event — use for `uploadId` or similar |
 | `event.reason` | text | Reason/explanation — use for `clientId`, `uploadStatus`, or error cause |
 | `event.outcome` | text | Outcome: `success`, `failure`, or `unknown` |
-| `event.kind` | text | High-level type — use for HTTP status code |
+| `event.kind` | keyword | High-level ECS event kind; omit when no applicable ECS value exists |
 | `event.duration` | long | Round-trip time in **nanoseconds** (`ms × 1,000,000`) |
 | `event.severity` | long | Custom severity level (0–10) |
+| `http.response.status_code` | long | HTTP response status code |
+| `url.path` | wildcard | Request path |
 
 ## HTTP Retry
 

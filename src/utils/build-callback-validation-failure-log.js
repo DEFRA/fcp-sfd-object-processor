@@ -51,9 +51,12 @@ export const buildCallbackValidationFailureLog = (request, err, correlationId) =
     event: {
       type: 'callback_validation_failure',
       action: request.method,
-      category: request.path,
+      category: 'api',
       outcome: 'failure',
       reference: correlationId
+    },
+    url: {
+      path: request.path
     },
     error: {
       code: err.statusCode ?? err.code ?? null,
@@ -78,9 +81,12 @@ export const buildCallbackPersistFailureLog = (request, persistError, correlatio
     event: {
       type: 'callback_validation_persist_failure',
       action: request.method,
-      category: request.path,
+      category: 'api',
       outcome: 'failure',
       reference: correlationId
+    },
+    url: {
+      path: request.path
     },
     error: {
       code: persistError.statusCode ?? persistError.code ?? null,
