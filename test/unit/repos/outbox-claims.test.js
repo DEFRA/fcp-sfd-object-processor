@@ -512,6 +512,48 @@ describe('failExhaustedAbandonedOutboxEntries sweep', () => {
     expect(result).toHaveLength(2)
   })
 
+  test('includes error code in log and audit when entry has error.code', async () => {
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    const entryWithError = {
+      _id: { toString: () => 'entry-error' },
+      status: 'PERMANENT_FAILURE',
+      payload: {
+        file: { fileId: 'file-error' },
+        messaging: { correlationId: 'corr-error' },
+        metadata: { crn: 123456789, sbi: 123456 }
+      },
+      attempts: 3,
+      error: { code: 'SNSThrottled', message: 'Rate exceeded' }
+    }
+    mocks.collection.mockReturnValue({
+      findOneAndUpdate: vi.fn()
+        .mockResolvedValueOnce(entryWithError)
+        .mockResolvedValueOnce(null)
+    })
+    mocks.sendAuditEvent.mockResolvedValue({})
+
+    const result = await failExhaustedAbandonedOutboxEntries('worker-sweep', now)
+
+    expect(result).toHaveLength(1)
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          type: 'outbox_terminal_failure',
+          id: 'file-error',
+          code: 'SNSThrottled',
+          message: 'Rate exceeded'
+        })
+      }),
+      expect.any(String)
+    )
+    expect(mocks.sendAuditEvent).toHaveBeenCalledWith({
+      correlationid: 'corr-error',
+      audit: expect.objectContaining({
+        details: { reason: 'Rate exceeded', code: 'SNSThrottled', attempts: 3 }
+      })
+    })
+  })
+
   test('allows concurrent sweeps to process without overlap due to atomic filter-update', async () => {
     const now = new Date('2026-08-07T10:00:00.000Z')
     const entry1 = {
