@@ -72,8 +72,8 @@ const rejectedFile = {
 }
 
 const validMetadata = {
-  sbi: 105000000,
-  crn: 1050000000,
+  sbi: 805000000,
+  crn: 9050000000,
   frn: 1102658375,
   submissionId: '1733826312',
   type: 'CS_Agreement_Evidence',
@@ -236,7 +236,7 @@ describe('GET /api/v1/uploader/status/{uploadId} — successful responses', () =
   test('ready upload without numberOfRejectedFiles still awaits callback when local record is missing', async () => {
     const readyResponseWithoutRejectedCount = {
       uploadStatus: 'ready',
-      metadata: { sbi: 105000000, crn: 1050000000 },
+      metadata: { sbi: 805000000, crn: 9050000000 },
       form: { 'file-field': completeFile }
       // numberOfRejectedFiles intentionally omitted
     }

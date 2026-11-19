@@ -6,7 +6,8 @@ import { getDb, connectDb, closeDb } from '../../../../src/data/db.js'
 import {
   claimProcessableOutboxEntries,
   finalizeClaimedOutboxEntries,
-  getPendingOutboxMetrics
+  getPendingOutboxMetrics,
+  failExhaustedAbandonedOutboxEntries
 } from '../../../../src/repos/outbox.js'
 import { DELIVERY_OUTCOME, PENDING, PROCESSING, PERMANENT_FAILURE, SENT } from '../../../../src/constants/outbox.js'
 
@@ -44,12 +45,14 @@ beforeAll(() => {
   originalConfig.queryLimit = config.get('mongo.outboxQueryLimit')
   originalConfig.maxAttempts = config.get('messaging.outboxMaxAttempts')
   originalConfig.claimLeaseMs = config.get('messaging.outboxClaimLeaseMs')
+  originalConfig.gracePeriodMs = config.get('messaging.outboxFailureGracePeriodMs')
 })
 
 beforeEach(async () => {
   config.set('mongo.outboxQueryLimit', 10)
   config.set('messaging.outboxMaxAttempts', 3)
   config.set('messaging.outboxClaimLeaseMs', 60000)
+  config.set('messaging.outboxFailureGracePeriodMs', 30000)
   await db.collection(collectionName).deleteMany({ testRunId: { $regex: `^${testRunPrefix}` } })
 })
 
@@ -63,6 +66,7 @@ afterAll(async () => {
   config.set('mongo.outboxQueryLimit', originalConfig.queryLimit)
   config.set('messaging.outboxMaxAttempts', originalConfig.maxAttempts)
   config.set('messaging.outboxClaimLeaseMs', originalConfig.claimLeaseMs)
+  config.set('messaging.outboxFailureGracePeriodMs', originalConfig.gracePeriodMs)
 })
 
 describe('outbox claim repository concurrency', () => {
@@ -294,5 +298,276 @@ describe('getPendingOutboxMetrics', () => {
     ])
 
     await expect(getPendingOutboxMetrics()).resolves.toEqual({ count: 2, oldestCreatedAt: oldestProcessingAt })
+  })
+})
+
+describe('failExhaustedAbandonedOutboxEntries sweep integration', () => {
+  test('marks PROCESSING entries with expired claims and exhausted attempts as PERMANENT_FAILURE', async () => {
+    const testRunId = `${testRunPrefix}${randomUUID()}`
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    const expiredClaimedUntil = new Date('2026-08-07T09:50:00.000Z')
+    const { insertedId } = await db.collection(collectionName).insertOne(
+      buildEntry(testRunId, {
+        status: PROCESSING,
+        attempts: 3,
+        claimedBy: 'worker-old',
+        claimedAt: new Date('2026-08-07T09:40:00.000Z'),
+        claimedUntil: expiredClaimedUntil
+      })
+    )
+
+    const result = await failExhaustedAbandonedOutboxEntries('worker-sweep', now)
+
+    expect(result).toHaveLength(1)
+    expect(result[0]._id).toEqual(insertedId)
+    expect(result[0].status).toBe(PERMANENT_FAILURE)
+    expect(result[0].lastAttemptedAt).toEqual(now)
+    expect(result[0]).not.toHaveProperty('claimedBy')
+    expect(result[0]).not.toHaveProperty('claimedAt')
+    expect(result[0]).not.toHaveProperty('claimedUntil')
+  })
+
+  test('respects grace period: does not fail entry until (claimedUntil + gracePeriod) passes', async () => {
+    const testRunId = `${testRunPrefix}${randomUUID()}`
+    // Grace period is 30000ms (30 seconds)
+    const claimedUntil = new Date('2026-08-07T09:59:00.000Z')
+    const beforeGracePeriod = new Date('2026-08-07T10:00:00.000Z') // 60 seconds after claimedUntil
+    const afterGracePeriod = new Date('2026-08-07T10:00:35.000Z') // 95 seconds after claimedUntil
+
+    await db.collection(collectionName).insertOne(
+      buildEntry(testRunId, {
+        status: PROCESSING,
+        attempts: 3,
+        claimedBy: 'worker-old',
+        claimedAt: new Date('2026-08-07T09:50:00.000Z'),
+        claimedUntil
+      })
+    )
+
+    // Before grace period passes, entry should NOT be marked as PERMANENT_FAILURE
+    let result = await failExhaustedAbandonedOutboxEntries('worker-sweep', beforeGracePeriod)
+    expect(result).toHaveLength(0)
+
+    // After grace period passes, entry should be marked as PERMANENT_FAILURE
+    result = await failExhaustedAbandonedOutboxEntries('worker-sweep', afterGracePeriod)
+    expect(result).toHaveLength(1)
+    expect(result[0].status).toBe(PERMANENT_FAILURE)
+  })
+
+  test('does not fail PROCESSING entries with active claims', async () => {
+    const testRunId = `${testRunPrefix}${randomUUID()}`
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    await db.collection(collectionName).insertOne(
+      buildEntry(testRunId, {
+        status: PROCESSING,
+        attempts: 3,
+        claimedBy: 'worker-active',
+        claimedAt: new Date('2026-08-07T09:55:00.000Z'),
+        claimedUntil: new Date('2026-08-07T10:05:00.000Z')
+      })
+    )
+
+    const result = await failExhaustedAbandonedOutboxEntries('worker-sweep', now)
+
+    expect(result).toHaveLength(0)
+  })
+
+  test('does not fail PROCESSING entries that have not exhausted attempts', async () => {
+    const testRunId = `${testRunPrefix}${randomUUID()}`
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    await db.collection(collectionName).insertOne(
+      buildEntry(testRunId, {
+        status: PROCESSING,
+        attempts: 1,
+        claimedBy: 'worker-old',
+        claimedAt: new Date('2026-08-07T09:40:00.000Z'),
+        claimedUntil: new Date('2026-08-07T09:50:00.000Z')
+      })
+    )
+
+    const result = await failExhaustedAbandonedOutboxEntries('worker-sweep', now)
+
+    expect(result).toHaveLength(0)
+  })
+
+  test('respects queryLimit for bounded iteration', async () => {
+    const testRunId = `${testRunPrefix}${randomUUID()}`
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    config.set('mongo.outboxQueryLimit', 2)
+
+    await db.collection(collectionName).insertMany([
+      buildEntry(testRunId, {
+        status: PROCESSING,
+        attempts: 3,
+        claimedBy: 'worker-old',
+        claimedAt: new Date('2026-08-07T09:40:00.000Z'),
+        claimedUntil: new Date('2026-08-07T09:50:00.000Z'),
+        createdAt: new Date('2026-08-07T09:00:00.000Z')
+      }),
+      buildEntry(testRunId, {
+        status: PROCESSING,
+        attempts: 3,
+        claimedBy: 'worker-old',
+        claimedAt: new Date('2026-08-07T09:40:00.000Z'),
+        claimedUntil: new Date('2026-08-07T09:50:00.000Z'),
+        createdAt: new Date('2026-08-07T09:01:00.000Z')
+      }),
+      buildEntry(testRunId, {
+        status: PROCESSING,
+        attempts: 3,
+        claimedBy: 'worker-old',
+        claimedAt: new Date('2026-08-07T09:40:00.000Z'),
+        claimedUntil: new Date('2026-08-07T09:50:00.000Z'),
+        createdAt: new Date('2026-08-07T09:02:00.000Z')
+      })
+    ])
+
+    const result = await failExhaustedAbandonedOutboxEntries('worker-sweep', now)
+
+    expect(result).toHaveLength(2)
+  })
+
+  test('allows next poll to complete the work when interrupted by queryLimit', async () => {
+    const testRunId = `${testRunPrefix}${randomUUID()}`
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    config.set('mongo.outboxQueryLimit', 1)
+
+    await db.collection(collectionName).insertMany([
+      buildEntry(testRunId, {
+        status: PROCESSING,
+        attempts: 3,
+        claimedBy: 'worker-old',
+        claimedAt: new Date('2026-08-07T09:40:00.000Z'),
+        claimedUntil: new Date('2026-08-07T09:50:00.000Z'),
+        createdAt: new Date('2026-08-07T09:00:00.000Z')
+      }),
+      buildEntry(testRunId, {
+        status: PROCESSING,
+        attempts: 3,
+        claimedBy: 'worker-old',
+        claimedAt: new Date('2026-08-07T09:40:00.000Z'),
+        claimedUntil: new Date('2026-08-07T09:50:00.000Z'),
+        createdAt: new Date('2026-08-07T09:01:00.000Z')
+      })
+    ])
+
+    // First sweep processes one entry
+    let result = await failExhaustedAbandonedOutboxEntries('worker-sweep-1', now)
+    expect(result).toHaveLength(1)
+
+    // Check that the other entry still exists in PROCESSING state
+    const remaining = await db.collection(collectionName).findOne({
+      testRunId,
+      status: PROCESSING
+    })
+    expect(remaining).not.toBeNull()
+
+    // Second sweep processes the remaining entry
+    result = await failExhaustedAbandonedOutboxEntries('worker-sweep-2', now)
+    expect(result).toHaveLength(1)
+
+    // Both entries are now PERMANENT_FAILURE
+    const finalState = await db.collection(collectionName)
+      .find({ testRunId })
+      .toArray()
+    expect(finalState).toHaveLength(2)
+    expect(finalState.every(e => e.status === PERMANENT_FAILURE)).toBe(true)
+  })
+
+  test('concurrent sweeps do not overlap when processing expired entries', async () => {
+    const testRunId = `${testRunPrefix}${randomUUID()}`
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    config.set('mongo.outboxQueryLimit', 10)
+
+    await db.collection(collectionName).insertMany([
+      buildEntry(testRunId, {
+        status: PROCESSING,
+        attempts: 3,
+        claimedBy: 'worker-old',
+        claimedAt: new Date('2026-08-07T09:40:00.000Z'),
+        claimedUntil: new Date('2026-08-07T09:50:00.000Z'),
+        createdAt: new Date('2026-08-07T09:00:00.000Z')
+      }),
+      buildEntry(testRunId, {
+        status: PROCESSING,
+        attempts: 3,
+        claimedBy: 'worker-old',
+        claimedAt: new Date('2026-08-07T09:40:00.000Z'),
+        claimedUntil: new Date('2026-08-07T09:50:00.000Z'),
+        createdAt: new Date('2026-08-07T09:01:00.000Z')
+      }),
+      buildEntry(testRunId, {
+        status: PROCESSING,
+        attempts: 3,
+        claimedBy: 'worker-old',
+        claimedAt: new Date('2026-08-07T09:40:00.000Z'),
+        claimedUntil: new Date('2026-08-07T09:50:00.000Z'),
+        createdAt: new Date('2026-08-07T09:02:00.000Z')
+      })
+    ])
+
+    // Run two sweeps concurrently
+    const [result1, result2] = await Promise.all([
+      failExhaustedAbandonedOutboxEntries('worker-sweep-1', now),
+      failExhaustedAbandonedOutboxEntries('worker-sweep-2', now)
+    ])
+
+    // Combined they process all 3 entries without overlap
+    const allProcessed = [...result1, ...result2]
+    expect(allProcessed).toHaveLength(3)
+
+    // No entry appears in both results
+    const ids1 = new Set(result1.map(e => e._id.toString()))
+    const ids2 = new Set(result2.map(e => e._id.toString()))
+    expect(ids1.size + ids2.size).toBe(3)
+
+    // All entries are marked as PERMANENT_FAILURE
+    const finalState = await db.collection(collectionName)
+      .find({ testRunId })
+      .toArray()
+    expect(finalState.every(e => e.status === PERMANENT_FAILURE)).toBe(true)
+  })
+
+  test('leaves remaining entries untouched when stopped midway, allowing next poll to complete', async () => {
+    const testRunId = `${testRunPrefix}${randomUUID()}`
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    config.set('mongo.outboxQueryLimit', 1)
+
+    await db.collection(collectionName).insertMany([
+      buildEntry(testRunId, {
+        status: PROCESSING,
+        attempts: 3,
+        claimedBy: 'worker-old',
+        claimedAt: new Date('2026-08-07T09:40:00.000Z'),
+        claimedUntil: new Date('2026-08-07T09:50:00.000Z'),
+        createdAt: new Date('2026-08-07T09:00:00.000Z')
+      }),
+      buildEntry(testRunId, {
+        status: PROCESSING,
+        attempts: 3,
+        claimedBy: 'worker-old',
+        claimedAt: new Date('2026-08-07T09:40:00.000Z'),
+        claimedUntil: new Date('2026-08-07T09:50:00.000Z'),
+        createdAt: new Date('2026-08-07T09:01:00.000Z')
+      })
+    ])
+
+    // First poll processes one entry
+    const result1 = await failExhaustedAbandonedOutboxEntries('worker-1', now)
+    expect(result1).toHaveLength(1)
+
+    // The unprocessed entry still matches the filter and is in PROCESSING state
+    const remaining = await db.collection(collectionName).findOne({
+      _id: { $nin: result1.map(e => e._id) },
+      testRunId,
+      status: PROCESSING,
+      attempts: { $gte: 3 }
+    })
+    expect(remaining).not.toBeNull()
+
+    // Next poll continues from where the first stopped
+    const result2 = await failExhaustedAbandonedOutboxEntries('worker-2', now)
+    expect(result2).toHaveLength(1)
+    expect(result2[0]._id.toString()).not.toBe(result1[0]._id.toString())
   })
 })

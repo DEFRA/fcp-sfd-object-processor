@@ -151,6 +151,12 @@ export const serverConfig = {
       default: 300000,
       env: 'OUTBOX_CLAIM_LEASE_MS'
     },
+    outboxFailureGracePeriodMs: {
+      doc: 'Grace period in milliseconds after a claim expires before an exhausted entry is marked PERMANENT_FAILURE. Allows slow but live workers additional time to publish before permanent failure',
+      format: 'int',
+      default: 30000,
+      env: 'OUTBOX_FAILURE_GRACE_PERIOD_MS'
+    },
     outboxSentTtlSeconds: {
       doc: 'Lifetime in seconds of a successfully delivered (SENT) outbox record before it is automatically deleted via a MongoDB TTL index',
       format: 'ttl-seconds',

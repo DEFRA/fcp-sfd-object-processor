@@ -4,6 +4,7 @@ import { DELIVERY_OUTCOME } from '../../../../src/constants/outbox.js'
 
 const mocks = vi.hoisted(() => ({
   claim: vi.fn(),
+  failExhausted: vi.fn(),
   finalize: vi.fn(),
   logTerminal: vi.fn(),
   getPendingOutboxMetrics: vi.fn().mockResolvedValue({ count: 0, oldestCreatedAt: null }),
@@ -24,6 +25,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../../../../src/repos/outbox.js', () => ({
   claimProcessableOutboxEntries: mocks.claim,
+  failExhaustedAbandonedOutboxEntries: mocks.failExhausted,
   finalizeClaimedOutboxEntries: mocks.finalize,
   logTerminalFailuresIfAny: mocks.logTerminal,
   getPendingOutboxMetrics: mocks.getPendingOutboxMetrics
@@ -86,6 +88,7 @@ describe('publishPendingMessages', () => {
       endSession: vi.fn()
     }
     mocks.startSession.mockReturnValue(session)
+    mocks.failExhausted.mockResolvedValue([])
     mocks.finalize.mockResolvedValue({ acknowledged: true, matchedCount: 1 })
     mocks.logTerminal.mockResolvedValue(undefined)
     mocks.updatePublishedAt.mockResolvedValue({ acknowledged: true })

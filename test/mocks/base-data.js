@@ -7,8 +7,8 @@ import { randomUUID } from 'node:crypto'
 
 // Core metadata structure shared across all uploads in a submission
 export const baseMetadata = {
-  sbi: 105000000,
-  crn: 1050000000,
+  sbi: 805000000,
+  crn: 9050000000,
   frn: 1102658375,
   submissionId: '1733826312',
   uosr: '107220150_1733826312',
@@ -19,8 +19,8 @@ export const baseMetadata = {
 
 // Alternative metadata for testing different submission scenarios
 export const alternateMetadata = {
-  sbi: 205000000,
-  crn: 2050000000,
+  sbi: 805000000,
+  crn: 9050000000,
   frn: 2102658375,
   submissionId: '1733826314',
   uosr: '107220150_1733826312',

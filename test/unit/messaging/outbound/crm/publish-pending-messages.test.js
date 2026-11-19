@@ -4,6 +4,7 @@ import { METRIC_OUTCOME, PUBLISH_FAILURE_OUTCOME } from '../../../../../src/cons
 
 const mocks = vi.hoisted(() => ({
   claim: vi.fn(),
+  failExhausted: vi.fn(),
   finalize: vi.fn(),
   logTerminal: vi.fn(),
   getPendingOutboxMetrics: vi.fn().mockResolvedValue({ count: 0, oldestCreatedAt: null }),
@@ -20,6 +21,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../../../../../src/repos/outbox.js', () => ({
   claimProcessableOutboxEntries: mocks.claim,
+  failExhaustedAbandonedOutboxEntries: mocks.failExhausted,
   finalizeClaimedOutboxEntries: mocks.finalize,
   logTerminalFailuresIfAny: mocks.logTerminal,
   getPendingOutboxMetrics: mocks.getPendingOutboxMetrics

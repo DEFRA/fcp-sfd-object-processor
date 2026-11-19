@@ -32,7 +32,7 @@ describe('Sessions Repository', () => {
     const timestamp = new Date()
     const sessionData = {
       uploadId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
-      metadata: { sbi: 105000000, type: 'CS_Agreement_Evidence' },
+      metadata: { sbi: 805000000, type: 'CS_Agreement_Evidence' },
       timestamp
     }
     mockCollection.insertOne.mockResolvedValue({ acknowledged: true, insertedId: 'some-id' })
@@ -48,7 +48,7 @@ describe('Sessions Repository', () => {
     const sessionData = {
       uploadId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
       journeyId: '550e8400-e29b-41d4-a716-446655440000',
-      metadata: { sbi: 105000000 },
+      metadata: { sbi: 805000000 },
       timestamp: new Date()
     }
     mockCollection.insertOne.mockResolvedValue({ acknowledged: true, insertedId: 'some-id' })
@@ -68,7 +68,7 @@ describe('Sessions Repository', () => {
 
     await insertSession({
       uploadId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
-      metadata: { sbi: 105000000 },
+      metadata: { sbi: 805000000 },
       timestamp: new Date()
     })
 
@@ -93,7 +93,7 @@ describe('Sessions Repository', () => {
 
   describe('getSessionByJourneyId', () => {
     test('queries on journeyId and projects only uploadId and metadata', async () => {
-      const session = { uploadId: 'upload-1', metadata: { sbi: 105000000 } }
+      const session = { uploadId: 'upload-1', metadata: { sbi: 805000000 } }
       mockCollection.findOne.mockResolvedValue(session)
 
       const result = await getSessionByJourneyId('550e8400-e29b-41d4-a716-446655440000')
