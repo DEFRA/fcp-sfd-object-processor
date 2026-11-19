@@ -22,7 +22,7 @@ describe('buildAuditAccounts', () => {
     [{ crn: '' }, {}],
     [{ crn: '0x3E95BA80' }, {}],
     [{ crn: '1.1e9' }, {}],
-    [{ crn: ' 1100000000 ' }, {}],
+    [{ crn: ' 9100000000 ' }, {}],
     [{ crn: Number.NaN }, {}],
     [{ crn: Number.POSITIVE_INFINITY }, {}],
     [{ sbi: 805000000, crn: 'abc' }, { accounts: { sbi: '805000000' } }]

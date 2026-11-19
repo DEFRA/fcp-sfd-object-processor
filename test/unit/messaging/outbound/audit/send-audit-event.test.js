@@ -231,7 +231,7 @@ describe('sendAuditEvent', () => {
   test('masks an invalid accounts.crn in the audit publish failure reason', async () => {
     const { publishAuditEvent } = await import('@defra/fcp-audit-publisher')
     const { sendAuditEvent } = await import('../../../../../src/messaging/outbound/audit/send-audit-event.js')
-    const invalidCrn = '1049999999'
+    const invalidCrn = '9049999999'
     publishAuditEvent.mockRejectedValueOnce(`Invalid CRN ${invalidCrn}`)
 
     await sendAuditEvent({
