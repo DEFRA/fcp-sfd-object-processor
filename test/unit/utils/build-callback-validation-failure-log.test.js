@@ -95,7 +95,7 @@ describe('buildCallbackValidationFailureLog', () => {
   })
 
   test('masks the CRN in error messages and stack traces', () => {
-    const crn = '1050000001'
+    const crn = '9050000001'
     const request = {
       ...mockRequest,
       payload: { metadata: { crn } }

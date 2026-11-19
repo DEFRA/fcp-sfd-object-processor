@@ -36,7 +36,7 @@ const { metadataQuerySchema } = await import('../../../../../src/api/v1/metadata
 const { responseFailAction } = await import('../../../../../src/api/common/helpers/response-fail-action.js')
 const { NotFoundError } = await import('../../../../../src/errors/not-found-error.js')
 
-const sbi = 105000000
+const sbi = 805000000
 const pageSize = 2
 const cursor = '66f9c1e2a3b4c5d6e7f80912'
 

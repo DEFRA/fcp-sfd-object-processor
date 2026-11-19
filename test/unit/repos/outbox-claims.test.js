@@ -326,7 +326,7 @@ describe('failExhaustedAbandonedOutboxEntries sweep', () => {
       payload: {
         file: { fileId: 'file-1' },
         messaging: { correlationId: 'corr-1' },
-        metadata: { crn: 123456789 }
+        metadata: { crn: 9123456789 }
       },
       attempts: 3,
       lastAttemptedAt: now
@@ -406,7 +406,7 @@ describe('failExhaustedAbandonedOutboxEntries sweep', () => {
       payload: {
         file: { fileId: 'file-1' },
         messaging: { correlationId: 'corr-1' },
-        metadata: { crn: 123456789, sbi: 123456, service: 'fcp-sfd-frontend' }
+        metadata: { crn: 9123456789, sbi: 800123456, service: 'fcp-sfd-frontend' }
       },
       attempts: 3,
       lastAttemptedAt: now
@@ -456,7 +456,7 @@ describe('failExhaustedAbandonedOutboxEntries sweep', () => {
       payload: {
         file: { fileId: 'file-1' },
         messaging: { correlationId: 'corr-1' },
-        metadata: { crn: 123456789, sbi: 123456 }
+        metadata: { crn: 9123456789, sbi: 800123456 }
       },
       attempts: 3
     }
@@ -484,7 +484,7 @@ describe('failExhaustedAbandonedOutboxEntries sweep', () => {
       payload: {
         file: { fileId: 'file-1' },
         messaging: { correlationId: 'corr-1' },
-        metadata: { crn: 123456789, sbi: 123456 }
+        metadata: { crn: 9123456789, sbi: 800123456 }
       },
       attempts: 3
     }
@@ -494,7 +494,7 @@ describe('failExhaustedAbandonedOutboxEntries sweep', () => {
       payload: {
         file: { fileId: 'file-2' },
         messaging: { correlationId: 'corr-2' },
-        metadata: { crn: 987654321, sbi: 654321 }
+        metadata: { crn: 9987654321, sbi: 800654321 }
       },
       attempts: 3
     }
@@ -520,7 +520,7 @@ describe('failExhaustedAbandonedOutboxEntries sweep', () => {
       payload: {
         file: { fileId: 'file-error' },
         messaging: { correlationId: 'corr-error' },
-        metadata: { crn: 123456789, sbi: 123456 }
+        metadata: { crn: 9123456789, sbi: 800123456 }
       },
       attempts: 3,
       error: { code: 'SNSThrottled', message: 'Rate exceeded' }
@@ -562,7 +562,7 @@ describe('failExhaustedAbandonedOutboxEntries sweep', () => {
       payload: {
         file: { fileId: 'file-1' },
         messaging: { correlationId: 'corr-1' },
-        metadata: { crn: 123456789, sbi: 123456 }
+        metadata: { crn: 9123456789, sbi: 800123456 }
       },
       attempts: 3
     }
@@ -572,7 +572,7 @@ describe('failExhaustedAbandonedOutboxEntries sweep', () => {
       payload: {
         file: { fileId: 'file-2' },
         messaging: { correlationId: 'corr-2' },
-        metadata: { crn: 987654321, sbi: 654321 }
+        metadata: { crn: 9987654321, sbi: 800654321 }
       },
       attempts: 3
     }
@@ -609,7 +609,7 @@ describe('failExhaustedAbandonedOutboxEntries sweep', () => {
       payload: {
         file: {}, // Missing fileId
         messaging: { correlationId: 'corr-nofile' },
-        metadata: { crn: 123456789 }
+        metadata: { crn: 9123456789 }
       },
       attempts: 3
     }
@@ -641,7 +641,7 @@ describe('failExhaustedAbandonedOutboxEntries sweep', () => {
       payload: {
         file: { fileId: 'file-nocorr' },
         messaging: {}, // Missing correlationId
-        metadata: { crn: 123456789 }
+        metadata: { crn: 9123456789 }
       },
       attempts: 3
     }

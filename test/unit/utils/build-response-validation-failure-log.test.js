@@ -6,7 +6,7 @@ import {
 } from '../../../src/utils/build-response-validation-failure-log.js'
 
 const mockRequest = {
-  path: '/api/v1/metadata/sbi/105000000',
+  path: '/api/v1/metadata/sbi/805000000',
   method: 'get'
 }
 
@@ -41,7 +41,7 @@ describe('buildResponseValidationFailureLog', () => {
       event: {
         type: 'response_validation_failure',
         action: 'get',
-        category: '/api/v1/metadata/sbi/105000000',
+        category: '/api/v1/metadata/sbi/805000000',
         outcome: 'failure',
         reason: 'data.0.metadata.crn, data.1.file.fileId'
       },

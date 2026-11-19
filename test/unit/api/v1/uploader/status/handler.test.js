@@ -99,21 +99,21 @@ const completeFile = {
 
 const validReadyResponse = {
   uploadStatus: 'ready',
-  metadata: { sbi: 105000000, crn: 1050000000 },
+  metadata: { sbi: 805000000, crn: 9050000000 },
   form: { 'file-field': completeFile },
   numberOfRejectedFiles: 0
 }
 
 const validReadyResponseWithRejections = {
   uploadStatus: 'ready',
-  metadata: { sbi: 105000000, crn: 1050000000 },
+  metadata: { sbi: 805000000, crn: 9050000000 },
   form: { 'file-field': completeFile },
   numberOfRejectedFiles: 2
 }
 
 const validReadyResponseWithGroupedForm = {
   uploadStatus: 'ready',
-  metadata: { sbi: 105000000, crn: 1050000000 },
+  metadata: { sbi: 805000000, crn: 9050000000 },
   form: {
     document: [
       completeFile,
@@ -129,7 +129,7 @@ const validReadyResponseWithGroupedForm = {
 
 const validPendingResponse = {
   uploadStatus: 'pending',
-  metadata: { sbi: 105000000, crn: 1050000000 },
+  metadata: { sbi: 805000000, crn: 9050000000 },
   form: {
     'file-field': {
       fileId: 'a0b1c2d3-e4f5-4789-abcd-ef0123456789',

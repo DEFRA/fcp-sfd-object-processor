@@ -40,7 +40,7 @@ describe('Status Repository', () => {
   test('should insert status documents with a session', async () => {
     const documents = [
       {
-        sbi: 105000000,
+        sbi: 805000000,
         fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
         timestamp: new Date(),
         validated: true,
@@ -65,7 +65,7 @@ describe('Status Repository', () => {
 
   test('should support single document input', async () => {
     const document = {
-      sbi: 105000000,
+      sbi: 805000000,
       fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
       timestamp: new Date(),
       validated: false,

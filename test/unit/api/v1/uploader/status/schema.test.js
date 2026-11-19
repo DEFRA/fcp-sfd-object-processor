@@ -61,8 +61,8 @@ const rejectedFile = {
 }
 
 const validMetadata = {
-  sbi: 105000000,
-  crn: 1050000000,
+  sbi: 805000000,
+  crn: 9050000000,
   frn: 1102658375,
   submissionId: '1733826312',
   type: 'CS_Agreement_Evidence',
@@ -466,7 +466,7 @@ describe('cdpUploaderStatusResponseSchema', () => {
       // cdpUploaderStatusResponseSchema uses permissive Joi.object() — partial metadata passes
       const payload = {
         ...validReadyResponse,
-        metadata: { sbi: 105000000 }
+        metadata: { sbi: 805000000 }
       }
       const { error } = cdpUploaderStatusResponseSchema.validate(payload)
       expect(error).toBeUndefined()

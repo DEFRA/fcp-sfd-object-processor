@@ -62,7 +62,7 @@ const { RESOLVED_ID } = vi.hoisted(() => ({ RESOLVED_ID: '3f2504e0-4f89-41d3-9a0
 
 const buildMockRequest = (overrides = {}) => ({
   payload: {
-    metadata: { sbi: 105000000 },
+    metadata: { sbi: 805000000 },
     form: {},
     uploadStatus: 'ready',
     numberOfRejectedFiles: 0
@@ -98,7 +98,7 @@ describe('callback handler — (document/created)', () => {
 
     const request = buildMockRequest({
       payload: {
-        metadata: { sbi: 105000000, crn: 1050000000 },
+        metadata: { sbi: 805000000, crn: 9050000000 },
         form: {
           file1: { fileId: payloadFileId1 },
           file2: { fileId: payloadFileId2 }
@@ -117,7 +117,7 @@ describe('callback handler — (document/created)', () => {
         correlationid: RESOLVED_ID,
         audit: expect.objectContaining({
           entities: [{ entity: 'document', action: 'created', entityid: payloadFileId1 }],
-          accounts: { sbi: '105000000', crn: '1050000000' },
+          accounts: { sbi: '805000000', crn: '9050000000' },
           status: 'success',
           details: { reason: 'callback_successful' }
         })

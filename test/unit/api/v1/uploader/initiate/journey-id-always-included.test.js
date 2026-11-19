@@ -5,7 +5,7 @@ describe('buildCdpUploaderPayload - journeyId always included', () => {
   test('should always include journeyId in metadata', () => {
     const clientPayload = {
       redirect: 'https://example.com/success',
-      metadata: { sbi: 123456789 }
+      metadata: { sbi: 823456789 }
     }
     const journeyId = '550e8400-e29b-41d4-a716-446655440000'
 
@@ -18,13 +18,13 @@ describe('buildCdpUploaderPayload - journeyId always included', () => {
   test('should preserve client metadata while adding journeyId', () => {
     const clientPayload = {
       redirect: 'https://example.com/success',
-      metadata: { sbi: 123456789, uosr: 'TEST-SFD-001' }
+      metadata: { sbi: 823456789, uosr: 'TEST-SFD-001' }
     }
     const journeyId = '550e8400-e29b-41d4-a716-446655440000'
 
     const result = buildCdpUploaderPayload(clientPayload, journeyId)
 
-    expect(result.metadata.sbi).toBe(123456789)
+    expect(result.metadata.sbi).toBe(823456789)
     expect(result.metadata.uosr).toBe('TEST-SFD-001')
     expect(result.metadata.journeyId).toBe(journeyId)
   })

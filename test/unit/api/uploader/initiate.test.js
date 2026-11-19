@@ -4,8 +4,8 @@ import { constants as httpConstants } from 'node:http2'
 const mockValidPayload = {
   redirect: '/upload-complete',
   metadata: {
-    sbi: 105000000,
-    crn: 1050000000,
+    sbi: 805000000,
+    crn: 9050000000,
     frn: 1102658375,
     submissionId: '1733826312',
     type: 'CS_Agreement_Evidence',

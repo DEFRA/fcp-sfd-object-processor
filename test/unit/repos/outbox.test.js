@@ -171,7 +171,7 @@ describe('logTerminalFailuresIfAny', () => {
       _id: { toString: () => 'outbox-doc-id' },
       payload: {
         file: { fileId: 'file-id-1' },
-        metadata: { sbi: 105000000, crn: 1050000000 },
+        metadata: { sbi: 805000000, crn: 9050000000 },
         messaging: { correlationId: 'corr-123' }
       },
       attempts: 2
@@ -183,7 +183,7 @@ describe('logTerminalFailuresIfAny', () => {
     expect(mockSendAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         audit: expect.objectContaining({
-          accounts: { sbi: '105000000', crn: '1050000000' }
+          accounts: { sbi: '805000000', crn: '9050000000' }
         })
       })
     )
@@ -194,7 +194,7 @@ describe('logTerminalFailuresIfAny', () => {
       _id: { toString: () => 'outbox-doc-id' },
       payload: {
         file: { fileId: 'file-id-1' },
-        metadata: { crn: 1050000000 },
+        metadata: { crn: 9050000000 },
         messaging: { correlationId: 'corr-123' }
       },
       attempts: 2
@@ -206,7 +206,7 @@ describe('logTerminalFailuresIfAny', () => {
     expect(mockSendAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         audit: expect.objectContaining({
-          accounts: { crn: '1050000000' }
+          accounts: { crn: '9050000000' }
         })
       })
     )
@@ -319,7 +319,7 @@ describe('logTerminalFailuresIfAny', () => {
   })
 
   test('masks the CRN in terminal failure logs', async () => {
-    const crn = '1050000000'
+    const crn = '9050000000'
     const doc = {
       _id: { toString: () => 'outbox-doc-id' },
       payload: {

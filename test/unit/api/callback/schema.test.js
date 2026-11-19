@@ -177,7 +177,7 @@ describe('callbackPayloadSchema validation', () => {
     test('accepts the contract lower bounds published in docs/asyncapi/v1.yaml', () => {
       const { error } = callbackPayloadSchema.validate({
         ...validPayload,
-        metadata: { ...validPayload.metadata, sbi: 105000000, crn: 1050000000 }
+        metadata: { ...validPayload.metadata, sbi: 805000000, crn: 9050000000 }
       })
       expect(error).toBeUndefined()
     })
@@ -240,7 +240,7 @@ describe('callbackPayloadSchema validation', () => {
     test('non-integer sbi fails validation', () => {
       const { error } = callbackPayloadSchema.validate({
         ...validPayload,
-        metadata: { ...validPayload.metadata, sbi: 105000000.5 }
+        metadata: { ...validPayload.metadata, sbi: 805000000.5 }
       })
       expect(error).toBeDefined()
       expect(error.details.some(d => d.path.includes('sbi') && d.type === 'number.integer')).toBe(true)
@@ -286,7 +286,7 @@ describe('callbackPayloadSchema validation', () => {
     test('non-integer crn fails validation', () => {
       const { error } = callbackPayloadSchema.validate({
         ...validPayload,
-        metadata: { ...validPayload.metadata, crn: 1050000000.5 }
+        metadata: { ...validPayload.metadata, crn: 9050000000.5 }
       })
       expect(error).toBeDefined()
       expect(error.details.some(d => d.path.includes('crn') && d.type === 'number.integer')).toBe(true)

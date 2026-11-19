@@ -147,7 +147,7 @@ describe('Shared Schema Components', () => {
   describe('businessIdentifierFields', () => {
     describe('sbi field', () => {
       test('should validate valid SBI numbers', () => {
-        const validSBI = 123456789
+        const validSBI = 823456789
         const result = businessIdentifierFields.sbi.validate(validSBI)
         expect(result.error).toBeUndefined()
       })
@@ -178,7 +178,7 @@ describe('Shared Schema Components', () => {
 
     describe('crn field', () => {
       test('should validate valid CRN numbers', () => {
-        const validCRN = 1234567890
+        const validCRN = 9234567890
         const result = businessIdentifierFields.crn.validate(validCRN)
         expect(result.error).toBeUndefined()
       })
@@ -328,8 +328,8 @@ describe('Shared Schema Components', () => {
 
   describe('baseMetadataSchema', () => {
     const validBaseMetadata = {
-      sbi: 123456789,
-      crn: 1234567890,
+      sbi: 823456789,
+      crn: 9234567890,
       frn: 1234567890,
       submissionId: 'test-submission-123',
       type: 'CS_Agreement_Evidence',
@@ -371,8 +371,8 @@ describe('Shared Schema Components', () => {
 
   describe('callbackMetadataSchema', () => {
     const validBaseMetadata = {
-      sbi: 123456789,
-      crn: 1234567890,
+      sbi: 823456789,
+      crn: 9234567890,
       frn: 1234567890,
       submissionId: 'test-submission-123',
       type: 'CS_Agreement_Evidence',

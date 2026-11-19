@@ -15,8 +15,8 @@ vi.mock('../../../../../src/config/index.js', () => ({
 const { baseMetadataSchema } = await import('../../../../../src/api/v1/schemas/uploader-common.js')
 
 const validMetadata = {
-  sbi: 105000000,
-  crn: 1050000000,
+  sbi: 805000000,
+  crn: 9050000000,
   frn: 1102658375,
   submissionId: '1733826312',
   type: 'CS_Agreement_Evidence',

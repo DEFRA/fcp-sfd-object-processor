@@ -303,7 +303,7 @@ describe('Metadata Service', () => {
       const duplicateKeyError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
       const payloadWithNoFiles = {
         uploadStatus: 'ready',
-        metadata: { crn: 1234567890 },
+        metadata: { crn: 9234567890 },
         form: {
           'text-field': 'just a string',
           'another-field': 'also not a file'
@@ -344,7 +344,7 @@ describe('Metadata Service', () => {
       const duplicateKeyError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
       const payloadWithEmptyArray = {
         uploadStatus: 'ready',
-        metadata: { crn: 1234567890 },
+        metadata: { crn: 9234567890 },
         form: {
           documents: ['string1', 'string2']
         }
@@ -622,7 +622,7 @@ describe('Metadata Service', () => {
 
     test('should build validation failure status documents with mapped errors', () => {
       const payload = {
-        metadata: { sbi: 105000000 },
+        metadata: { sbi: 805000000 },
         form: {
           a: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' },
           b: { fileId: '3f90b889-eac7-4e98-975f-93fcef5b8554' }
@@ -641,7 +641,7 @@ describe('Metadata Service', () => {
       expect(documents).toHaveLength(2)
       expect(documents[0]).toMatchObject({
         correlationId: '550e8400-e29b-41d4-a716-446655440000',
-        sbi: 105000000,
+        sbi: 805000000,
         fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
         validated: false,
         errors: [{ field: 'metadata.crn', errorType: 'any.required', receivedValue: '' }]
