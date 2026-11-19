@@ -1,24 +1,30 @@
-import { constants as httpConstants } from 'node:http2'
 import { describe, test, expect } from 'vitest'
 
 import { buildOversizedRequestIdLog } from '../../../src/utils/build-oversized-request-id-log.js'
 
 describe('buildOversizedRequestIdLog', () => {
-  test('returns the request details and oversized header length as approved ECS event fields', () => {
+  test('returns the request path, HTTP status and header length in ECS fields', () => {
     const request = {
       method: 'GET',
       path: '/api/v1/metadata/sbi/805000000'
     }
 
-    expect(buildOversizedRequestIdLog(request, 51)).toEqual({
+    const log = buildOversizedRequestIdLog(request, 51)
+
+    expect(log).toEqual({
       event: {
         type: 'request_id_too_long',
         action: 'GET',
-        category: '/api/v1/metadata/sbi/805000000',
+        category: 'api',
         reason: 'header_length=51',
-        outcome: 'failure',
-        kind: httpConstants.HTTP_STATUS_BAD_REQUEST
-      }
+        outcome: 'failure'
+      },
+      http: { response: { status_code: 400 } },
+      url: { path: '/api/v1/metadata/sbi/805000000' }
     })
+    expect(log.http.response.status_code).toBeTypeOf('number')
+    expect(log.url.path).toBe(request.path)
+    expect(log.event.category).not.toBe(request.path)
+    expect(log.event).not.toHaveProperty('kind')
   })
 })

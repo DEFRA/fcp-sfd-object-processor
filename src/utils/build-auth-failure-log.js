@@ -24,9 +24,12 @@ export const buildAuthFailureLog = (reason, request, extra = {}) => {
     event: {
       type: 'auth_validation_failure',
       action: request.method,
-      category: request.path,
+      category: 'authentication',
       reason: [reason, ...context].join(' | '),
       outcome: 'failure'
+    },
+    url: {
+      path: request.path
     },
     client: {
       address: request.info.remoteAddress

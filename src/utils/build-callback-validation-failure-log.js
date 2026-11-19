@@ -3,6 +3,32 @@ import { maskCrnInText } from './mask-crn.js'
 import { toTenantMessage, sanitizeSourceSystem } from '../logging/tenant-message.js'
 
 /**
+ * Builds the structured log context for a callback contract validation failure.
+ *
+ * @param {Error} err - The callback validation error
+ * @param {object|undefined} file - The file that failed validation, if applicable
+ * @param {object|undefined} payload - The callback payload
+ */
+export const buildCallbackContractValidationFailureLog = (err, file, payload) => {
+  const tenantMessage = toTenantMessage({
+    sourceSystem: sanitizeSourceSystem(payload?.metadata?.service)
+  })
+
+  return {
+    event: {
+      type: 'callback_contract_validation_failure',
+      outcome: 'failure',
+      reference: file?.fileId,
+      reason: file ? file.fileStatus : payload?.uploadStatus
+    },
+    error: {
+      message: err.message
+    },
+    ...(payload && { tenant: { message: tenantMessage } })
+  }
+}
+
+/**
  * Builds the structured log context for a Joi schema validation failure on the callback endpoint.
  * Uses CDP's approved cdp-uploader.*, event.* and error.* fields.
  *
@@ -25,9 +51,12 @@ export const buildCallbackValidationFailureLog = (request, err, correlationId) =
     event: {
       type: 'callback_validation_failure',
       action: request.method,
-      category: request.path,
+      category: 'api',
       outcome: 'failure',
       reference: correlationId
+    },
+    url: {
+      path: request.path
     },
     error: {
       code: err.statusCode ?? err.code ?? null,
@@ -52,9 +81,12 @@ export const buildCallbackPersistFailureLog = (request, persistError, correlatio
     event: {
       type: 'callback_validation_persist_failure',
       action: request.method,
-      category: request.path,
+      category: 'api',
       outcome: 'failure',
       reference: correlationId
+    },
+    url: {
+      path: request.path
     },
     error: {
       code: persistError.statusCode ?? persistError.code ?? null,

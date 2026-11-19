@@ -22,9 +22,12 @@ export const buildResponseValidationFailureLog = (request, err) => ({
   event: {
     type: 'response_validation_failure',
     action: request.method,
-    category: request.path,
+    category: 'api',
     outcome: 'failure',
     reason: formatFieldPaths(err)
+  },
+  url: {
+    path: request.path
   },
   error: {
     type: 'ResponseValidationError',

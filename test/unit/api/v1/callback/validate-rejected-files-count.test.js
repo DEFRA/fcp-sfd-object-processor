@@ -63,8 +63,8 @@ describe('numberOfRejectedFiles mismatch check', () => {
         event: {
           type: 'rejected_files_count_mismatch',
           action: 'callback_validation',
-          category: 'observability',
-          outcome: 'mismatch',
+          category: 'api',
+          outcome: 'failure',
           reference: baseMetadata.uosr,
           expected: 0,
           actual: 1
