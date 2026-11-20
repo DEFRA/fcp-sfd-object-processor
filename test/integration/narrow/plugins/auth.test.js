@@ -159,7 +159,7 @@ describe('authorization scope on protected API routes', () => {
 
   test.each([
     { name: 'blob', url: '/api/v1/blob/3f2504e0-4f89-41d3-9a0c-0305e82c3301' },
-    { name: 'metadata', url: '/api/v1/metadata/sbi/105000000' }
+    { name: 'metadata', url: '/api/v1/metadata/sbi/805000000' }
   ])('returns 403 for a valid token without allowed groups on the $name route', async ({ url }) => {
     const response = await context.server.inject({
       method: 'GET',
@@ -174,7 +174,7 @@ describe('authorization scope on protected API routes', () => {
 
   test.each([
     { name: 'blob', url: '/api/v1/blob/3f2504e0-4f89-41d3-9a0c-0305e82c3301' },
-    { name: 'metadata', url: '/api/v1/metadata/sbi/105000000' }
+    { name: 'metadata', url: '/api/v1/metadata/sbi/805000000' }
   ])('returns 401 for a missing token on the $name route', async ({ url }) => {
     const response = await context.server.inject({ method: 'GET', url })
 
