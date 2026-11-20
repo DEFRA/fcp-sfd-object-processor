@@ -627,7 +627,7 @@ describe('auth plugin', () => {
         const extensionHandler = mockServer.ext.mock.calls[0][1]
         const request = {
           ...build401Request(),
-          path: '/api/v1/metadata/sbi/105000000',
+          path: '/api/v1/metadata/sbi/805000000',
           auth: { credentials: { principalId: 'denied-cognito-client', provider: 'cognito' } },
           response: {
             isBoom: true,
@@ -646,7 +646,7 @@ describe('auth plugin', () => {
             audit: {
               entities: [{ entity: 'request', action: 'failed', entityid: 'test-correlation-id' }],
               status: 'failure',
-              details: { path: '/api/v1/metadata/sbi/105000000', method: 'GET' }
+              details: { path: '/api/v1/metadata/sbi/805000000', method: 'GET' }
             }
           }),
           request
