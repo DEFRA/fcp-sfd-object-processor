@@ -1,4 +1,5 @@
 import { expect, test, describe, beforeEach, vi } from 'vitest'
+import { AUTH_ALLOWED_SCOPE } from '../../../../src/constants/auth.js'
 
 const mockConfigGet = vi.fn()
 vi.mock('../../../../src/config/index.js', () => ({
@@ -113,7 +114,12 @@ describe('getEntraAuthProvider', () => {
       const payload = { typ: 'JWT', sub: 'user-123', iss: issuerV1For('tenant-a-id'), groups: ['group-1', 'group-3'] }
       const result = await validate(payload)
       expect(result.isValid).toBe(true)
-      expect(result.credentials).toEqual({ token: payload, principalId: 'user-123', provider: 'entra' })
+      expect(result.credentials).toEqual({
+        token: payload,
+        principalId: 'user-123',
+        provider: 'entra',
+        scope: [AUTH_ALLOWED_SCOPE]
+      })
     })
 
     test('should return valid result for valid JWT token with allowed groups (v2.0 issuer)', async () => {
@@ -142,40 +148,40 @@ describe('getEntraAuthProvider', () => {
       expect(result.isValid).toBe(true)
     })
 
-    test('should reject a tenant-b token containing only tenant-a groups', async () => {
+    test('should authenticate a tenant-b token containing only tenant-a groups without its required scope', async () => {
       const payload = { typ: 'JWT', sub: 'user-456', iss: issuerV1For('tenant-b-id'), groups: ['group-1', 'group-2'] }
       const result = await validate(payload)
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('Token does not belong to an authorized Security Group')
+      expect(result.isValid).toBe(true)
+      expect(result.credentials).toMatchObject({ principalId: 'user-456', provider: 'entra', scope: [] })
     })
 
-    // Invalid token rejection
-    test('should reject token without matching security groups', async () => {
+    // Caller authorization failures
+    test('should authenticate a token without matching security groups but omit its required scope', async () => {
       const payload = { typ: 'JWT', sub: 'user-123', iss: issuerV1For('tenant-a-id'), groups: ['group-3', 'group-4'] }
       const result = await validate(payload)
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('Token does not belong to an authorized Security Group')
+      expect(result.isValid).toBe(true)
+      expect(result.credentials).toMatchObject({ principalId: 'user-123', provider: 'entra', scope: [] })
     })
 
-    test('should reject token without groups claim', async () => {
+    test('should authenticate a token without groups claim but omit its required scope', async () => {
       const payload = { typ: 'JWT', sub: 'user-123', iss: issuerV1For('tenant-a-id') }
       const result = await validate(payload)
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('Token does not belong to an authorized Security Group')
+      expect(result.isValid).toBe(true)
+      expect(result.credentials).toMatchObject({ principalId: 'user-123', provider: 'entra', scope: [] })
     })
 
-    test('should reject token when groups claim is not an array', async () => {
+    test('should authenticate a token with non-array groups but omit its required scope', async () => {
       const payload = { typ: 'JWT', sub: 'user-123', iss: issuerV1For('tenant-a-id'), groups: 'not-an-array' }
       const result = await validate(payload)
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('Token does not belong to an authorized Security Group')
+      expect(result.isValid).toBe(true)
+      expect(result.credentials).toMatchObject({ principalId: 'user-123', provider: 'entra', scope: [] })
     })
 
-    test('should reject token with empty groups array', async () => {
+    test('should authenticate a token with empty groups but omit its required scope', async () => {
       const payload = { typ: 'JWT', sub: 'user-123', iss: issuerV1For('tenant-a-id'), groups: [] }
       const result = await validate(payload)
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('Token does not belong to an authorized Security Group')
+      expect(result.isValid).toBe(true)
+      expect(result.credentials).toMatchObject({ principalId: 'user-123', provider: 'entra', scope: [] })
     })
 
     test('should reject token with invalid token type', async () => {

@@ -6,7 +6,7 @@ vi.mock('../../../../src/config/index.js', () => ({
 }))
 
 vi.mock('../../../../src/logging/logger.js', () => ({
-  createLogger: vi.fn().mockReturnValue({ warn: vi.fn() })
+  createLogger: vi.fn().mockReturnValue({ warn: vi.fn(), error: vi.fn() })
 }))
 
 const mockBuildAuthFailureLog = vi.fn()
@@ -103,29 +103,32 @@ describe('getCognitoAuthProvider', () => {
       }
       const result = await validate(payload)
       expect(result.isValid).toBe(true)
-      expect(result.credentials).toEqual({ token: payload, principalId: 'service-account-123', provider: 'cognito' })
+      expect(result.credentials.principalId).toBe('client-1')
     })
 
     test('should accept token when client_id matches one of multiple allowed IDs', async () => {
       const payload = { typ: 'JWT', sub: 'service-account-123', client_id: 'client-2', iss: COGNITO_ISSUER }
       const result = await validate(payload)
       expect(result.isValid).toBe(true)
-      expect(result.credentials.principalId).toBe('service-account-123')
+      expect(result.credentials.principalId).toBe('client-2')
     })
 
     // Invalid token rejection
-    test('should reject token with missing client_id', async () => {
+    test('should reject a token without its client_id principal identifier', async () => {
       const payload = { typ: 'JWT', sub: 'service-account-123', iss: COGNITO_ISSUER }
       const result = await validate(payload)
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('Token client_id is not in the list of authorized Cognito client IDs')
+      expect(result).toEqual({ isValid: false, errorMessage: 'Token does not identify a caller' })
     })
 
-    test('should reject token with unauthorized client_id', async () => {
+    test('should authenticate a token with an unauthorized client_id without the required scope', async () => {
       const payload = { typ: 'JWT', sub: 'service-account-123', client_id: 'unauthorized-client', iss: COGNITO_ISSUER }
       const result = await validate(payload)
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('Token client_id is not in the list of authorized Cognito client IDs')
+      expect(result.isValid).toBe(true)
+      expect(result.credentials).toMatchObject({
+        principalId: 'unauthorized-client',
+        provider: 'cognito',
+        scope: []
+      })
     })
 
     test('should log the cognito provider name when a token is refused', async () => {

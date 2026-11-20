@@ -310,6 +310,8 @@ This service publishes audit events to the shared `fcp-audit` SNS topic via `@de
 |---|---|---|
 | Any authenticated route rejected with `401` (other than `GET /api/v1/blob/{fileId}`) | `request` / `failed` | failure, carries a `security` block (`pmccode: AUTH`, `priority: 1`) |
 | `GET /api/v1/blob/{fileId}` rejected with `401` | `document` / `failed` | failure, carries a `security` block (`pmccode: AUTH`, `priority: 1`) |
+| Any authenticated route rejected with `403` for insufficient scope (other than `GET /api/v1/blob/{fileId}`) | `request` / `failed` | failure, includes the caller in `user` (max 50 characters) and an interim `security` block (`pmccode: AUTH`, `priority: 5`) pending SOC agreement |
+| `GET /api/v1/blob/{fileId}` rejected with `403` for insufficient scope | `document` / `failed` | failure, includes the caller in `user` (max 50 characters) and the same interim `security` block |
 | `POST /api/v1/callback` | `document` / `created` | success, one per persisted file |
 | `POST /api/v1/callback` validation or persist failure | `document` / `failed` | failure |
 | `GET /api/v1/blob/{fileId}` | `document` / `read` | success |

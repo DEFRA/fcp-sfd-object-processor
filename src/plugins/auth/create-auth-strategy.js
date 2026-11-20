@@ -1,6 +1,6 @@
 import { createLogger } from '../../logging/logger.js'
 import { buildAuthFailureLog } from '../../utils/build-auth-failure-log.js'
-import { VALID_TOKEN_TYPES } from '../../constants/auth.js'
+import { AUTH_ALLOWED_SCOPE, AUTH_PROVIDER_NAMES, VALID_TOKEN_TYPES } from '../../constants/auth.js'
 
 const logger = createLogger()
 
@@ -83,21 +83,28 @@ export function createAuthStrategy (providers) {
       const allowedList = provider.getAllowedList(payload)
 
       if (allowedList.length === 0) {
-        logger.warn(buildAuthFailureLog(provider.emptyListMessage, request, { strategy: provider.name }))
+        logger.error(buildAuthFailureLog(provider.emptyListMessage, request, { strategy: provider.name }))
         return { isValid: false, errorMessage: provider.emptyListMessage }
+      }
+
+      const principalId = provider.name === AUTH_PROVIDER_NAMES.COGNITO ? payload.client_id : payload.sub
+      if (typeof principalId !== 'string' || principalId.length === 0) {
+        const errorMessage = 'Token does not identify a caller'
+        logger.warn(buildAuthFailureLog(errorMessage, request, { strategy: provider.name }))
+        return { isValid: false, errorMessage }
       }
 
       const { allowed, failureContext } = provider.checkAllowed(payload, allowedList)
 
       if (!allowed) {
         logger.warn(buildAuthFailureLog(provider.unauthorisedMessage, request, { ...failureContext, strategy: provider.name }))
-        return { isValid: false, errorMessage: provider.unauthorisedMessage }
       }
 
       const credentials = {
         token: payload,
-        principalId: payload.sub,
-        provider: provider.name
+        principalId,
+        provider: provider.name,
+        scope: allowed ? [AUTH_ALLOWED_SCOPE] : []
       }
 
       return { isValid: true, credentials }
