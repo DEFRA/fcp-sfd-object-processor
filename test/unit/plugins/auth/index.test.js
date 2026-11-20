@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi, afterEach } from 'vitest'
+import { AUTH_ALLOWED_SCOPE } from '../../../../src/constants/auth.js'
 
 let mockConfigGet = vi.fn()
 const mockLogger = { warn: vi.fn(), info: vi.fn(), error: vi.fn() }
@@ -149,7 +150,10 @@ describe('auth plugin register', () => {
 
     expect(server.auth.strategy).toHaveBeenCalledTimes(1)
     expect(server.auth.strategy).toHaveBeenCalledWith('bearer', 'jwt', expect.any(Object))
-    expect(server.auth.default).toHaveBeenCalledWith('bearer')
+    expect(server.auth.default).toHaveBeenCalledWith({
+      strategy: 'bearer',
+      access: [{ scope: [AUTH_ALLOWED_SCOPE] }]
+    })
   })
 
   test('does not register an entra strategy when entra is enabled but no tenants are configured', async () => {
@@ -183,7 +187,10 @@ describe('auth plugin register', () => {
     await auth.plugin.register(server)
 
     expect(server.auth.strategy).toHaveBeenCalledWith('bearer', 'jwt', expect.any(Object))
-    expect(server.auth.default).toHaveBeenCalledWith('bearer')
+    expect(server.auth.default).toHaveBeenCalledWith({
+      strategy: 'bearer',
+      access: [{ scope: [AUTH_ALLOWED_SCOPE] }]
+    })
   })
 
   test('onPreResponse logs when unauthorized', async () => {
@@ -284,7 +291,10 @@ describe('auth plugin', () => {
 
     test('should set the bearer strategy as the default when only entra is enabled', async () => {
       await auth.plugin.register(mockServer)
-      expect(mockServer.auth.default).toHaveBeenCalledWith('bearer')
+      expect(mockServer.auth.default).toHaveBeenCalledWith({
+        strategy: 'bearer',
+        access: [{ scope: [AUTH_ALLOWED_SCOPE] }]
+      })
     })
 
     test('should register onPreResponse extension when entra is enabled', async () => {
@@ -332,7 +342,10 @@ describe('auth plugin', () => {
 
     test('should set the bearer strategy as the default when only cognito is enabled', async () => {
       await auth.plugin.register(mockServer)
-      expect(mockServer.auth.default).toHaveBeenCalledWith('bearer')
+      expect(mockServer.auth.default).toHaveBeenCalledWith({
+        strategy: 'bearer',
+        access: [{ scope: [AUTH_ALLOWED_SCOPE] }]
+      })
     })
 
     test('should register onPreResponse extension when cognito is enabled', async () => {
@@ -365,7 +378,10 @@ describe('auth plugin', () => {
 
       expect(newMockServer.auth.strategy).toHaveBeenCalledTimes(1)
       expect(newMockServer.auth.strategy).toHaveBeenCalledWith('bearer', 'jwt', expect.any(Object))
-      expect(newMockServer.auth.default).toHaveBeenCalledWith('bearer')
+      expect(newMockServer.auth.default).toHaveBeenCalledWith({
+        strategy: 'bearer',
+        access: [{ scope: [AUTH_ALLOWED_SCOPE] }]
+      })
     })
 
     test('should never hand hapi a list of strategies to fall through', async () => {
@@ -602,6 +618,87 @@ describe('auth plugin', () => {
           }),
           expect.any(Object)
         )
+        expect(mockSendAuditEvent.mock.calls[0][0]).not.toHaveProperty('user')
+      })
+
+      test('emits one attributed security event for an insufficient-scope 403', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const request = {
+          ...build401Request(),
+          path: '/api/v1/metadata/sbi/805000000',
+          auth: { credentials: { principalId: 'denied-cognito-client', provider: 'cognito' } },
+          response: {
+            isBoom: true,
+            output: { statusCode: 403, payload: { message: 'Insufficient scope' } }
+          }
+        }
+
+        await extensionHandler(request, { continue: Symbol('continue') })
+
+        expect(mockSendAuditEvent).toHaveBeenCalledOnce()
+        expect(mockSendAuditEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            correlationid: 'test-correlation-id',
+            user: 'denied-cognito-client',
+            security: expect.objectContaining({ pmccode: 'AUTH', priority: 5 }),
+            audit: {
+              entities: [{ entity: 'request', action: 'failed', entityid: 'test-correlation-id' }],
+              status: 'failure',
+              details: { path: '/api/v1/metadata/sbi/805000000', method: 'GET' }
+            }
+          }),
+          request
+        )
+      })
+
+      test('uses the document entity for an insufficient-scope blob 403', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const fileId = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
+        const request = {
+          ...build401Request(),
+          path: `/api/v1/blob/${fileId}`,
+          route: { path: '/api/v1/blob/{fileId}' },
+          params: { fileId },
+          auth: { credentials: { principalId: 'denied-client' } },
+          response: {
+            isBoom: true,
+            output: { statusCode: 403, payload: { message: 'Insufficient scope' } }
+          }
+        }
+
+        await extensionHandler(request, { continue: Symbol('continue') })
+
+        expect(mockSendAuditEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            audit: expect.objectContaining({
+              entities: [{ entity: 'document', action: 'failed', entityid: fileId }]
+            })
+          }),
+          request
+        )
+      })
+
+      test('limits the audited principal identifier to 50 characters', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const request = {
+          ...build401Request(),
+          auth: { credentials: { principalId: 'c'.repeat(60) } },
+          response: {
+            isBoom: true,
+            output: { statusCode: 403, payload: { message: 'Insufficient scope' } }
+          }
+        }
+
+        await extensionHandler(request, { continue: Symbol('continue') })
+
+        const [payload] = mockSendAuditEvent.mock.calls[0]
+        expect(payload.user).toBe('c'.repeat(50))
       })
 
       test('emits document entity with file UUID for auth failures on the blob route', async () => {
@@ -714,6 +811,23 @@ describe('auth plugin', () => {
           headers: {}
         }
         await extensionHandler(nonAuthRequest, { continue: Symbol('continue') })
+
+        expect(mockSendAuditEvent).not.toHaveBeenCalled()
+      })
+
+      test('does not emit audit event for a 403 with a different cause', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const request = {
+          response: { isBoom: true, output: { statusCode: 403, payload: { message: 'Forbidden' } } },
+          path: '/test',
+          method: 'GET',
+          info: { remoteAddress: '127.0.0.1' },
+          headers: {}
+        }
+
+        await extensionHandler(request, { continue: Symbol('continue') })
 
         expect(mockSendAuditEvent).not.toHaveBeenCalled()
       })

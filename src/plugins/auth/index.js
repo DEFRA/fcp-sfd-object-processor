@@ -6,7 +6,7 @@ import { constants as httpConstants } from 'node:http2'
 import { getEntraAuthProvider } from './entra-options.js'
 import { getCognitoAuthProvider } from './cognito-options.js'
 import { createAuthStrategy } from './create-auth-strategy.js'
-import { AUTH_STRATEGY_NAME } from '../../constants/auth.js'
+import { AUTH_ALLOWED_SCOPE, AUTH_STRATEGY_NAME } from '../../constants/auth.js'
 import { blobRoutePath } from '../../api/v1/blobs/route-path.js'
 import { sendAuditEvent } from '../../messaging/outbound/audit/send-audit-event.js'
 import { buildAuthFailureResponseLog } from '../../utils/build-auth-failure-response-log.js'
@@ -83,7 +83,10 @@ export const auth = {
 
       // All routes will require authentication unless explicitly set to `auth: false`.
       server.auth.strategy(AUTH_STRATEGY_NAME, 'jwt', createAuthStrategy(providers))
-      server.auth.default(AUTH_STRATEGY_NAME)
+      server.auth.default({
+        strategy: AUTH_STRATEGY_NAME,
+        access: [{ scope: [AUTH_ALLOWED_SCOPE] }]
+      })
 
       // Additional logging for authentication failures for when a request is rejected
       // by Hapi before it reaches our validate function (e.g. missing/invalid token)
@@ -99,9 +102,36 @@ export const auth = {
             correlationid: correlationId,
             security: {
               pmccode: PMCCODE.AUTH,
-              priority: 1, // 1 marks this as a high-priority security event,
+              priority: 1, // Interim pending SOC agreement; the specification defines priority as rarity.
               details: {
                 message: sanitisedMessage
+              }
+            },
+            audit: {
+              entities: [buildAuthFailureEntity(request, correlationId)],
+              status: 'failure',
+              details: { path: request.path, method: request.method }
+            }
+          }, request).catch((err) => {
+            logger.warn({ msg: 'Failed to send auth failure audit event', err })
+          })
+        } else if (
+          response.isBoom &&
+          response.output.statusCode === httpConstants.HTTP_STATUS_FORBIDDEN &&
+          response.output.payload?.message === 'Insufficient scope'
+        ) {
+          const correlationId = request.headers[tracingHeader] ?? randomUUID()
+          const principalId = request.auth?.credentials?.principalId
+
+          sendAuditEvent({
+            correlationid: correlationId,
+            ...(typeof principalId === 'string' ? { user: principalId.slice(0, 50) } : {}),
+            // Both values are interim pending SOC agreement.
+            security: {
+              pmccode: PMCCODE.AUTH,
+              priority: 5,
+              details: {
+                message: response.output.payload.message
               }
             },
             audit: {

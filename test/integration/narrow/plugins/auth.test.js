@@ -1,6 +1,8 @@
 import Hapi from '@hapi/hapi'
 import jwt from '@hapi/jwt'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, afterAll, beforeAll, describe, expect, test, vi } from 'vitest'
+import { AUTH_ALLOWED_SCOPE } from '../../../../src/constants/auth.js'
+import { createEntraTestServer } from '../../../helpers/create-entra-test-server.js'
 
 // The audit publisher fires from the plugin's onPreResponse hook. It is mocked so nothing here can
 // attempt a real SNS publish.
@@ -83,6 +85,12 @@ describe('auth plugin registration against a real hapi server', () => {
     expect(server.auth.settings.default.mode).toEqual('required')
   })
 
+  test('should require the object processor access scope by default', async () => {
+    const server = await buildServer(BOTH_PROVIDERS_ENV)
+
+    expect(server.auth.settings.default.access[0].scope.selection).toContain(AUTH_ALLOWED_SCOPE)
+  })
+
   test('should register when only Entra is enabled', async () => {
     const server = await buildServer({
       AUTH_ENTRA_ENABLED: 'true',
@@ -133,5 +141,51 @@ describe('auth plugin registration against a real hapi server', () => {
 
     expect(response.statusCode).toEqual(200)
     await server.stop()
+  })
+})
+
+describe('authorization scope on protected API routes', () => {
+  let context
+
+  beforeAll(async () => {
+    context = await createEntraTestServer({ authOnly: true })
+  })
+
+  afterAll(async () => {
+    if (context) {
+      await context.cleanup()
+    }
+  })
+
+  test.each([
+    { name: 'blob', url: '/api/v1/blob/3f2504e0-4f89-41d3-9a0c-0305e82c3301' },
+    { name: 'metadata', url: '/api/v1/metadata/sbi/805000000' }
+  ])('returns 403 for a valid token without allowed groups on the $name route', async ({ url }) => {
+    const response = await context.server.inject({
+      method: 'GET',
+      url,
+      headers: { authorization: `Bearer ${context.deniedToken}` }
+    })
+
+    expect(response.statusCode).toBe(403)
+    expect(response.result.message).toBe('Insufficient scope')
+    expect(response.result.data).toBeUndefined()
+  })
+
+  test.each([
+    { name: 'blob', url: '/api/v1/blob/3f2504e0-4f89-41d3-9a0c-0305e82c3301' },
+    { name: 'metadata', url: '/api/v1/metadata/sbi/805000000' }
+  ])('returns 401 for a missing token on the $name route', async ({ url }) => {
+    const response = await context.server.inject({ method: 'GET', url })
+
+    expect(response.statusCode).toBe(401)
+  })
+
+  test('keeps health and callback routes explicitly unauthenticated', async () => {
+    expect(context.server.auth.lookup(context.server.match('GET', '/health'))).toBe(false)
+    expect(context.server.auth.lookup(context.server.match('POST', '/api/v1/callback'))).toBe(false)
+
+    const response = await context.server.inject({ method: 'GET', url: '/health' })
+    expect(response.statusCode).toBe(200)
   })
 })

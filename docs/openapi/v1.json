@@ -157,6 +157,23 @@
           }
         }
       },
+      "Forbidden": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 403
+          },
+          "error": {
+            "type": "string",
+            "example": "Forbidden"
+          },
+          "message": {
+            "type": "string",
+            "example": "Insufficient scope"
+          }
+        }
+      },
       "NotFound": {
         "type": "object",
         "properties": {
@@ -940,6 +957,7 @@
     "/health": {
       "get": {
         "operationId": "getHealth",
+        "security": [],
         "tags": [
           "health"
         ],
@@ -1007,6 +1025,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: authenticated caller lacks the required access scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Forbidden"
                 }
               }
             }
@@ -1113,6 +1141,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: authenticated caller lacks the required access scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Forbidden"
                 }
               }
             }
@@ -1299,6 +1337,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: authenticated caller lacks the required access scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Forbidden"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -1346,6 +1394,7 @@
       "post": {
         "summary": "Callback used by the CDP Uploader",
         "operationId": "postApiV1Callback",
+        "security": [],
         "description": "This endpoint is only called by the CDP Uploader service after processing an upload request.",
         "tags": [
           "cdp-uploader"
@@ -1447,6 +1496,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: authenticated caller lacks the required access scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Forbidden"
                 }
               }
             }

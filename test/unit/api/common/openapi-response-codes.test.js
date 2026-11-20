@@ -16,15 +16,15 @@ const openApiSpec = JSON.parse(readFileSync(openApiPath, 'utf8'))
 //
 // Notes:
 // - /api/v1/callback has auth disabled and persists validation failures as 201,
-//   so it never returns 401, 404 or 422.
+//   so it never returns 401, 403, 404 or 422.
 // - /api/v1/uploader/initiate never returns 404.
 // - No endpoint returns 422 (validation failures are persisted, not rejected).
 const expectedResponseCodes = {
-  '/api/v1/blob/{fileId}': { get: ['200', '400', '401', '404', '500'] },
-  '/api/v1/metadata/sbi/{sbi}': { get: ['200', '400', '401', '404', '500'] },
-  '/api/v1/uploader/status/{uploadId}': { get: ['200', '400', '401', '404', '500', '502', '504'] },
+  '/api/v1/blob/{fileId}': { get: ['200', '400', '401', '403', '404', '500'] },
+  '/api/v1/metadata/sbi/{sbi}': { get: ['200', '400', '401', '403', '404', '500'] },
+  '/api/v1/uploader/status/{uploadId}': { get: ['200', '400', '401', '403', '404', '500', '502', '504'] },
   '/api/v1/callback': { post: ['200', '201', '400', '500'] },
-  '/api/v1/uploader/initiate': { post: ['200', '400', '401', '500', '502', '504'] }
+  '/api/v1/uploader/initiate': { post: ['200', '400', '401', '403', '500', '502', '504'] }
 }
 
 describe('OpenAPI Response Codes', () => {
@@ -75,6 +75,10 @@ describe('OpenAPI Response Codes', () => {
       expect(callback()['401']).toBeUndefined()
     })
 
+    test('does not advertise 403 (auth is disabled for this route)', () => {
+      expect(callback()['403']).toBeUndefined()
+    })
+
     test('does not advertise 404 (the handler never returns not found)', () => {
       expect(callback()['404']).toBeUndefined()
     })
@@ -91,6 +95,7 @@ describe('OpenAPI Response Codes', () => {
       const healthPath = openApiSpec.paths['/health']
       expect(healthPath.get.responses['400']).toBeUndefined()
       expect(healthPath.get.responses['401']).toBeUndefined()
+      expect(healthPath.get.responses['403']).toBeUndefined()
       expect(healthPath.get.responses['404']).toBeUndefined()
       expect(healthPath.get.responses['500']).toBeUndefined()
     })
