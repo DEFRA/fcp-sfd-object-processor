@@ -125,7 +125,7 @@ export const auth = {
 
           sendAuditEvent({
             correlationid: correlationId,
-            ...(typeof principalId === 'string' ? { user: principalId.slice(0, 50) } : {}),
+            ...(typeof principalId === 'string' ? { user: principalId.slice(0) } : {}),
             // Both values are interim pending SOC agreement.
             security: {
               pmccode: PMCCODE.AUTH,
