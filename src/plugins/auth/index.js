@@ -34,6 +34,76 @@ const buildAuthFailureEntity = (request, correlationId) => {
   return { entity: 'request', action: 'failed', entityid: correlationId }
 }
 
+const getAuthProviders = (entraEnabled, cognitoEnabled) => {
+  const providers = []
+  let entraTenantCount = 0
+
+  if (entraEnabled) {
+    const tenants = config.get('auth.entra.tenants')
+    entraTenantCount = tenants.length
+    // An empty issuer list is rejected by @hapi/jwt's schema and would fail server startup.
+    if (tenants.length > 0) {
+      providers.push(getEntraAuthProvider(tenants))
+    }
+  }
+
+  if (cognitoEnabled) {
+    providers.push(getCognitoAuthProvider())
+  }
+
+  return { providers, entraTenantCount }
+}
+
+const sendAuthFailureAuditEvent = (request, message, priority, principalId) => {
+  const correlationId = request.headers[tracingHeader] ?? randomUUID()
+
+  sendAuditEvent({
+    correlationid: correlationId,
+    ...(typeof principalId === 'string' ? { user: principalId.slice(0, 50) } : {}),
+    security: {
+      pmccode: PMCCODE.AUTH,
+      priority,
+      details: { message }
+    },
+    audit: {
+      entities: [buildAuthFailureEntity(request, correlationId)],
+      status: 'failure',
+      details: { path: request.path, method: request.method }
+    }
+  }, request).catch((err) => {
+    logger.warn({ msg: 'Failed to send auth failure audit event', err })
+  })
+}
+
+const registerAuthFailureResponseHandler = (server) => {
+  server.ext('onPreResponse', (request, h) => {
+    const response = request.response
+
+    if (response.isBoom && response.output.statusCode === httpConstants.HTTP_STATUS_UNAUTHORIZED) {
+      const sanitisedMessage = response.output.payload.message || 'authentication_failed'
+      logger.warn(buildAuthFailureResponseLog(request, sanitisedMessage))
+      // Interim pending SOC agreement; the specification defines priority as rarity.
+      sendAuthFailureAuditEvent(request, sanitisedMessage, 1)
+    }
+
+    if (
+      response.isBoom &&
+      response.output.statusCode === httpConstants.HTTP_STATUS_FORBIDDEN &&
+      response.output.payload?.message === 'Insufficient scope'
+    ) {
+      // Both values are interim pending SOC agreement.
+      sendAuthFailureAuditEvent(
+        request,
+        response.output.payload.message,
+        5,
+        request.auth?.credentials?.principalId
+      )
+    }
+
+    return h.continue
+  })
+}
+
 export const auth = {
   plugin: {
     name: 'auth',
@@ -54,23 +124,7 @@ export const auth = {
       // Cognito it happened to hold, but only because their key sets do not overlap, which is not
       // a contract either provider offers. Dispatching on `iss` makes the choice deterministic.
       // See .github/debugging/fcp-sfd-object-processor-entra-401-iss-mismatch.md.
-      const providers = []
-      let entraTenantCount = 0
-
-      if (entraEnabled) {
-        const tenants = config.get('auth.entra.tenants')
-        entraTenantCount = tenants.length
-        // Only add the provider when at least one tenant is configured: it would otherwise
-        // contribute no issuers, and an empty `verify.iss` is rejected by @hapi/jwt's own schema
-        // and would fail server startup.
-        if (tenants.length > 0) {
-          providers.push(getEntraAuthProvider(tenants))
-        }
-      }
-
-      if (cognitoEnabled) {
-        providers.push(getCognitoAuthProvider())
-      }
+      const { providers, entraTenantCount } = getAuthProviders(entraEnabled, cognitoEnabled)
 
       // Reaching here means authentication was asked for but could not be set up, so no default
       // strategy is registered and every route serves unauthenticated traffic. That is a
@@ -90,62 +144,7 @@ export const auth = {
 
       // Additional logging for authentication failures for when a request is rejected
       // by Hapi before it reaches our validate function (e.g. missing/invalid token)
-      server.ext('onPreResponse', (request, h) => {
-        const response = request.response
-
-        if (response.isBoom && response.output.statusCode === httpConstants.HTTP_STATUS_UNAUTHORIZED) {
-          const sanitisedMessage = response.output.payload.message || 'authentication_failed'
-          const correlationId = request.headers[tracingHeader] ?? randomUUID()
-
-          logger.warn(buildAuthFailureResponseLog(request, sanitisedMessage))
-          sendAuditEvent({
-            correlationid: correlationId,
-            security: {
-              pmccode: PMCCODE.AUTH,
-              priority: 1, // Interim pending SOC agreement; the specification defines priority as rarity.
-              details: {
-                message: sanitisedMessage
-              }
-            },
-            audit: {
-              entities: [buildAuthFailureEntity(request, correlationId)],
-              status: 'failure',
-              details: { path: request.path, method: request.method }
-            }
-          }, request).catch((err) => {
-            logger.warn({ msg: 'Failed to send auth failure audit event', err })
-          })
-        } else if (
-          response.isBoom &&
-          response.output.statusCode === httpConstants.HTTP_STATUS_FORBIDDEN &&
-          response.output.payload?.message === 'Insufficient scope'
-        ) {
-          const correlationId = request.headers[tracingHeader] ?? randomUUID()
-          const principalId = request.auth?.credentials?.principalId
-
-          sendAuditEvent({
-            correlationid: correlationId,
-            ...(typeof principalId === 'string' ? { user: principalId.slice(0) } : {}),
-            // Both values are interim pending SOC agreement.
-            security: {
-              pmccode: PMCCODE.AUTH,
-              priority: 5,
-              details: {
-                message: response.output.payload.message
-              }
-            },
-            audit: {
-              entities: [buildAuthFailureEntity(request, correlationId)],
-              status: 'failure',
-              details: { path: request.path, method: request.method }
-            }
-          }, request).catch((err) => {
-            logger.warn({ msg: 'Failed to send auth failure audit event', err })
-          })
-        }
-
-        return h.continue
-      })
+      registerAuthFailureResponseHandler(server)
     }
   }
 }
