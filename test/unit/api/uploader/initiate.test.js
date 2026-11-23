@@ -7,11 +7,11 @@ const mockValidPayload = {
     sbi: 805000000,
     crn: 9050000000,
     frn: 1102658375,
-    submissionId: '9733826312',
+    submissionId: '8733826312',
     type: 'CS_Agreement_Evidence',
     reference: 'user entered reference',
     service: 'fcp-sfd-frontend',
-    uosr: '105000000_9733826312'
+    uosr: '105000000_8733826312'
   }
 }
 
@@ -74,7 +74,7 @@ describe('uploader initiate handler', () => {
     vi.doMock('../../../../src/http/client.js', () => ({
       httpClient: mockHttpClient,
       TimeoutError: class TimeoutError extends Error {
-        constructor (msg) { super(msg); this.name = 'TimeoutError' }
+        constructor(msg) { super(msg); this.name = 'TimeoutError' }
       }
     }))
 
