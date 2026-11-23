@@ -6,11 +6,11 @@ const JOURNEY_ID = '550e8400-e29b-41d4-a716-446655440000'
 
 describe('splitJourneyId', () => {
   test('separates the journey id from a metadata object that carries it', () => {
-    const result = splitJourneyId({ sbi: 805000000, submissionId: '1733826312', journeyId: JOURNEY_ID })
+    const result = splitJourneyId({ sbi: 805000000, submissionId: '9733826312', journeyId: JOURNEY_ID })
 
     expect(result).toEqual({
       journeyId: JOURNEY_ID,
-      metadata: { sbi: 805000000, submissionId: '1733826312' }
+      metadata: { sbi: 805000000, submissionId: '9733826312' }
     })
   })
 
@@ -21,7 +21,7 @@ describe('splitJourneyId', () => {
   })
 
   test('returns journeyId undefined and an equal, distinct copy when the key is absent', () => {
-    const metadata = { sbi: 805000000, submissionId: '1733826312' }
+    const metadata = { sbi: 805000000, submissionId: '9733826312' }
 
     const result = splitJourneyId(metadata)
 

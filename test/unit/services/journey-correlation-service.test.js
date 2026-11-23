@@ -21,7 +21,7 @@ const { metricsCounter } = await import('../../../src/api/common/helpers/metrics
 const VALID_JOURNEY_ID = '550e8400-e29b-41d4-a716-446655440000'
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-const payloadMetadata = { sbi: 805000000, submissionId: '1733826312' }
+const payloadMetadata = { sbi: 805000000, submissionId: '9733826312' }
 
 const expectGenerated = (result, rawJourneyId) => {
   expect(result.source).toBe('generated')

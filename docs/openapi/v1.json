@@ -219,12 +219,12 @@
           "submissionId": {
             "type": "string",
             "description": "ID for all files uploaded in request",
-            "example": "1733826312"
+            "example": "9733826312"
           },
           "uosr": {
             "type": "string",
             "description": "Made up of sbi_submissionId",
-            "example": "105000000_1733826312"
+            "example": "105000000_9733826312"
           },
           "type": {
             "type": "string",
@@ -624,7 +624,7 @@
           "submissionId": {
             "type": "string",
             "description": "Unique identifier for the submission",
-            "example": "1733826312"
+            "example": "9733826312"
           },
           "type": {
             "$ref": "#/components/schemas/type"
@@ -640,7 +640,7 @@
           "uosr": {
             "type": "string",
             "description": "Unique Object Storage Reference combining SBI and submission ID",
-            "example": "105000000_1733826312"
+            "example": "105000000_9733826312"
           },
           "journeyId": {
             "type": "string",
@@ -769,7 +769,7 @@
           "submissionId": {
             "type": "string",
             "description": "Unique identifier for the submission",
-            "example": "1733826312"
+            "example": "9733826312"
           },
           "type": {
             "$ref": "#/components/schemas/type"
@@ -785,7 +785,7 @@
           "uosr": {
             "type": "string",
             "description": "Unique Object Storage Reference combining SBI and submission ID",
-            "example": "105000000_1733826312"
+            "example": "105000000_9733826312"
           }
         },
         "required": [
@@ -1188,8 +1188,8 @@
                           "sbi": 105000000,
                           "crn": 1050000000,
                           "frn": 1102658375,
-                          "submissionId": "1733826312",
-                          "uosr": "105000000_1733826312",
+                          "submissionId": "9733826312",
+                          "uosr": "105000000_9733826312",
                           "type": "CS_Agreement_Evidence",
                           "reference": "user entered reference",
                           "service": "fcp-sfd-frontend"
@@ -1226,8 +1226,8 @@
                           "sbi": 105000000,
                           "crn": 1050000000,
                           "frn": 1102658375,
-                          "submissionId": "1733826312",
-                          "uosr": "105000000_1733826312",
+                          "submissionId": "9733826312",
+                          "uosr": "105000000_9733826312",
                           "type": "CS_Agreement_Evidence",
                           "reference": "user entered reference",
                           "service": "fcp-sfd-frontend"
@@ -1257,8 +1257,8 @@
                           "sbi": 105000000,
                           "crn": 1050000000,
                           "frn": 1102658375,
-                          "submissionId": "1733826312",
-                          "uosr": "105000000_1733826312",
+                          "submissionId": "9733826312",
+                          "uosr": "105000000_9733826312",
                           "type": "CS_Agreement_Evidence",
                           "reference": "user entered reference",
                           "service": "fcp-sfd-frontend"

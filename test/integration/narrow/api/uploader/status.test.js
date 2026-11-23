@@ -75,11 +75,11 @@ const validMetadata = {
   sbi: 805000000,
   crn: 9050000000,
   frn: 1102658375,
-  submissionId: '1733826312',
+  submissionId: '9733826312',
   type: 'CS_Agreement_Evidence',
   reference: 'user entered reference',
   service: 'fcp-sfd-frontend',
-  uosr: '105000000_1733826312'
+  uosr: '105000000_9733826312'
 }
 
 const mockReadyResponse = {
