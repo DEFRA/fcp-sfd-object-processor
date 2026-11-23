@@ -624,7 +624,7 @@
           "submissionId": {
             "type": "string",
             "description": "Unique identifier for the submission",
-            "example": "9733826312"
+            "example": "8733826312"
           },
           "type": {
             "$ref": "#/components/schemas/type"
@@ -769,7 +769,7 @@
           "submissionId": {
             "type": "string",
             "description": "Unique identifier for the submission",
-            "example": "9733826312"
+            "example": "8733826312"
           },
           "type": {
             "$ref": "#/components/schemas/type"
@@ -1188,7 +1188,7 @@
                           "sbi": 105000000,
                           "crn": 1050000000,
                           "frn": 1102658375,
-                          "submissionId": "9733826312",
+                          "submissionId": "8733826312",
                           "uosr": "105000000_8733826312",
                           "type": "CS_Agreement_Evidence",
                           "reference": "user entered reference",
@@ -1226,7 +1226,7 @@
                           "sbi": 105000000,
                           "crn": 1050000000,
                           "frn": 1102658375,
-                          "submissionId": "9733826312",
+                          "submissionId": "8733826312",
                           "uosr": "105000000_8733826312",
                           "type": "CS_Agreement_Evidence",
                           "reference": "user entered reference",
@@ -1257,7 +1257,7 @@
                           "sbi": 105000000,
                           "crn": 1050000000,
                           "frn": 1102658375,
-                          "submissionId": "9733826312",
+                          "submissionId": "8733826312",
                           "uosr": "105000000_8733826312",
                           "type": "CS_Agreement_Evidence",
                           "reference": "user entered reference",
