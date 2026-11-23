@@ -16,6 +16,9 @@ import PMCCODE from '../../constants/pmccodes.js'
 const logger = createLogger()
 const tracingHeader = config.get('tracing.header')
 const fileIdSchema = Joi.string().guid({ version: ['uuidv4'] })
+const MAX_AUDIT_USER_LENGTH = 50
+const AUTH_FAILURE_AUDIT_PRIORITY = 1
+const INSUFFICIENT_SCOPE_AUDIT_PRIORITY = 5
 
 // Auth rejections happen before a document is identified for most routes, so the audit event
 // names the request itself (entity: 'request', entityid: the correlation id) following fcp-audit's
@@ -59,7 +62,7 @@ const sendAuthFailureAuditEvent = (request, message, priority, principalId) => {
 
   sendAuditEvent({
     correlationid: correlationId,
-    ...(typeof principalId === 'string' ? { user: principalId.slice(0, 50) } : {}),
+    ...(typeof principalId === 'string' ? { user: principalId.slice(0, MAX_AUDIT_USER_LENGTH) } : {}),
     security: {
       pmccode: PMCCODE.AUTH,
       priority,
@@ -83,7 +86,7 @@ const registerAuthFailureResponseHandler = (server) => {
       const sanitisedMessage = response.output.payload.message || 'authentication_failed'
       logger.warn(buildAuthFailureResponseLog(request, sanitisedMessage))
       // Interim pending SOC agreement; the specification defines priority as rarity.
-      sendAuthFailureAuditEvent(request, sanitisedMessage, 1)
+      sendAuthFailureAuditEvent(request, sanitisedMessage, AUTH_FAILURE_AUDIT_PRIORITY)
     }
 
     if (
@@ -95,7 +98,7 @@ const registerAuthFailureResponseHandler = (server) => {
       sendAuthFailureAuditEvent(
         request,
         response.output.payload.message,
-        5,
+        INSUFFICIENT_SCOPE_AUDIT_PRIORITY,
         request.auth?.credentials?.principalId
       )
     }
