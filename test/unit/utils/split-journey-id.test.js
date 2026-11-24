@@ -10,7 +10,7 @@ describe('splitJourneyId', () => {
 
     expect(result).toEqual({
       journeyId: JOURNEY_ID,
-      metadata: { sbi: 805000000, submissionId: '1733826312' } // sfd-id-check: allow 
+      metadata: { sbi: 805000000, submissionId: '1733826312' } // sfd-id-check: allow
     })
   })
 
