@@ -6,7 +6,14 @@ import { constants as httpConstants } from 'node:http2'
 import { getEntraAuthProvider } from './entra-options.js'
 import { getCognitoAuthProvider } from './cognito-options.js'
 import { createAuthStrategy } from './create-auth-strategy.js'
-import { AUTH_STRATEGY_NAME } from '../../constants/auth.js'
+import {
+  AUTH_ALLOWED_SCOPE,
+  AUTH_AUDIT_USER_MAX_LENGTH,
+  AUTH_FAILURE_AUDIT_PRIORITY,
+  AUTH_STRATEGY_NAME,
+  INSUFFICIENT_SCOPE_AUDIT_PRIORITY
+} from '../../constants/auth.js'
+import { MAX_CORRELATION_ID_LENGTH } from '../../constants/correlation.js'
 import { blobRoutePath } from '../../api/v1/blobs/route-path.js'
 import { sendAuditEvent } from '../../messaging/outbound/audit/send-audit-event.js'
 import { buildAuthFailureResponseLog } from '../../utils/build-auth-failure-response-log.js'
@@ -16,6 +23,13 @@ import PMCCODE from '../../constants/pmccodes.js'
 const logger = createLogger()
 const tracingHeader = config.get('tracing.header')
 const fileIdSchema = Joi.string().guid({ version: ['uuidv4'] })
+
+const getAuditCorrelationId = (request) => {
+  const correlationId = request.headers[tracingHeader]
+  return typeof correlationId === 'string' && correlationId.length <= MAX_CORRELATION_ID_LENGTH
+    ? correlationId
+    : randomUUID()
+}
 
 // Auth rejections happen before a document is identified for most routes, so the audit event
 // names the request itself (entity: 'request', entityid: the correlation id) following fcp-audit's
@@ -83,26 +97,55 @@ export const auth = {
 
       // All routes will require authentication unless explicitly set to `auth: false`.
       server.auth.strategy(AUTH_STRATEGY_NAME, 'jwt', createAuthStrategy(providers))
-      server.auth.default(AUTH_STRATEGY_NAME)
+      server.auth.default({
+        strategy: AUTH_STRATEGY_NAME,
+        access: [{ scope: [AUTH_ALLOWED_SCOPE] }]
+      })
 
-      // Additional logging for authentication failures for when a request is rejected
-      // by Hapi before it reaches our validate function (e.g. missing/invalid token)
+      // Log authentication failures raised by Hapi, including missing tokens and insufficient scope.
       server.ext('onPreResponse', (request, h) => {
         const response = request.response
 
         if (response.isBoom && response.output.statusCode === httpConstants.HTTP_STATUS_UNAUTHORIZED) {
           const sanitisedMessage = response.output.payload.message || 'authentication_failed'
-          const correlationId = request.headers[tracingHeader] ?? randomUUID()
+          const correlationId = getAuditCorrelationId(request)
 
           logger.warn(buildAuthFailureResponseLog(request, sanitisedMessage))
           sendAuditEvent({
             correlationid: correlationId,
             security: {
               pmccode: PMCCODE.AUTH,
-              priority: 1, // 1 marks this as a high-priority security event,
+              priority: AUTH_FAILURE_AUDIT_PRIORITY, // Interim pending SOC agreement; the specification defines priority as rarity.
               details: {
                 message: sanitisedMessage
               }
+            },
+            audit: {
+              entities: [buildAuthFailureEntity(request, correlationId)],
+              status: 'failure',
+              details: { path: request.path, method: request.method }
+            }
+          }, request).catch((err) => {
+            logger.warn({ msg: 'Failed to send auth failure audit event', err })
+          })
+        } else if (
+          response.isBoom &&
+          response.output.statusCode === httpConstants.HTTP_STATUS_FORBIDDEN &&
+          response.output.payload?.message === 'Insufficient scope'
+        ) {
+          const correlationId = getAuditCorrelationId(request)
+          const principalId = request.auth?.credentials?.principalId
+          const message = response.output.payload.message
+
+          logger.warn(buildAuthFailureResponseLog(request, message))
+          sendAuditEvent({
+            correlationid: correlationId,
+            ...(typeof principalId === 'string' ? { user: principalId.slice(0, AUTH_AUDIT_USER_MAX_LENGTH) } : {}),
+            // Both values are interim pending SOC agreement.
+            security: {
+              pmccode: PMCCODE.AUTH,
+              priority: INSUFFICIENT_SCOPE_AUDIT_PRIORITY,
+              details: { message }
             },
             audit: {
               entities: [buildAuthFailureEntity(request, correlationId)],

@@ -35,6 +35,12 @@ const unauthorizedResponseSchema = Joi.object({
   }).optional().label('UnauthorizedAttributes').description('Additional details about the unauthorized error')
 }).label('Unauthorized')
 
+const forbiddenResponseSchema = Joi.object({
+  statusCode: Joi.number().example(httpConstants.HTTP_STATUS_FORBIDDEN),
+  error: Joi.string().example('Forbidden'),
+  message: Joi.string().example('Insufficient scope')
+}).label('Forbidden')
+
 export const badGatewayResponseSchema = Joi.object({
   statusCode: Joi.number().example(httpConstants.HTTP_STATUS_BAD_GATEWAY),
   error: Joi.string().example('Bad Gateway'),
@@ -52,6 +58,7 @@ export const generateResponseSchemas = (successSchema, successCode = 200, custom
     [successCode]: successSchema,
     400: badRequestResponseSchema,
     401: unauthorizedResponseSchema,
+    403: forbiddenResponseSchema,
     404: notfoundResponseSchema,
     500: serverErrorResponseSchema,
     ...customSchemas

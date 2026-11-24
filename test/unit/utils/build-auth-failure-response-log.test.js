@@ -28,6 +28,16 @@ describe('buildAuthFailureResponseLog', () => {
     })
   })
 
+  test('uses the response status code for a forbidden response', () => {
+    const request = {
+      ...baseRequest,
+      response: { output: { statusCode: httpConstants.HTTP_STATUS_FORBIDDEN } }
+    }
+
+    expect(buildAuthFailureResponseLog(request, 'Insufficient scope').event.kind)
+      .toBe(httpConstants.HTTP_STATUS_FORBIDDEN)
+  })
+
   test('appends token groups and issuer to event.reason for an Entra token', () => {
     const request = {
       ...baseRequest,

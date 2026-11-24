@@ -1,6 +1,6 @@
 import { createLogger } from '../../logging/logger.js'
 import { buildAuthFailureLog } from '../../utils/build-auth-failure-log.js'
-import { VALID_TOKEN_TYPES } from '../../constants/auth.js'
+import { AUTH_ALLOWED_SCOPE, VALID_TOKEN_TYPES } from '../../constants/auth.js'
 
 const logger = createLogger()
 
@@ -22,6 +22,7 @@ const SHARED_VERIFY = {
  * @property {string[]} issuers              - Every `iss` string this provider may issue tokens under
  * @property {Function} getAllowedList       - `(payload) => string[]`; the allowed values for this token
  * @property {Function} checkAllowed         - `(payload, allowedList) => { allowed, failureContext }`
+ * @property {Function} getPrincipalId       - `(payload) => string`; the caller identifier for audit events
  * @property {string}   emptyListMessage     - Error message when the allowed list is unconfigured
  * @property {string}   unauthorisedMessage  - Error message when the token is not in the allowed list
  */
@@ -83,21 +84,28 @@ export function createAuthStrategy (providers) {
       const allowedList = provider.getAllowedList(payload)
 
       if (allowedList.length === 0) {
-        logger.warn(buildAuthFailureLog(provider.emptyListMessage, request, { strategy: provider.name }))
+        logger.error(buildAuthFailureLog(provider.emptyListMessage, request, { strategy: provider.name }))
         return { isValid: false, errorMessage: provider.emptyListMessage }
       }
 
       const { allowed, failureContext } = provider.checkAllowed(payload, allowedList)
+      const principalId = provider.getPrincipalId ? provider.getPrincipalId(payload) : payload.sub
 
       if (!allowed) {
         logger.warn(buildAuthFailureLog(provider.unauthorisedMessage, request, { ...failureContext, strategy: provider.name }))
-        return { isValid: false, errorMessage: provider.unauthorisedMessage }
+        if (!principalId) {
+          return { isValid: false, errorMessage: provider.unauthorisedMessage }
+        }
       }
 
       const credentials = {
         token: payload,
-        principalId: payload.sub,
+        principalId,
         provider: provider.name
+      }
+
+      if (allowed) {
+        credentials.scope = [AUTH_ALLOWED_SCOPE]
       }
 
       return { isValid: true, credentials }

@@ -216,6 +216,7 @@ This service uses **Microsoft Entra ID (Azure AD) JWT authentication** in deploy
 - Authentication is **disabled by default** in local development (`AUTH_ENTRA_ENABLED=false` and `AUTH_COGNITO_ENABLED=false` in `compose.yaml`)
 - In deployed environments, all routes require a valid JWT unless explicitly opted out with `auth: false`
 - Currently unauthenticated routes: `/health` and `/api/v1/callback` (CDP Uploader cannot provide auth tokens)
+- A valid token from a recognized caller that is not on the configured allowlist receives `403 Forbidden`; missing, expired, or unrecognized tokens receive `401 Unauthorized`
 
 To enable authentication locally, set `AUTH_ENTRA_ENABLED=true` or `AUTH_COGNITO_ENABLED=true` and configure relevant Auth values in your `.env` file (see [`.env.example`](.env.example) for the format).
 
@@ -310,13 +311,15 @@ This service publishes audit events to the shared `fcp-audit` SNS topic via `@de
 |---|---|---|
 | Any authenticated route rejected with `401` (other than `GET /api/v1/blob/{fileId}`) | `request` / `failed` | failure, carries a `security` block (`pmccode: AUTH`, `priority: 1`) |
 | `GET /api/v1/blob/{fileId}` rejected with `401` | `document` / `failed` | failure, carries a `security` block (`pmccode: AUTH`, `priority: 1`) |
+| Any authenticated route rejected with `403` for insufficient scope (other than `GET /api/v1/blob/{fileId}`) | `request` / `failed` | failure, carries `user` (caller ID, maximum 50 characters) and an interim `security` block (`pmccode: AUTH`, `priority: 5`) |
+| `GET /api/v1/blob/{fileId}` rejected with `403` for insufficient scope | `document` / `failed` | failure, carries `user` (caller ID, maximum 50 characters) and the same interim security block |
 | `POST /api/v1/callback` | `document` / `created` | success, one per persisted file |
 | `POST /api/v1/callback` validation or persist failure | `document` / `failed` | failure |
 | `GET /api/v1/blob/{fileId}` | `document` / `read` | success |
 | `GET /api/v1/metadata/sbi/{sbi}` | `document` / `read` | success, one per request, listing the file ID of every document in the returned page as an entity, with `details` carrying `count` and `pageSize`. A read that returns no documents (an empty page with `200`, or `404` for an SBI with no documents) is audited as one entity with no `entityid` and `details.count` of `0` |
 | Outbox entry reaching `PERMANENT_FAILURE` | `document` / `failed` | failure |
 
-For every `document` entity, `entityid` is the file's UUID (`payload.file.fileId`), not the MongoDB `ObjectId`, so a document can be correlated across its whole lifecycle from a single id. There are two stated exceptions. The first is the auth failure event on routes other than `GET /api/v1/blob/{fileId}`: no document has been identified at the point a request is rejected for authentication, so the event uses `entity: 'request'` with `entityid` set to the correlation id instead of a document id. On `GET /api/v1/blob/{fileId}` the file UUID is already in the path, so that route keeps `entity: 'document'` even on auth failure. See [`src/plugins/auth/index.js`](src/plugins/auth/index.js). The second is a read on `GET /api/v1/metadata/sbi/{sbi}` that returns no documents: there is no file to name, so its single `document` entity omits `entityid`, which the audit schema permits when the id is not known. See [`src/api/v1/metadata/index.js`](src/api/v1/metadata/index.js).
+For every `document` entity, `entityid` is the file's UUID (`payload.file.fileId`), not the MongoDB `ObjectId`, so a document can be correlated across its whole lifecycle from a single id. There are two stated exceptions. The first is an auth failure event on routes other than `GET /api/v1/blob/{fileId}`: no document has been identified at the point a request is rejected, so the event uses `entity: 'request'` with `entityid` set to the correlation id instead of a document id. On `GET /api/v1/blob/{fileId}` the file UUID is already in the path, so that route keeps `entity: 'document'` even on auth failure. A `401` event remains unchanged; a `403` for insufficient scope identifies the caller in `user` (Cognito client ID or Entra `sub`, truncated to 50 characters) and uses interim `pmccode: AUTH` and `priority: 5` values pending SOC agreement. See [`src/plugins/auth/index.js`](src/plugins/auth/index.js). The second is a read on `GET /api/v1/metadata/sbi/{sbi}` that returns no documents: there is no file to name, so its single `document` entity omits `entityid`, which the audit schema permits when the id is not known. See [`src/api/v1/metadata/index.js`](src/api/v1/metadata/index.js).
 
 See [Audit event accounts](docs/audit-events.md#accounts) for account attribution, CRN validation, and the SBI-only metadata read decision.
 

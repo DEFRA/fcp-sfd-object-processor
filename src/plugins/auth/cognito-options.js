@@ -29,6 +29,7 @@ export function getCognitoAuthProvider () {
       const allowed = Boolean(tokenClientId && clientIds.includes(tokenClientId))
       return { allowed, failureContext: { clientId: tokenClientId, issuer: payload.iss } }
     },
+    getPrincipalId: (payload) => payload.client_id,
     emptyListMessage: 'No authorized Cognito client IDs configured',
     unauthorisedMessage: 'Token client_id is not in the list of authorized Cognito client IDs'
   }

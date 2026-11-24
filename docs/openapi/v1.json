@@ -157,6 +157,23 @@
           }
         }
       },
+      "Forbidden": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 403
+          },
+          "error": {
+            "type": "string",
+            "example": "Forbidden"
+          },
+          "message": {
+            "type": "string",
+            "example": "Insufficient scope"
+          }
+        }
+      },
       "NotFound": {
         "type": "object",
         "properties": {
@@ -1011,6 +1028,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: authenticated caller does not have the required access scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Forbidden"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -1113,6 +1140,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: authenticated caller does not have the required access scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Forbidden"
                 }
               }
             }
@@ -1299,6 +1336,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: authenticated caller does not have the required access scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Forbidden"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -1447,6 +1494,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: authenticated caller does not have the required access scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Forbidden"
                 }
               }
             }

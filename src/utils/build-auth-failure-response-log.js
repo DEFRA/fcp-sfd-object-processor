@@ -1,7 +1,7 @@
 import { constants as httpConstants } from 'node:http2'
 
 /**
- * Builds the structured log context for a request rejected with 401 Unauthorized by the
+ * Builds the structured log context for a request rejected with 401 Unauthorized or 403 Forbidden by the
  * `onPreResponse` auth failure hook. Uses approved ECS `event.*`, `client.*` and `user_agent.*`
  * fields only — flat top-level keys are not visible on the CDP logging platform.
  *
@@ -16,6 +16,7 @@ export const buildAuthFailureResponseLog = (request, sanitisedMessage) => {
   const tokenGroups = payload?.groups
   const tokenClientId = payload?.client_id
   const tokenIssuer = payload?.iss
+  const statusCode = request.response?.output?.statusCode ?? httpConstants.HTTP_STATUS_UNAUTHORIZED
 
   const reason = [
     sanitisedMessage,
@@ -31,7 +32,7 @@ export const buildAuthFailureResponseLog = (request, sanitisedMessage) => {
       category: request.path,
       reason,
       outcome: 'failure',
-      kind: httpConstants.HTTP_STATUS_UNAUTHORIZED
+      kind: statusCode
     },
     client: {
       address: request.info.remoteAddress
