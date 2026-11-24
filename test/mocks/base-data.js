@@ -19,8 +19,8 @@ export const baseMetadata = {
 
 // Alternative metadata for testing different submission scenarios
 export const alternateMetadata = {
-  sbi: 805000000,
-  crn: 9050000000,
+  sbi: 805000001,
+  crn: 9050000001,
   frn: 2102658375,
   submissionId: '1733826314', // sfd-id-check: allow
   uosr: '107220150_1733826314', // sfd-id-check: allow

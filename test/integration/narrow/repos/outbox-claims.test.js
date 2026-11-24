@@ -331,8 +331,8 @@ describe('failExhaustedAbandonedOutboxEntries sweep integration', () => {
     const testRunId = `${testRunPrefix}${randomUUID()}`
     // Grace period is 30000ms (30 seconds)
     const claimedUntil = new Date('2026-08-07T09:59:00.000Z')
-    const beforeGracePeriod = new Date('2026-08-07T10:00:00.000Z') // 60 seconds after claimedUntil
-    const afterGracePeriod = new Date('2026-08-07T10:00:35.000Z') // 95 seconds after claimedUntil
+    const beforeGracePeriod = new Date('2026-08-07T09:59:20.000Z') // 20 seconds after claimedUntil, inside the grace period
+    const afterGracePeriod = new Date('2026-08-07T10:00:35.000Z') // 95 seconds after claimedUntil, past the grace period
 
     await db.collection(collectionName).insertOne(
       buildEntry(testRunId, {
