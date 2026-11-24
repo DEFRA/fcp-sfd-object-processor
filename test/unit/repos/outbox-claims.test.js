@@ -216,12 +216,26 @@ describe('outbox claims', () => {
       _id: { $in: ['entry-1', 'entry-2'] },
       status: 'PROCESSING',
       claimedBy: 'worker-1',
-      claimedUntil: { $gt: now }
+      claimedUntil: { $gt: new Date('2026-08-07T09:59:30.000Z') }
     }, {
       $set: { status: 'SENT', lastAttemptedAt: now },
       $unset: { claimedAt: '', claimedUntil: '', claimedBy: '', error: '' }
     }, { session })
     expect(result.matchedCount).toBe(2)
+  })
+
+  test('accepts results from a claim that expired within the grace period and rejects older claims', async () => {
+    const now = new Date('2026-08-07T10:00:00.000Z')
+    const updateMany = vi.fn().mockResolvedValue({ acknowledged: true, matchedCount: 0 })
+    mocks.collection.mockReturnValue({ updateMany })
+
+    await finalizeClaimedOutboxEntries(null, ['entry-1'], 'worker-1', DELIVERY_OUTCOME.SUCCEEDED, null, now)
+
+    const { claimedUntil } = updateMany.mock.calls[0][0]
+    const matches = (value) => value.getTime() > claimedUntil.$gt.getTime()
+    expect(matches(new Date('2026-08-07T09:59:45.000Z'))).toBe(true)
+    expect(matches(new Date('2026-08-07T09:59:30.000Z'))).toBe(false)
+    expect(matches(new Date('2026-08-07T09:55:00.000Z'))).toBe(false)
   })
 
   test('finalizes failed attempts with retry and terminal status pipeline', async () => {
@@ -243,7 +257,7 @@ describe('outbox claims', () => {
         _id: { $in: ['entry-1'] },
         status: 'PROCESSING',
         claimedBy: 'worker-1',
-        claimedUntil: { $gt: now }
+        claimedUntil: { $gt: new Date('2026-08-07T09:59:30.000Z') }
       },
       [
         {

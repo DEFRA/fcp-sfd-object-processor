@@ -220,11 +220,13 @@ const finalizeClaimedOutboxEntries = async (
 ) => {
   const collection = config.get(outboxCollection)
   const maxAttempts = config.get(outboxMaxAttemptsConfig)
+  // Accept results until failExhaustedAbandonedOutboxEntries may fail the entry, so a slow but live worker can still record its outcome.
+  const gracePeriodMs = config.get('messaging.outboxFailureGracePeriodMs')
   const filter = {
     _id: { $in: entryIds },
     status: PROCESSING,
     claimedBy: instanceId,
-    claimedUntil: { $gt: now }
+    claimedUntil: { $gt: new Date(now.getTime() - gracePeriodMs) }
   }
   const options = session ? { session } : {}
 

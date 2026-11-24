@@ -229,6 +229,38 @@ describe('outbox claim repository concurrency', () => {
     })
   })
 
+  test('lets the owner finalize a claim that expired inside the grace period, and not the sweep', async () => {
+    const testRunId = `${testRunPrefix}${randomUUID()}`
+    const claimedUntil = new Date('2026-08-07T09:59:00.000Z')
+    const insideGracePeriod = new Date('2026-08-07T09:59:20.000Z')
+    const pastGracePeriod = new Date('2026-08-07T09:59:40.000Z')
+    const [inside, past] = await Promise.all([insideGracePeriod, pastGracePeriod].map(async () => {
+      const { insertedId } = await db.collection(collectionName).insertOne(buildEntry(testRunId, {
+        status: PROCESSING,
+        attempts: 3,
+        claimedBy: 'worker-1',
+        claimedAt: new Date('2026-08-07T09:50:00.000Z'),
+        claimedUntil
+      }))
+      return insertedId
+    }))
+
+    const acceptedResult = await finalizeClaimedOutboxEntries(
+      null, [inside], 'worker-1', DELIVERY_OUTCOME.SUCCEEDED, null, insideGracePeriod
+    )
+    const rejectedResult = await finalizeClaimedOutboxEntries(
+      null, [past], 'worker-1', DELIVERY_OUTCOME.SUCCEEDED, null, pastGracePeriod
+    )
+
+    expect(acceptedResult.matchedCount).toBe(1)
+    expect(await db.collection(collectionName).findOne({ _id: inside })).toMatchObject({ status: SENT })
+    expect(rejectedResult.matchedCount).toBe(0)
+    expect(await db.collection(collectionName).findOne({ _id: past })).toMatchObject({ status: PROCESSING })
+
+    const swept = await failExhaustedAbandonedOutboxEntries('worker-sweep', pastGracePeriod)
+    expect(swept.map(entry => entry._id)).toEqual([past])
+  })
+
   test('returns retryable failures to pending and makes exhausted failures terminal', async () => {
     const testRunId = `${testRunPrefix}${randomUUID()}`
     const now = new Date('2026-08-07T10:00:00.000Z')
