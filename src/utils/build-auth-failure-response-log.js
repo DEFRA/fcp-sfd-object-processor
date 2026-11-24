@@ -29,10 +29,18 @@ export const buildAuthFailureResponseLog = (request, sanitisedMessage) => {
     event: {
       type: 'auth_failure',
       action: request.method,
-      category: request.path,
+      category: 'authentication',
       reason,
       outcome: 'failure',
       kind: statusCode
+    },
+    http: {
+      response: {
+        status_code: statusCode
+      }
+    },
+    url: {
+      path: request.path
     },
     client: {
       address: request.info.remoteAddress

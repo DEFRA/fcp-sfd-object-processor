@@ -74,11 +74,12 @@ describe('request-id validation', () => {
       expect.objectContaining({
         event: expect.objectContaining({
           type: 'request_id_too_long',
-          category: path,
+          category: 'api',
           reason: 'header_length=51',
-          outcome: 'failure',
-          kind: 400
-        })
+          outcome: 'failure'
+        }),
+        http: { response: { status_code: 400 } },
+        url: { path }
       }),
       expect.stringContaining('x-cdp-request-id exceeds 50 characters')
     )

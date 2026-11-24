@@ -10,9 +10,12 @@ export const buildStatusRequestLog = (request, uploadId) => ({
   event: {
     type: 'status_check',
     action: request.method,
-    category: request.path,
+    category: 'api',
     reference: uploadId,
     reason: request.auth?.artifacts?.decoded?.payload?.client_id
+  },
+  url: {
+    path: request.path
   }
 })
 
@@ -29,7 +32,11 @@ export const buildStatusResponseLog = (uploadId, upstreamResponse, duration) => 
     outcome: 'success',
     duration: duration * 1_000_000,
     reference: uploadId,
-    reason: upstreamResponse.uploadStatus,
-    kind: httpConstants.HTTP_STATUS_OK
+    reason: upstreamResponse.uploadStatus
+  },
+  http: {
+    response: {
+      status_code: httpConstants.HTTP_STATUS_OK
+    }
   }
 })

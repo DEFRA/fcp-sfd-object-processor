@@ -28,11 +28,14 @@ describe('buildStatusRequestLog', () => {
       event: {
         type: 'status_check',
         action: request.method,
-        category: request.path,
+        category: 'api',
         reference: uploadId,
         reason: 'test-client'
-      }
+      },
+      url: { path: request.path }
     })
+    expect(log.url.path).toBe(request.path)
+    expect(log.event.category).not.toBe(request.path)
   })
 
   test('sets event.reason to undefined when auth artifacts are absent', () => {
@@ -47,6 +50,7 @@ describe('buildStatusRequestLog', () => {
     expect(log.event.reason).toBeUndefined()
     expect(log.event.type).toBe('status_check')
     expect(log.event.reference).toBe(uploadId)
+    expect(log.url.path).toBe(request.path)
   })
 })
 
@@ -65,9 +69,9 @@ describe('buildStatusResponseLog', () => {
         outcome: 'success',
         duration: durationMs * 1_000_000,
         reference: uploadId,
-        reason: 'ready',
-        kind: httpConstants.HTTP_STATUS_OK
-      }
+        reason: 'ready'
+      },
+      http: { response: { status_code: httpConstants.HTTP_STATUS_OK } }
     })
   })
 
@@ -81,8 +85,10 @@ describe('buildStatusResponseLog', () => {
     expect(log.event.reason).toBe('pending')
   })
 
-  test('sets event.kind to the HTTP 200 status code', () => {
+  test('sets the HTTP 200 status code in http.response.status_code', () => {
     const log = buildStatusResponseLog(uploadId, { uploadStatus: 'ready' }, 50)
-    expect(log.event.kind).toBe(httpConstants.HTTP_STATUS_OK)
+    expect(log.http.response.status_code).toBe(httpConstants.HTTP_STATUS_OK)
+    expect(log.http.response.status_code).toBeTypeOf('number')
+    expect(log.event).not.toHaveProperty('kind')
   })
 })

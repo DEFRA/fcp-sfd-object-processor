@@ -101,7 +101,7 @@ const logRetryDecision = ({ ctx, category, willRetry, limit, terminalReason, sta
     event: {
       type: 'http_retry_decision',
       action: 'retry_decision',
-      category: 'http',
+      category: 'network',
       outcome: willRetry ? 'unknown' : 'failure',
       reason: terminalReason,
       reference: ctx.request.url,
@@ -142,14 +142,14 @@ const onCompleteHook = (request, response, error, retryStateByRequest) => {
       event: {
         type: 'http_retry_terminal',
         action: 'request_failed',
-        category: 'http',
+        category: 'network',
         outcome: 'failure',
         reason: metadata.terminalReason,
         reference: request.url,
         duration: retryDurationNs(state.startedAtMs),
-        kind: error instanceof Error ? error.name : 'error'
       },
       error: {
+        type: error instanceof Error ? error.name : 'error',
         message: errorMessage(error)
       },
       retry: metadata
@@ -162,7 +162,7 @@ const onCompleteHook = (request, response, error, retryStateByRequest) => {
       event: {
         type: 'http_retry_recovered',
         action: 'request_succeeded',
-        category: 'http',
+        category: 'network',
         outcome: 'success',
         reason: metadata.terminalReason,
         reference: request.url,

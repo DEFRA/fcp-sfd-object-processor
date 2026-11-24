@@ -11,21 +11,28 @@ describe('buildAuthFailureResponseLog', () => {
     headers: { 'user-agent': 'test-agent' }
   }
 
-  test('returns a nested event/client/user_agent object with approved ECS fields', () => {
+  test('returns authentication, HTTP response, URL, client and user-agent ECS fields', () => {
     const log = buildAuthFailureResponseLog(baseRequest, 'Unauthorized')
 
     expect(log).toEqual({
       event: {
         type: 'auth_failure',
         action: 'GET',
-        category: '/api/v1/metadata',
+        category: 'authentication',
         reason: 'Unauthorized',
         outcome: 'failure',
         kind: httpConstants.HTTP_STATUS_UNAUTHORIZED
       },
+      http: { response: { status_code: httpConstants.HTTP_STATUS_UNAUTHORIZED } },
+      url: { path: '/api/v1/metadata' },
       client: { address: '10.0.0.1' },
       user_agent: { original: 'test-agent' }
     })
+    expect(log.http.response.status_code).toBe(httpConstants.HTTP_STATUS_UNAUTHORIZED)
+    expect(log.http.response.status_code).toBeTypeOf('number')
+    expect(log.url.path).toBe(baseRequest.path)
+    expect(log.event.category).not.toBe(baseRequest.path)
+    expect(log.event.kind).toBe(httpConstants.HTTP_STATUS_UNAUTHORIZED)
   })
 
   test('uses the response status code for a forbidden response', () => {
