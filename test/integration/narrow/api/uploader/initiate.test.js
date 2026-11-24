@@ -37,7 +37,7 @@ const mockValidPayload = {
     type: 'CS_Agreement_Evidence',
     reference: 'user entered reference',
     service: 'fcp-sfd-frontend',
-    uosr: '105000000_8733826312'
+    uosr: '105000000_1733826312' // sfd-id-check: allow
   }
 }
 

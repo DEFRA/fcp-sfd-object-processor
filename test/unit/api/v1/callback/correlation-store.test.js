@@ -65,11 +65,11 @@ const businessMetadata = {
   sbi: 805000000,
   crn: 9101009926,
   frn: 1101009900,
-  submissionId: '8733826312',
+  submissionId: '1733826312', // sfd-id-check: allow
   type: 'CS_Agreement_Evidence',
   reference: 'a reference',
   service: 'fcp-sfd-frontend',
-  uosr: '805000000-8733826312'
+  uosr: '805000000-1733826312' // sfd-id-check: allow
 }
 
 const buildMockRequest = () => ({
