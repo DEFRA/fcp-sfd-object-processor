@@ -526,9 +526,9 @@ describe('failExhaustedAbandonedOutboxEntries sweep', () => {
     expect(result).toHaveLength(2)
   })
 
-  test('includes error code in log and audit when entry has error.code', async () => {
+  test('reports the sweep reason, not the error from an earlier attempt, for abandoned entries', async () => {
     const now = new Date('2026-08-07T10:00:00.000Z')
-    const entryWithError = {
+    const entryWithStaleError = {
       _id: { toString: () => 'entry-error' },
       status: 'PERMANENT_FAILURE',
       payload: {
@@ -541,7 +541,7 @@ describe('failExhaustedAbandonedOutboxEntries sweep', () => {
     }
     mocks.collection.mockReturnValue({
       findOneAndUpdate: vi.fn()
-        .mockResolvedValueOnce(entryWithError)
+        .mockResolvedValueOnce(entryWithStaleError)
         .mockResolvedValueOnce(null)
     })
     mocks.sendAuditEvent.mockResolvedValue({})
@@ -549,21 +549,14 @@ describe('failExhaustedAbandonedOutboxEntries sweep', () => {
     const result = await failExhaustedAbandonedOutboxEntries('worker-sweep', now)
 
     expect(result).toHaveLength(1)
-    expect(mocks.loggerError).toHaveBeenCalledWith(
-      expect.objectContaining({
-        error: expect.objectContaining({
-          type: 'outbox_terminal_failure',
-          id: 'file-error',
-          code: 'SNSThrottled',
-          message: 'Rate exceeded'
-        })
-      }),
-      expect.any(String)
-    )
+    const [logged] = mocks.loggerError.mock.calls[0]
+    expect(logged.event.reason).toBe('claim expired at maximum attempts')
+    expect(logged.error).toMatchObject({ type: 'outbox_terminal_failure', id: 'file-error', message: 'claim expired at maximum attempts' })
+    expect(logged.error).not.toHaveProperty('code')
     expect(mocks.sendAuditEvent).toHaveBeenCalledWith({
       correlationid: 'corr-error',
       audit: expect.objectContaining({
-        details: { reason: 'Rate exceeded', code: 'SNSThrottled', attempts: 3 }
+        details: { reason: 'claim expired at maximum attempts', attempts: 3 }
       })
     })
   })

@@ -13,13 +13,16 @@ const logger = createLogger()
 const outboxCollection = 'mongo.collections.outbox'
 const outboxMaxAttemptsConfig = 'messaging.outboxMaxAttempts'
 
-const reportTerminalFailures = async (documents, reason, workerId) => {
+// The sweep passes useEntryError = false: the error stored on an abandoned entry comes from an
+// earlier attempt, so the sweep's own reason is what actually ended it.
+const reportTerminalFailures = async (documents, reason, workerId, useEntryError = true) => {
+  const entryError = (doc) => useEntryError ? doc.error : undefined
+
   documents.forEach(doc => {
     const entryId = doc.payload?.file?.fileId || null
     const attempts = doc.attempts
     const crn = doc.payload?.metadata?.crn
-    // If doc has an error, use its message as the reason; otherwise use the passed-in reason
-    const effectiveReason = doc.error?.message || reason
+    const effectiveReason = entryError(doc)?.message || reason
     const logReason = maskCrnInText(effectiveReason, crn)
     runWithCorrelationId(doc.payload?.messaging?.correlationId, () => logger.error({
       event: {
@@ -33,7 +36,7 @@ const reportTerminalFailures = async (documents, reason, workerId) => {
       error: {
         type: 'outbox_terminal_failure',
         ...(entryId && { id: entryId }),
-        ...(doc.error?.code && { code: doc.error.code }),
+        ...(entryError(doc)?.code && { code: entryError(doc).code }),
         message: logReason
       },
       tenant: { message: toTenantMessage({ sourceSystem: sanitizeSourceSystem(doc.payload?.metadata?.service) }) }
@@ -49,8 +52,7 @@ const reportTerminalFailures = async (documents, reason, workerId) => {
       const sbi = doc.payload?.metadata?.sbi
       const crn = doc.payload?.metadata?.crn
       const attempts = doc.attempts
-      // If doc has an error, use its message as the reason; otherwise use the passed-in reason
-      const effectiveReason = doc.error?.message || reason
+      const effectiveReason = entryError(doc)?.message || reason
       return sendAuditEvent({
         correlationid: doc.payload?.messaging?.correlationId,
         audit: {
@@ -59,7 +61,7 @@ const reportTerminalFailures = async (documents, reason, workerId) => {
           status: 'failure',
           details: {
             reason: effectiveReason,
-            ...(doc.error?.code && { code: doc.error.code }),
+            ...(entryError(doc)?.code && { code: entryError(doc).code }),
             attempts
           }
         }
@@ -348,7 +350,7 @@ const failExhaustedAbandonedOutboxEntries = async (instanceId, now = new Date())
 
   if (updatedEntries.length > 0) {
     const reason = 'claim expired at maximum attempts'
-    await reportTerminalFailures(updatedEntries, reason, instanceId)
+    await reportTerminalFailures(updatedEntries, reason, instanceId, false)
   }
 
   return updatedEntries
