@@ -224,7 +224,7 @@ describe('authorization scope with signed Cognito-style tokens', () => {
 
   test.each([
     '/api/v1/blob/9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
-    '/api/v1/metadata/sbi/105000000'
+    '/api/v1/metadata/sbi/805000000'
   ])('returns 403 without protected data for a valid token from a denied caller: %s', async (path) => {
     const { server, makeToken } = protectedServer
     const response = await server.inject({
@@ -241,7 +241,7 @@ describe('authorization scope with signed Cognito-style tokens', () => {
 
   test.each([
     '/api/v1/blob/9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
-    '/api/v1/metadata/sbi/105000000'
+    '/api/v1/metadata/sbi/805000000'
   ])('still returns 401 when no token is provided: %s', async (path) => {
     const { server } = protectedServer
     const response = await server.inject({
