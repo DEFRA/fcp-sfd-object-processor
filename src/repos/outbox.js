@@ -282,7 +282,7 @@ const getOutboxStatusesByFileIds = async (fileIds, session = undefined) => {
     .toArray()
 }
 
-// Includes PROCESSING entries stranded at attempts >= max (never reclaimed), so one stuck record keeps the age gauge rising.
+// Includes PROCESSING entries stranded at attempts >= max, which are never reclaimed and stay until failExhaustedAbandonedOutboxEntries marks them PERMANENT_FAILURE, so a stuck record keeps the age gauge rising until then.
 const pendingOutboxFilter = { status: { $in: [PENDING, PROCESSING] } }
 
 const buildOldestPendingOutboxCursor = (collection) => collection
