@@ -227,7 +227,19 @@ const publishPendingMessages = async () => {
   try {
     // Clear stranded entries first: sweep exhausted abandoned claims before processing new messages.
     // Failures in audit events must not stop the poll, so Promise.allSettled is used in reportTerminalFailures.
-    await failExhaustedAbandonedOutboxEntries(outboxWorkerId)
+    // The sweep is housekeeping, so an error in it is logged and must not stop new messages being sent.
+    try {
+      await failExhaustedAbandonedOutboxEntries(outboxWorkerId)
+    } catch (error) {
+      logger.error({
+        err: error,
+        event: {
+          type: 'outbox_sweep_failure',
+          action: 'fail_exhausted_abandoned',
+          outcome: 'failure'
+        }
+      }, 'Outbox sweep of exhausted abandoned entries failed; continuing with pending messages')
+    }
 
     const pendingMessages = await claimProcessableOutboxEntries(outboxWorkerId)
 

@@ -252,6 +252,23 @@ describe('publishPendingMessages observability', () => {
     expect(mocks.publishBatch).not.toHaveBeenCalled()
   })
 
+  test('logs a sweep failure and still processes pending messages', async () => {
+    const sweepError = new Error('database unavailable')
+    mocks.failExhausted.mockRejectedValueOnce(sweepError)
+    mocks.claim.mockResolvedValue([])
+
+    await expect(publishPendingMessages()).resolves.toBeUndefined()
+
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        err: sweepError,
+        event: expect.objectContaining({ type: 'outbox_sweep_failure', outcome: 'failure' })
+      }),
+      expect.any(String)
+    )
+    expect(mocks.claim).toHaveBeenCalled()
+  })
+
   test('finalizes successful entries and calls bulkUpdatePublishedAtDate', async () => {
     const entry = buildEntry('success', 1)
     mocks.claim.mockResolvedValue([entry])
