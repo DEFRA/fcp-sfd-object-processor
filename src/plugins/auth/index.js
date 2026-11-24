@@ -106,55 +106,66 @@ export const auth = {
       server.ext('onPreResponse', (request, h) => {
         const response = request.response
 
-        if (response.isBoom && response.output.statusCode === httpConstants.HTTP_STATUS_UNAUTHORIZED) {
-          const sanitisedMessage = response.output.payload.message || 'authentication_failed'
-          const correlationId = getAuditCorrelationId(request)
+        if (response.isBoom) {
+          switch (response.output.statusCode) {
+            case httpConstants.HTTP_STATUS_UNAUTHORIZED: {
+              const sanitisedMessage = response.output.payload.message || 'authentication_failed'
+              const correlationId = getAuditCorrelationId(request)
 
-          logger.warn(buildAuthFailureResponseLog(request, sanitisedMessage))
-          sendAuditEvent({
-            correlationid: correlationId,
-            security: {
-              pmccode: PMCCODE.AUTH,
-              priority: AUTH_FAILURE_AUDIT_PRIORITY, // Interim pending SOC agreement; the specification defines priority as rarity.
-              details: {
-                message: sanitisedMessage
+              logger.warn(buildAuthFailureResponseLog(request, sanitisedMessage))
+              sendAuditEvent({
+                correlationid: correlationId,
+                security: {
+                  pmccode: PMCCODE.AUTH,
+                  priority: AUTH_FAILURE_AUDIT_PRIORITY, // Interim pending SOC agreement; the specification defines priority as rarity.
+                  details: {
+                    message: sanitisedMessage
+                  }
+                },
+                audit: {
+                  entities: [buildAuthFailureEntity(request, correlationId)],
+                  status: 'failure',
+                  details: { path: request.path, method: request.method }
+                }
+              }, request).catch((err) => {
+                logger.warn({ msg: 'Failed to send auth failure audit event', err })
+              })
+              break
+            }
+            case httpConstants.HTTP_STATUS_FORBIDDEN:
+              switch (response.output.payload?.message) {
+                case 'Insufficient scope': {
+                  const correlationId = getAuditCorrelationId(request)
+                  const principalId = request.auth?.credentials?.principalId
+                  const message = response.output.payload.message
+
+                  logger.warn(buildAuthFailureResponseLog(request, message))
+                  sendAuditEvent({
+                    correlationid: correlationId,
+                    ...(typeof principalId === 'string' ? { user: principalId.slice(0, AUTH_AUDIT_USER_MAX_LENGTH) } : {}),
+                    // Both values are interim pending SOC agreement.
+                    security: {
+                      pmccode: PMCCODE.AUTH,
+                      priority: INSUFFICIENT_SCOPE_AUDIT_PRIORITY,
+                      details: { message }
+                    },
+                    audit: {
+                      entities: [buildAuthFailureEntity(request, correlationId)],
+                      status: 'failure',
+                      details: { path: request.path, method: request.method }
+                    }
+                  }, request).catch((err) => {
+                    logger.warn({ msg: 'Failed to send auth failure audit event', err })
+                  })
+                  break
+                }
+                default:
+                  break
               }
-            },
-            audit: {
-              entities: [buildAuthFailureEntity(request, correlationId)],
-              status: 'failure',
-              details: { path: request.path, method: request.method }
-            }
-          }, request).catch((err) => {
-            logger.warn({ msg: 'Failed to send auth failure audit event', err })
-          })
-        } else if (
-          response.isBoom &&
-          response.output.statusCode === httpConstants.HTTP_STATUS_FORBIDDEN &&
-          response.output.payload?.message === 'Insufficient scope'
-        ) {
-          const correlationId = getAuditCorrelationId(request)
-          const principalId = request.auth?.credentials?.principalId
-          const message = response.output.payload.message
-
-          logger.warn(buildAuthFailureResponseLog(request, message))
-          sendAuditEvent({
-            correlationid: correlationId,
-            ...(typeof principalId === 'string' ? { user: principalId.slice(0, AUTH_AUDIT_USER_MAX_LENGTH) } : {}),
-            // Both values are interim pending SOC agreement.
-            security: {
-              pmccode: PMCCODE.AUTH,
-              priority: INSUFFICIENT_SCOPE_AUDIT_PRIORITY,
-              details: { message }
-            },
-            audit: {
-              entities: [buildAuthFailureEntity(request, correlationId)],
-              status: 'failure',
-              details: { path: request.path, method: request.method }
-            }
-          }, request).catch((err) => {
-            logger.warn({ msg: 'Failed to send auth failure audit event', err })
-          })
+              break
+            default:
+              break
+          }
         }
 
         return h.continue
