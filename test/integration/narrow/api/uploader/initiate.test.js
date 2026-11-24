@@ -33,7 +33,7 @@ const mockValidPayload = {
     sbi: 805000000,
     crn: 9050000000,
     frn: 1102658375,
-    submissionId: '8733826312',
+    submissionId: '1733826312', // sfd-id-check: allow
     type: 'CS_Agreement_Evidence',
     reference: 'user entered reference',
     service: 'fcp-sfd-frontend',
