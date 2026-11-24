@@ -98,6 +98,7 @@ describe('publishPendingMessages observability', () => {
     })
     mocks.finalize.mockResolvedValue({ acknowledged: true, matchedCount: 1 })
     mocks.logTerminal.mockResolvedValue(undefined)
+    mocks.failExhausted.mockResolvedValue([])
   })
 
   test('logs every claimed entry using CDP-supported ECS fields', async () => {
@@ -250,6 +251,15 @@ describe('publishPendingMessages observability', () => {
 
     expect(mocks.loggerInfo).toHaveBeenCalledWith('No pending outbox messages to process.')
     expect(mocks.publishBatch).not.toHaveBeenCalled()
+  })
+
+  test('counts entries failed by the sweep as abandoned publish failures', async () => {
+    mocks.failExhausted.mockResolvedValueOnce([{ _id: 'a' }, { _id: 'b' }])
+    mocks.claim.mockResolvedValue([])
+
+    await publishPendingMessages()
+
+    expect(mocks.metricsCounter).toHaveBeenCalledWith('outbox.publish_failed', 2, { outcome: 'abandoned' })
   })
 
   test('logs a sweep failure and still processes pending messages', async () => {

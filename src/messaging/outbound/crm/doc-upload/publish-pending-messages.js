@@ -229,7 +229,11 @@ const publishPendingMessages = async () => {
     // Failures in audit events must not stop the poll, so Promise.allSettled is used in reportTerminalFailures.
     // The sweep is housekeeping, so an error in it is logged and must not stop new messages being sent.
     try {
-      await failExhaustedAbandonedOutboxEntries(outboxWorkerId)
+      const abandonedEntries = await failExhaustedAbandonedOutboxEntries(outboxWorkerId)
+
+      if (abandonedEntries.length > 0) {
+        await metricsCounter('outbox.publish_failed', abandonedEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.ABANDONED })
+      }
     } catch (error) {
       logger.error({
         err: error,
