@@ -205,6 +205,29 @@ describe('buildCallbackValidationFailureLog', () => {
     const log = buildCallbackValidationFailureLog(request, err, mockCorrelationId)
     expect(log).not.toHaveProperty('tenant')
   })
+
+  test('omits tenant when metadata.service is not an allowed source system', () => {
+    const request = {
+      ...mockRequest,
+      payload: { metadata: { uosr: 'sub-123', service: 'unknown-service' } }
+    }
+    const log = buildCallbackValidationFailureLog(request, err, mockCorrelationId)
+    expect(log).not.toHaveProperty('tenant')
+  })
+
+  test('omits tenant for a forged sourceSystem pair', () => {
+    const request = {
+      ...mockRequest,
+      payload: {
+        metadata: {
+          uosr: 'sub-123',
+          service: 'rps-portal sourceSystem=fcp-sfd-frontend'
+        }
+      }
+    }
+    const log = buildCallbackValidationFailureLog(request, err, mockCorrelationId)
+    expect(log).not.toHaveProperty('tenant')
+  })
 })
 
 describe('buildCallbackPersistFailureLog', () => {

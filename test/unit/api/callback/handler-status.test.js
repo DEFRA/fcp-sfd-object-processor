@@ -8,10 +8,19 @@ import * as metricsModule from '../../../../src/api/common/helpers/metrics.js'
 import * as validateCallbackModule from '../../../../src/api/v1/callback/validation/validate-callback-payload.js'
 import { resolveJourneyId } from '../../../../src/services/journey-correlation-service.js'
 
+const mockLogger = vi.hoisted(() => ({
+  info: vi.fn(),
+  error: vi.fn(),
+  warn: vi.fn()
+}))
+
 vi.mock('../../../../src/services/metadata-service.js')
 vi.mock('../../../../src/api/common/helpers/metrics.js', () => ({ metricsCounter: vi.fn() }))
 vi.mock('../../../../src/services/journey-correlation-service.js', () => ({
   resolveJourneyId: vi.fn().mockResolvedValue({ journeyId: RESOLVED_ID, source: 'generated' })
+}))
+vi.mock('../../../../src/logging/logger.js', () => ({
+  createLogger: () => mockLogger
 }))
 
 const { RESOLVED_ID } = vi.hoisted(() => ({ RESOLVED_ID: '3f2504e0-4f89-41d3-9a0c-0305e82c3301' }))
@@ -62,6 +71,71 @@ describe('callback handler status enforcement', () => {
     })
   })
 
+  test('ready + complete payload logs callback persistence with sourceSystem', async () => {
+    const payload = { ...mockScanAndUploadResponse, uploadStatus: 'ready' }
+    metadataService.persistMetadataWithOutbox.mockResolvedValue({ insertedCount: 1, insertedIds: { 0: 'abc' } })
+
+    await uploadCallback.options.handler({ payload }, buildMockH())
+
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      {
+        event: {
+          type: 'callback_persisted',
+          outcome: 'success',
+          reference: RESOLVED_ID
+        },
+        tenant: { message: 'sourceSystem=fcp-sfd-frontend' }
+      },
+      'Callback metadata persisted'
+    )
+  })
+
+  test('ready + complete payload logs persistence success without disallowed sourceSystem', async () => {
+    const payload = {
+      ...mockScanAndUploadResponse,
+      uploadStatus: 'ready',
+      metadata: { ...mockScanAndUploadResponse.metadata, service: 'unknown-service' }
+    }
+    metadataService.persistMetadataWithOutbox.mockResolvedValue({ insertedCount: 1, insertedIds: { 0: 'abc' } })
+
+    await uploadCallback.options.handler({ payload }, buildMockH())
+
+    const successCall = mockLogger.info.mock.calls.find(([, message]) =>
+      message === 'Callback metadata persisted'
+    )
+    expect(successCall).toBeDefined()
+    expect(successCall[0]).toEqual({
+      event: {
+        type: 'callback_persisted',
+        outcome: 'success',
+        reference: RESOLVED_ID
+      }
+    })
+  })
+
+  test('ready + complete payload logs persistence success without sourceSystem when absent', async () => {
+    const payload = {
+      ...mockScanAndUploadResponse,
+      uploadStatus: 'ready',
+      metadata: { ...mockScanAndUploadResponse.metadata, service: undefined }
+    }
+    metadataService.persistMetadataWithOutbox.mockResolvedValue({ insertedCount: 1, insertedIds: { 0: 'abc' } })
+
+    await uploadCallback.options.handler({ payload }, buildMockH())
+
+    const successCall = mockLogger.info.mock.calls.find(([, message]) =>
+      message === 'Callback metadata persisted'
+    )
+    expect(successCall).toBeDefined()
+    expect(successCall[0]).toEqual({
+      event: {
+        type: 'callback_persisted',
+        outcome: 'success',
+        reference: RESOLVED_ID
+      }
+    })
+  })
+
   test('ready + rejected payload persists validation failure and returns 201', async () => {
     const { s3Key, s3Bucket, checksumSha256, ...baseFile } = mockScanAndUploadResponse.form['a-file-upload-field']
     const rejectedFile = { ...baseFile, fileStatus: 'rejected', hasError: true, errorMessage: 'Virus detected' }
@@ -93,6 +167,10 @@ describe('callback handler status enforcement', () => {
     expect(result.body).toEqual({
       message: 'Duplicate callback ignored'
     })
+    expect(mockLogger.info).not.toHaveBeenCalledWith(
+      expect.objectContaining({ event: expect.objectContaining({ type: 'callback_persisted' }) }),
+      'Callback metadata persisted'
+    )
   })
 
   test('duplicate callback with grouped array form returns 200 without exposing correlationId and does not throw', async () => {
@@ -129,6 +207,10 @@ describe('callback handler status enforcement', () => {
 
     expect(result.isBoom).toBe(true)
     expect(result.output.statusCode).toBe(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
+    expect(mockLogger.info).not.toHaveBeenCalledWith(
+      expect.objectContaining({ event: expect.objectContaining({ type: 'callback_persisted' }) }),
+      'Callback metadata persisted'
+    )
   })
 
   test('returns validation response when post-Joi validation fails', async () => {
@@ -140,6 +222,10 @@ describe('callback handler status enforcement', () => {
 
     expect(result).toBe(validationResponse)
     expect(metadataService.persistMetadataWithOutbox).not.toHaveBeenCalled()
+    expect(mockLogger.info).not.toHaveBeenCalledWith(
+      expect.objectContaining({ event: expect.objectContaining({ type: 'callback_persisted' }) }),
+      'Callback metadata persisted'
+    )
   })
 
   test('returns 500 when persistence throws', async () => {
@@ -151,6 +237,10 @@ describe('callback handler status enforcement', () => {
 
     expect(result.isBoom).toBe(true)
     expect(result.output.statusCode).toBe(httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR)
+    expect(mockLogger.info).not.toHaveBeenCalledWith(
+      expect.objectContaining({ event: expect.objectContaining({ type: 'callback_persisted' }) }),
+      'Callback metadata persisted'
+    )
   })
 })
 
