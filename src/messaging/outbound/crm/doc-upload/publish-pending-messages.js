@@ -19,6 +19,7 @@ import { toTenantMessage, sanitizeSourceSystem } from '../../../../logging/tenan
 
 const logger = createLogger()
 const publishFailureMessage = 'Failed to send message'
+const publishFailedMetric = 'outbox.publish_failed'
 const outboxMaxAttemptsConfig = 'messaging.outboxMaxAttempts'
 const millisecondsToNanoseconds = 1000000
 const millisecondsToSeconds = 1000
@@ -200,10 +201,10 @@ const handleFailedEntries = async (finalizedFailed, failedResults) => {
   const retryableEntries = finalizedFailed.filter(entry => entry.status !== PERMANENT_FAILURE)
 
   if (retryableEntries.length > 0) {
-    await metricsCounter('outbox.publish_failed', retryableEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.RETRYABLE })
+    await metricsCounter(publishFailedMetric, retryableEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.RETRYABLE })
   }
   if (terminalEntries.length > 0) {
-    await metricsCounter('outbox.publish_failed', terminalEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.PERMANENT })
+    await metricsCounter(publishFailedMetric, terminalEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.PERMANENT })
   }
 
   logFinalizations(retryableEntries, PENDING, failedResults)
@@ -232,7 +233,7 @@ const publishPendingMessages = async () => {
       const abandonedEntries = await failExhaustedAbandonedOutboxEntries(outboxWorkerId)
 
       if (abandonedEntries.length > 0) {
-        await metricsCounter('outbox.publish_failed', abandonedEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.ABANDONED })
+        await metricsCounter(publishFailedMetric, abandonedEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.ABANDONED })
       }
     } catch (error) {
       logger.error({
