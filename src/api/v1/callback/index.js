@@ -127,6 +127,16 @@ export const uploadCallback = {
           }
         }, request)))
 
+        const tenantMessage = toTenantMessage({ sourceSystem })
+        logger.info({
+          event: {
+            type: 'callback_persisted',
+            outcome: 'success',
+            reference: correlationId
+          },
+          ...(tenantMessage && { tenant: { message: tenantMessage } })
+        }, 'Callback metadata persisted')
+
         return h.response({
           message: 'Metadata created',
           count: result.insertedCount,

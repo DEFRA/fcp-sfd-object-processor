@@ -337,6 +337,8 @@ This service uses Pino with [Elastic Common Schema (ECS)](https://www.elastic.co
 - Add unit tests for every log builder function (see [test/unit/utils/](../test/unit/utils/))
 - CDP's log ingestion pipeline only indexes a fixed ECS-compatible allow list of fields; any other top-level key is dropped before it reaches OpenSearch. `tenant.message` is the one tenant-definable field on that allow list, so free-form, per-log context belongs there, rendered as space-separated `key=value` pairs via `toTenantMessage()` from `src/logging/tenant-message.js`
 - The source system that originated an upload (e.g. `fcp-sfd-frontend`, `rps-portal`, from `metadata.service`) is logged as `sourceSystem=<value>` inside `tenant.message` on log lines wherever upload metadata is in scope — never as a new top-level `sourceSystem` key, which the ingestion pipeline would silently drop. Always pass the value through `sanitizeSourceSystem()`, which omits the pair unless the value is on the `schemaConsts.SERVICE_EXAMPLES` allow list. `toTenantMessage()` does not escape values, and several log sites read `metadata.service` before Joi validation, so an unchecked value could forge extra `key=value` pairs
+- Do not duplicate identifiers already carried by other ECS fields (e.g. `event.reference`, `transaction.id`/`trace.id`) inside `tenant.message`. That is redundant noise in OpenSearch, not extra signal
+- The hapi-pino `[response] <method> <path> <status> (<ms>)` line that completes every HTTP request is emitted by the plugin itself, not application code, and never carries `tenant.message` (including on `/api/v1/uploader/initiate` and `/api/v1/callback`). This is expected and not a gap to fix
 
 **Example:**
 ```javascript
