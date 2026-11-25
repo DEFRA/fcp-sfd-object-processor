@@ -18,6 +18,9 @@ const { mockConfigGet, mockLoggerWarn } = vi.hoisted(() => ({
       case 'tracing.header': return 'x-cdp-request-id'
       case 'mongo.metadataSbiPageSize': return 100
       case 'mongo.metadataSbiMaxPageSize': return 200
+      // Read when the shared uploader schemas load; the metadata response reuses them.
+      case 'cdpUploaderMimeTypes': return ['application/pdf']
+      case 'cdpUploaderDocumentTypes': return ['CS_Agreement_Evidence']
       default: return null
     }
   }),

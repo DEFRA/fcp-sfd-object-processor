@@ -209,9 +209,8 @@ components:
 
     submissionId:
       type: string
-      format: uuid
-      description: Unique identifier for the submission of uploaded files. Created by the sourceSystem
-      example: 123e4567-e89b-12d3-a456-426655440000
+      description: "Submission identifier supplied by the calling service. Any non-empty string is accepted; the format is not checked. On the callback, it and sbi must match the values sent at initiate for the upload to keep its journey id. Sent unchanged to CRM in the document upload event."
+      example: "submission-123"
 
     time:
       type: string

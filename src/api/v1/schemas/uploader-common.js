@@ -62,11 +62,19 @@ export const businessIdentifierFields = {
     .example(schemaConsts.FRN_EXAMPLE)
 }
 
-// Shared field schemas for submission metadata
+// Shared field schemas for submission metadata.
+// submissionId and uosr are defined only here. The metadata response schema reuses
+// them, and docs/asyncapi/v1.yaml must carry the same submissionId type, format and
+// description (asserted in test/unit/constants/schemas.test.js).
 export const submissionFields = {
   submissionId: Joi.string()
     .required()
-    .description('Unique identifier for the submission')
+    .description(
+      'Submission identifier supplied by the calling service. Any non-empty string is accepted; ' +
+      'the format is not checked. On the callback, it and sbi must match the values sent at ' +
+      'initiate for the upload to keep its journey id. Sent unchanged to CRM in the document ' +
+      'upload event.'
+    )
     .messages({
       'any.required': 'submissionId is required'
     })
@@ -102,7 +110,12 @@ export const submissionFields = {
 
   uosr: Joi.string()
     .required()
-    .description('Unique Object Storage Reference combining SBI and submission ID')
+    .description(
+      'Object storage reference supplied by the calling service. Any non-empty string is ' +
+      'accepted. The service does not check its format or uniqueness, or that it combines sbi ' +
+      'and submissionId. Stored with the file metadata and returned by the metadata and status ' +
+      'endpoints. Not sent to CRM.'
+    )
     .messages({
       'any.required': 'uosr is required'
     })
