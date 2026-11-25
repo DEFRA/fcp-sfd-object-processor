@@ -4,6 +4,7 @@ import { METRIC_OUTCOME, PUBLISH_FAILURE_OUTCOME } from '../../../../../src/cons
 
 const mocks = vi.hoisted(() => ({
   claim: vi.fn(),
+  failExhausted: vi.fn(),
   finalize: vi.fn(),
   logTerminal: vi.fn(),
   getPendingOutboxMetrics: vi.fn().mockResolvedValue({ count: 0, oldestCreatedAt: null }),
@@ -20,6 +21,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../../../../../src/repos/outbox.js', () => ({
   claimProcessableOutboxEntries: mocks.claim,
+  failExhaustedAbandonedOutboxEntries: mocks.failExhausted,
   finalizeClaimedOutboxEntries: mocks.finalize,
   logTerminalFailuresIfAny: mocks.logTerminal,
   getPendingOutboxMetrics: mocks.getPendingOutboxMetrics
@@ -96,6 +98,7 @@ describe('publishPendingMessages observability', () => {
     })
     mocks.finalize.mockResolvedValue({ acknowledged: true, matchedCount: 1 })
     mocks.logTerminal.mockResolvedValue(undefined)
+    mocks.failExhausted.mockResolvedValue([])
   })
 
   test('logs every claimed entry using CDP-supported ECS fields', async () => {
@@ -248,6 +251,32 @@ describe('publishPendingMessages observability', () => {
 
     expect(mocks.loggerInfo).toHaveBeenCalledWith('No pending outbox messages to process.')
     expect(mocks.publishBatch).not.toHaveBeenCalled()
+  })
+
+  test('counts entries failed by the sweep as abandoned publish failures', async () => {
+    mocks.failExhausted.mockResolvedValueOnce([{ _id: 'a' }, { _id: 'b' }])
+    mocks.claim.mockResolvedValue([])
+
+    await publishPendingMessages()
+
+    expect(mocks.metricsCounter).toHaveBeenCalledWith('outbox.publish_failed', 2, { outcome: 'abandoned' })
+  })
+
+  test('logs a sweep failure and still processes pending messages', async () => {
+    const sweepError = new Error('database unavailable')
+    mocks.failExhausted.mockRejectedValueOnce(sweepError)
+    mocks.claim.mockResolvedValue([])
+
+    await expect(publishPendingMessages()).resolves.toBeUndefined()
+
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        err: sweepError,
+        event: expect.objectContaining({ type: 'outbox_sweep_failure', outcome: 'failure' })
+      }),
+      expect.any(String)
+    )
+    expect(mocks.claim).toHaveBeenCalled()
   })
 
   test('finalizes successful entries and calls bulkUpdatePublishedAtDate', async () => {

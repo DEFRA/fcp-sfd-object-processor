@@ -16,7 +16,7 @@ export const mockDocumentUploadedEvent = {
   datacontenttype: 'application/json',
   time: '2023-10-17T14:48:00Z',
   data: {
-    crn: 1234567890,
+    crn: 9234567890,
     crm: {
       caseType: 'CS_Agreement_Evidence',
       title: 'Proof of purchase - Samuel F Armer - 12-12-2025'
@@ -29,7 +29,7 @@ export const mockDocumentUploadedEvent = {
       contentType: 'application/pdf',
       url: 'https://mock-public-api-base-url/api/v1/blob/123e4567-e89b-12d3-a456-426655440001'
     },
-    sbi: 123456789,
+    sbi: 823456789,
     sourceSystem: 'fcp-sfd-frontend',
     submissionId: '123e4567-e89b-12d3-a456-426655440000'
   }

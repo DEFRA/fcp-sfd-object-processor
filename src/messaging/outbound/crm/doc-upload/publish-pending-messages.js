@@ -4,7 +4,8 @@ import {
   claimProcessableOutboxEntries,
   finalizeClaimedOutboxEntries,
   logTerminalFailuresIfAny,
-  getPendingOutboxMetrics
+  getPendingOutboxMetrics,
+  failExhaustedAbandonedOutboxEntries
 } from '../../../../repos/outbox.js'
 import { bulkUpdatePublishedAtDate } from '../../../../repos/metadata.js'
 import { publishDocumentUploadMessageBatch } from './publish-document-upload-message-batch.js'
@@ -18,6 +19,7 @@ import { toTenantMessage, sanitizeSourceSystem } from '../../../../logging/tenan
 
 const logger = createLogger()
 const publishFailureMessage = 'Failed to send message'
+const publishFailedMetric = 'outbox.publish_failed'
 const outboxMaxAttemptsConfig = 'messaging.outboxMaxAttempts'
 const millisecondsToNanoseconds = 1000000
 const millisecondsToSeconds = 1000
@@ -199,10 +201,10 @@ const handleFailedEntries = async (finalizedFailed, failedResults) => {
   const retryableEntries = finalizedFailed.filter(entry => entry.status !== PERMANENT_FAILURE)
 
   if (retryableEntries.length > 0) {
-    await metricsCounter('outbox.publish_failed', retryableEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.RETRYABLE })
+    await metricsCounter(publishFailedMetric, retryableEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.RETRYABLE })
   }
   if (terminalEntries.length > 0) {
-    await metricsCounter('outbox.publish_failed', terminalEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.PERMANENT })
+    await metricsCounter(publishFailedMetric, terminalEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.PERMANENT })
   }
 
   logFinalizations(retryableEntries, PENDING, failedResults)
@@ -224,6 +226,26 @@ const publishPendingMessages = async () => {
   let outcome = METRIC_OUTCOME.SUCCESS
 
   try {
+    // Clear stranded entries first: sweep exhausted abandoned claims before processing new messages.
+    // Failures in audit events must not stop the poll, so Promise.allSettled is used in reportTerminalFailures.
+    // The sweep is housekeeping, so an error in it is logged and must not stop new messages being sent.
+    try {
+      const abandonedEntries = await failExhaustedAbandonedOutboxEntries(outboxWorkerId)
+
+      if (abandonedEntries.length > 0) {
+        await metricsCounter(publishFailedMetric, abandonedEntries.length, { outcome: PUBLISH_FAILURE_OUTCOME.ABANDONED })
+      }
+    } catch (error) {
+      logger.error({
+        err: error,
+        event: {
+          type: 'outbox_sweep_failure',
+          action: 'fail_exhausted_abandoned',
+          outcome: 'failure'
+        }
+      }, 'Outbox sweep of exhausted abandoned entries failed; continuing with pending messages')
+    }
+
     const pendingMessages = await claimProcessableOutboxEntries(outboxWorkerId)
 
     // Poll and batch summaries can span multiple journeys, so they intentionally have no transaction.id.

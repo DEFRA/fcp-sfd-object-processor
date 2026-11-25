@@ -4,11 +4,11 @@ import { maskCrn, maskCrnInText } from '../../../src/utils/mask-crn.js'
 
 describe('maskCrn', () => {
   test('masks all but the last four characters', () => {
-    expect(maskCrn('1050000001')).toBe('******0001')
+    expect(maskCrn('9050000001')).toBe('******0001')
   })
 
   test('masks numeric CRNs', () => {
-    expect(maskCrn(1050000001)).toBe('******0001')
+    expect(maskCrn(9050000001)).toBe('******0001')
   })
 
   test('keeps values of four characters or fewer unchanged', () => {
@@ -19,7 +19,7 @@ describe('maskCrn', () => {
 
 describe('maskCrnInText', () => {
   test('masks CRNs embedded in log text', () => {
-    expect(maskCrnInText('Invalid CRN 1050000001', '1050000001'))
+    expect(maskCrnInText('Invalid CRN 9050000001', '9050000001'))
       .toBe('Invalid CRN ******0001')
   })
 
@@ -28,6 +28,6 @@ describe('maskCrnInText', () => {
   })
 
   test('preserves undefined text', () => {
-    expect(maskCrnInText(undefined, '1050000001')).toBeUndefined()
+    expect(maskCrnInText(undefined, '9050000001')).toBeUndefined()
   })
 })

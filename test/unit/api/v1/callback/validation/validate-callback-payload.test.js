@@ -35,8 +35,8 @@ const rejectedFileUpload = {
 }
 
 const validMetadata = {
-  sbi: 105000000,
-  crn: 1050000000,
+  sbi: 805000000,
+  crn: 9050000000,
   frn: 1102658375,
   submissionId: '550e8400-e29b-41d4-a716-446655440000',
   type: 'CS_Agreement_Evidence',

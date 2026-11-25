@@ -41,7 +41,7 @@ describe('getStatusByCorrelationId', () => {
   const correlationId = '550e8400-e29b-41d4-a716-446655440000'
 
   const buildStatusRecords = (count) => Array.from({ length: count }, (_, index) => ({
-    sbi: 105000000,
+    sbi: 805000000,
     fileId: `file-${index}`,
     timestamp: new Date(Date.UTC(2026, 1, 26, 10, index)),
     validated: true,
@@ -65,7 +65,7 @@ describe('getStatusByCorrelationId', () => {
   })
 
   test('should query the status collection with the correct correlationId', async () => {
-    const mockDocuments = [{ correlationId, sbi: 105000000, fileId: '123', timestamp: new Date(), validated: true, errors: null }]
+    const mockDocuments = [{ correlationId, sbi: 805000000, fileId: '123', timestamp: new Date(), validated: true, errors: null }]
     mockToArray.mockResolvedValue(mockDocuments)
 
     await getStatusByCorrelationId(correlationId)
@@ -93,7 +93,7 @@ describe('getStatusByCorrelationId', () => {
   })
 
   test('should sort results by timestamp ascending', async () => {
-    const mockDocuments = [{ correlationId, sbi: 105000000, fileId: '123', timestamp: new Date(), validated: true, errors: null }]
+    const mockDocuments = [{ correlationId, sbi: 805000000, fileId: '123', timestamp: new Date(), validated: true, errors: null }]
     mockToArray.mockResolvedValue(mockDocuments)
 
     await getStatusByCorrelationId(correlationId)
@@ -120,7 +120,7 @@ describe('getStatusByCorrelationId', () => {
   })
 
   test('should exclude the _id and correlationId fields from results', async () => {
-    const mockDocuments = [{ correlationId, sbi: 105000000, fileId: '123', timestamp: new Date(), validated: true, errors: null }]
+    const mockDocuments = [{ correlationId, sbi: 805000000, fileId: '123', timestamp: new Date(), validated: true, errors: null }]
     mockToArray.mockResolvedValue(mockDocuments)
 
     await getStatusByCorrelationId(correlationId)
@@ -132,7 +132,7 @@ describe('getStatusByCorrelationId', () => {
     const mockDocuments = [
       {
         correlationId,
-        sbi: 105000000,
+        sbi: 805000000,
         fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
         timestamp: new Date('2026-02-26T10:00:00Z'),
         validated: true,
@@ -140,7 +140,7 @@ describe('getStatusByCorrelationId', () => {
       },
       {
         correlationId,
-        sbi: 105000000,
+        sbi: 805000000,
         fileId: '3f90b889-eac7-4e98-975f-93fcef5b8554',
         timestamp: new Date('2026-02-26T10:01:00Z'),
         validated: true,
@@ -207,7 +207,7 @@ describe('getStatusByCorrelationId', () => {
 
       const loggedOutput = JSON.stringify(mockLoggerWarn.mock.calls[0])
       expect(loggedOutput).not.toContain(correlationId)
-      expect(loggedOutput).not.toContain('105000000')
+      expect(loggedOutput).not.toContain('805000000')
       for (const record of records) {
         expect(loggedOutput).not.toContain(record.fileId)
         expect(loggedOutput).not.toContain(record.timestamp.toISOString())

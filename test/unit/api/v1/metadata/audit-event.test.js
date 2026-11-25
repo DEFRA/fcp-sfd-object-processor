@@ -2,8 +2,8 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 
 const TRACING_HEADER = 'x-cdp-request-id'
 const CORRELATION_ID = 'test-correlation-id'
-const SBI = '105000000'
-const CRN = 1050000000
+const SBI = '805000000'
+const CRN = 9050000000
 const PAGE_SIZE = 100
 const HTTP_OK = 200
 const HTTP_NOT_FOUND = 404

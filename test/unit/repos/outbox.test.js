@@ -171,7 +171,7 @@ describe('logTerminalFailuresIfAny', () => {
       _id: { toString: () => 'outbox-doc-id' },
       payload: {
         file: { fileId: 'file-id-1' },
-        metadata: { sbi: 105000000, crn: 1050000000 },
+        metadata: { sbi: 805000000, crn: 9050000000 },
         messaging: { correlationId: 'corr-123' }
       },
       attempts: 2
@@ -183,7 +183,7 @@ describe('logTerminalFailuresIfAny', () => {
     expect(mockSendAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         audit: expect.objectContaining({
-          accounts: { sbi: '105000000', crn: '1050000000' }
+          accounts: { sbi: '805000000', crn: '9050000000' }
         })
       })
     )
@@ -194,7 +194,7 @@ describe('logTerminalFailuresIfAny', () => {
       _id: { toString: () => 'outbox-doc-id' },
       payload: {
         file: { fileId: 'file-id-1' },
-        metadata: { crn: 1050000000 },
+        metadata: { crn: 9050000000 },
         messaging: { correlationId: 'corr-123' }
       },
       attempts: 2
@@ -206,7 +206,7 @@ describe('logTerminalFailuresIfAny', () => {
     expect(mockSendAuditEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         audit: expect.objectContaining({
-          accounts: { crn: '1050000000' }
+          accounts: { crn: '9050000000' }
         })
       })
     )
@@ -319,7 +319,7 @@ describe('logTerminalFailuresIfAny', () => {
   })
 
   test('masks the CRN in terminal failure logs', async () => {
-    const crn = '1050000000'
+    const crn = '9050000000'
     const doc = {
       _id: { toString: () => 'outbox-doc-id' },
       payload: {
@@ -461,6 +461,63 @@ describe('logTerminalFailuresIfAny', () => {
         expect.any(String)
       )
     })
+  })
+
+  test('omits process.name when workerId is not provided', async () => {
+    const doc = {
+      _id: { toString: () => 'outbox-noworker' },
+      payload: { file: { fileId: 'file-noworker' } },
+      attempts: 2
+    }
+    db.collection.mockReturnValue(buildCollectionMock([doc]))
+
+    await logTerminalFailuresIfAny('outbox', ['file-noworker'], 2, null, 'publish error')
+
+    // Check that the logger was called without process.name field
+    const calls = mockLoggerError.mock.calls
+    expect(calls).toHaveLength(1)
+    const [logObject] = calls[0]
+    expect(logObject).toHaveProperty('event.type', 'outbox_terminal_failure')
+    expect(logObject).not.toHaveProperty('process')
+  })
+
+  test('omits error.id when fileId is missing from payload', async () => {
+    const doc = {
+      _id: { toString: () => 'outbox-noid' },
+      payload: { file: {} }, // Missing fileId
+      attempts: 2
+    }
+    db.collection.mockReturnValue(buildCollectionMock([doc]))
+
+    await logTerminalFailuresIfAny('outbox', ['some-id'], 2, null, 'publish error', 'worker-1')
+
+    // Check that the error object doesn't have id field
+    const calls = mockLoggerError.mock.calls
+    expect(calls).toHaveLength(1)
+    const [logObject] = calls[0]
+    expect(logObject.error).not.toHaveProperty('id')
+    expect(logObject.error).toHaveProperty('message', 'publish error')
+  })
+
+  test('omits metadata fields when missing from payload', async () => {
+    const doc = {
+      _id: { toString: () => 'outbox-nometa' },
+      payload: { file: { fileId: 'file-nometa' } }, // No metadata
+      attempts: 2
+    }
+    db.collection.mockReturnValue(buildCollectionMock([doc]))
+
+    await logTerminalFailuresIfAny('outbox', ['file-nometa'], 2, null, 'publish error', 'worker-1')
+
+    // Audit event should still be called but with minimal entities
+    expect(mockSendAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        correlationid: undefined,
+        audit: expect.objectContaining({
+          entities: [{ entity: 'document', action: 'failed', entityid: 'file-nometa' }]
+        })
+      })
+    )
   })
 })
 

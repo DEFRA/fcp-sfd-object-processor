@@ -102,6 +102,7 @@ Delivery is retried, but not forever. An entry that exhausts `OUTBOX_MAX_ATTEMPT
 |---|---|---|
 | `OUTBOX_MAX_ATTEMPTS` | `3` | Delivery attempts before an entry becomes `PERMANENT_FAILURE` |
 | `OUTBOX_CLAIM_LEASE_MS` | `300000` | How long a worker's claim on an entry stays valid before another worker may reclaim it |
+| `OUTBOX_FAILURE_GRACE_PERIOD_MS` | `30000` | Time after a claim runs out during which the worker can still record its send result. Once it has passed, an entry stuck on its last attempt is marked `PERMANENT_FAILURE` |
 | `MONGO_OUTBOX_QUERY_LIMIT` | `100` | Maximum entries claimed in a single polling run |
 | `OUTBOX_DRAIN_TIMEOUT_MS` | `5000` | On shutdown, how long to wait for an in-flight polling run to finish before closing the MongoDB connection. `0` disables the wait. An abandoned run's claimed entries are retried once the claim expires |
 
