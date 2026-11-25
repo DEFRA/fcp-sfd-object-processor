@@ -17,8 +17,8 @@ export const schemaConsts = {
 
   UPLOAD_ID_EXAMPLE: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
   JOURNEY_ID_EXAMPLE: '550e8400-e29b-41d4-a716-446655440000',
-  SUBMISSION_ID_EXAMPLE: '1733826312',
-  UOSR_EXAMPLE: '105000000_1733826312',
+  SUBMISSION_ID_EXAMPLE: 'submission-123',
+  UOSR_EXAMPLE: '800000001_submission-123',
   TYPE_EXAMPLE: 'CS_Agreement_Evidence',
   REFERENCE_EXAMPLE: 'user entered reference',
   SERVICE_EXAMPLES: ['fcp-sfd-frontend', 'rps-portal'],

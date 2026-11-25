@@ -1,5 +1,6 @@
 import Joi from 'joi'
 import { generateResponseSchemas } from '../../schemas/responses.js'
+import { submissionFields } from '../../schemas/uploader-common.js'
 import { schemaConsts } from '../../../../constants/schemas.js'
 
 const metadataPageSchema = Joi.object({
@@ -50,12 +51,10 @@ const metadataSuccessSchema = Joi.object({
           .max(schemaConsts.FRN_MAX)
           .description('Firm Reference Number')
           .example(schemaConsts.FRN_EXAMPLE),
-        submissionId: Joi.string()
-          .description('ID for all files uploaded in request')
-          .example(schemaConsts.SUBMISSION_ID_EXAMPLE),
-        uosr: Joi.string()
-          .description('Made up of sbi_submissionId')
-          .example(schemaConsts.UOSR_EXAMPLE),
+        // Shared definitions. optional() keeps the response contract as it was:
+        // stored records are returned whether or not these fields are present.
+        submissionId: submissionFields.submissionId.optional(),
+        uosr: submissionFields.uosr.optional(),
         type: Joi.string()
           .description('Name of the CRM queue the uploads should be tagged with')
           .example(schemaConsts.TYPE_EXAMPLE),
