@@ -62,10 +62,12 @@ const fileUploadBaseSchema = Joi.object({
 
   filename: Joi.string()
     .min(1)
+    .max(schemaConsts.FILENAME_MAX_LENGTH)
     .required()
-    .description('Original name of the uploaded file')
+    .description(`Original name of the uploaded file, at most ${schemaConsts.FILENAME_MAX_LENGTH} characters`)
     .messages({
-      'string.empty': EMPTY_FIELD_MESSAGE
+      'string.empty': EMPTY_FIELD_MESSAGE,
+      'string.max': `{#label} must be ${schemaConsts.FILENAME_MAX_LENGTH} characters or fewer`
     })
     .example(schemaConsts.FILENAME_EXAMPLE).label('filename'),
 

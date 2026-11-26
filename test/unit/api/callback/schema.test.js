@@ -430,6 +430,34 @@ describe('callbackPayloadSchema validation', () => {
     })
   })
 
+  describe('Metadata length bounds', () => {
+    const boundedFields = [
+      { field: 'reference', max: schemaConsts.REFERENCE_MAX_LENGTH },
+      { field: 'submissionId', max: schemaConsts.SUBMISSION_ID_MAX_LENGTH }
+    ]
+
+    test.each(boundedFields)('$field at its maximum length passes validation', ({ field, max }) => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        metadata: { ...validPayload.metadata, [field]: 'a'.repeat(max) }
+      })
+      expect(error).toBeUndefined()
+    })
+
+    test.each(boundedFields)('$field one character over its maximum fails with a message naming the field', ({ field, max }) => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        metadata: { ...validPayload.metadata, [field]: 'a'.repeat(max + 1) }
+      })
+      expect(error).toBeDefined()
+      expect(error.details).toEqual([expect.objectContaining({
+        path: ['metadata', field],
+        type: 'string.max',
+        message: `${field} must be ${max} characters or fewer`
+      })])
+    })
+  })
+
   describe('File upload validation', () => {
     const validFileUpload = validPayload.form['a-file-upload-field']
 
@@ -473,6 +501,63 @@ describe('callbackPayloadSchema validation', () => {
       })
       expect(error).toBeDefined()
       expect(error.details.some(d => d.path.includes('filename') && d.type === 'string.empty')).toBe(true)
+    })
+
+    test('filename maximum is 255 characters', () => {
+      expect(schemaConsts.FILENAME_MAX_LENGTH).toBe(255)
+    })
+
+    test('filename at its maximum length passes validation', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        form: {
+          'test-file': { ...validFileUpload, filename: 'a'.repeat(schemaConsts.FILENAME_MAX_LENGTH) }
+        }
+      })
+      expect(error).toBeUndefined()
+    })
+
+    test('filename of 255 multi-byte characters passes, so the bound counts characters not bytes', () => {
+      const filename = 'é'.repeat(schemaConsts.FILENAME_MAX_LENGTH)
+      expect(Buffer.byteLength(filename, 'utf8')).toBeGreaterThan(schemaConsts.FILENAME_MAX_LENGTH)
+
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        form: { 'test-file': { ...validFileUpload, filename } }
+      })
+      expect(error).toBeUndefined()
+    })
+
+    test('filename one character over its maximum fails with a message naming the field', () => {
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        form: {
+          'test-file': { ...validFileUpload, filename: 'a'.repeat(schemaConsts.FILENAME_MAX_LENGTH + 1) }
+        }
+      })
+      expect(error).toBeDefined()
+      expect(error.details).toEqual([expect.objectContaining({
+        path: ['form', 'test-file', 'filename'],
+        type: 'string.max',
+        message: `"filename" must be ${schemaConsts.FILENAME_MAX_LENGTH} characters or fewer`
+      })])
+    })
+
+    test('an over length filename on a rejected file fails validation', () => {
+      const rejectedFile = {
+        fileId: '550e8400-e29b-41d4-a716-446655440001',
+        filename: 'a'.repeat(schemaConsts.FILENAME_MAX_LENGTH + 1),
+        contentType: 'application/pdf',
+        fileStatus: 'rejected',
+        hasError: true,
+        errorMessage: 'File contains virus'
+      }
+      const { error } = callbackPayloadSchema.validate({
+        ...validPayload,
+        form: { 'good-file': validFileUpload, 'rejected-file': rejectedFile }
+      })
+      expect(error).toBeDefined()
+      expect(error.details.some(d => d.path.includes('rejected-file') && d.type === 'string.max')).toBe(true)
     })
 
     test('complete file missing contentType fails validation', () => {

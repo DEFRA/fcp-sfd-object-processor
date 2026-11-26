@@ -68,14 +68,16 @@ export const businessIdentifierFields = {
 // description (asserted in test/unit/constants/schemas.test.js).
 export const submissionFields = {
   submissionId: Joi.string()
+    .max(schemaConsts.SUBMISSION_ID_MAX_LENGTH)
     .required()
     .description(
-      'Submission identifier supplied by the calling service. Any non-empty string is accepted; ' +
-      'the format is not checked. On the callback, it and sbi must match the values sent at ' +
-      'initiate for the upload to keep its journey id. Sent unchanged to CRM in the document ' +
-      'upload event.'
+      'Submission identifier supplied by the calling service. Any non-empty string of at most ' +
+      `${schemaConsts.SUBMISSION_ID_MAX_LENGTH} characters is accepted; the format is not checked. ` +
+      'On the callback, it and sbi must match the values sent at initiate for the upload to keep ' +
+      'its journey id. Sent unchanged to CRM in the document upload event.'
     )
     .messages({
+      'string.max': `submissionId must be ${schemaConsts.SUBMISSION_ID_MAX_LENGTH} characters or fewer`,
       'any.required': 'submissionId is required'
     })
     .example(schemaConsts.SUBMISSION_ID_EXAMPLE),
@@ -91,9 +93,11 @@ export const submissionFields = {
     .example(schemaConsts.TYPE_EXAMPLE),
 
   reference: Joi.string()
+    .max(schemaConsts.REFERENCE_MAX_LENGTH)
     .required()
-    .description('User-entered reference for the submission')
+    .description(`User-entered reference for the submission, at most ${schemaConsts.REFERENCE_MAX_LENGTH} characters`)
     .messages({
+      'string.max': `reference must be ${schemaConsts.REFERENCE_MAX_LENGTH} characters or fewer`,
       'any.required': 'reference is required'
     })
     .example(schemaConsts.REFERENCE_EXAMPLE),

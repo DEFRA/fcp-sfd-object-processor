@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'vitest'
 import { initiatePayloadSchema } from '../../../../src/api/v1/uploader/initiate/schema.js'
+import { schemaConsts } from '../../../../src/constants/schemas.js'
 
 const mockValidPayload = {
   redirect: '/upload-complete',
@@ -204,6 +205,57 @@ describe('initiatePayloadSchema validation', () => {
       expect(error).toBeDefined()
       expect(error.details[0].path).toEqual(['metadata', 'service'])
       expect(error.details[0].type).toBe('any.only')
+    })
+  })
+
+  describe('metadata length bounds', () => {
+    const boundedFields = [
+      { field: 'reference', max: schemaConsts.REFERENCE_MAX_LENGTH, expectedMax: 170 },
+      { field: 'submissionId', max: schemaConsts.SUBMISSION_ID_MAX_LENGTH, expectedMax: 64 }
+    ]
+
+    test.each(boundedFields)('$field maximum is $expectedMax characters', ({ max, expectedMax }) => {
+      expect(max).toBe(expectedMax)
+    })
+
+    test.each(boundedFields)('$field at its maximum length passes validation', ({ field, max }) => {
+      const { error } = initiatePayloadSchema.validate({
+        ...mockValidPayload,
+        metadata: { ...mockValidPayload.metadata, [field]: 'a'.repeat(max) }
+      })
+      expect(error).toBeUndefined()
+    })
+
+    test.each(boundedFields)('$field one character over its maximum fails with a message naming the field', ({ field, max }) => {
+      const { error } = initiatePayloadSchema.validate({
+        ...mockValidPayload,
+        metadata: { ...mockValidPayload.metadata, [field]: 'a'.repeat(max + 1) }
+      })
+      expect(error).toBeDefined()
+      expect(error.details[0].path).toEqual(['metadata', field])
+      expect(error.details[0].type).toBe('string.max')
+      expect(error.details[0].message).toBe(`${field} must be ${max} characters or fewer`)
+    })
+
+    test.each(boundedFields)('$field over its maximum does not echo the value in the error message', ({ field, max }) => {
+      const value = 'q'.repeat(max + 1)
+      const { error } = initiatePayloadSchema.validate({
+        ...mockValidPayload,
+        metadata: { ...mockValidPayload.metadata, [field]: value }
+      })
+      expect(error.message).not.toContain(value)
+    })
+
+    test('a reference of 170 multi-byte characters passes, so the bound counts characters not bytes', () => {
+      // 'é' is one character but two bytes in UTF-8, so this value is 340 bytes long
+      const reference = 'é'.repeat(schemaConsts.REFERENCE_MAX_LENGTH)
+      expect(Buffer.byteLength(reference, 'utf8')).toBeGreaterThan(schemaConsts.REFERENCE_MAX_LENGTH)
+
+      const { error } = initiatePayloadSchema.validate({
+        ...mockValidPayload,
+        metadata: { ...mockValidPayload.metadata, reference }
+      })
+      expect(error).toBeUndefined()
     })
   })
 

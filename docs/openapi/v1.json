@@ -218,8 +218,9 @@
           },
           "submissionId": {
             "type": "string",
-            "description": "Submission identifier supplied by the calling service. Any non-empty string is accepted; the format is not checked. On the callback, it and sbi must match the values sent at initiate for the upload to keep its journey id. Sent unchanged to CRM in the document upload event.",
-            "example": "submission-123"
+            "description": "Submission identifier supplied by the calling service. Any non-empty string of at most 64 characters is accepted; the format is not checked. On the callback, it and sbi must match the values sent at initiate for the upload to keep its journey id. Sent unchanged to CRM in the document upload event.",
+            "example": "submission-123",
+            "maxLength": 64
           },
           "uosr": {
             "type": "string",
@@ -623,16 +624,18 @@
           },
           "submissionId": {
             "type": "string",
-            "description": "Submission identifier supplied by the calling service. Any non-empty string is accepted; the format is not checked. On the callback, it and sbi must match the values sent at initiate for the upload to keep its journey id. Sent unchanged to CRM in the document upload event.",
-            "example": "submission-123"
+            "description": "Submission identifier supplied by the calling service. Any non-empty string of at most 64 characters is accepted; the format is not checked. On the callback, it and sbi must match the values sent at initiate for the upload to keep its journey id. Sent unchanged to CRM in the document upload event.",
+            "example": "submission-123",
+            "maxLength": 64
           },
           "type": {
             "$ref": "#/components/schemas/type"
           },
           "reference": {
             "type": "string",
-            "description": "User-entered reference for the submission",
-            "example": "user entered reference"
+            "description": "User-entered reference for the submission, at most 170 characters",
+            "example": "user entered reference",
+            "maxLength": 170
           },
           "service": {
             "$ref": "#/components/schemas/service"
@@ -768,16 +771,18 @@
           },
           "submissionId": {
             "type": "string",
-            "description": "Submission identifier supplied by the calling service. Any non-empty string is accepted; the format is not checked. On the callback, it and sbi must match the values sent at initiate for the upload to keep its journey id. Sent unchanged to CRM in the document upload event.",
-            "example": "submission-123"
+            "description": "Submission identifier supplied by the calling service. Any non-empty string of at most 64 characters is accepted; the format is not checked. On the callback, it and sbi must match the values sent at initiate for the upload to keep its journey id. Sent unchanged to CRM in the document upload event.",
+            "example": "submission-123",
+            "maxLength": 64
           },
           "type": {
             "$ref": "#/components/schemas/type"
           },
           "reference": {
             "type": "string",
-            "description": "User-entered reference for the submission",
-            "example": "user entered reference"
+            "description": "User-entered reference for the submission, at most 170 characters",
+            "example": "user entered reference",
+            "maxLength": 170
           },
           "service": {
             "$ref": "#/components/schemas/service"
@@ -875,7 +880,8 @@
             "type": "string",
             "description": "Original name of the uploaded file",
             "example": "document.pdf",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 255
           },
           "contentType": {
             "type": "string",

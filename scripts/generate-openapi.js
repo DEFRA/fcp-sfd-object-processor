@@ -84,7 +84,8 @@ const generateOpenapi = async (outputPath = './docs/openapi/v1.json') => {
             type: 'string',
             description: 'Original name of the uploaded file',
             example: 'document.pdf',
-            minLength: 1
+            minLength: 1,
+            maxLength: schemaConsts.FILENAME_MAX_LENGTH
           },
           contentType: {
             type: 'string',

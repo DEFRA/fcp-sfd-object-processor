@@ -209,7 +209,9 @@ components:
 
     submissionId:
       type: string
-      description: "Submission identifier supplied by the calling service. Any non-empty string is accepted; the format is not checked. On the callback, it and sbi must match the values sent at initiate for the upload to keep its journey id. Sent unchanged to CRM in the document upload event."
+      description: "Submission identifier supplied by the calling service. Any non-empty string of at most 64 characters is accepted; the format is not checked. On the callback, it and sbi must match the values sent at initiate for the upload to keep its journey id. Sent unchanged to CRM in the document upload event."
+      minLength: 1
+      maxLength: 64
       example: "submission-123"
 
     time:
