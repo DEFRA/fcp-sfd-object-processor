@@ -22,3 +22,21 @@ ignore:
           either package publishes a fix.
         expires: 2026-12-17T00:00:00.000Z
         created: 2026-10-06T00:00:00.000Z
+  SNYK-JS-MONGODB-22958511:
+    - '*':
+        reason: >-
+          Fixed in mongodb@7.9.1. Newly disclosed against mongodb@7.9.0 while
+          unrelated FLS1-241 work was in review; the driver upgrade is deferred to
+          its own dependency PR so it can be tested against MongoDB on its own.
+          Remove this entry when mongodb is bumped to 7.9.1 or later.
+        expires: 2026-12-26T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
+  SNYK-JS-MONGODB-22958515:
+    - '*':
+        reason: >-
+          Fixed in mongodb@7.9.1. Newly disclosed against mongodb@7.9.0 while
+          unrelated FLS1-241 work was in review; the driver upgrade is deferred to
+          its own dependency PR so it can be tested against MongoDB on its own.
+          Remove this entry when mongodb is bumped to 7.9.1 or later.
+        expires: 2026-12-26T00:00:00.000Z
+        created: 2026-11-26T00:00:00.000Z
