@@ -8,5 +8,6 @@ export const METRIC_OUTCOME = Object.freeze({
 
 export const PUBLISH_FAILURE_OUTCOME = Object.freeze({
   RETRYABLE: 'retryable',
-  PERMANENT: 'permanent'
+  PERMANENT: 'permanent',
+  ABANDONED: 'abandoned'
 })

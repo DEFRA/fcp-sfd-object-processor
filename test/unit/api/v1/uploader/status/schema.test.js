@@ -61,14 +61,14 @@ const rejectedFile = {
 }
 
 const validMetadata = {
-  sbi: 105000000,
-  crn: 1050000000,
+  sbi: 805000000,
+  crn: 9050000000,
   frn: 1102658375,
-  submissionId: '1733826312',
+  submissionId: '1733826312', // sfd-id-check: allow
   type: 'CS_Agreement_Evidence',
   reference: 'user entered reference',
   service: 'fcp-sfd-frontend',
-  uosr: '105000000_1733826312'
+  uosr: '105000000_1733826312' // sfd-id-check: allow
 }
 
 const validReadyResponse = {
@@ -466,7 +466,7 @@ describe('cdpUploaderStatusResponseSchema', () => {
       // cdpUploaderStatusResponseSchema uses permissive Joi.object() — partial metadata passes
       const payload = {
         ...validReadyResponse,
-        metadata: { sbi: 105000000 }
+        metadata: { sbi: 805000000 }
       }
       const { error } = cdpUploaderStatusResponseSchema.validate(payload)
       expect(error).toBeUndefined()

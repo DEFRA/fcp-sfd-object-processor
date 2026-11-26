@@ -287,7 +287,7 @@ describe('Status Mappers', () => {
       expect(result).toEqual([
         {
           correlationId: '550e8400-e29b-41d4-a716-446655440000',
-          sbi: 105000000,
+          sbi: 805000000,
           fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
           timestamp: new Date('2026-02-26T10:00:00Z'),
           validated: true,
@@ -295,7 +295,7 @@ describe('Status Mappers', () => {
         },
         {
           correlationId: '550e8400-e29b-41d4-a716-446655440000',
-          sbi: 205000000,
+          sbi: 805000000,
           fileId: '3f90b889-eac7-4e98-975f-93fcef5b8554',
           timestamp: new Date('2026-02-26T10:00:00Z'),
           validated: true,
@@ -312,7 +312,7 @@ describe('Status Mappers', () => {
 
     test('should handle single document', () => {
       const result = buildValidatedStatusDocuments([{
-        metadata: { sbi: 105000000 },
+        metadata: { sbi: 805000000 },
         file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' },
         messaging: { correlationId: '550e8400-e29b-41d4-a716-446655440000' }
       }])
@@ -320,7 +320,7 @@ describe('Status Mappers', () => {
       expect(result).toHaveLength(1)
       expect(result[0]).toMatchObject({
         correlationId: '550e8400-e29b-41d4-a716-446655440000',
-        sbi: 105000000,
+        sbi: 805000000,
         fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
         validated: true,
         errors: null
@@ -329,7 +329,7 @@ describe('Status Mappers', () => {
 
     test('timestamp should be a Date instance', () => {
       const result = buildValidatedStatusDocuments([{
-        metadata: { sbi: 105000000 },
+        metadata: { sbi: 805000000 },
         file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' },
         messaging: { correlationId: '550e8400-e29b-41d4-a716-446655440000' }
       }])
@@ -355,7 +355,7 @@ describe('Status Mappers', () => {
       expect(result).toEqual([
         {
           correlationId: '550e8400-e29b-41d4-a716-446655440000',
-          sbi: 105000000,
+          sbi: 805000000,
           fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
           timestamp: new Date('2026-02-26T10:00:00Z'),
           validated: false,
@@ -369,7 +369,7 @@ describe('Status Mappers', () => {
         },
         {
           correlationId: '550e8400-e29b-41d4-a716-446655440000',
-          sbi: 105000000,
+          sbi: 805000000,
           fileId: '3f90b889-eac7-4e98-975f-93fcef5b8554',
           timestamp: new Date('2026-02-26T10:00:00Z'),
           validated: false,
@@ -395,7 +395,7 @@ describe('Status Mappers', () => {
       expect(result).toEqual([
         {
           correlationId: '550e8400-e29b-41d4-a716-446655440000',
-          sbi: 105000000,
+          sbi: 805000000,
           fileId: 'unknown',
           timestamp: new Date('2026-02-26T10:00:00Z'),
           validated: false,
@@ -412,7 +412,7 @@ describe('Status Mappers', () => {
 
     test('should use "unknown" fileId when form is missing', () => {
       const result = buildValidationFailureStatusDocuments(
-        { metadata: { sbi: 123456789 }, submissionId: 'sub-123' },
+        { metadata: { sbi: 823456789 }, submissionId: 'sub-123' },
         { details: [{ path: ['form'], type: 'any.required', context: { value: undefined } }] },
         '550e8400-e29b-41d4-a716-446655440000'
       )
@@ -423,7 +423,7 @@ describe('Status Mappers', () => {
 
     test('should use "unknown" fileId when form is empty', () => {
       const result = buildValidationFailureStatusDocuments(
-        { metadata: { sbi: 123456789 }, form: {}, submissionId: 'sub-123' },
+        { metadata: { sbi: 823456789 }, form: {}, submissionId: 'sub-123' },
         mockRequiredFieldError,
         '550e8400-e29b-41d4-a716-446655440000'
       )
@@ -435,7 +435,7 @@ describe('Status Mappers', () => {
     test('should filter out non-object form values', () => {
       const result = buildValidationFailureStatusDocuments(
         {
-          metadata: { sbi: 123456789 },
+          metadata: { sbi: 823456789 },
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' }, text: 'string value', number: 42 },
           submissionId: 'sub-123'
         },
@@ -450,7 +450,7 @@ describe('Status Mappers', () => {
     test('should filter out null values in form', () => {
       const result = buildValidationFailureStatusDocuments(
         {
-          metadata: { sbi: 123456789 },
+          metadata: { sbi: 823456789 },
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' }, nullField: null },
           submissionId: 'sub-123'
         },
@@ -465,7 +465,7 @@ describe('Status Mappers', () => {
     test('should filter out objects without fileId', () => {
       const result = buildValidationFailureStatusDocuments(
         {
-          metadata: { sbi: 123456789 },
+          metadata: { sbi: 823456789 },
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' }, noFileId: { name: 'field' } },
           submissionId: 'sub-123'
         },
@@ -480,7 +480,7 @@ describe('Status Mappers', () => {
     test('should filter out objects with empty fileId', () => {
       const result = buildValidationFailureStatusDocuments(
         {
-          metadata: { sbi: 123456789 },
+          metadata: { sbi: 823456789 },
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' }, emptyFileId: { fileId: '' } },
           submissionId: 'sub-123'
         },
@@ -495,7 +495,7 @@ describe('Status Mappers', () => {
     test('should filter out objects with non-string fileId', () => {
       const result = buildValidationFailureStatusDocuments(
         {
-          metadata: { sbi: 123456789 },
+          metadata: { sbi: 823456789 },
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' }, numericFileId: { fileId: 12345 } },
           submissionId: 'sub-123'
         },
@@ -510,7 +510,7 @@ describe('Status Mappers', () => {
     test('should extract sbi from payload', () => {
       const result = buildValidationFailureStatusDocuments(
         {
-          metadata: { sbi: 105000000 },
+          metadata: { sbi: 805000000 },
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' } },
           submissionId: 'sub-123'
         },
@@ -518,7 +518,7 @@ describe('Status Mappers', () => {
         '550e8400-e29b-41d4-a716-446655440000'
       )
 
-      expect(result[0].sbi).toBe(105000000)
+      expect(result[0].sbi).toBe(805000000)
     })
 
     test('should return null sbi when sbi is missing', () => {
@@ -552,11 +552,11 @@ describe('Status Mappers', () => {
     test('should return null sbi when sbi is a float', () => {
       const result = buildValidationFailureStatusDocuments(
         {
-          metadata: { sbi: 105000000.5 },
+          metadata: { sbi: 805000000.5 },
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' } },
           submissionId: 'sub-123'
         },
-        { details: [{ path: ['metadata', 'sbi'], type: 'number.integer', context: { value: 105000000.5 } }] },
+        { details: [{ path: ['metadata', 'sbi'], type: 'number.integer', context: { value: 805000000.5 } }] },
         '550e8400-e29b-41d4-a716-446655440000'
       )
 
@@ -579,7 +579,7 @@ describe('Status Mappers', () => {
     test('should handle multiple validation errors', () => {
       const result = buildValidationFailureStatusDocuments(
         {
-          metadata: { sbi: 105000000 },
+          metadata: { sbi: 805000000 },
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' } },
           submissionId: 'sub-123'
         },
@@ -610,7 +610,7 @@ describe('Status Mappers', () => {
     test('timestamp should be a Date instance', () => {
       const result = buildValidationFailureStatusDocuments(
         {
-          metadata: { sbi: 105000000 },
+          metadata: { sbi: 805000000 },
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' } },
           submissionId: 'sub-123'
         },
@@ -624,7 +624,7 @@ describe('Status Mappers', () => {
     test('validated should be false', () => {
       const result = buildValidationFailureStatusDocuments(
         {
-          metadata: { sbi: 105000000 },
+          metadata: { sbi: 805000000 },
           form: { file: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' } },
           submissionId: 'sub-123'
         },
@@ -638,7 +638,7 @@ describe('Status Mappers', () => {
     test('should extract fileIds from array in form', () => {
       const result = buildValidationFailureStatusDocuments(
         {
-          metadata: { sbi: 105000000 },
+          metadata: { sbi: 805000000 },
           form: {
             documents: [
               { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' },
@@ -659,7 +659,7 @@ describe('Status Mappers', () => {
     test('should extract fileIds from mixed single and array form entries', () => {
       const result = buildValidationFailureStatusDocuments(
         {
-          metadata: { sbi: 105000000 },
+          metadata: { sbi: 805000000 },
           form: {
             single: { fileId: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13' },
             documents: [
@@ -682,7 +682,7 @@ describe('Status Mappers', () => {
     test('should filter out non-file entries in arrays', () => {
       const result = buildValidationFailureStatusDocuments(
         {
-          metadata: { sbi: 105000000 },
+          metadata: { sbi: 805000000 },
           form: {
             documents: [
               'string value',
@@ -705,7 +705,7 @@ describe('Status Mappers', () => {
     test('should use "unknown" when array contains only non-file entries', () => {
       const result = buildValidationFailureStatusDocuments(
         {
-          metadata: { sbi: 105000000 },
+          metadata: { sbi: 805000000 },
           form: {
             documents: [
               'string value',

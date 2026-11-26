@@ -4,6 +4,7 @@ import { DELIVERY_OUTCOME } from '../../../../src/constants/outbox.js'
 
 const mocks = vi.hoisted(() => ({
   claim: vi.fn(),
+  failExhausted: vi.fn(),
   finalize: vi.fn(),
   logTerminal: vi.fn(),
   getPendingOutboxMetrics: vi.fn().mockResolvedValue({ count: 0, oldestCreatedAt: null }),
@@ -24,6 +25,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../../../../src/repos/outbox.js', () => ({
   claimProcessableOutboxEntries: mocks.claim,
+  failExhaustedAbandonedOutboxEntries: mocks.failExhausted,
   finalizeClaimedOutboxEntries: mocks.finalize,
   logTerminalFailuresIfAny: mocks.logTerminal,
   getPendingOutboxMetrics: mocks.getPendingOutboxMetrics
@@ -86,10 +88,36 @@ describe('publishPendingMessages', () => {
       endSession: vi.fn()
     }
     mocks.startSession.mockReturnValue(session)
+    mocks.failExhausted.mockResolvedValue([])
     mocks.finalize.mockResolvedValue({ acknowledged: true, matchedCount: 1 })
     mocks.logTerminal.mockResolvedValue(undefined)
     mocks.updatePublishedAt.mockResolvedValue({ acknowledged: true })
     mocks.publishBatch.mockResolvedValue({ Successful: [], Failed: [] })
+  })
+
+  test('sweeps exhausted abandoned entries once per poll, with the worker ID, before claiming new entries', async () => {
+    mocks.claim.mockResolvedValue([])
+
+    await publishPendingMessages()
+
+    expect(mocks.failExhausted).toHaveBeenCalledTimes(1)
+    expect(mocks.failExhausted).toHaveBeenCalledWith('worker-1')
+    expect(mocks.failExhausted.mock.invocationCallOrder[0]).toBeLessThan(mocks.claim.mock.invocationCallOrder[0])
+  })
+
+  test('still claims and publishes new entries when the sweep fails', async () => {
+    mocks.failExhausted.mockRejectedValueOnce(new Error('database unavailable'))
+    mocks.claim.mockResolvedValue([buildEntry('success')])
+    mocks.publishBatch.mockResolvedValue({ Successful: [{ Id: 'file-success' }], Failed: [] })
+
+    await expect(publishPendingMessages()).resolves.toBeUndefined()
+
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({ event: expect.objectContaining({ type: 'outbox_sweep_failure' }) }),
+      expect.any(String)
+    )
+    expect(mocks.claim).toHaveBeenCalledWith('worker-1')
+    expect(mocks.publishBatch).toHaveBeenCalledTimes(1)
   })
 
   test('claims with the process worker ID and finalizes SNS results by outbox ID', async () => {

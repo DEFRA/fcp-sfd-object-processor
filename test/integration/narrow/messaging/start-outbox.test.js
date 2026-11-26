@@ -168,7 +168,7 @@ describe('Outbox message processing', () => {
     const metadataEntries = [
       {
         _id: metadataId1,
-        metadata: { sbi: '105000003', crn: '1050000003' },
+        metadata: { sbi: '805000003', crn: '9050000003' },
         file: { fileId: 'file-3', filename: 'test3.pdf', fileStatus: 'complete' },
         s3: { key: 's3-key-3', bucket: 'test-bucket' },
         messaging: { publishedAt: null, correlationId: 'mock-correlation-id' }
@@ -176,7 +176,7 @@ describe('Outbox message processing', () => {
       },
       {
         _id: metadataId2,
-        metadata: { sbi: '105000004', crn: '1050000004' },
+        metadata: { sbi: '805000004', crn: '9050000004' },
         file: { fileId: 'file-4', filename: 'test4.pdf', fileStatus: 'complete' },
         s3: { key: 's3-key-4', bucket: 'test-bucket' },
         messaging: { publishedAt: null, correlationId: 'mock-correlation-id' }

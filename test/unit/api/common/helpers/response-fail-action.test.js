@@ -18,7 +18,7 @@ const invalidFileId = 'not-a-uuid-value'
 const filename = 'sensitive-filename.pdf'
 
 const mockRequest = {
-  path: '/api/v1/metadata/sbi/105000000',
+  path: '/api/v1/metadata/sbi/805000000',
   method: 'get'
 }
 

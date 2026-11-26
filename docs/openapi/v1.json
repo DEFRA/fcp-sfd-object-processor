@@ -235,13 +235,13 @@
           },
           "submissionId": {
             "type": "string",
-            "description": "ID for all files uploaded in request",
-            "example": "1733826312"
+            "description": "Submission identifier supplied by the calling service. Any non-empty string is accepted; the format is not checked. On the callback, it and sbi must match the values sent at initiate for the upload to keep its journey id. Sent unchanged to CRM in the document upload event.",
+            "example": "submission-123"
           },
           "uosr": {
             "type": "string",
-            "description": "Made up of sbi_submissionId",
-            "example": "105000000_1733826312"
+            "description": "Object storage reference supplied by the calling service. Any non-empty string is accepted. The service does not check its format or uniqueness, or that it combines sbi and submissionId. Stored with the file metadata and returned by the metadata and status endpoints. Not sent to CRM.",
+            "example": "800000001_submission-123"
           },
           "type": {
             "type": "string",
@@ -640,8 +640,8 @@
           },
           "submissionId": {
             "type": "string",
-            "description": "Unique identifier for the submission",
-            "example": "1733826312"
+            "description": "Submission identifier supplied by the calling service. Any non-empty string is accepted; the format is not checked. On the callback, it and sbi must match the values sent at initiate for the upload to keep its journey id. Sent unchanged to CRM in the document upload event.",
+            "example": "submission-123"
           },
           "type": {
             "$ref": "#/components/schemas/type"
@@ -656,8 +656,8 @@
           },
           "uosr": {
             "type": "string",
-            "description": "Unique Object Storage Reference combining SBI and submission ID",
-            "example": "105000000_1733826312"
+            "description": "Object storage reference supplied by the calling service. Any non-empty string is accepted. The service does not check its format or uniqueness, or that it combines sbi and submissionId. Stored with the file metadata and returned by the metadata and status endpoints. Not sent to CRM.",
+            "example": "800000001_submission-123"
           },
           "journeyId": {
             "type": "string",
@@ -785,8 +785,8 @@
           },
           "submissionId": {
             "type": "string",
-            "description": "Unique identifier for the submission",
-            "example": "1733826312"
+            "description": "Submission identifier supplied by the calling service. Any non-empty string is accepted; the format is not checked. On the callback, it and sbi must match the values sent at initiate for the upload to keep its journey id. Sent unchanged to CRM in the document upload event.",
+            "example": "submission-123"
           },
           "type": {
             "$ref": "#/components/schemas/type"
@@ -801,8 +801,8 @@
           },
           "uosr": {
             "type": "string",
-            "description": "Unique Object Storage Reference combining SBI and submission ID",
-            "example": "105000000_1733826312"
+            "description": "Object storage reference supplied by the calling service. Any non-empty string is accepted. The service does not check its format or uniqueness, or that it combines sbi and submissionId. Stored with the file metadata and returned by the metadata and status endpoints. Not sent to CRM.",
+            "example": "800000001_submission-123"
           }
         },
         "required": [
@@ -1225,8 +1225,8 @@
                           "sbi": 105000000,
                           "crn": 1050000000,
                           "frn": 1102658375,
-                          "submissionId": "1733826312",
-                          "uosr": "105000000_1733826312",
+                          "submissionId": "submission-123",
+                          "uosr": "800000001_submission-123",
                           "type": "CS_Agreement_Evidence",
                           "reference": "user entered reference",
                           "service": "fcp-sfd-frontend"
@@ -1263,8 +1263,8 @@
                           "sbi": 105000000,
                           "crn": 1050000000,
                           "frn": 1102658375,
-                          "submissionId": "1733826312",
-                          "uosr": "105000000_1733826312",
+                          "submissionId": "submission-123",
+                          "uosr": "800000001_submission-123",
                           "type": "CS_Agreement_Evidence",
                           "reference": "user entered reference",
                           "service": "fcp-sfd-frontend"
@@ -1294,8 +1294,8 @@
                           "sbi": 105000000,
                           "crn": 1050000000,
                           "frn": 1102658375,
-                          "submissionId": "1733826312",
-                          "uosr": "105000000_1733826312",
+                          "submissionId": "submission-123",
+                          "uosr": "800000001_submission-123",
                           "type": "CS_Agreement_Evidence",
                           "reference": "user entered reference",
                           "service": "fcp-sfd-frontend"

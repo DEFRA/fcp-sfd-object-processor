@@ -57,14 +57,14 @@ const JOURNEY_ID = '550e8400-e29b-41d4-a716-446655440000'
 const GENERATED_ID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
 
 const businessMetadata = {
-  sbi: 105000000,
-  crn: 1101009926,
+  sbi: 805000000,
+  crn: 9101009926,
   frn: 1101009900,
-  submissionId: '1733826312',
+  submissionId: '1733826312', // sfd-id-check: allow
   type: 'CS_Agreement_Evidence',
   reference: 'a reference',
   service: 'fcp-sfd-frontend',
-  uosr: '105000000-1733826312'
+  uosr: '805000000-1733826312' // sfd-id-check: allow
 }
 
 const buildMockRequest = (metadata = businessMetadata) => ({

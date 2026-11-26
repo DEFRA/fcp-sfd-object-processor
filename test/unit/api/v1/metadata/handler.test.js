@@ -9,6 +9,9 @@ const { mockConfigGet } = vi.hoisted(() => ({
       case 'tracing.header': return 'x-cdp-request-id'
       case 'mongo.metadataSbiPageSize': return 100
       case 'mongo.metadataSbiMaxPageSize': return 200
+      // Read when the shared uploader schemas load; the metadata response reuses them.
+      case 'cdpUploaderMimeTypes': return ['application/pdf']
+      case 'cdpUploaderDocumentTypes': return ['CS_Agreement_Evidence']
       default: return null
     }
   })
@@ -36,7 +39,7 @@ const { metadataQuerySchema } = await import('../../../../../src/api/v1/metadata
 const { responseFailAction } = await import('../../../../../src/api/common/helpers/response-fail-action.js')
 const { NotFoundError } = await import('../../../../../src/errors/not-found-error.js')
 
-const sbi = 105000000
+const sbi = 805000000
 const pageSize = 2
 const cursor = '66f9c1e2a3b4c5d6e7f80912'
 

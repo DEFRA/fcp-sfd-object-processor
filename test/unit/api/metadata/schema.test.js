@@ -33,7 +33,7 @@ describe('Schema validation for /metadata', () => {
   })
 
   test('rejects a string longer than 9 digits', () => {
-    const { error } = metadataParamSchema.validate({ sbi: '1234567890' })
+    const { error } = metadataParamSchema.validate({ sbi: '9234567890' })
     expect(error).toBeDefined()
     expect(error.details[0].message).toBe(errorMessage)
   })

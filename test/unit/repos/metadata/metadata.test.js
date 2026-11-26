@@ -288,7 +288,7 @@ describe('getS3ReferenceAndAccountsByFileId', () => {
   })
 
   test('returns s3 projection when document exists', async () => {
-    const document = { s3: { key: 'k', bucket: 'b' }, metadata: { sbi: 105000000, crn: 1050000000 } }
+    const document = { s3: { key: 'k', bucket: 'b' }, metadata: { sbi: 805000000, crn: 9050000000 } }
     queryCollection.findOne.mockResolvedValue(document)
 
     const result = await getS3ReferenceAndAccountsByFileId('file-1')
@@ -344,7 +344,7 @@ describe('getMetadataPageBySbi', () => {
   let mockLimit
   let mockToArray
 
-  const sbi = 105000000
+  const sbi = 805000000
   const pageSize = 2
 
   const buildDocument = () => ({

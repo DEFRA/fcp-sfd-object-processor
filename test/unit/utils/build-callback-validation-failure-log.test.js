@@ -133,7 +133,7 @@ describe('buildCallbackValidationFailureLog', () => {
   })
 
   test('masks the CRN in error messages and stack traces', () => {
-    const crn = '1050000001'
+    const crn = '9050000001'
     const request = {
       ...mockRequest,
       payload: { metadata: { crn } }
@@ -201,6 +201,29 @@ describe('buildCallbackValidationFailureLog', () => {
     const request = {
       ...mockRequest,
       payload: { metadata: { uosr: 'sub-123', service: 123 } }
+    }
+    const log = buildCallbackValidationFailureLog(request, err, mockCorrelationId)
+    expect(log).not.toHaveProperty('tenant')
+  })
+
+  test('omits tenant when metadata.service is not an allowed source system', () => {
+    const request = {
+      ...mockRequest,
+      payload: { metadata: { uosr: 'sub-123', service: 'unknown-service' } }
+    }
+    const log = buildCallbackValidationFailureLog(request, err, mockCorrelationId)
+    expect(log).not.toHaveProperty('tenant')
+  })
+
+  test('omits tenant for a forged sourceSystem pair', () => {
+    const request = {
+      ...mockRequest,
+      payload: {
+        metadata: {
+          uosr: 'sub-123',
+          service: 'rps-portal sourceSystem=fcp-sfd-frontend'
+        }
+      }
     }
     const log = buildCallbackValidationFailureLog(request, err, mockCorrelationId)
     expect(log).not.toHaveProperty('tenant')
