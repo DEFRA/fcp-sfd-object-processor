@@ -5,6 +5,7 @@ import Joi from 'joi'
 
 const schemas = generateResponseSchemas(Joi.object({ id: Joi.string() }))
 const unauthorizedSchema = schemas[httpConstants.HTTP_STATUS_UNAUTHORIZED]
+const forbiddenSchema = schemas[httpConstants.HTTP_STATUS_FORBIDDEN]
 const errorMessage = 'Missing authentication'
 
 describe('unauthorizedResponseSchema', () => {
@@ -84,6 +85,15 @@ describe('generateResponseSchemas', () => {
     expect(schemas[httpConstants.HTTP_STATUS_BAD_REQUEST]).toBeDefined()
     expect(schemas[httpConstants.HTTP_STATUS_NOT_FOUND]).toBeDefined()
     expect(schemas[httpConstants.HTTP_STATUS_INTERNAL_SERVER_ERROR]).toBeDefined()
+  })
+
+  test('includes a Forbidden schema for insufficient scope responses', () => {
+    expect(forbiddenSchema.validate({
+      statusCode: httpConstants.HTTP_STATUS_FORBIDDEN,
+      error: 'Forbidden',
+      message: 'Insufficient scope'
+    }).error).toBeUndefined()
+    expect(forbiddenSchema.describe().flags.label).toBe('Forbidden')
   })
 })
 

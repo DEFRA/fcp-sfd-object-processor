@@ -113,7 +113,12 @@ describe('getEntraAuthProvider', () => {
       const payload = { typ: 'JWT', sub: 'user-123', iss: issuerV1For('tenant-a-id'), groups: ['group-1', 'group-3'] }
       const result = await validate(payload)
       expect(result.isValid).toBe(true)
-      expect(result.credentials).toEqual({ token: payload, principalId: 'user-123', provider: 'entra' })
+      expect(result.credentials).toEqual({
+        token: payload,
+        principalId: 'user-123',
+        provider: 'entra',
+        scope: ['sfd-object-processor:access']
+      })
     })
 
     test('should return valid result for valid JWT token with allowed groups (v2.0 issuer)', async () => {
@@ -142,40 +147,40 @@ describe('getEntraAuthProvider', () => {
       expect(result.isValid).toBe(true)
     })
 
-    test('should reject a tenant-b token containing only tenant-a groups', async () => {
+    test('should accept a recognized token without scope when it contains only another tenant groups', async () => {
       const payload = { typ: 'JWT', sub: 'user-456', iss: issuerV1For('tenant-b-id'), groups: ['group-1', 'group-2'] }
       const result = await validate(payload)
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('Token does not belong to an authorized Security Group')
+      expect(result.isValid).toBe(true)
+      expect(result.credentials.principalId).toBe('user-456')
+      expect(result.credentials.scope).toBeUndefined()
     })
 
-    // Invalid token rejection
-    test('should reject token without matching security groups', async () => {
+    test('should accept a recognized token without scope when it has no matching security groups', async () => {
       const payload = { typ: 'JWT', sub: 'user-123', iss: issuerV1For('tenant-a-id'), groups: ['group-3', 'group-4'] }
       const result = await validate(payload)
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('Token does not belong to an authorized Security Group')
+      expect(result.isValid).toBe(true)
+      expect(result.credentials.scope).toBeUndefined()
     })
 
-    test('should reject token without groups claim', async () => {
+    test('should accept a recognized token without scope when it has no groups claim', async () => {
       const payload = { typ: 'JWT', sub: 'user-123', iss: issuerV1For('tenant-a-id') }
       const result = await validate(payload)
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('Token does not belong to an authorized Security Group')
+      expect(result.isValid).toBe(true)
+      expect(result.credentials.scope).toBeUndefined()
     })
 
-    test('should reject token when groups claim is not an array', async () => {
+    test('should accept a recognized token without scope when groups claim is not an array', async () => {
       const payload = { typ: 'JWT', sub: 'user-123', iss: issuerV1For('tenant-a-id'), groups: 'not-an-array' }
       const result = await validate(payload)
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('Token does not belong to an authorized Security Group')
+      expect(result.isValid).toBe(true)
+      expect(result.credentials.scope).toBeUndefined()
     })
 
-    test('should reject token with empty groups array', async () => {
+    test('should accept a recognized token without scope when groups array is empty', async () => {
       const payload = { typ: 'JWT', sub: 'user-123', iss: issuerV1For('tenant-a-id'), groups: [] }
       const result = await validate(payload)
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('Token does not belong to an authorized Security Group')
+      expect(result.isValid).toBe(true)
+      expect(result.credentials.scope).toBeUndefined()
     })
 
     test('should reject token with invalid token type', async () => {

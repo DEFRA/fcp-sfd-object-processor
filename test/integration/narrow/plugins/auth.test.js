@@ -1,11 +1,17 @@
 import Hapi from '@hapi/hapi'
 import jwt from '@hapi/jwt'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { generateKeyPairSync } from 'node:crypto'
+import { afterAll, afterEach, beforeAll, describe, expect, test, vi } from 'vitest'
+import { AUTH_ALLOWED_SCOPE } from '../../../../src/constants/auth.js'
 
 // The audit publisher fires from the plugin's onPreResponse hook. It is mocked so nothing here can
 // attempt a real SNS publish.
 vi.mock('../../../../src/messaging/outbound/audit/send-audit-event.js', () => ({
   sendAuditEvent: vi.fn().mockResolvedValue(undefined)
+}))
+
+vi.mock('../../../../src/logging/logger.js', () => ({
+  createLogger: () => ({ warn: vi.fn(), error: vi.fn(), info: vi.fn() })
 }))
 
 const ENTRA_TENANTS = [
@@ -81,6 +87,7 @@ describe('auth plugin registration against a real hapi server', () => {
     const server = await buildServer(BOTH_PROVIDERS_ENV)
 
     expect(server.auth.settings.default.mode).toEqual('required')
+    expect(server.auth.settings.default.access[0].scope.selection).toEqual([AUTH_ALLOWED_SCOPE])
   })
 
   test('should register when only Entra is enabled', async () => {
@@ -133,5 +140,130 @@ describe('auth plugin registration against a real hapi server', () => {
 
     expect(response.statusCode).toEqual(200)
     await server.stop()
+  })
+})
+
+describe('authorization scope with signed Cognito-style tokens', () => {
+  const issuer = 'https://cognito.example.test/pool'
+  const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
+  let protectedServer
+
+  const buildProtectedServer = async () => {
+    const { createAuthStrategy } = await import('../../../../src/plugins/auth/create-auth-strategy.js')
+    const publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' })
+    const privateKeyPem = privateKey.export({ type: 'pkcs8', format: 'pem' })
+    const options = createAuthStrategy([{
+      name: 'cognito',
+      jwksUris: [],
+      issuers: [issuer],
+      getAllowedList: () => ['permitted-client'],
+      checkAllowed: (payload, allowedIds) => ({
+        allowed: allowedIds.includes(payload.client_id),
+        failureContext: { clientId: payload.client_id }
+      }),
+      getPrincipalId: (payload) => payload.client_id,
+      emptyListMessage: 'No authorized Cognito client IDs configured',
+      unauthorisedMessage: 'Token client_id is not in the list of authorized Cognito client IDs'
+    }])
+
+    options.keys = [{ key: publicKeyPem, algorithms: ['RS256'], kid: 'auth-test-key' }]
+
+    const server = Hapi.server()
+    await server.register(jwt)
+    server.auth.strategy('bearer', 'jwt', options)
+    server.auth.default({
+      strategy: 'bearer',
+      access: [{ scope: [AUTH_ALLOWED_SCOPE] }]
+    })
+    server.route([
+      {
+        method: 'GET',
+        path: '/api/v1/blob/{fileId}',
+        handler: () => ({ url: 'https://private.example.test/presigned-url' })
+      },
+      {
+        method: 'GET',
+        path: '/api/v1/metadata/sbi/{sbi}',
+        handler: () => ({ metadata: 'private metadata' })
+      },
+      {
+        method: 'GET',
+        path: '/health',
+        options: { auth: false },
+        handler: () => ({ status: 'ok' })
+      },
+      {
+        method: 'POST',
+        path: '/api/v1/callback',
+        options: { auth: false },
+        handler: (_request, h) => h.response({ accepted: true }).code(201)
+      }
+    ])
+    await server.initialize()
+
+    return {
+      server,
+      makeToken: (clientId) => jwt.token.generate({
+        iss: issuer,
+        client_id: clientId,
+        sub: 'cognito-subject',
+        typ: 'JWT'
+      }, { key: privateKeyPem, algorithm: 'RS256' }, {
+        header: { kid: 'auth-test-key' }
+      })
+    }
+  }
+
+  beforeAll(async () => {
+    protectedServer = await buildProtectedServer()
+  })
+
+  afterAll(async () => {
+    await protectedServer.server.stop()
+  })
+
+  test.each([
+    '/api/v1/blob/9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+    '/api/v1/metadata/sbi/805000000'
+  ])('returns 403 without protected data for a valid token from a denied caller: %s', async (path) => {
+    const { server, makeToken } = protectedServer
+    const response = await server.inject({
+      method: 'GET',
+      url: path,
+      headers: { authorization: ['Bearer', makeToken('denied-client')].join(' ') }
+    })
+
+    expect(response.statusCode, JSON.stringify(response.result)).toBe(403)
+    expect(response.result.message).toBe('Insufficient scope')
+    expect(response.result).not.toHaveProperty('metadata')
+    expect(response.result).not.toHaveProperty('url')
+  })
+
+  test.each([
+    '/api/v1/blob/9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+    '/api/v1/metadata/sbi/805000000'
+  ])('still returns 401 when no token is provided: %s', async (path) => {
+    const { server } = protectedServer
+    const response = await server.inject({
+      method: 'GET',
+      url: path
+    })
+    expect(response.statusCode).toBe(401)
+    expect(response.statusCode).toBe(401)
+  })
+
+  test('permits allowed scope and leaves health unauthenticated', async () => {
+    const { server, makeToken } = protectedServer
+    const protectedResponse = await server.inject({
+      method: 'GET',
+      url: '/api/v1/blob/9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
+      headers: { authorization: ['Bearer', makeToken('permitted-client')].join(' ') }
+    })
+    const healthResponse = await server.inject({ method: 'GET', url: '/health' })
+    const callbackResponse = await server.inject({ method: 'POST', url: '/api/v1/callback' })
+
+    expect(protectedResponse.statusCode, JSON.stringify(protectedResponse.result)).toBe(200)
+    expect(healthResponse.statusCode).toBe(200)
+    expect(callbackResponse.statusCode).toBe(201)
   })
 })

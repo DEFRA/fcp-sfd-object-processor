@@ -58,6 +58,7 @@ export function getEntraAuthProvider (tenants = []) {
         }
       }
     },
+    getPrincipalId: (payload) => payload.sub,
     emptyListMessage: 'No authorized security groups configured',
     unauthorisedMessage: 'Token does not belong to an authorized Security Group'
   }

@@ -6,7 +6,7 @@ vi.mock('../../../../src/config/index.js', () => ({
 }))
 
 vi.mock('../../../../src/logging/logger.js', () => ({
-  createLogger: vi.fn().mockReturnValue({ warn: vi.fn() })
+  createLogger: vi.fn().mockReturnValue({ warn: vi.fn(), error: vi.fn() })
 }))
 
 const mockBuildAuthFailureLog = vi.fn()
@@ -103,14 +103,19 @@ describe('getCognitoAuthProvider', () => {
       }
       const result = await validate(payload)
       expect(result.isValid).toBe(true)
-      expect(result.credentials).toEqual({ token: payload, principalId: 'service-account-123', provider: 'cognito' })
+      expect(result.credentials).toEqual({
+        token: payload,
+        principalId: 'client-1',
+        provider: 'cognito',
+        scope: ['sfd-object-processor:access']
+      })
     })
 
     test('should accept token when client_id matches one of multiple allowed IDs', async () => {
       const payload = { typ: 'JWT', sub: 'service-account-123', client_id: 'client-2', iss: COGNITO_ISSUER }
       const result = await validate(payload)
       expect(result.isValid).toBe(true)
-      expect(result.credentials.principalId).toBe('service-account-123')
+      expect(result.credentials.principalId).toBe('client-2')
     })
 
     // Invalid token rejection
@@ -121,11 +126,15 @@ describe('getCognitoAuthProvider', () => {
       expect(result.errorMessage).toBe('Token client_id is not in the list of authorized Cognito client IDs')
     })
 
-    test('should reject token with unauthorized client_id', async () => {
+    test('should accept a recognized token without scope when client_id is unauthorized', async () => {
       const payload = { typ: 'JWT', sub: 'service-account-123', client_id: 'unauthorized-client', iss: COGNITO_ISSUER }
       const result = await validate(payload)
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('Token client_id is not in the list of authorized Cognito client IDs')
+      expect(result.isValid).toBe(true)
+      expect(result.credentials).toEqual({
+        token: payload,
+        principalId: 'unauthorized-client',
+        provider: 'cognito'
+      })
     })
 
     test('should log the cognito provider name when a token is refused', async () => {

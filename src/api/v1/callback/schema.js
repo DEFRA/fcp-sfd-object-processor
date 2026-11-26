@@ -70,5 +70,5 @@ export const callbackResponseSchema = generateResponseSchemas(
   {
     200: callbackDuplicateResponseSchema
   },
-  { omit: [httpConstants.HTTP_STATUS_UNAUTHORIZED, httpConstants.HTTP_STATUS_NOT_FOUND] }
+  { omit: [httpConstants.HTTP_STATUS_UNAUTHORIZED, httpConstants.HTTP_STATUS_FORBIDDEN, httpConstants.HTTP_STATUS_NOT_FOUND] }
 )

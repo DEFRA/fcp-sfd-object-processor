@@ -20,7 +20,8 @@ describe('buildAuthFailureResponseLog', () => {
         action: 'GET',
         category: 'authentication',
         reason: 'Unauthorized',
-        outcome: 'failure'
+        outcome: 'failure',
+        kind: httpConstants.HTTP_STATUS_UNAUTHORIZED
       },
       http: { response: { status_code: httpConstants.HTTP_STATUS_UNAUTHORIZED } },
       url: { path: '/api/v1/metadata' },
@@ -31,7 +32,17 @@ describe('buildAuthFailureResponseLog', () => {
     expect(log.http.response.status_code).toBeTypeOf('number')
     expect(log.url.path).toBe(baseRequest.path)
     expect(log.event.category).not.toBe(baseRequest.path)
-    expect(log.event).not.toHaveProperty('kind')
+    expect(log.event.kind).toBe(httpConstants.HTTP_STATUS_UNAUTHORIZED)
+  })
+
+  test('uses the response status code for a forbidden response', () => {
+    const request = {
+      ...baseRequest,
+      response: { output: { statusCode: httpConstants.HTTP_STATUS_FORBIDDEN } }
+    }
+
+    expect(buildAuthFailureResponseLog(request, 'Insufficient scope').event.kind)
+      .toBe(httpConstants.HTTP_STATUS_FORBIDDEN)
   })
 
   test('appends token groups and issuer to event.reason for an Entra token', () => {

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi, afterEach } from 'vitest'
+import { AUTH_ALLOWED_SCOPE } from '../../../../src/constants/auth.js'
 
 let mockConfigGet = vi.fn()
 const mockLogger = { warn: vi.fn(), info: vi.fn(), error: vi.fn() }
@@ -149,7 +150,10 @@ describe('auth plugin register', () => {
 
     expect(server.auth.strategy).toHaveBeenCalledTimes(1)
     expect(server.auth.strategy).toHaveBeenCalledWith('bearer', 'jwt', expect.any(Object))
-    expect(server.auth.default).toHaveBeenCalledWith('bearer')
+    expect(server.auth.default).toHaveBeenCalledWith({
+      strategy: 'bearer',
+      access: [{ scope: [AUTH_ALLOWED_SCOPE] }]
+    })
   })
 
   test('does not register an entra strategy when entra is enabled but no tenants are configured', async () => {
@@ -183,7 +187,10 @@ describe('auth plugin register', () => {
     await auth.plugin.register(server)
 
     expect(server.auth.strategy).toHaveBeenCalledWith('bearer', 'jwt', expect.any(Object))
-    expect(server.auth.default).toHaveBeenCalledWith('bearer')
+    expect(server.auth.default).toHaveBeenCalledWith({
+      strategy: 'bearer',
+      access: [{ scope: [AUTH_ALLOWED_SCOPE] }]
+    })
   })
 
   test('onPreResponse logs when unauthorized', async () => {
@@ -284,7 +291,10 @@ describe('auth plugin', () => {
 
     test('should set the bearer strategy as the default when only entra is enabled', async () => {
       await auth.plugin.register(mockServer)
-      expect(mockServer.auth.default).toHaveBeenCalledWith('bearer')
+      expect(mockServer.auth.default).toHaveBeenCalledWith({
+        strategy: 'bearer',
+        access: [{ scope: [AUTH_ALLOWED_SCOPE] }]
+      })
     })
 
     test('should register onPreResponse extension when entra is enabled', async () => {
@@ -332,7 +342,10 @@ describe('auth plugin', () => {
 
     test('should set the bearer strategy as the default when only cognito is enabled', async () => {
       await auth.plugin.register(mockServer)
-      expect(mockServer.auth.default).toHaveBeenCalledWith('bearer')
+      expect(mockServer.auth.default).toHaveBeenCalledWith({
+        strategy: 'bearer',
+        access: [{ scope: [AUTH_ALLOWED_SCOPE] }]
+      })
     })
 
     test('should register onPreResponse extension when cognito is enabled', async () => {
@@ -365,7 +378,10 @@ describe('auth plugin', () => {
 
       expect(newMockServer.auth.strategy).toHaveBeenCalledTimes(1)
       expect(newMockServer.auth.strategy).toHaveBeenCalledWith('bearer', 'jwt', expect.any(Object))
-      expect(newMockServer.auth.default).toHaveBeenCalledWith('bearer')
+      expect(newMockServer.auth.default).toHaveBeenCalledWith({
+        strategy: 'bearer',
+        access: [{ scope: [AUTH_ALLOWED_SCOPE] }]
+      })
     })
 
     test('should never hand hapi a list of strategies to fall through', async () => {
@@ -602,6 +618,88 @@ describe('auth plugin', () => {
           }),
           expect.any(Object)
         )
+      })
+
+      test('emits one attributed security + audit event on insufficient-scope 403 response', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const request = {
+          ...build401Request(),
+          response: {
+            isBoom: true,
+            output: { statusCode: 403, payload: { message: 'Insufficient scope' } }
+          },
+          auth: { credentials: { principalId: 'denied-client' } }
+        }
+
+        await extensionHandler(request, { continue: Symbol('continue') })
+
+        expect(mockSendAuditEvent).toHaveBeenCalledOnce()
+        expect(mockSendAuditEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            correlationid: 'test-correlation-id',
+            user: 'denied-client',
+            security: expect.objectContaining({
+              pmccode: 'AUTH',
+              priority: 5,
+              details: { message: 'Insufficient scope' }
+            }),
+            audit: {
+              entities: [{ entity: 'request', action: 'failed', entityid: 'test-correlation-id' }],
+              status: 'failure',
+              details: { path: '/api/v1/metadata', method: 'GET' }
+            }
+          }),
+          request
+        )
+        expect(mockWarn).toHaveBeenCalledWith(
+          expect.objectContaining({
+            event: expect.objectContaining({ type: 'auth_failure', kind: 403 })
+          })
+        )
+      })
+
+      test('truncates the caller ID on an insufficient-scope 403', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const request = {
+          ...build401Request(),
+          response: {
+            isBoom: true,
+            output: { statusCode: 403, payload: { message: 'Insufficient scope' } }
+          },
+          auth: { credentials: { principalId: 'c'.repeat(60) } }
+        }
+
+        await extensionHandler(request, { continue: Symbol('continue') })
+
+        const [payload] = mockSendAuditEvent.mock.calls[0]
+        expect(payload.user).toBe('c'.repeat(50))
+      })
+
+      test('does not log or audit an oversized request ID', async () => {
+        await auth.plugin.register(mockServer)
+
+        const extensionHandler = mockServer.ext.mock.calls[0][1]
+        const oversizedRequestId = 'x'.repeat(51)
+        const request = {
+          ...build401Request(),
+          headers: { ...build401Request().headers, 'x-cdp-request-id': oversizedRequestId },
+          response: {
+            isBoom: true,
+            output: { statusCode: 403, payload: { message: 'Insufficient scope' } }
+          },
+          auth: { credentials: { principalId: 'denied-client' } }
+        }
+
+        await extensionHandler(request, { continue: Symbol('continue') })
+
+        const [payload] = mockSendAuditEvent.mock.calls[0]
+        expect(payload.correlationid).not.toBe(oversizedRequestId)
+        expect(payload.audit.entities[0].entityid).not.toBe(oversizedRequestId)
+        expect(JSON.stringify(mockWarn.mock.calls)).not.toContain(oversizedRequestId)
       })
 
       test('emits document entity with file UUID for auth failures on the blob route', async () => {

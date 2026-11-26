@@ -1,4 +1,5 @@
 import { expect, test, describe, beforeEach, vi } from 'vitest'
+import { AUTH_ALLOWED_SCOPE } from '../../../../src/constants/auth.js'
 
 const mockLogger = {
   info: vi.fn(),
@@ -30,6 +31,7 @@ describe('createAuthStrategy', () => {
     issuers: [PROVIDER_A_ISSUER],
     getAllowedList: () => ['allowed-value-1', 'allowed-value-2'],
     checkAllowed: mockCheckAllowed,
+    getPrincipalId: (payload) => payload.sub,
     emptyListMessage: 'No authorized values configured',
     unauthorisedMessage: 'Token is not authorized',
     ...overrides
@@ -284,6 +286,13 @@ describe('createAuthStrategy', () => {
       )
     })
 
+    test('should log an error when the allowed list is empty', async () => {
+      await validateWith({ typ: 'JWT', sub: 'user-1', iss: PROVIDER_A_ISSUER })
+
+      expect(mockLogger.error).toHaveBeenCalledOnce()
+      expect(mockLogger.warn).not.toHaveBeenCalled()
+    })
+
     test('should not call checkAllowed when allowed list is empty', async () => {
       await validateWith({ typ: 'JWT', sub: 'user-1', iss: PROVIDER_A_ISSUER })
 
@@ -293,12 +302,18 @@ describe('createAuthStrategy', () => {
 
   // Unauthorized token
   describe('unauthorized token', () => {
-    test('should reject token when checkAllowed returns false', async () => {
+    test('should accept a recognized token without scope when checkAllowed returns false', async () => {
       mockCheckAllowed.mockReturnValue({ allowed: false, failureContext: { customField: 'value' } })
       const result = await validateWith({ typ: 'JWT', sub: 'user-1', iss: PROVIDER_A_ISSUER })
 
-      expect(result.isValid).toBe(false)
-      expect(result.errorMessage).toBe('Token is not authorized')
+      expect(result.isValid).toBe(true)
+      expect(result.credentials).toEqual({
+        token: { typ: 'JWT', sub: 'user-1', iss: PROVIDER_A_ISSUER },
+        principalId: 'user-1',
+        provider: 'provider-a'
+      })
+      expect(result.credentials.scope).toBeUndefined()
+      expect(mockLogger.warn).toHaveBeenCalledOnce()
     })
 
     test('should call buildAuthFailureLog with failureContext merged with the provider name', async () => {
@@ -325,7 +340,12 @@ describe('createAuthStrategy', () => {
       const result = await validateWith(payload)
 
       expect(result.isValid).toBe(true)
-      expect(result.credentials).toEqual({ token: payload, principalId: 'user-123', provider: 'provider-a' })
+      expect(result.credentials).toEqual({
+        token: payload,
+        principalId: 'user-123',
+        provider: 'provider-a',
+        scope: [AUTH_ALLOWED_SCOPE]
+      })
     })
 
     test('should preserve all token payload fields in credentials', async () => {
