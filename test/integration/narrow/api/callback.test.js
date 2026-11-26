@@ -8,6 +8,7 @@ import { getDb, connectDb, closeDb } from '../../../../src/data/db.js'
 import { config } from '../../../../src/config'
 import { mockScanAndUploadResponse, mockScanAndUploadResponseSingleFile } from '../../../mocks/cdp-uploader.js'
 import { baseMetadata, baseFileUpload2 } from '../../../mocks/base-data.js'
+import { schemaConsts } from '../../../../src/constants/schemas.js'
 import { assertValidAuditEvent } from '../../../helpers/validate-audit-payload.js'
 import { correlationScope } from '../../../../src/api/common/helpers/correlation-scope.js'
 import { loggerOptions } from '../../../../src/logging/logger-options.js'
@@ -602,6 +603,99 @@ describe('with an invalid payload', async () => {
 
     expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
     expect(response.result.message).toContain('Validation failure persisted')
+  })
+})
+
+describe('field length bounds', async () => {
+  const countAll = async () => ({
+    metadata: await db.collection(metadataCollection).countDocuments(),
+    outbox: await db.collection(outboxCollection).countDocuments(),
+    status: await db.collection(statusCollection).countDocuments()
+  })
+
+  const withMetadata = (overrides) => ({
+    ...mockScanAndUploadResponse,
+    metadata: { ...mockScanAndUploadResponse.metadata, ...overrides }
+  })
+
+  test('accepts reference, submissionId and filename at their maximum lengths', async () => {
+    const payload = withMetadata({
+      reference: 'a'.repeat(schemaConsts.REFERENCE_MAX_LENGTH),
+      submissionId: 'b'.repeat(schemaConsts.SUBMISSION_ID_MAX_LENGTH)
+    })
+    payload.form = {
+      ...payload.form,
+      'a-file-upload-field': {
+        ...payload.form['a-file-upload-field'],
+        filename: 'c'.repeat(schemaConsts.FILENAME_MAX_LENGTH)
+      }
+    }
+
+    const response = await server.inject({ method: 'POST', url: '/api/v1/callback', payload })
+    const counts = await countAll()
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+    expect(counts.metadata).toBe(2)
+    expect(counts.outbox).toBe(2)
+  })
+
+  test.each([
+    { field: 'reference', length: schemaConsts.REFERENCE_MAX_LENGTH + 1 },
+    { field: 'reference', length: 300000 },
+    { field: 'submissionId', length: schemaConsts.SUBMISSION_ID_MAX_LENGTH + 1 }
+  ])('persists a validation failure and creates no outbox or metadata document for a $field of $length characters', async ({ field, length }) => {
+    const payload = withMetadata({ [field]: 'a'.repeat(length) })
+
+    const response = await server.inject({ method: 'POST', url: '/api/v1/callback', payload })
+    const counts = await countAll()
+    const statusRecords = await db.collection(statusCollection).find({}).toArray()
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+    expect(response.result.message).toBe('Validation failure persisted')
+    expect(counts.metadata).toBe(0)
+    expect(counts.outbox).toBe(0)
+    expect(statusRecords).toHaveLength(2)
+    statusRecords.forEach((record) => {
+      expect(record.validated).toBe(false)
+      expect(record.errors).toEqual([expect.objectContaining({ field: `metadata.${field}`, errorType: 'string.max' })])
+      // Existing behaviour: the stored value is capped at 256 characters
+      expect(record.errors[0].receivedValue.length).toBe(Math.min(length, 256))
+    })
+  })
+
+  test('fails the whole callback when one rejected file has an over length filename', async () => {
+    const payload = JSON.parse(JSON.stringify(mockScanAndUploadResponse))
+    const rejectedFileId = '550e8400-e29b-41d4-a716-446655440030'
+    payload.form = {
+      'complete-file': payload.form['a-file-upload-field'],
+      'rejected-file': {
+        fileId: rejectedFileId,
+        filename: 'a'.repeat(schemaConsts.FILENAME_MAX_LENGTH + 1),
+        contentType: 'application/pdf',
+        fileStatus: 'rejected',
+        hasError: true,
+        errorMessage: 'Virus detected'
+      }
+    }
+    payload.numberOfRejectedFiles = 1
+
+    const response = await server.inject({ method: 'POST', url: '/api/v1/callback', payload })
+    const counts = await countAll()
+    const statusRecords = await db.collection(statusCollection).find({}).toArray()
+
+    expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_CREATED)
+    expect(response.result.message).toBe('Validation failure persisted')
+    expect(counts.metadata).toBe(0)
+    expect(counts.outbox).toBe(0)
+    expect(statusRecords.map(record => record.fileId).sort()).toEqual(
+      [payload.form['complete-file'].fileId, rejectedFileId].sort()
+    )
+    statusRecords.forEach((record) => {
+      expect(record.validated).toBe(false)
+      expect(record.errors).toEqual(expect.arrayContaining([
+        expect.objectContaining({ field: 'form.rejected-file.filename', errorType: 'string.max' })
+      ]))
+    })
   })
 })
 

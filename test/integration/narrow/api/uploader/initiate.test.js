@@ -83,6 +83,30 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
     })
 
+    test('should accept reference and submissionId at their maximum lengths and create a session', async () => {
+      mockHttpClient.mockResolvedValue({
+        ok: true,
+        json: async () => mockCdpUploaderResponse
+      })
+      mockInsertSession.mockResolvedValue({ acknowledged: true })
+
+      const response = await server.inject({
+        method: 'POST',
+        url: '/api/v1/uploader/initiate',
+        payload: {
+          ...mockValidPayload,
+          metadata: {
+            ...mockValidPayload.metadata,
+            reference: 'a'.repeat(schemaConsts.REFERENCE_MAX_LENGTH),
+            submissionId: 'b'.repeat(schemaConsts.SUBMISSION_ID_MAX_LENGTH)
+          }
+        }
+      })
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_OK)
+      expect(mockInsertSession).toHaveBeenCalledTimes(1)
+    })
+
     test('should return 200 with rewritten URLs', async () => {
       mockHttpClient.mockResolvedValue({
         ok: true,
@@ -197,6 +221,29 @@ describe('POST to the /api/v1/uploader/initiate route', async () => {
       expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
       expect(response.result.message).toContain('crn')
       expect(mockHttpClient).not.toHaveBeenCalled()
+    })
+
+    test.each([
+      { field: 'reference', length: schemaConsts.REFERENCE_MAX_LENGTH + 1 },
+      { field: 'reference', length: 300000 },
+      { field: 'submissionId', length: schemaConsts.SUBMISSION_ID_MAX_LENGTH + 1 }
+    ])('should return 400 for a $field of $length characters without creating a session', async ({ field, length }) => {
+      const value = 'a'.repeat(length)
+
+      const response = await server.inject({
+        method: 'POST',
+        url: '/api/v1/uploader/initiate',
+        payload: {
+          ...mockValidPayload,
+          metadata: { ...mockValidPayload.metadata, [field]: value }
+        }
+      })
+
+      expect(response.statusCode).toBe(httpConstants.HTTP_STATUS_BAD_REQUEST)
+      expect(response.result.message).toContain(`${field} must be`)
+      expect(response.result.message).not.toContain(value)
+      expect(mockHttpClient).not.toHaveBeenCalled()
+      expect(mockInsertSession).not.toHaveBeenCalled()
     })
 
     test('should return 400 for invalid metadata.type without calling CDP Uploader', async () => {

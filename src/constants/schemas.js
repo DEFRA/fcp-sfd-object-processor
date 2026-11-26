@@ -15,6 +15,15 @@ export const schemaConsts = {
   FRN_MAX: 9999999999,
   FRN_EXAMPLE: 1102658375,
 
+  // Maximum lengths in characters (String.length), not bytes. They keep each outbox
+  // message well inside the SNS publish limit (FLS1-241). REFERENCE_MAX_LENGTH is the
+  // 200 character CRM case title maximum in docs/asyncapi/v1.yaml less the 30
+  // characters the title adds around the reference. FILENAME_MAX_LENGTH matches the
+  // fileName maximum in the same document.
+  REFERENCE_MAX_LENGTH: 170,
+  SUBMISSION_ID_MAX_LENGTH: 64,
+  FILENAME_MAX_LENGTH: 255,
+
   UPLOAD_ID_EXAMPLE: '9fcaabe5-77ec-44db-8356-3a6e8dc51b13',
   JOURNEY_ID_EXAMPLE: '550e8400-e29b-41d4-a716-446655440000',
   SUBMISSION_ID_EXAMPLE: 'submission-123',
