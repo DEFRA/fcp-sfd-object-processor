@@ -50,7 +50,6 @@ services:
       # AUTH_ENTRA_TENANTS='[{"tenantId":"defra-dev-tenant-id","allowedGroupIds":["group-a"]},{"tenantId":"defra-tenant-id","allowedGroupIds":["group-b"]}]'
       AUTH_ENTRA_TENANTS: ${AUTH_ENTRA_TENANTS}
       AUTH_COGNITO_ENABLED: ${AUTH_COGNITO_ENABLED:-false}
-      AUTH_COGNITO_TOKEN_URL: ${AUTH_COGNITO_TOKEN_URL}
       AUTH_COGNITO_USER_POOL_ID: ${AUTH_COGNITO_USER_POOL_ID}
       AUTH_COGNITO_CLIENT_IDS: ${AUTH_COGNITO_CLIENT_IDS}
       # Grafana Metrics

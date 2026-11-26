@@ -10,15 +10,6 @@ describe('authConfig - Cognito', () => {
     expect(authConfig.auth.cognito.enabled.env).toBe('AUTH_COGNITO_ENABLED')
   })
 
-  test('should have auth.cognito.tokenUrl field', () => {
-    expect(authConfig.auth.cognito.tokenUrl).toBeDefined()
-    expect(authConfig.auth.cognito.tokenUrl.doc).toBe('AWS Cognito OAuth2 token endpoint URL')
-    expect(authConfig.auth.cognito.tokenUrl.format).toBe(String)
-    expect(authConfig.auth.cognito.tokenUrl.nullable).toBe(true)
-    expect(authConfig.auth.cognito.tokenUrl.default).toBe(null)
-    expect(authConfig.auth.cognito.tokenUrl.env).toBe('AUTH_COGNITO_TOKEN_URL')
-  })
-
   test('should have auth.cognito.userPoolId field', () => {
     expect(authConfig.auth.cognito.userPoolId).toBeDefined()
     expect(authConfig.auth.cognito.userPoolId.doc).toBe('AWS Cognito User Pool identifier')
@@ -39,7 +30,7 @@ describe('authConfig - Cognito', () => {
 
   test('should have all Cognito required fields', () => {
     expect(authConfig.auth.cognito).toBeDefined()
-    const requiredFields = ['enabled', 'tokenUrl', 'userPoolId', 'clientIds']
+    const requiredFields = ['enabled', 'userPoolId', 'clientIds']
     requiredFields.forEach(field => {
       expect(authConfig.auth.cognito[field]).toBeDefined()
     })

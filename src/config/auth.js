@@ -25,13 +25,6 @@ export const authConfig = {
         default: false,
         env: 'AUTH_COGNITO_ENABLED'
       },
-      tokenUrl: {
-        doc: 'AWS Cognito OAuth2 token endpoint URL',
-        format: String,
-        nullable: true,
-        default: null,
-        env: 'AUTH_COGNITO_TOKEN_URL'
-      },
       userPoolId: {
         doc: 'AWS Cognito User Pool identifier',
         format: String,
